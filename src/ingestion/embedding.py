@@ -1,64 +1,65 @@
-"""Embedding service implementation via API."""
+"""Embedding service implementation using local sentence-transformers model."""
 
+import asyncio
 import sys
 from pathlib import Path
-from typing import Any
 
-import httpx
+import torch
+from sentence_transformers import SentenceTransformer
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from config.config import settings
 
+# Thread-safe lock for lazy initialization
+_lock = asyncio.Lock()
+_model: SentenceTransformer | None = None
 
-# HTTP client for embedding API
-_client: httpx.Client | None = None
 
-
-def _get_client() -> httpx.Client:
-    """Get or create HTTP client for embedding API."""
-    global _client
-    if _client is None:
-        _client = httpx.Client(timeout=30.0)
-    return _client
+def _get_model() -> SentenceTransformer:
+    """Get or lazy-load the local SentenceTransformer embedding model."""
+    global _model
+    if _model is None:
+        model_name = settings.embedding_model or "AITeamVN/Vietnamese_Embedding_v2"
+        print(f"Initializing local SentenceTransformer model: {model_name}...")
+        
+        # Detect device automatically (GPU if CUDA is available, otherwise CPU)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Using device for local embedding: {device}")
+        
+        _model = SentenceTransformer(model_name, device=device)
+        
+        # Configure sequence length for long-context support
+        _model.max_seq_length = 2048
+        print(f"Model initialized with max_seq_length = {_model.max_seq_length}")
+        
+    return _model
 
 
 def embed(texts: list[str]) -> list[list[float]]:
-    """Generate embeddings for a list of texts via API.
+    """Generate embeddings for a list of texts using the local model.
 
     Args:
         texts: List of text strings to embed
 
     Returns:
-        List of embedding vectors
+        List of embedding vectors (list of floats)
     """
     if not texts:
         return []
 
-    client = _get_client()
-    base_url = settings.embedding_base_url.rstrip("/")
-
-    # Batch requests to avoid overload
-    batch_size = 32
-    if len(texts) > batch_size:
-        results = []
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i : i + batch_size]
-            results.extend(_embed_batch(client, base_url, batch))
-        return results
-
-    return _embed_batch(client, base_url, texts)
-
-
-def _embed_batch(client: httpx.Client, base_url: str, texts: list[str]) -> list[list[float]]:
-    """Embed a batch of texts."""
-    response = client.post(
-        f"{base_url}/embed",
-        json={"texts": texts, "normalize": True},
+    model = _get_model()
+    
+    # Generate embeddings and normalize to unit vectors
+    embeddings = model.encode(
+        texts,
+        convert_to_numpy=True,
+        normalize_embeddings=True,
+        show_progress_bar=False,
     )
-    response.raise_for_status()
-    return response.json()["embeddings"]
+    
+    return embeddings.tolist()
 
 
 def embed_single(text: str) -> list[float]:
@@ -75,7 +76,7 @@ def embed_single(text: str) -> list[float]:
 
 
 async def aembed(texts: list[str]) -> list[list[float]]:
-    """Async embedding generation via API.
+    """Async embedding generation using a thread pool.
 
     Args:
         texts: List of text strings to embed
@@ -85,31 +86,10 @@ async def aembed(texts: list[str]) -> list[list[float]]:
     """
     if not texts:
         return []
-
-    base_url = settings.embedding_base_url.rstrip("/")
-
-    # Batch requests to avoid overload
-    batch_size = 32
-    if len(texts) > batch_size:
-        results = []
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            for i in range(0, len(texts), batch_size):
-                batch = texts[i : i + batch_size]
-                results.extend(await _aembed_batch(client, base_url, batch))
-        return results
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        return await _aembed_batch(client, base_url, texts)
-
-
-async def _aembed_batch(client: httpx.AsyncClient, base_url: str, texts: list[str]) -> list[list[float]]:
-    """Async embed a batch of texts."""
-    response = await client.post(
-        f"{base_url}/embed",
-        json={"texts": texts, "normalize": True},
-    )
-    response.raise_for_status()
-    return response.json()["embeddings"]
+    
+    # Run the CPU/GPU-bound embedding generation in a separate thread
+    # to avoid blocking the FastAPI event loop
+    return await asyncio.to_thread(embed, texts)
 
 
 async def aembed_single(text: str) -> list[float]:
@@ -126,15 +106,13 @@ async def aembed_single(text: str) -> list[float]:
 
 
 def preload_model() -> None:
-    """Warm up the embedding service at server startup (API call health check)."""
-    client = _get_client()
-    base_url = settings.embedding_base_url.rstrip("/")
+    """Warm up the embedding model at server startup (forces downloading/loading model)."""
     try:
-        response = client.get(f"{base_url}/health")
-        response.raise_for_status()
-        print(f"Embedding API ready: {base_url}")
+        print("Preloading local embedding model at startup...")
+        _get_model()
+        print("Local embedding model is preloaded and ready!")
     except Exception as e:
-        print(f"Embedding API health check failed: {e}")
+        print(f"WARNING: Failed to preload local embedding model: {e}")
 
 
 __all__ = [

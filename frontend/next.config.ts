@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
 
   // API Rewrites — proxy to KIRA FastAPI backend
   async rewrites() {
-    const apiUrl = process.env.KIRA_API_URL || 'http://127.0.0.1:8888';
+    const apiUrl = process.env.KIRA_API_URL || 'http://127.0.0.1:8006';
     return [
       {
         source: '/api/:path*',

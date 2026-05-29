@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.database import get_session
+from src.database.session import async_session_factory
 from src.indexing.file_store import upload_bytes
 from src.indexing.document_store import (
     create_document,
@@ -73,12 +74,7 @@ async def upload_document(
             storage_path,
         )
 
-    return {
-        "id": str(doc.id),
-        "filename": doc.filename,
-        "status": doc.status,
-        "message": "Document uploaded and processing started",
-    }
+    return _serialize_document(doc)
 
 
 def _get_file_extension(filename: str) -> str:
@@ -93,13 +89,12 @@ async def _process_document_background(
 ):
     """Background task for document processing."""
     try:
-        async for session in get_session():
+        async with async_session_factory() as session:
             await update_document_status(
                 document_id=uuid.UUID(document_id),
                 status=DOC_STATUS_PROCESSING,
                 db=session,
             )
-            break
 
         result = await process_document(
             document_id=uuid.UUID(document_id),
@@ -115,14 +110,13 @@ async def _process_document_background(
             )
 
     except Exception as e:
-        async for session in get_session():
+        async with async_session_factory() as session:
             await update_document_status(
                 document_id=uuid.UUID(document_id),
                 status=DOC_STATUS_FAILED,
                 error_message=str(e),
                 db=session,
             )
-            break
 
 
 @router.get("")

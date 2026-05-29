@@ -22,7 +22,7 @@ export function useDocumentsUpload() {
 
     try {
       const docs = await documentsAPI.list()
-      setDocuments(docs)
+      setDocuments(docs || [])
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Không thể tải danh sách tài liệu'
       setError(errorMessage)
@@ -39,6 +39,22 @@ export function useDocumentsUpload() {
       setDocuments([])
     }
   }, [mounted, isAuthenticated, loadDocuments])
+
+  // Automatically poll document list when there are files in 'uploading' or 'processing' status
+  useEffect(() => {
+    if (!mounted || !isAuthenticated) return
+
+    const hasActiveTasks = documents.some(
+      (doc) => doc.status === 'uploading' || doc.status === 'processing'
+    )
+    if (!hasActiveTasks && uploadingFiles.size === 0) return
+
+    const interval = setInterval(() => {
+      loadDocuments()
+    }, 4000)
+
+    return () => clearInterval(interval)
+  }, [mounted, isAuthenticated, documents, uploadingFiles, loadDocuments])
 
   const uploadDocument = useCallback(async (file: File): Promise<Document> => {
     setError(null)

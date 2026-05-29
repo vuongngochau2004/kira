@@ -33,6 +33,8 @@ dependencies = [
     "langchain-core>=0.3",
     "websockets>=12.0",
     "python-magic>=0.4.27",
+    "sentence-transformers>=2.2.2",
+    "torch",
 ]
 
 [project.optional-dependencies]
@@ -77,3 +79,11 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu124" }

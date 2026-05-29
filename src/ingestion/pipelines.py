@@ -59,11 +59,17 @@ async def process_document(
 
     except Exception as e:
         error_msg = f"{ERR_PROCESSING_FAILED}: {str(e)}"
-        await update_document_status(
-            document_id=document_id,
-            status=DOC_STATUS_FAILED,
-            error_message=error_msg,
-        )
+        import traceback
+        print(f"\n[ERROR] Exception in process_document for {document_id}:")
+        traceback.print_exc()
+        from src.database.session import async_session_factory
+        async with async_session_factory() as session:
+            await update_document_status(
+                document_id=document_id,
+                status=DOC_STATUS_FAILED,
+                error_message=error_msg,
+                db=session,
+            )
         return {"success": False, "error": error_msg}
 
 
@@ -78,6 +84,7 @@ def _process_sync(
     temp_file = None
     try:
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".tmp")
+        temp_file.close() # Close immediately to free the file handle lock on Windows
 
         download_file(storage_path, temp_file.name)
         file_type = storage_path.rsplit(".", 1)[-1] if "." in storage_path else "txt"
@@ -139,18 +146,31 @@ def _update_chunk_metadata(chunk_data: list[dict], qdrant_ids: list) -> None:
 
 async def _update_document_status_result(document_id: UUID, result: dict) -> None:
     """Update document status based on processing result."""
-    if result["success"]:
-        await update_document_status(
-            document_id=document_id,
-            status=DOC_STATUS_COMPLETED,
-            chunk_count=result["chunk_count"],
-        )
-    else:
-        await update_document_status(
-            document_id=document_id,
-            status=DOC_STATUS_FAILED,
-            error_message=result["error"],
-        )
+    from src.database.session import async_session_factory
+    async with async_session_factory() as session:
+        if result["success"]:
+            # Save chunks to PostgreSQL document_chunks table
+            from src.indexing.document_store import create_chunks
+            await create_chunks(
+                document_id=document_id,
+                chunks=result["chunks"],
+                db=session,
+            )
+
+            await update_document_status(
+                document_id=document_id,
+                status=DOC_STATUS_COMPLETED,
+                chunk_count=result["chunk_count"],
+                db=session,
+            )
+        else:
+            print(f"\n[ERROR] Document processing failed for {document_id}: {result.get('error')}")
+            await update_document_status(
+                document_id=document_id,
+                status=DOC_STATUS_FAILED,
+                error_message=result["error"],
+                db=session,
+            )
 
 
 __all__ = ["process_document"]

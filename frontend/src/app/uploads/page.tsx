@@ -233,8 +233,34 @@ export default function UploadsPage() {
                           </p>
                         </div>
 
+                        {/* Status Indicator */}
+                        <div className="shrink-0 flex items-center gap-2 text-xs">
+                          {uploading || doc.status === 'uploading' ? (
+                            <span className="flex items-center gap-1.5 text-blue-500 bg-blue-500/10 px-2.5 py-1 rounded-full font-medium">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              Đang tải lên
+                            </span>
+                          ) : doc.status === 'processing' ? (
+                            <span className="flex items-center gap-1.5 text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full font-medium">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              Đang xử lý
+                            </span>
+                          ) : doc.status === 'completed' ? (
+                            <span className="flex items-center gap-1.5 text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full font-medium">
+                              ✓ Thành công
+                            </span>
+                          ) : (
+                            <span 
+                              className="flex items-center gap-1.5 text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-full font-medium cursor-help"
+                              title={doc.error_message || "Lỗi xử lý tài liệu"}
+                            >
+                              ✕ Thất bại
+                            </span>
+                          )}
+                        </div>
+
                         {/* Actions */}
-                        {!uploading && (
+                        {!uploading && doc.status !== 'processing' && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -245,8 +271,10 @@ export default function UploadsPage() {
                           </Button>
                         )}
 
-                        {uploading && (
-                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
+                        {(uploading || doc.status === 'processing') && (
+                          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          </div>
                         )}
                       </div>
                     )

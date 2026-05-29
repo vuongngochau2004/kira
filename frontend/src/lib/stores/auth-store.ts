@@ -81,12 +81,12 @@ export const useAuthStore = create<AuthState>()(
               full_name: data.full_name,
               role: data.role,
             },
-            access_token: data.tokens.access_token,
-            refresh_token: data.tokens.refresh_token,
+            access_token: data.access_token || data.tokens?.access_token,
+            refresh_token: data.refresh_token || data.tokens?.refresh_token,
             isAuthenticated: true,
             isLoading: false,
           })
-          localStorage.setItem('access_token', data.tokens.access_token)
+          localStorage.setItem('access_token', data.access_token || data.tokens?.access_token)
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Login failed',
@@ -118,12 +118,12 @@ export const useAuthStore = create<AuthState>()(
               full_name: data.full_name,
               role: data.role,
             },
-            access_token: data.tokens.access_token,
-            refresh_token: data.tokens.refresh_token,
+            access_token: data.access_token || data.tokens?.access_token,
+            refresh_token: data.refresh_token || data.tokens?.refresh_token,
             isAuthenticated: true,
             isLoading: false,
           })
-          localStorage.setItem('access_token', data.tokens.access_token)
+          localStorage.setItem('access_token', data.access_token || data.tokens?.access_token)
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Registration failed',

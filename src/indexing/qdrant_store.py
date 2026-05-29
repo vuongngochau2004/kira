@@ -79,7 +79,9 @@ def store_chunks(
     chunk_ids = []
 
     for chunk, embedding in zip(chunks, embeddings):
-        chunk_id = f"{document_id}_chunk_{chunk.get('index', len(chunk_ids))}"
+        import uuid
+        name = f"{document_id}_chunk_{chunk.get('index', len(chunk_ids))}"
+        chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, name))
 
         point = PointStruct(
             id=chunk_id,
