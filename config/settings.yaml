@@ -1,0 +1,22 @@
+# K.I.R.A Static Configuration
+# Model parameters, chunking, retrieval settings that rarely change
+
+# Embedding
+embedding:
+  dim: 1024                    # Vector dimension for Qdrant
+  base_url: "http://localhost:8001"   # Embedding API server
+
+# Retrieval
+retrieval:
+  k: 5                         # Top-k chunks to retrieve
+  rrf_k: 60                    # RRF constant (higher → more diversity)
+
+# Chunking
+chunking:
+  size: 2048                   # Token limit per chunk
+  overlap: 256                 # Overlap tokens
+
+# Qdrant
+qdrant:
+  collection: "document_chunks"
+  vector_dim: 1024
