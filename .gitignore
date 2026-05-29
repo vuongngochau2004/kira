@@ -71,3 +71,4 @@ Thumbs.db
 *.pid
 *.seed
 *.pid.lock
+.claude/

@@ -100,7 +100,7 @@ export default function ConversationsPage() {
     }
   }
 
-  const filteredConversations = data?.items.filter(conv => {
+  const filteredConversations = data?.items?.filter(conv => {
     const title = conv.title || 'Cuộc trò chuyện mới'
     return title.toLowerCase().includes(searchQuery.toLowerCase())
   }) || []

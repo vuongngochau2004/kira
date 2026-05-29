@@ -6,6 +6,8 @@ import { ThinkingBlock } from '@/components/streaming/ThinkingBlock'
 import { SourceCitation } from '@/components/streaming/SourceCitation'
 import { SourcePanel } from '@/components/streaming/SourcePanel'
 import { cn } from '@/lib/utils'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 export interface ThinkingStep {
   node: string
@@ -56,8 +58,12 @@ export function SimpleChat({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (isLoading) {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, isLoading])
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -131,9 +137,34 @@ export function SimpleChat({
                             <span className="text-sm">Đang phản hồi...</span>
                           </div>
                         ) : (
-                          <p className="whitespace-pre-wrap break-words leading-relaxed">
-                            {message.content || <span>&nbsp;</span>}
-                          </p>
+                          <div className="prose dark:prose-invert max-w-none text-foreground text-[15px] md:text-base leading-relaxed break-words">
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                p: ({ children }) => <p className="mb-4 last:mb-0 leading-relaxed">{children}</p>,
+                                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                                ul: ({ children }) => <ul className="list-disc pl-5 mb-4 space-y-1">{children}</ul>,
+                                ol: ({ children }) => <ol className="list-decimal pl-5 mb-4 space-y-1">{children}</ol>,
+                                li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                                h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-3 text-foreground">{children}</h1>,
+                                h2: ({ children }) => <h2 className="text-xl font-bold mt-5 mb-2.5 text-foreground">{children}</h2>,
+                                h3: ({ children }) => <h3 className="text-lg font-semibold mt-4 mb-2 text-foreground">{children}</h3>,
+                                a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{children}</a>,
+                                code: ({ className, children }) => {
+                                  const match = /language-(\w+)/.exec(className || '')
+                                  return match ? (
+                                    <pre className="bg-muted p-4 rounded-xl overflow-x-auto text-sm my-4 font-mono">
+                                      <code>{children}</code>
+                                    </pre>
+                                  ) : (
+                                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
+                                  )
+                                }
+                              }}
+                            >
+                              {message.content || ''}
+                            </ReactMarkdown>
+                          </div>
                         )}
                       </div>
                     ) : message.content ? (
@@ -250,9 +281,6 @@ export function SimpleChat({
               </button>
             </div>
           </form>
-          <p className="text-[10px] text-center text-muted-foreground mt-2">
-            K.I.R.A có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
-          </p>
         </div>
       </div>
 

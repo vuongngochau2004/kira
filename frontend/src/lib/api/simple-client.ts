@@ -227,6 +227,7 @@ export interface Message {
   content: string
   metadata: Record<string, unknown>
   created_at: string
+  sources?: any[]
 }
 
 export interface ConversationDetail extends Conversation {

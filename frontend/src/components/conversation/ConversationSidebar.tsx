@@ -66,7 +66,7 @@ export function ConversationSidebar({ className }: ConversationSidebarProps) {
   }
 
   // Filter conversations based on search
-  const filteredConversations = data?.items.filter(conv => {
+  const filteredConversations = data?.items?.filter(conv => {
     const title = conv.title || 'Cuộc trò chuyện mới'
     return title.toLowerCase().includes(searchQuery.toLowerCase())
   }) || []
@@ -164,7 +164,7 @@ export function ConversationSidebar({ className }: ConversationSidebarProps) {
       </div>
 
       {/* User Footer */}
-      {user && (
+      {mounted && user && (
         <div className="p-4 border-t bg-zinc-900/10 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-300 shrink-0">
