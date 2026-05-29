@@ -157,6 +157,12 @@ export const documentsAPI = {
       method: 'DELETE',
     })
   },
+
+
+  getDownloadUrl: (id: string): string => {
+    const token = localStorage.getItem('access_token')
+    return `${API_BASE}/api/v1/documents/${id}/download${token ? `?token=${encodeURIComponent(token)}` : ''}`
+  },
 }
 
 /** Auth API */
