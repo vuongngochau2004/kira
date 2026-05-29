@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.database import get_session
+from src.database.session import async_session_factory
 from src.indexing.file_store import upload_bytes
 from src.indexing.document_store import (
     create_document,
@@ -73,12 +74,7 @@ async def upload_document(
             storage_path,
         )
 
-    return {
-        "id": str(doc.id),
-        "filename": doc.filename,
-        "status": doc.status,
-        "message": "Document uploaded and processing started",
-    }
+    return _serialize_document(doc)
 
 
 def _get_file_extension(filename: str) -> str:
@@ -93,13 +89,12 @@ async def _process_document_background(
 ):
     """Background task for document processing."""
     try:
-        async for session in get_session():
+        async with async_session_factory() as session:
             await update_document_status(
                 document_id=uuid.UUID(document_id),
                 status=DOC_STATUS_PROCESSING,
                 db=session,
             )
-            break
 
         result = await process_document(
             document_id=uuid.UUID(document_id),
@@ -115,14 +110,13 @@ async def _process_document_background(
             )
 
     except Exception as e:
-        async for session in get_session():
+        async with async_session_factory() as session:
             await update_document_status(
                 document_id=uuid.UUID(document_id),
                 status=DOC_STATUS_FAILED,
                 error_message=str(e),
                 db=session,
             )
-            break
 
 
 @router.get("")
@@ -263,3 +257,99 @@ async def trigger_processing(
     )
 
     return {"message": "Processing triggered"}
+
+
+
+
+
+@router.get("/{document_id}/download")
+async def download_document_file(
+    document_id: str,
+    token: str | None = None,
+    db: AsyncSession = Depends(get_session),
+):
+    """Stream the raw file from MinIO with inline disposition header."""
+    import mimetypes
+    import io
+    from fastapi.responses import StreamingResponse
+
+    # Resolve authenticated user (supports both standard headers and token query parameter)
+    from config.config import settings
+    user = None
+    if not settings.auth_enabled:
+        from src.auth.dependencies import _get_or_create_dev_user
+        user = await _get_or_create_dev_user(db)
+    else:
+        # Fallback to token query param if header authentication is absent
+        auth_token = token
+        if not auth_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+            )
+        try:
+            from src.auth.security import decode_token
+            payload = decode_token(auth_token)
+            user_id = payload.get("sub")
+            if not user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token payload",
+                )
+            
+            from sqlalchemy import select
+            from src.database.models import User
+            result = await db.execute(
+                select(User).where(User.id == user_id).where(User.deleted_at.is_(None))
+            )
+            user = result.scalar_one_or_none()
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token: {e}",
+            )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    # Fetch document metadata
+    doc = await get_document(
+        document_id=uuid.UUID(document_id),
+        user_id=user.id,
+        db=db,
+    )
+
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERR_DOC_NOT_FOUND,
+        )
+
+    # Fetch file bytes from MinIO
+    from src.indexing.file_store import download_bytes
+    try:
+        file_bytes = await asyncio.to_thread(download_bytes, doc.storage_path)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve file from storage: {e}",
+        )
+
+    # Guess correct MIME type
+    mime_type, _ = mimetypes.guess_type(doc.filename)
+    if not mime_type:
+        mime_type = "application/octet-stream"
+
+    # Streaming inline response
+    return StreamingResponse(
+        io.BytesIO(file_bytes),
+        media_type=mime_type,
+        headers={
+            "Content-Disposition": f"inline; filename={doc.filename}",
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        },
+    )
+

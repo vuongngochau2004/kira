@@ -45,6 +45,7 @@ async def process_document(
     """
     import asyncio
 
+    print(f"\n[ETL] >>> Starting background pipeline for Document ID: {document_id}")
     try:
         result = await asyncio.to_thread(
             _process_sync,
@@ -59,11 +60,17 @@ async def process_document(
 
     except Exception as e:
         error_msg = f"{ERR_PROCESSING_FAILED}: {str(e)}"
-        await update_document_status(
-            document_id=document_id,
-            status=DOC_STATUS_FAILED,
-            error_message=error_msg,
-        )
+        import traceback
+        print(f"\n[ETL ERROR] Exception in process_document for {document_id}:")
+        traceback.print_exc()
+        from src.database.session import async_session_factory
+        async with async_session_factory() as session:
+            await update_document_status(
+                document_id=document_id,
+                status=DOC_STATUS_FAILED,
+                error_message=error_msg,
+                db=session,
+            )
         return {"success": False, "error": error_msg}
 
 
@@ -78,25 +85,40 @@ def _process_sync(
     temp_file = None
     try:
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".tmp")
+        temp_file.close() # Close immediately to free the file handle lock on Windows
 
+        print(f"[ETL] [Step 1/7] Downloading file from MinIO: {storage_path}...")
         download_file(storage_path, temp_file.name)
         file_type = storage_path.rsplit(".", 1)[-1] if "." in storage_path else "txt"
+        print(f"[ETL] Download complete. File saved to temp path.")
 
+        print(f"[ETL] [Step 2/7] Extracting content (format: {file_type})...")
         extraction_result = extract_content(temp_file.name, file_type)
         if not extraction_result.success:
+            print(f"[ETL ERROR] Extraction failed: {extraction_result.error}")
             return {"success": False, "error": extraction_result.error or ERR_EXTRACTION_FAILED}
+        print(f"[ETL] Extraction complete. Raw length: {len(extraction_result.text)} characters.")
 
+        print(f"[ETL] [Step 3/7] Cleaning document text...")
         cleaned_text = clean_document(extraction_result.text)
         if not cleaned_text.strip():
+            print(f"[ETL ERROR] Document has no content after cleaning.")
             return {"success": False, "error": ERR_NO_CONTENT}
+        print(f"[ETL] Cleaning complete. Cleaned length: {len(cleaned_text)} characters.")
 
+        print(f"[ETL] [Step 4/7] Splitting text into chunks...")
         chunks = chunk_document(text=cleaned_text, document_id=str(document_id))
         if not chunks:
+            print(f"[ETL ERROR] No chunks generated.")
             return {"success": False, "error": ERR_NO_CHUNKS}
+        print(f"[ETL] Chunking complete. Generated {len(chunks)} chunks.")
 
+        print(f"[ETL] [Step 5/7] Generating embeddings via API model server...")
         chunk_texts = [chunk.content for chunk in chunks]
         embeddings = embed(chunk_texts)
+        print(f"[ETL] Embedding generation complete. Generated {len(embeddings)} vectors.")
 
+        print(f"[ETL] [Step 6/7] Storing chunk vectors in Qdrant Vector DB...")
         chunk_data = _prepare_chunk_data(chunks)
         qdrant_ids = store_chunks(
             chunks=chunk_data,
@@ -104,8 +126,8 @@ def _process_sync(
             document_id=document_id,
             user_id=user_id,
         )
-
         _update_chunk_metadata(chunk_data, qdrant_ids)
+        print(f"[ETL] Storing in Qdrant Vector DB complete.")
 
         return {
             "success": True,
@@ -115,7 +137,10 @@ def _process_sync(
 
     finally:
         if temp_file and Path(temp_file.name).exists():
-            Path(temp_file.name).unlink()
+            try:
+                Path(temp_file.name).unlink()
+            except Exception as e:
+                print(f"[ETL WARNING] Failed to delete temp file {temp_file.name}: {e}")
 
 
 def _prepare_chunk_data(chunks: list) -> list[dict]:
@@ -139,18 +164,34 @@ def _update_chunk_metadata(chunk_data: list[dict], qdrant_ids: list) -> None:
 
 async def _update_document_status_result(document_id: UUID, result: dict) -> None:
     """Update document status based on processing result."""
-    if result["success"]:
-        await update_document_status(
-            document_id=document_id,
-            status=DOC_STATUS_COMPLETED,
-            chunk_count=result["chunk_count"],
-        )
-    else:
-        await update_document_status(
-            document_id=document_id,
-            status=DOC_STATUS_FAILED,
-            error_message=result["error"],
-        )
+    from src.database.session import async_session_factory
+    
+    print(f"[ETL] [Step 7/7] Saving chunks and updating final document status in PostgreSQL...")
+    async with async_session_factory() as session:
+        if result["success"]:
+            # Save chunks to PostgreSQL document_chunks table
+            from src.indexing.document_store import create_chunks
+            await create_chunks(
+                document_id=document_id,
+                chunks=result["chunks"],
+                db=session,
+            )
+
+            await update_document_status(
+                document_id=document_id,
+                status=DOC_STATUS_COMPLETED,
+                chunk_count=result["chunk_count"],
+                db=session,
+            )
+            print(f"[ETL] >>> SUCCESS: Document {document_id} fully processed and indexed successfully!")
+        else:
+            print(f"\n[ETL ERROR] Document processing failed for {document_id}: {result.get('error')}")
+            await update_document_status(
+                document_id=document_id,
+                status=DOC_STATUS_FAILED,
+                error_message=result["error"],
+                db=session,
+            )
 
 
 __all__ = ["process_document"]

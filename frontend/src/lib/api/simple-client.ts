@@ -23,7 +23,8 @@ export interface Document {
   filename: string
   file_type: string
   file_size: number
-  status: 'pending' | 'processing' | 'completed' | 'failed'
+  status: 'uploading' | 'processing' | 'completed' | 'failed' | string
+  error_message?: string
   created_at: string
 }
 
@@ -125,8 +126,8 @@ export const chatAPI = {
 /** Documents API */
 export const documentsAPI = {
   list: async (): Promise<Document[]> => {
-    const data = await fetchAPI<{ items: Document[] }>('/api/v1/documents/?page_size=100')
-    return data.items
+    const data = await fetchAPI<{ documents?: Document[]; items?: Document[] }>('/api/v1/documents/?page_size=100')
+    return data.documents || data.items || []
   },
 
   upload: async (file: File): Promise<Document> => {
@@ -155,6 +156,12 @@ export const documentsAPI = {
     await fetchAPI<void>(`/api/v1/documents/${id}`, {
       method: 'DELETE',
     })
+  },
+
+
+  getDownloadUrl: (id: string): string => {
+    const token = localStorage.getItem('access_token')
+    return `${API_BASE}/api/v1/documents/${id}/download${token ? `?token=${encodeURIComponent(token)}` : ''}`
   },
 }
 
@@ -242,10 +249,17 @@ export interface ConversationListResponse {
 }
 
 export const conversationsAPI = {
-  list: (page = 1, pageSize = 20) =>
-    fetchAPI<ConversationListResponse>(
+  list: async (page = 1, pageSize = 20): Promise<ConversationListResponse> => {
+    const data = await fetchAPI<any>(
       `/api/v1/chat/conversations?page=${page}&page_size=${pageSize}`
-    ),
+    )
+    return {
+      total: data.total,
+      page: data.page || page,
+      page_size: data.page_size || pageSize,
+      items: data.conversations || data.items || [],
+    }
+  },
 
   create: (source = 'web', title?: string) =>
     fetchAPI<Conversation>('/api/v1/chat/conversations', {

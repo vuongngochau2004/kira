@@ -18,8 +18,8 @@ from src.database import get_session
 async def _get_session(db: AsyncSession | None) -> AsyncSession:
     """Get database session, create new one if not provided."""
     if db is None:
-        async for session in get_session():
-            return session
+        from src.database.session import async_session_factory
+        return async_session_factory()
     return db
 
 
@@ -171,9 +171,6 @@ async def create_chunks(
         session.add(chunk)
 
     await session.commit()
-
-    for chunk in chunk_models:
-        await session.refresh(chunk)
 
     return chunk_models
 

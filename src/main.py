@@ -18,6 +18,7 @@ from src.database.session import init_db, close_db
 from src.indexing.qdrant_store import ensure_collection, get_client
 from src.tools.retrieval_tools import init_retrieval_tools
 from src.tools.ingestion_tools import init_ingestion_tools
+from src.ingestion.embedding import preload_model
 from src.api import auth, documents, chat
 
 
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     await init_db()
     ensure_collection()
+    preload_model()
     init_retrieval_tools(qdrant_store=get_client())
     init_ingestion_tools()
     yield
