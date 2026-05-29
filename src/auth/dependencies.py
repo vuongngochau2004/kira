@@ -20,44 +20,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 security = HTTPBearer(auto_error=False)
 
-# Dev user ID used when auth is disabled
-_DEV_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
-
-
-async def _get_or_create_dev_user(db: AsyncSession) -> User:
-    """Get or create a development user for auth-disabled mode."""
-    from sqlalchemy import select
-
-    result = await db.execute(
-        select(User).where(User.id == _DEV_USER_ID)
-    )
-    user = result.scalar_one_or_none()
-
-    if not user:
-        user = User(
-            id=_DEV_USER_ID,
-            email="dev@kira.local",
-            hashed_password="disabled",
-            full_name="Dev User",
-            role="admin",
-            is_active=True,
-        )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-
-    return user
-
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     db: AsyncSession = Depends(get_session),
 ) -> User:
-    """Validate JWT and return current user. Bypassed when AUTH_ENABLED=false."""
-    # --- Auth bypass for development ---
-    if not settings.auth_enabled:
-        return await _get_or_create_dev_user(db)
-
+    """Validate JWT and return current user."""
     # --- Normal JWT auth flow ---
     if not credentials:
         raise HTTPException(

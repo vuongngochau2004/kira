@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.database import get_session
+from src.database import get_session, soft_delete_conversation
 from src.indexing.document_store import (
     create_conversation,
     get_conversation,
@@ -23,6 +23,7 @@ from src.indexing.document_store import (
 from src.agents.orchestrator import create_orchestrator
 from src.auth.dependencies import get_current_user
 from src.database.models import User
+from src.models import ConversationCreate
 from src.constants import (
     DEFAULT_TEMPERATURE,
     DEFAULT_MAX_TOKENS,
@@ -343,14 +344,14 @@ async def get_conversations_list(
 
 @router.post("/conversations", status_code=status.HTTP_201_CREATED)
 async def create_new_conversation(
-    title: str,
+    data: ConversationCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ):
     """Create a new conversation."""
     conv = await create_conversation(
         user_id=current_user.id,
-        title=title,
+        title=data.title or "Cuộc trò chuyện mới",
         db=db,
     )
 
@@ -398,3 +399,31 @@ async def get_conversation_detail(
             for msg in messages
         ],
     }
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation_endpoint(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
+    """Delete a conversation (soft delete)."""
+    conv = await get_conversation(
+        conversation_id=uuid.UUID(conversation_id),
+        user_id=current_user.id,
+        db=db,
+    )
+    if not conv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERR_CONVERSATION_NOT_FOUND,
+        )
+
+    success = await soft_delete_conversation(conv.id, db)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete conversation",
+        )
+
+    return {"status": "success", "message": "Conversation deleted successfully"}

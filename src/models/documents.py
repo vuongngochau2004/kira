@@ -60,7 +60,7 @@ class ChunkWithScore(ChunkResponse):
 
 class ConversationCreate(BaseModel):
     """Create conversation request."""
-    title: str = Field(..., min_length=1, max_length=255)
+    title: Optional[str] = Field(default="Cuộc trò chuyện mới", max_length=255)
 
 
 class ConversationResponse(BaseModel):

@@ -34,25 +34,13 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => {
-      const isAuthDisabled = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_AUTH_ENABLED === 'false';
-      
-      if (isAuthDisabled && typeof window !== 'undefined') {
-        localStorage.setItem('access_token', 'dev-token');
-      }
-
-      return {
-        user: isAuthDisabled ? {
-          id: "00000000-0000-0000-0000-000000000001",
-          email: "dev@kira.local",
-          full_name: "Dev User",
-          role: "admin"
-        } : null,
-        access_token: isAuthDisabled ? "dev-token" : null,
-        refresh_token: isAuthDisabled ? "dev-refresh" : null,
-        isAuthenticated: isAuthDisabled,
-        isLoading: false,
-        error: null,
+    (set, get) => ({
+      user: null,
+      access_token: null,
+      refresh_token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
 
       setTokens: (access: string, refresh: string) => {
         localStorage.setItem('access_token', access)
@@ -175,9 +163,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       clearError: () => set({ error: null }),
-    }
-  },
-  {
+    }),
+    {
       name: 'kira-auth-storage',
       partialize: (state) => ({
         user: state.user,

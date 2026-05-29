@@ -33,7 +33,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           access_token,
           isAuthenticated: true,
-          user: { id: 'dev-user', email: 'dev@kira.local' }
+          user: null
         })
       },
 

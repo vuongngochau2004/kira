@@ -18,25 +18,8 @@ export default function AuthLandingPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
 
-  // Redirect if already authenticated or if auth is disabled
+  // Redirect if already authenticated
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_AUTH_ENABLED === 'false') {
-      useAuthStore.setState({
-        user: {
-          id: "00000000-0000-0000-0000-000000000001",
-          email: "dev@kira.local",
-          full_name: "Dev User",
-          role: "admin"
-        },
-        access_token: "dev-token",
-        refresh_token: "dev-refresh",
-        isAuthenticated: true
-      })
-      localStorage.setItem('access_token', 'dev-token')
-      router.push('/chat')
-      return
-    }
-
     if (isAuthenticated) {
       router.push('/chat')
     }
