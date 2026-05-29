@@ -5,7 +5,6 @@ import uuid
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -21,7 +20,7 @@ from src.indexing.document_store import (
     create_message,
     get_conversation_messages,
 )
-from src.agents.rag_agent import generate_response
+from src.agents.orchestrator import create_orchestrator
 from src.auth.dependencies import get_current_user
 from src.database.models import User
 from src.constants import (
@@ -30,44 +29,20 @@ from src.constants import (
     DEFAULT_CONVERSATION_LIMIT,
     DEFAULT_OFFSET,
     ERR_CONVERSATION_NOT_FOUND,
-    STREAM_CHUNK_SIZE,
 )
 
 router = APIRouter()
 
+# Global orchestrator instance (will be initialized on first use)
+_orchestrator = None
 
-@router.post("/completions")
-async def chat_completion(
-    message: str,
-    conversation_id: str | None = None,
-    temperature: float = DEFAULT_TEMPERATURE,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_session),
-) -> dict:
-    """Non-streaming chat completion."""
-    conv_id = await _get_or_create_conversation_id(
-        conversation_id, current_user.id, message, db
-    )
 
-    history = await _get_conversation_history(conv_id, db)
-    response = await generate_response(
-        query=message,
-        user_id=current_user.id,
-        conversation_history=history,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-
-    await _save_messages(conv_id, message, response, db)
-
-    return {
-        "content": response["content"],
-        "citations": response.get("citations", []),
-        "conversation_id": str(conv_id),
-        "message_id": str(response.get("message_id", "")),
-        "metadata": response.get("metadata", {}),
-    }
+def get_orchestrator():
+    """Get or create orchestrator instance."""
+    global _orchestrator
+    if _orchestrator is None:
+        _orchestrator = create_orchestrator()
+    return _orchestrator
 
 
 async def _get_or_create_conversation_id(
@@ -98,15 +73,6 @@ async def _get_or_create_conversation_id(
     return conv.id
 
 
-async def _get_conversation_history(
-    conversation_id: uuid.UUID,
-    db: AsyncSession,
-) -> list[dict]:
-    """Get conversation history for context."""
-    messages = await get_conversation_messages(conversation_id, db=db)
-    return [{"role": msg.role, "content": msg.content} for msg in messages]
-
-
 async def _save_messages(
     conversation_id: uuid.UUID,
     user_message: str,
@@ -131,7 +97,127 @@ async def _save_messages(
     return msg.id
 
 
-async def _stream_generator(
+@router.post("/completions")
+async def chat_completion(
+    message: str,
+    conversation_id: str | None = None,
+    temperature: float = DEFAULT_TEMPERATURE,  # Currently unused, reserved for future
+    max_tokens: int = DEFAULT_MAX_TOKENS,  # Currently unused, reserved for future
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Non-streaming chat completion."""
+    conv_id = await _get_or_create_conversation_id(
+        conversation_id, current_user.id, message, db
+    )
+
+    # Use orchestrator for multi-stage routing
+    orchestrator = get_orchestrator()
+    response = await orchestrator.query(
+        user_query=message,
+        user_id=current_user.id,
+    )
+
+    await _save_messages(conv_id, message, response, db)
+
+    # Return backward-compatible response structure
+    return {
+        "content": response["content"],
+        "citations": response.get("citations", []),
+        "conversation_id": str(conv_id),
+        "message_id": str(response.get("message_id", uuid.uuid4())),
+        "metadata": response.get("metadata", {}),
+    }
+
+
+async def _stream_generator_v2(
+    query: str,
+    user_id: uuid.UUID,
+    conversation_id: uuid.UUID | None,
+    db: AsyncSession,
+):
+    """Generator for streaming response with real LLM streaming.
+
+    Yields SSE events with chunk types:
+    - routing: Router selection info
+    - retrieval: RAG retrieval status
+    - content: Text chunks from LLM
+    - metadata: Final metadata with citations
+    - done: Completion signal
+    """
+    orchestrator = get_orchestrator()
+
+    # Collect full content for saving to DB
+    full_content = []
+    citations = []
+    conversation_id_to_save = conversation_id
+
+    try:
+        async for chunk in orchestrator.query_stream(query, user_id):
+            chunk_type = chunk.get("type")
+            chunk_data = chunk.get("data", {})
+
+            if chunk_type == "routing":
+                # Emit routing info
+                yield f"data: {json.dumps({'type': 'routing', 'data': chunk_data})}\n\n"
+
+            elif chunk_type == "retrieval":
+                # Emit retrieval status
+                yield f"data: {json.dumps({'type': 'retrieval', 'data': chunk_data})}\n\n"
+
+            elif chunk_type == "content":
+                # Emit content chunk
+                text = chunk_data.get("text", "")
+                full_content.append(text)
+                yield f"data: {json.dumps({'type': 'content', 'data': {'text': text}})}\n\n"
+
+            elif chunk_type == "metadata":
+                # Collect citations from metadata
+                if "citations" in chunk_data:
+                    citations = chunk_data["citations"]
+
+                # Create conversation if needed
+                if not conversation_id_to_save:
+                    conv = await create_conversation(
+                        user_id=user_id,
+                        title=query[:100],
+                        db=db,
+                    )
+                    conversation_id_to_save = conv.id
+
+                # Save messages to DB
+                await create_message(
+                    conversation_id=conversation_id_to_save,
+                    role="user",
+                    content=query,
+                    db=db,
+                )
+
+                msg = await create_message(
+                    conversation_id=conversation_id_to_save,
+                    role="assistant",
+                    content="".join(full_content),
+                    sources=citations,
+                    db=db,
+                )
+
+                # Emit final metadata
+                yield f"data: {json.dumps({'type': 'metadata', 'data': {
+                    **chunk_data,
+                    'conversation_id': str(conversation_id_to_save),
+                    'message_id': str(msg.id),
+                }})}\n\n"
+
+                # Emit done signal
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    except Exception as e:
+        # Yield error
+        yield f"data: {json.dumps({'type': 'error', 'data': {'error': str(e)}})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+
+async def _stream_generator_legacy(
     query: str,
     user_id: uuid.UUID,
     conversation_id: uuid.UUID | None,
@@ -140,13 +226,13 @@ async def _stream_generator(
     max_tokens: int,
     db: AsyncSession,
 ):
-    """Generator for streaming response."""
-    response = await generate_response(
-        query=query,
+    """Legacy generator for backward compatibility (fake streaming)."""
+    from src.constants import STREAM_CHUNK_SIZE
+
+    orchestrator = get_orchestrator()
+    response = await orchestrator.query(
+        user_query=query,
         user_id=user_id,
-        conversation_history=history,
-        temperature=temperature,
-        max_tokens=max_tokens,
     )
 
     content = response["content"]
@@ -190,7 +276,15 @@ async def chat_stream(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ):
-    """Streaming chat completion with SSE."""
+    """Streaming chat completion with SSE.
+
+    Uses real LLM streaming with structured chunk types:
+    - routing: Router selection info
+    - retrieval: RAG retrieval progress
+    - content: Text chunks as they arrive
+    - metadata: Final response metadata
+    - done: Stream completion signal
+    """
     conv = None
     if conversation_id:
         conv = await get_conversation(
@@ -204,16 +298,11 @@ async def chat_stream(
                 detail=ERR_CONVERSATION_NOT_FOUND,
             )
 
-    history = await _get_conversation_history(conv.id, db) if conv else []
-
     return StreamingResponse(
-        _stream_generator(
+        _stream_generator_v2(
             query=message,
             user_id=current_user.id,
             conversation_id=conv.id if conv else None,
-            history=history,
-            temperature=temperature,
-            max_tokens=max_tokens,
             db=db,
         ),
         media_type="text/event-stream",

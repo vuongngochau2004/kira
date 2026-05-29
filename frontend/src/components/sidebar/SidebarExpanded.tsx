@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Sparkles, LogOut, ChevronLeft, Search, Upload, MessageSquarePlus } from 'lucide-react'
@@ -23,6 +24,11 @@ export function SidebarExpanded({
 }: SidebarExpandedProps) {
   const router = useRouter()
   const { user, logout } = useAuthStore()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <div className="flex flex-col h-full w-[280px] bg-background border-r">
@@ -104,7 +110,7 @@ export function SidebarExpanded({
       )}
 
       {/* User Footer */}
-      {user && (
+      {mounted && user && (
         <div className="p-4 border-t bg-zinc-900/10 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-300 shrink-0">

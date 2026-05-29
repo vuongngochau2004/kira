@@ -1,112 +1,153 @@
-"""Orchestrator agent for routing queries to appropriate handlers."""
+"""Orchestrator agent for multi-stage query routing."""
 
 import time
-from typing import Any
+from typing import Any, AsyncIterator
 from uuid import UUID
 
+from src.agents.routers import (
+    RouterRegistry,
+    ConversationalRouter,
+    RAGRouter,
+    QueryClassifier,
+)
 from src.agents.rag_agent import AgenticRAG
-from src.agents.llm import chat_async
-from src.agents.prompts import CONVERSATIONAL_PROMPT
-from src.agents.utils import is_conversational_query
-from config.config import settings
 
 
 class OrchestratorAgent:
-    """Orchestrator that routes queries to RAG or conversational handler."""
+    """Orchestrator that uses multi-stage routing to dispatch queries.
+
+    Routing stages:
+    1. Quick Filter: Keyword-based confidence check
+    2. LLM Classification: Intent detection for complex queries
+    3. Router Dispatch: Map intent to appropriate handler
+    """
 
     def __init__(
         self,
         rag_agent: AgenticRAG | None = None,
-        max_retries: int = 2,
+        classifier: QueryClassifier | None = None,
+        auto_register: bool = True,
     ):
-        """Initialize orchestrator.
+        """Initialize orchestrator with router registry.
 
         Args:
-            rag_agent: RAG agent for research queries
-            max_retries: Max retry attempts for LLM calls
+            rag_agent: Optional RAG agent for RAGRouter
+            classifier: Optional query classifier
+            auto_register: If True, automatically register default routers
         """
-        self.rag_agent = rag_agent
-        self.max_retries = max_retries
+        if auto_register:
+            self._setup_routers(rag_agent, classifier)
 
-    async def _respond_conversationally(self, query: str) -> str:
-        """Generate conversational response with retry.
+    def _setup_routers(
+        self,
+        rag_agent: AgenticRAG | None = None,
+        classifier: QueryClassifier | None = None,
+    ) -> None:
+        """Set up default routers.
 
         Args:
-            query: User query
-
-        Returns:
-            Friendly response or fallback message
+            rag_agent: Optional RAG agent
+            classifier: Optional classifier
         """
-        prompt = CONVERSATIONAL_PROMPT.format(query=query)
+        # Clear any existing routers
+        RouterRegistry.clear()
 
-        for attempt in range(self.max_retries + 1):
-            try:
-                response = await chat_async(
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.8,
-                    max_tokens=200,
-                )
-                return response["content"]
-            except Exception as e:
-                if attempt == self.max_retries:
-                    return "Xin lỗi, tôi không thể trả lời ngay lúc này."
+        # Register conversational router
+        RouterRegistry.register(ConversationalRouter())
+
+        # Register RAG router
+        RouterRegistry.register(RAGRouter(rag_agent=rag_agent))
+
+        # Set up classifier
+        if classifier:
+            RouterRegistry.set_classifier(classifier)
 
     async def query(
         self,
         user_query: str,
         user_id: UUID | str = "default",
     ) -> dict[str, Any]:
-        """Route query and return result with logging.
+        """Route query using multi-stage strategy and return result.
 
         Args:
             user_query: User's query
             user_id: User ID for filtering
 
         Returns:
-            Dict with answer, status, latency_ms
+            Dict with answer, status, latency_ms, and metadata
         """
         t0 = time.perf_counter()
 
-        if is_conversational_query(user_query):
-            answer = await self._respond_conversationally(user_query)
-            return {
-                "content": answer,
-                "status": "conversational",
-                "retrieval_history": [],
-                "latency_ms": (time.perf_counter() - t0) * 1000,
-            }
+        result = await RouterRegistry.route(user_query, user_id)
 
-        # RAG query
-        if self.rag_agent is None:
-            self.rag_agent = AgenticRAG(
-                max_iterations=3,
-                retrieval_k=settings.retrieval_k,
-            )
-
-        try:
-            result = await self.rag_agent.query(user_query, user_id)
+        # Ensure latency is tracked
+        if "latency_ms" not in result:
             result["latency_ms"] = (time.perf_counter() - t0) * 1000
-            return result
-        except Exception as e:
-            return {
-                "content": "Có lỗi xảy ra khi xử lý câu hỏi.",
-                "status": "error",
-                "error": str(e),
-                "retrieval_history": [],
-                "latency_ms": (time.perf_counter() - t0) * 1000,
-            }
+
+        return result
+
+    async def query_stream(
+        self,
+        user_query: str,
+        user_id: UUID | str = "default",
+    ) -> AsyncIterator[dict]:
+        """Route query with streaming response.
+
+        Args:
+            user_query: User's query
+            user_id: User ID for filtering
+
+        Yields:
+            Dict chunks with type:
+            - "routing": {router, intent, confidence}
+            - "retrieval": {iteration, strategy, docs_retrieved, new_docs, sufficient}
+            - "content": {text}
+            - "metadata": {status, citations, sources, latency_ms}
+        """
+        t0 = time.perf_counter()
+
+        async for chunk in RouterRegistry.route_stream(user_query, user_id):
+            # Add latency_ms to final metadata
+            if chunk.get("type") == "metadata" and "latency_ms" not in chunk.get("data", {}):
+                chunk["data"]["latency_ms"] = (time.perf_counter() - t0) * 1000
+            yield chunk
+
+    def add_router(self, router: Any, name: str | None = None) -> None:
+        """Add a custom router to the registry.
+
+        Args:
+            router: Router instance implementing BaseRouter interface
+            name: Optional router name
+        """
+        RouterRegistry.register(router, name)
+
+    def list_routers(self) -> list[str]:
+        """List all registered routers.
+
+        Returns:
+            List of router names
+        """
+        return RouterRegistry.list_routers()
 
 
-def create_orchestrator(rag_agent: AgenticRAG | None = None) -> OrchestratorAgent:
-    """Create orchestrator instance.
+def create_orchestrator(
+    rag_agent: AgenticRAG | None = None,
+    classifier: QueryClassifier | None = None,
+) -> OrchestratorAgent:
+    """Create orchestrator instance with default routers.
 
     Args:
         rag_agent: Optional RAG agent instance
+        classifier: Optional query classifier
 
     Returns:
-        OrchestratorAgent instance
+        OrchestratorAgent instance with routers registered
     """
-    return OrchestratorAgent(rag_agent=rag_agent)
+    return OrchestratorAgent(
+        rag_agent=rag_agent,
+        classifier=classifier,
+        auto_register=True,
+    )
 
 
 __all__ = ["OrchestratorAgent", "create_orchestrator"]

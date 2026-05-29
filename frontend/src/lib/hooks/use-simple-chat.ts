@@ -16,6 +16,70 @@ export interface Message {
   thinking?: ThinkingStep[]
 }
 
+const REASONING_NODE_LABEL = 'Thinking'
+
+export function parseThinkingTags(raw: string) {
+  let thinkStart = raw.indexOf('<thinking>')
+  let tagLen = 10
+  let closeTag = '</thinking>'
+
+  if (thinkStart === -1) {
+    thinkStart = raw.indexOf('<think>')
+    tagLen = 7
+    closeTag = '</think>'
+  }
+
+  if (thinkStart === -1) {
+    thinkStart = raw.indexOf('<suynghi>')
+    tagLen = 9
+    closeTag = '</suynghi>'
+  }
+
+  if (thinkStart === -1) {
+    return {
+      reasoning: '',
+      content: raw,
+      isThinkingComplete: true,
+      hasThinking: false,
+    }
+  }
+
+  const thinkEnd = raw.indexOf(closeTag)
+  if (thinkEnd === -1) {
+    // Thẻ think chưa được đóng (đang stream)
+    const reasoning = raw.slice(thinkStart + tagLen)
+    
+    // Strip partial closing tag from reasoning if present
+    let cleanReasoning = reasoning
+    const matchEnd = closeTag === '</thinking>'
+      ? reasoning.match(/<\/t?h?i?n?k?i?n?g?>?$/i)
+      : closeTag === '</think>'
+      ? reasoning.match(/<\/t?h?i?n?k?>?$/i)
+      : reasoning.match(/<\/s?u?y?n?g?h?i?>?$/i)
+      
+    if (matchEnd) {
+      cleanReasoning = reasoning.substring(0, matchEnd.index)
+    }
+
+    return {
+      reasoning: cleanReasoning,
+      content: raw.slice(0, thinkStart),
+      isThinkingComplete: false,
+      hasThinking: true,
+    }
+  }
+
+  // Thẻ think đã được đóng hoàn toàn
+  const reasoning = raw.slice(thinkStart + tagLen, thinkEnd)
+  const afterThink = raw.slice(thinkEnd + closeTag.length)
+  return {
+    reasoning,
+    content: raw.slice(0, thinkStart) + afterThink,
+    isThinkingComplete: true,
+    hasThinking: true,
+  }
+}
+
 export function useSimpleChat() {
   const { activeConversationId, setActiveConversation } = useConversationStore()
   const { isAuthenticated } = useAuthStore()
@@ -24,11 +88,15 @@ export function useSimpleChat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
+  
   const abortControllerRef = useRef<AbortController | null>(null)
   const currentThinkingRef = useRef<ThinkingStep[]>([])
   const currentSourcesRef = useRef<SourceChunk[]>([])
   const currentContentRef = useRef<string>('')
+  const currentRawContentRef = useRef<string>('')
+  const currentActiveRouterRef = useRef<string>('')
+  const retrievalStagesRef = useRef<string[]>([])
+  const currentThoughtsRef = useRef<string>('')
 
   useEffect(() => {
     setMounted(true)
@@ -60,14 +128,60 @@ export function useSimpleChat() {
     try {
       const conversation = await conversationsAPI.get(id)
       setMessages(
-        conversation.messages.map((msg) => ({
-          id: msg.id,
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-          timestamp: new Date(msg.created_at),
-          thinking: (msg.metadata as any)?.thinking || undefined,
-          sources: (msg.metadata as any)?.sources || undefined,
-        }))
+        conversation.messages.map((msg) => {
+          if (msg.role === 'assistant') {
+            const { reasoning, content } = parseThinkingTags(msg.content)
+            let existingThinking = (msg.metadata as any)?.thinking || []
+            
+            // Detect if we already have a unified hierarchical node
+            const hasUnifiedNode = existingThinking.some((step: any) => step.node.includes('↳'))
+
+            if (reasoning && !hasUnifiedNode) {
+              const routerStep = existingThinking.find(
+                (step: any) => !step.node.includes('Thinking') && !step.node.includes('Retrieval')
+              )
+              const routerName = routerStep ? routerStep.node : 'Thinking'
+              
+              const retrievalSteps = existingThinking.filter(
+                (step: any) => step.node.includes('Retrieval')
+              )
+
+              let nodeContent = routerName
+              if (retrievalSteps.length > 0) {
+                nodeContent += '\n  ↳ Tool Call: Retrieval'
+                retrievalSteps.forEach((step: any) => {
+                  const cleanDesc = step.node.replace(/Retrieval Stage\s*/i, '')
+                  nodeContent += `\n    • ${cleanDesc}`
+                })
+              }
+
+              nodeContent += `\n  ↳ LLM Reasoning:${reasoning.split('\n').map((line: string) => `    ${line}`).join('\n')}`
+
+              existingThinking = [
+                {
+                  node: nodeContent,
+                  status: 'complete' as const,
+                }
+              ]
+            }
+
+            return {
+              id: msg.id,
+              role: 'assistant' as const,
+              content: content,
+              timestamp: new Date(msg.created_at),
+              thinking: existingThinking.length > 0 ? existingThinking : undefined,
+              sources: msg.sources || (msg.metadata as any)?.sources || undefined,
+            }
+          }
+
+          return {
+            id: msg.id,
+            role: 'user' as const,
+            content: msg.content,
+            timestamp: new Date(msg.created_at),
+          }
+        })
       )
     } catch (err) {
       console.error('Failed to load conversation:', err)
@@ -106,6 +220,10 @@ export function useSimpleChat() {
     currentThinkingRef.current = []
     currentSourcesRef.current = []
     currentContentRef.current = ''
+    currentRawContentRef.current = ''
+    currentActiveRouterRef.current = ''
+    retrievalStagesRef.current = []
+    currentThoughtsRef.current = ''
 
     const updateMessage = (updates: Partial<Message>) => {
       setMessages((prev) =>
@@ -113,6 +231,32 @@ export function useSimpleChat() {
           msg.id === assistantMessageId ? { ...msg, ...updates } : msg
         )
       )
+    }
+
+    const updateThinkingState = (isComplete: boolean) => {
+      const routerName = currentActiveRouterRef.current || 'Thinking'
+      
+      let nodeContent = routerName
+      
+      if (retrievalStagesRef.current.length > 0) {
+        nodeContent += '\n  ↳ Tool Call: Retrieval'
+        retrievalStagesRef.current.forEach((stage) => {
+          nodeContent += `\n    • ${stage}`
+        })
+      }
+      
+      if (currentThoughtsRef.current) {
+        nodeContent += `\n  ↳ LLM Reasoning:${currentThoughtsRef.current.split('\n').map(line => `    ${line}`).join('\n')}`
+      }
+
+      currentThinkingRef.current = [
+        {
+          node: nodeContent,
+          status: (isComplete ? 'complete' : 'running') as 'complete' | 'running',
+        }
+      ]
+
+      updateMessage({ thinking: [...currentThinkingRef.current] })
     }
 
     try {
@@ -181,49 +325,110 @@ export function useSimpleChat() {
             try {
               const parsed = JSON.parse(data)
 
-              // Handle different event types based on data structure
-              if (parsed.token !== undefined) {
-                // Token event
-                currentContentRef.current += parsed.token
-                updateMessage({ content: currentContentRef.current })
-              } else if (parsed.content !== undefined && typeof parsed.content === 'string') {
-                // Content event from backend
-                currentContentRef.current += parsed.content
-                updateMessage({ content: currentContentRef.current })
-              } else if (parsed.message !== undefined && typeof parsed.message === 'string') {
-                // Response event (full message)
-                currentContentRef.current = parsed.message
-                updateMessage({ content: currentContentRef.current })
-              } else if (parsed.node !== undefined) {
-                // Node start event
-                currentThinkingRef.current = [
-                  ...currentThinkingRef.current,
-                  {
-                    node: parsed.node || 'unknown',
-                    status: 'running' as const,
-                    timestamp: parsed.timestamp,
-                  },
-                ]
-                updateMessage({ thinking: [...currentThinkingRef.current] })
-              } else if (parsed.sources !== undefined) {
-                // Source event
-                currentSourcesRef.current = parsed.sources
-                updateMessage({ sources: [...currentSourcesRef.current] })
-              } else if (parsed.timestamp && Object.keys(parsed).length === 1) {
-                // Node end event (just timestamp)
-                if (currentThinkingRef.current.length > 0) {
-                  const lastIndex = currentThinkingRef.current.length - 1
-                  currentThinkingRef.current[lastIndex] = {
-                    ...currentThinkingRef.current[lastIndex],
-                    status: 'complete' as const,
+              // Support new structured event system: { type: string, data?: any }
+              if (parsed.type !== undefined) {
+                const { type, data: eventData } = parsed
+
+                if (type === 'content') {
+                  currentRawContentRef.current += eventData?.text || ''
+                  const { reasoning, content, isThinkingComplete, hasThinking } = parseThinkingTags(currentRawContentRef.current)
+                  currentContentRef.current = content
+                  if (hasThinking) {
+                    currentThoughtsRef.current = reasoning
+                    updateThinkingState(isThinkingComplete)
+                    updateMessage({ content: currentContentRef.current })
+                  } else {
+                    updateMessage({ content: currentContentRef.current })
                   }
-                  updateMessage({ thinking: [...currentThinkingRef.current] })
+                } else if (type === 'routing') {
+                  const routerName = eventData?.router || 'Routing'
+                  const intent = eventData?.intent ? ` (${eventData.intent})` : ''
+                  const fullRouterName = `${routerName}${intent}`
+                  currentActiveRouterRef.current = fullRouterName
+                  updateThinkingState(false)
+                } else if (type === 'retrieval') {
+                  const iteration = eventData?.iteration || 1
+                  const strategy = eventData?.strategy || 'Hybrid'
+                  const docsCount = eventData?.docs_retrieved || 0
+                  retrievalStagesRef.current.push(
+                    `Iteration ${iteration}, Strategy: ${strategy}, Retrieved: ${docsCount} docs`
+                  )
+                  updateThinkingState(false)
+                } else if (type === 'metadata') {
+                  if (eventData?.citations !== undefined) {
+                    currentSourcesRef.current = eventData.citations
+                    updateMessage({ sources: [...currentSourcesRef.current] })
+                  } else if (eventData?.sources !== undefined) {
+                    currentSourcesRef.current = eventData.sources
+                    updateMessage({ sources: [...currentSourcesRef.current] })
+                  }
+
+                  if (eventData?.conversation_id !== undefined) {
+                    if (!activeConversationId) {
+                      setActiveConversation(eventData.conversation_id)
+                      router.push(`/conversation/${eventData.conversation_id}`)
+                    }
+                  }
+                } else if (type === 'done') {
+                  updateThinkingState(true)
+                  setIsLoading(false)
+                } else if (type === 'error') {
+                  setError(eventData?.error || 'Đã xảy ra lỗi khi tải luồng dữ liệu')
+                  setIsLoading(false)
                 }
-              } else if (parsed.conversation_id !== undefined) {
-                // Conversation event
-                if (!activeConversationId) {
-                  setActiveConversation(parsed.conversation_id)
-                  router.push(`/conversation/${parsed.conversation_id}`)
+              } else {
+                // Backward-compatible legacy events
+                if (parsed.token !== undefined) {
+                  currentRawContentRef.current += parsed.token
+                  const { reasoning, content, isThinkingComplete, hasThinking } = parseThinkingTags(currentRawContentRef.current)
+                  currentContentRef.current = content
+                  if (hasThinking) {
+                    currentThoughtsRef.current = reasoning
+                    updateThinkingState(isThinkingComplete)
+                    updateMessage({ content: currentContentRef.current })
+                  } else {
+                    updateMessage({ content: currentContentRef.current })
+                  }
+                } else if (parsed.content !== undefined && typeof parsed.content === 'string') {
+                  currentRawContentRef.current += parsed.content
+                  const { reasoning, content, isThinkingComplete, hasThinking } = parseThinkingTags(currentRawContentRef.current)
+                  currentContentRef.current = content
+                  if (hasThinking) {
+                    currentThoughtsRef.current = reasoning
+                    updateThinkingState(isThinkingComplete)
+                    updateMessage({ content: currentContentRef.current })
+                  } else {
+                    updateMessage({ content: currentContentRef.current })
+                  }
+                } else if (parsed.message !== undefined && typeof parsed.message === 'string') {
+                  currentRawContentRef.current = parsed.message
+                  const { reasoning, content, isThinkingComplete, hasThinking } = parseThinkingTags(currentRawContentRef.current)
+                  currentContentRef.current = content
+                  if (hasThinking) {
+                    currentThoughtsRef.current = reasoning
+                    updateThinkingState(isThinkingComplete)
+                    updateMessage({ content: currentContentRef.current })
+                  } else {
+                    updateMessage({ content: currentContentRef.current })
+                  }
+                } else if (parsed.node !== undefined) {
+                  const nodeName = parsed.node || 'unknown'
+                  if (nodeName.toLowerCase().includes('retrieval')) {
+                    retrievalStagesRef.current.push(nodeName)
+                  } else {
+                    currentActiveRouterRef.current = nodeName
+                  }
+                  updateThinkingState(false)
+                } else if (parsed.sources !== undefined) {
+                  currentSourcesRef.current = parsed.sources
+                  updateMessage({ sources: [...currentSourcesRef.current] })
+                } else if (parsed.timestamp && Object.keys(parsed).length === 1) {
+                  updateThinkingState(true)
+                } else if (parsed.conversation_id !== undefined) {
+                  if (!activeConversationId) {
+                    setActiveConversation(parsed.conversation_id)
+                    router.push(`/conversation/${parsed.conversation_id}`)
+                  }
                 }
               }
             } catch (e) {
