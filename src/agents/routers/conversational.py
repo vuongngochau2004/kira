@@ -6,7 +6,10 @@ from uuid import UUID
 from typing import Any, AsyncIterator
 
 from src.agents.llm import chat_async, chat_async_stream
-from src.agents.prompts import CONVERSATIONAL_PROMPT
+from src.agents.prompts import (
+    CONVERSATIONAL_SYSTEM_PROMPT,
+    CONVERSATIONAL_USER_PROMPT,
+)
 from src.agents.utils import is_conversational_query
 from src.agents.routers.base import BaseRouter
 
@@ -47,6 +50,11 @@ class ConversationalRouter(BaseRouter):
         """
         query_lower = query.lower().strip()
 
+        # Exclude file/document queries immediately
+        file_keywords = ["file", "tài liệu", "tập tin", "doc", "docx", "pdf", "txt", "đính kèm", "trích dẫn"]
+        if any(kw in query_lower for kw in file_keywords):
+            return 0.0
+
         # Very short queries (likely greetings) - high confidence
         if len(query_lower.split()) <= 2:
             return 0.9
@@ -80,17 +88,8 @@ class ConversationalRouter(BaseRouter):
         """
         t0 = time.perf_counter()
 
-        system_content = (
-            "Bạn là K.I.R.A (Knowledge & Intelligent Robotic Assistant), một trợ lý AI thân thiện.\n\n"
-            "Trước khi trả lời, hãy viết ra quá trình suy luận ngắn gọn của bạn và đặt trong thẻ <thinking>...</thinking>. "
-            "Sau đó đưa ra câu trả lời chính thức bên ngoài thẻ.\n\n"
-            "Ví dụ:\n"
-            "<thinking>\n"
-            "Người dùng chào hỏi. Cần phản hồi thân thiện và đề xuất giúp đỡ.\n"
-            "</thinking>\n"
-            "[Câu trả lời chính thức ở đây]"
-        )
-        user_content = f"Câu hỏi: {query}\n\nTrả lời ngắn gọn, thân thiện bằng tiếng Việt (1-2 câu)."
+        system_content = CONVERSATIONAL_SYSTEM_PROMPT
+        user_content = CONVERSATIONAL_USER_PROMPT.format(query=query)
 
         for attempt in range(self.max_retries + 1):
             try:
@@ -100,7 +99,7 @@ class ConversationalRouter(BaseRouter):
                         {"role": "user", "content": user_content},
                     ],
                     temperature=0.8,
-                    max_tokens=400,
+                    max_tokens=16000,
                 )
 
                 return {
@@ -136,17 +135,8 @@ class ConversationalRouter(BaseRouter):
         """Generate conversational response stream."""
         t0 = time.perf_counter()
 
-        system_content = (
-            "Bạn là K.I.R.A (Knowledge & Intelligent Robotic Assistant), một trợ lý AI thân thiện.\n\n"
-            "Trước khi trả lời, hãy viết ra quá trình suy luận ngắn gọn của bạn và đặt trong thẻ <thinking>...</thinking>. "
-            "Sau đó đưa ra câu trả lời chính thức bên ngoài thẻ.\n\n"
-            "Ví dụ:\n"
-            "<thinking>\n"
-            "Người dùng chào hỏi. Cần phản hồi thân thiện và đề xuất giúp đỡ.\n"
-            "</thinking>\n"
-            "[Câu trả lời chính thức ở đây]"
-        )
-        user_content = f"Câu hỏi: {query}\n\nTrả lời ngắn gọn, thân thiện bằng tiếng Việt (1-2 câu)."
+        system_content = CONVERSATIONAL_SYSTEM_PROMPT
+        user_content = CONVERSATIONAL_USER_PROMPT.format(query=query)
 
         try:
             async for chunk in chat_async_stream(
@@ -155,7 +145,7 @@ class ConversationalRouter(BaseRouter):
                     {"role": "user", "content": user_content},
                 ],
                 temperature=0.8,
-                max_tokens=400,
+                max_tokens=16000,
             ):
                 yield {"type": "content", "data": {"text": chunk}}
 

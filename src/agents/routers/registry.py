@@ -2,6 +2,8 @@
 
 import time
 import logging
+import re
+import unicodedata
 from uuid import UUID
 from typing import Any, AsyncIterator
 
@@ -150,7 +152,7 @@ class RouterRegistry:
         t0 = time.perf_counter()
 
         # Stage 1: Quick Filter
-        quick_router = await cls._quick_filter_router(query)
+        quick_router = await cls._quick_filter_router(query, user_id)
 
         if quick_router:
             logger.info(f"Quick routed to: {quick_router.get_name()}")
@@ -220,16 +222,83 @@ class RouterRegistry:
                 },
             }
 
+    @staticmethod
+    def _normalize_text(text: str) -> str:
+        """Normalize text by removing accents, lowercasing and cleaning spaces."""
+        text = text.lower().strip()
+        # Normalize unicode accents
+        text = ''.join(
+            c for c in unicodedata.normalize('NFD', text)
+            if unicodedata.category(c) != 'Mn'
+        )
+        # Replace Vietnamese dd -> d
+        text = text.replace('đ', 'd')
+        # Remove all non-alphanumeric/non-space/non-hyphen characters
+        text = re.sub(r'[^\w\s-]', '', text)
+        # Collapse extra spaces
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+
     @classmethod
-    async def _quick_filter_router(cls, query: str) -> BaseRouter | None:
-        """Quick filter stage - find router with high confidence.
+    async def _quick_filter_router(
+        cls,
+        query: str,
+        user_id: str | UUID = "default",
+    ) -> BaseRouter | None:
+        """Quick filter stage - find router with high confidence using DB matching and keywords.
 
         Args:
             query: User query
+            user_id: User ID
 
         Returns:
             Best matching router or None
         """
+        # 1. Option 4: Fuzzy File-Match and Active Document Keyword Matching
+        if user_id and user_id != "default":
+            try:
+                from uuid import UUID as uuid_class
+                if isinstance(user_id, str):
+                    try:
+                        user_uuid = uuid_class(user_id)
+                    except ValueError:
+                        user_uuid = None
+                else:
+                    user_uuid = user_id
+
+                if user_uuid:
+                    from src.database.session import async_session_factory
+                    from src.indexing.document_store import list_documents
+                    
+                    async with async_session_factory() as session:
+                        docs, count = await list_documents(user_id=user_uuid, db=session)
+                        
+                        if count > 0:
+                            # Step A: Fuzzy matching of filename stem against normalized query
+                            norm_query = cls._normalize_text(query)
+                            for doc in docs:
+                                if doc.status != "deleted" and doc.filename:
+                                    from pathlib import Path
+                                    stem = Path(doc.filename).stem
+                                    norm_stem = cls._normalize_text(stem)
+                                    if len(norm_stem) >= 3 and norm_stem in norm_query:
+                                        logger.info(f"Fuzzy file match found: {doc.filename} in query. Routing to RAGRouter.")
+                                        rag_router = cls._routers.get("RAGRouter")
+                                        if rag_router:
+                                            return rag_router
+
+                            # Step B: General file keyword match if user has at least 1 document uploaded
+                            file_keywords = ["file", "tài liệu", "tập tin", "doc", "docx", "pdf", "txt", "đính kèm", "trích dẫn"]
+                            query_lower = query.lower()
+                            if any(kw in query_lower for kw in file_keywords):
+                                logger.info(f"File keyword match with active user documents. Routing to RAGRouter.")
+                                rag_router = cls._routers.get("RAGRouter")
+                                if rag_router:
+                                    return rag_router
+            except Exception as e:
+                logger.error(f"Error in quick filter fuzzy file matching: {e}", exc_info=True)
+
+        # 2. General Confidence-based Matching
         best_router: BaseRouter | None = None
         best_score = 0.0
 
@@ -256,7 +325,7 @@ class RouterRegistry:
         Returns:
             Response dict if a router confidently handles it, None otherwise
         """
-        router = await cls._quick_filter_router(query)
+        router = await cls._quick_filter_router(query, user_id)
         if router:
             return await router.handle(query, user_id)
         return None

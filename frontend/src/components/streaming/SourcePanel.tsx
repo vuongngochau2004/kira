@@ -1,20 +1,48 @@
 'use client'
 
-import { useState } from 'react'
-import { X, Search, FileText, Loader2 } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { X, Search, FileText, Loader2, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SourceChunk } from './SourceCitation'
+import type { SourceChunk } from './SourceCitation'
 
 interface SourcePanelProps {
   sources: SourceChunk[]
   isOpen: boolean
   onClose: () => void
+  activeSourceId?: string | null
   className?: string
 }
 
-export function SourcePanel({ sources, isOpen, onClose, className }: SourcePanelProps) {
+export function SourcePanel({ sources, isOpen, onClose, activeSourceId, className }: SourcePanelProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
+  const activeRef = useRef<HTMLDivElement>(null)
+
+  // Auto-expand active source and scroll into view
+  useEffect(() => {
+    if (isOpen && activeSourceId) {
+      setExpandedIds((prev) => {
+        const next = new Set(prev)
+        if (!next.has(activeSourceId)) {
+          next.add(activeSourceId)
+          // Simulate lazy loading
+          setLoadingIds((load) => new Set(load).add(activeSourceId))
+          setTimeout(() => {
+            setLoadingIds((load) => {
+              const nextLoad = new Set(load)
+              nextLoad.delete(activeSourceId)
+              return nextLoad
+            })
+          }, 300)
+        }
+        return next
+      })
+      // Scroll to active source
+      setTimeout(() => {
+        activeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 400)
+    }
+  }, [isOpen, activeSourceId])
 
   if (!isOpen) return null
 
@@ -64,13 +92,22 @@ export function SourcePanel({ sources, isOpen, onClose, className }: SourcePanel
       {/* Content */}
       <div className="flex-1 overflow-y-auto divide-y">
         {sources.map((source, index) => {
-          const isExpanded = expandedIds.has(source.id)
-          const isLoading = loadingIds.has(source.id)
+          const sourceKey = source.id || `source-${index}`
+          const isExpanded = expandedIds.has(sourceKey)
+          const isLoading = loadingIds.has(sourceKey)
+          const isActive = sourceKey === activeSourceId
 
           return (
-            <div key={source.id} className="p-3">
+            <div
+              key={sourceKey}
+              ref={isActive ? activeRef : null}
+              className={cn(
+                "p-3 transition-all",
+                isActive && "bg-primary/5 border-l-2 border-primary"
+              )}
+            >
               <button
-                onClick={() => toggleExpand(source.id)}
+                onClick={() => toggleExpand(sourceKey)}
                 className="flex items-start gap-2 w-full text-left hover:bg-muted/50 rounded-md p-2 -m-2 transition-colors"
               >
                 <FileText className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -79,6 +116,15 @@ export function SourcePanel({ sources, isOpen, onClose, className }: SourcePanel
                     <span className="font-medium text-sm truncate">
                       #{index + 1}
                     </span>
+                    {isActive && (
+                      <span className={cn(
+                        'inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full',
+                        'bg-primary/20 text-primary font-medium'
+                      )}>
+                        <Eye className="w-3 h-3" />
+                        Đang xem
+                      </span>
+                    )}
                     {source.score && (
                       <span className={cn(
                         'text-xs px-1.5 py-0.5 rounded',
@@ -99,14 +145,26 @@ export function SourcePanel({ sources, isOpen, onClose, className }: SourcePanel
               </button>
 
               {isExpanded && (
-                <div className="ml-6 mt-2 text-sm text-foreground">
+                <div className={cn(
+                  "ml-6 mt-2 text-sm text-foreground p-3 rounded-lg",
+                  isActive && "bg-primary/10 border border-primary/20"
+                )}>
                   {isLoading ? (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Loader2 className="w-3 h-3 animate-spin" />
                       <span>Đang tải...</span>
                     </div>
                   ) : (
-                    <p className="whitespace-pre-wrap">{source.content}</p>
+                    <>
+                      <p className="whitespace-pre-wrap">{source.content}</p>
+                      {isActive && (
+                        <div className="mt-3 pt-3 border-t border-primary/20">
+                          <p className="text-xs text-muted-foreground italic">
+                            ✦ Đây là nội dung được tham chiếu từ câu trả lời
+                          </p>
+                        </div>
+                      )}
+                    </>
                   )}
                   {source.chunk_index !== undefined && (
                     <p className="text-muted-foreground text-xs mt-2">

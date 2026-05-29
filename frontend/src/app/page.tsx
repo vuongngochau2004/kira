@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { Sparkles, Mail, Lock, User, Eye, EyeOff, Loader2, Github, Chrome, Check } from 'lucide-react'
+import { Mail, Lock, User, Eye, EyeOff, Loader2, Github, Chrome, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { KiraLogoIcon } from '@/components/common/KiraLogo'
 
 export default function AuthLandingPage() {
   const router = useRouter()
@@ -252,9 +253,7 @@ export default function AuthLandingPage() {
 
         {/* Top Space for logo / branding */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-            <Sparkles className="w-4.5 h-4.5 text-white" />
-          </div>
+          <KiraLogoIcon size={32} variant="default" />
           <span className="text-sm font-bold tracking-widest text-zinc-300 uppercase">K.I.R.A SYSTEM</span>
         </div>
 

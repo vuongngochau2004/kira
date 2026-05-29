@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { Mail, Lock, Sparkles, Github, Chrome } from 'lucide-react'
+import { Mail, Lock, Github, Chrome } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { KiraLogoIcon } from '@/components/common/KiraLogo'
 
 export function LoginForm() {
   const router = useRouter()
@@ -39,8 +40,8 @@ export function LoginForm() {
     <div className="w-full max-w-md mx-auto">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <Sparkles className="w-6 h-6 text-primary" />
+        <div className="flex justify-center mb-4">
+          <KiraLogoIcon size={64} variant="gradient" />
         </div>
         <h1 className="text-2xl font-bold mb-2">Chào mừng trở lại</h1>
         <p className="text-sm text-muted-foreground">

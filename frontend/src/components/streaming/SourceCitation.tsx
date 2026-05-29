@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 
 export interface SourceChunk {
   id: string
+  chunk_id?: string  // Backend may provide chunk_id
   content: string
   score: number
   document_id?: string

@@ -36,6 +36,11 @@ class RAGRouter(BaseRouter):
         """
         query_lower = query.lower()
 
+        # Check for file/document related terms
+        file_indicators = ["file", "tài liệu", "tập tin", "doc", "docx", "pdf", "trích dẫn"]
+        if any(term in query_lower for term in file_indicators):
+            return 0.95
+
         # Check for document-related terms (boosts confidence)
         doc_indicators = [
             "tìm", "kiểm tra", "tra cứu", "theo", "trong", "về", "liên quan",

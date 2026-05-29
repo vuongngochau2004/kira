@@ -274,40 +274,33 @@ async def download_document_file(
     from fastapi.responses import StreamingResponse
 
     # Resolve authenticated user (supports both standard headers and token query parameter)
-    from config.config import settings
-    user = None
-    if not settings.auth_enabled:
-        from src.auth.dependencies import _get_or_create_dev_user
-        user = await _get_or_create_dev_user(db)
-    else:
-        # Fallback to token query param if header authentication is absent
-        auth_token = token
-        if not auth_token:
+    auth_token = token
+    if not auth_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    try:
+        from src.auth.security import decode_token
+        payload = decode_token(auth_token)
+        user_id = payload.get("sub")
+        if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated",
+                detail="Invalid token payload",
             )
-        try:
-            from src.auth.security import decode_token
-            payload = decode_token(auth_token)
-            user_id = payload.get("sub")
-            if not user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token payload",
-                )
-            
-            from sqlalchemy import select
-            from src.database.models import User
-            result = await db.execute(
-                select(User).where(User.id == user_id).where(User.deleted_at.is_(None))
-            )
-            user = result.scalar_one_or_none()
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid token: {e}",
-            )
+        
+        from sqlalchemy import select
+        from src.database.models import User
+        result = await db.execute(
+            select(User).where(User.id == user_id).where(User.deleted_at.is_(None))
+        )
+        user = result.scalar_one_or_none()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {e}",
+        )
 
     if not user:
         raise HTTPException(

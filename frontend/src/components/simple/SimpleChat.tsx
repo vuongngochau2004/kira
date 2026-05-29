@@ -8,6 +8,14 @@ import { SourcePanel } from '@/components/streaming/SourcePanel'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useSourcesStore } from '@/lib/stores/sources-store'
+import { KiraWelcome } from '@/components/common/KiraLogo'
+
+// Helper function to preprocess content, replacing plain [1], [2] brackets with markdown links
+const preprocessContent = (content: string) => {
+  if (!content) return ''
+  return content.replace(/(?<!\[)\[(\d+)\](?!\]|\()/g, '[$1](#source-$1)')
+}
 
 export interface ThinkingStep {
   node: string
@@ -18,6 +26,7 @@ export interface ThinkingStep {
 
 export interface SourceChunk {
   id: string
+  chunk_id?: string  // Backend may provide chunk_id
   content: string
   score: number
   document_id?: string
@@ -50,9 +59,10 @@ export function SimpleChat({
   error,
   className
 }: SimpleChatProps) {
+  const store = useSourcesStore()
   const [input, setInput] = useState('')
-  const [sourcePanelOpen, setSourcePanelOpen] = useState(false)
-  const [selectedSources, setSelectedSources] = useState<SourceChunk[]>([])
+  const [sourcePanelOpen, setSourcePanelOpen] = useState(false) // fallback local state for mobile only
+  const [selectedSources, setSelectedSources] = useState<SourceChunk[]>([]) // fallback local state for mobile only
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -96,15 +106,7 @@ export function SimpleChat({
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="max-w-3xl mx-auto px-4 py-6">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-full text-center py-12">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                <Send className="w-8 h-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">K.I.R.A</h3>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Trợ lý AI nghiên cứu của bạn. Hãy đặt câu hỏi hoặc tải lên tài liệu để bắt đầu.
-              </p>
-            </div>
+            <KiraWelcome className="min-h-full" variant="gradient" />
           ) : (
             <>
               {messages.map((message, index) => (
@@ -149,7 +151,49 @@ export function SimpleChat({
                                 h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-3 text-foreground">{children}</h1>,
                                 h2: ({ children }) => <h2 className="text-xl font-bold mt-5 mb-2.5 text-foreground">{children}</h2>,
                                 h3: ({ children }) => <h3 className="text-lg font-semibold mt-4 mb-2 text-foreground">{children}</h3>,
-                                a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{children}</a>,
+                                a: ({ href, children }) => {
+                                  if (href && href.startsWith('#source-')) {
+                                    const citationIndex = parseInt(href.replace('#source-', ''), 10) - 1
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault()
+                                          e.stopPropagation()
+                                          if (message.sources && message.sources.length > citationIndex) {
+                                            const target = message.sources[citationIndex]
+                                            store.setSources(message.sources)
+                                            store.setIsOpen(true)
+                                            // Use chunk_id if available, otherwise generate from id
+                                            const targetId = target.chunk_id || target.id || `source-${citationIndex}`
+                                            store.setActiveSourceId(targetId)
+                                          }
+                                        }}
+                                        className={cn(
+                                          "inline-flex items-center justify-center rounded px-1.5 py-0.5 mx-0.5",
+                                          "bg-primary/15 hover:bg-primary/25 active:bg-primary/35 text-primary",
+                                          "text-xs font-semibold font-mono leading-none transition-colors duration-150",
+                                          "border border-primary/20 hover:border-primary/30 align-middle shrink-0",
+                                          "cursor-pointer"
+                                        )}
+                                        style={{ verticalAlign: 'baseline', position: 'relative', top: '-1px' }}
+                                        title="Xem nguồn"
+                                      >
+                                        {children}
+                                      </button>
+                                    )
+                                  }
+                                  return (
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      {children}
+                                    </a>
+                                  )
+                                },
                                 code: ({ className, children }) => {
                                   const match = /language-(\w+)/.exec(className || '')
                                   return match ? (
@@ -162,7 +206,7 @@ export function SimpleChat({
                                 }
                               }}
                             >
-                              {message.content || ''}
+                              {preprocessContent(message.content || '')}
                             </ReactMarkdown>
                           </div>
                         )}
@@ -182,6 +226,13 @@ export function SimpleChat({
                         <SourceCitation
                           sources={message.sources}
                           onClick={() => {
+                            // Update both store and local fallback state (for mobile)
+                            store.setSources(message.sources!)
+                            store.setIsOpen(true)
+                            // Set first source as active for highlighting
+                            const firstSource = message.sources![0]
+                            const firstId = firstSource.chunk_id || firstSource.id || `source-0`
+                            store.setActiveSourceId(firstId)
                             setSelectedSources(message.sources!)
                             setSourcePanelOpen(true)
                           }}
@@ -211,7 +262,7 @@ export function SimpleChat({
       )}
 
       {/* Input Area */}
-      <div className="shrink-0 border-t bg-background">
+      <div className="shrink-0 bg-background">
         <div className="max-w-3xl mx-auto p-4">
           <form onSubmit={handleSubmit} className="relative">
             <div className="flex items-end gap-2">
@@ -284,11 +335,16 @@ export function SimpleChat({
         </div>
       </div>
 
-      {/* Source Panel */}
+      {/* Source Panel - Mobile/Tablet only */}
       <SourcePanel
-        sources={selectedSources}
-        isOpen={sourcePanelOpen}
-        onClose={() => setSourcePanelOpen(false)}
+        sources={store.sources}
+        isOpen={store.isOpen || sourcePanelOpen}
+        onClose={() => {
+          store.setIsOpen(false)
+          setSourcePanelOpen(false)
+        }}
+        activeSourceId={store.activeSourceId}
+        className="lg:hidden"
       />
     </div>
   )

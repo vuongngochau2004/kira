@@ -1,11 +1,14 @@
 """Document extraction using PyMuPDF with PaddleOCR fallback."""
 
 import sys
+import logging
 from pathlib import Path
 from dataclasses import dataclass, field
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -35,11 +38,13 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
     Returns:
         ExtractionResult with text and metadata
     """
+    logger.info("Extracting PDF using PyMuPDF (native text): %s", file_path)
     try:
         import fitz
         from src.ingestion.paddleocr_client import get_ocr_client
 
         doc = fitz.open(file_path)
+        num_pages = len(doc)
         text_parts = []
         pages_needing_ocr = []
 
@@ -59,7 +64,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
             full_text = "\n\n".join([t for t in text_parts if t])
             return ExtractionResult(
                 text=full_text,
-                pages=len(doc),
+                pages=num_pages,
                 metadata={"extractor": "pymupdf", "engine": "fitz", "ocr_used": False},
                 success=bool(full_text.strip()),
             )
@@ -88,7 +93,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
 
         return ExtractionResult(
             text=full_text,
-            pages=len(doc),
+            pages=num_pages,
             metadata={
                 "extractor": "pymupdf-ocr-hybrid",
                 "engine": "fitz",
@@ -99,6 +104,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
         )
 
     except Exception as e:
+        logger.error("PyMuPDF extraction failed for %s: %s", file_path, e)
         return ExtractionResult(
             success=False,
             error=f"PDF extraction failed: {e}",
@@ -114,6 +120,7 @@ def extract_docx(file_path: str) -> ExtractionResult:
     Returns:
         ExtractionResult with text and metadata
     """
+    logger.info("Extracting DOCX using python-docx: %s", file_path)
     try:
         from docx import Document
 
@@ -129,10 +136,11 @@ def extract_docx(file_path: str) -> ExtractionResult:
         return ExtractionResult(
             text=full_text,
             pages=1,
-            metadata={"extractor": "python-docx"},
+            metadata={"extractor": "python-docx", "extraction_method": "normal", "ocr_used": False},
             success=bool(full_text.strip()),
         )
     except Exception as e:
+        logger.error("DOCX extraction failed for %s: %s", file_path, e)
         return ExtractionResult(
             success=False,
             error=f"DOCX extraction failed: {e}",
@@ -148,6 +156,7 @@ def extract_pptx(file_path: str) -> ExtractionResult:
     Returns:
         ExtractionResult with text and metadata
     """
+    logger.info("Extracting PPTX using python-pptx: %s", file_path)
     try:
         from pptx import Presentation
 
@@ -167,10 +176,11 @@ def extract_pptx(file_path: str) -> ExtractionResult:
         return ExtractionResult(
             text=full_text,
             pages=len(prs.slides),
-            metadata={"extractor": "python-pptx"},
+            metadata={"extractor": "python-pptx", "extraction_method": "normal", "ocr_used": False},
             success=bool(full_text.strip()),
         )
     except Exception as e:
+        logger.error("PPTX extraction failed for %s: %s", file_path, e)
         return ExtractionResult(
             success=False,
             error=f"PPTX extraction failed: {e}",
@@ -186,6 +196,7 @@ def extract_text_file(file_path: str) -> ExtractionResult:
     Returns:
         ExtractionResult with text and metadata
     """
+    logger.info("Extracting text file: %s", file_path)
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             text = f.read()
@@ -193,26 +204,29 @@ def extract_text_file(file_path: str) -> ExtractionResult:
         return ExtractionResult(
             text=text,
             pages=1,
-            metadata={"extractor": "native"},
+            metadata={"extractor": "native", "extraction_method": "normal", "ocr_used": False},
             success=bool(text.strip()),
         )
     except UnicodeDecodeError:
         # Try with different encoding
+        logger.warning("UTF-8 decoding failed for %s, falling back to latin-1", file_path)
         try:
             with open(file_path, "r", encoding="latin-1") as f:
                 text = f.read()
             return ExtractionResult(
                 text=text,
                 pages=1,
-                metadata={"extractor": "native", "encoding": "latin-1"},
+                metadata={"extractor": "native", "encoding": "latin-1", "extraction_method": "normal", "ocr_used": False},
                 success=True,
             )
         except Exception as e:
+            logger.error("Text file extraction failed for %s with latin-1: %s", file_path, e)
             return ExtractionResult(
                 success=False,
                 error=f"Text extraction failed: {e}",
             )
     except Exception as e:
+        logger.error("Text file extraction failed for %s: %s", file_path, e)
         return ExtractionResult(
             success=False,
             error=f"Text extraction failed: {e}",
@@ -254,6 +268,9 @@ async def extract_image_ocr(file_path: str) -> ExtractionResult:
         return await _extract_image_docling(file_path, error=str(e))
 
 
+
+
+
 async def _extract_image_docling(file_path: str, error: str | None = None) -> ExtractionResult:
     """Fallback image extraction using Docling.
 
@@ -264,6 +281,7 @@ async def _extract_image_docling(file_path: str, error: str | None = None) -> Ex
     Returns:
         ExtractionResult with text and metadata
     """
+    logger.info("Extracting image using Docling OCR: %s", file_path)
     try:
         from docling.document_converter import DocumentConverter
 
@@ -312,23 +330,43 @@ async def extract_content(file_path: str, file_type: str) -> ExtractionResult:
             error=f"Unsupported file type: {file_type}",
         )
 
+    is_ocr = file_type in OCR_TYPES
+    method_name = "OCR" if is_ocr else "normal (text-based)"
+    print(f"[Extractor] Starting {method_name} extraction for file: {file_path} (format: {file_type})")
+    logger.info("Starting %s extraction for file: %s (format: %s)", method_name, file_path, file_type)
+
     try:
         if file_type == "pdf":
             return await extract_pdf(file_path)
         elif file_type == "docx":
-            return extract_docx(file_path)
+            result = extract_docx(file_path)
         elif file_type == "pptx":
-            return extract_pptx(file_path)
+            result = extract_pptx(file_path)
         elif file_type in {"txt", "md"}:
-            return extract_text_file(file_path)
+            result = extract_text_file(file_path)
         elif file_type in OCR_TYPES:
             return await extract_image_ocr(file_path)
         else:
-            return ExtractionResult(
+            result = ExtractionResult(
                 success=False,
                 error=f"Format {file_type} not yet supported",
             )
+
+        if result.success:
+            if "extraction_method" not in result.metadata:
+                result.metadata["extraction_method"] = "ocr" if is_ocr else "normal"
+            if "ocr_used" not in result.metadata:
+                result.metadata["ocr_used"] = is_ocr
+            print(f"[Extractor] Extraction successful. Method: {result.metadata['extraction_method'].upper()}, Pages: {result.pages}")
+            logger.info("Extraction successful. Method: %s, Pages: %d", result.metadata['extraction_method'], result.pages)
+        else:
+            print(f"[Extractor ERROR] Extraction failed: {result.error}")
+            logger.error("Extraction failed: %s", result.error)
+
+        return result
+
     except Exception as e:
+        logger.error("Extraction failed for %s: %s", file_path, e)
         return ExtractionResult(
             success=False,
             error=f"Extraction failed: {e}",

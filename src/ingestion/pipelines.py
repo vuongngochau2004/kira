@@ -97,7 +97,9 @@ def _process_sync(
         if not extraction_result.success:
             print(f"[ETL ERROR] Extraction failed: {extraction_result.error}")
             return {"success": False, "error": extraction_result.error or ERR_EXTRACTION_FAILED}
-        print(f"[ETL] Extraction complete. Raw length: {len(extraction_result.text)} characters.")
+        
+        ext_method = extraction_result.metadata.get("extraction_method", "normal")
+        print(f"[ETL] Extraction complete. Method: {ext_method.upper()}, Raw length: {len(extraction_result.text)} characters.")
 
         print(f"[ETL] [Step 3/7] Cleaning document text...")
         cleaned_text = clean_document(extraction_result.text)

@@ -283,12 +283,22 @@ class AgenticRAG:
 
             if sufficient:
                 answer = await self.generate_answer(query, all_docs)
-                return self._build_success_response(answer, retrieval_history, all_docs, iteration + 1)
+                titles = await self._resolve_document_titles(all_docs)
+                citations = self._extract_citations(all_docs, titles)
+                response = self._build_success_response(answer, retrieval_history, all_docs, iteration + 1)
+                response["citations"] = citations
+                response["sources"] = citations
+                return response
 
             strategy = self._switch_strategy(strategy, bm25_index)
 
         answer = await self.generate_answer(query, all_docs)
-        return self._build_max_iterations_response(answer, retrieval_history, all_docs)
+        titles = await self._resolve_document_titles(all_docs)
+        citations = self._extract_citations(all_docs, titles)
+        response = self._build_max_iterations_response(answer, retrieval_history, all_docs)
+        response["citations"] = citations
+        response["sources"] = citations
+        return response
 
     async def query_stream(
         self,
@@ -353,6 +363,10 @@ class AgenticRAG:
                         "data": {"text": chunk},
                     }
 
+                # Resolve document titles and extract citations
+                titles = await self._resolve_document_titles(all_docs)
+                citations = self._extract_citations(all_docs, titles)
+
                 # Emit final metadata
                 yield {
                     "type": "metadata",
@@ -360,7 +374,7 @@ class AgenticRAG:
                         "total_docs": len(all_docs),
                         "iterations": iteration + 1,
                         "status": "success",
-                        "citations": self._extract_citations(all_docs),
+                        "citations": citations,
                     },
                 }
                 return
@@ -374,38 +388,81 @@ class AgenticRAG:
                 "data": {"text": chunk},
             }
 
+        # Resolve document titles and extract citations
+        titles = await self._resolve_document_titles(all_docs)
+        citations = self._extract_citations(all_docs, titles)
+
         yield {
             "type": "metadata",
             "data": {
                 "total_docs": len(all_docs),
                 "iterations": self.max_iterations,
                 "status": "max_iterations_reached",
-                "citations": self._extract_citations(all_docs),
+                "citations": citations,
             },
         }
 
-    def _extract_citations(self, docs: list[dict]) -> list[dict]:
+    async def _resolve_document_titles(self, docs: list[dict]) -> dict[str, str]:
+        """Fetch document filenames for document_ids from Postgres."""
+        doc_ids = {d.get("document_id") for d in docs if d.get("document_id")}
+        if not doc_ids:
+            return {}
+
+        from src.database.session import async_session_factory
+        from src.indexing.document_store import get_document
+        import uuid
+
+        titles = {}
+        async with async_session_factory() as session:
+            for doc_id_str in doc_ids:
+                try:
+                    doc_uuid = uuid.UUID(str(doc_id_str))
+                    doc = await get_document(doc_uuid, db=session)
+                    if doc:
+                        titles[str(doc_id_str)] = doc.filename
+                except Exception:
+                    continue
+        return titles
+
+    def _extract_citations(self, docs: list[dict], doc_titles: dict[str, str] | None = None) -> list[dict]:
         """Extract citation info from retrieved docs.
 
         Args:
             docs: Retrieved documents
+            doc_titles: Pre-resolved document titles
 
         Returns:
             List of citation dicts
         """
         citations = []
-        for doc in docs[:5]:  # Top 5 docs for citations
+        doc_titles = doc_titles or {}
+        for index, doc in enumerate(docs[:5]):  # Top 5 docs for citations
+            doc_id = doc.get("document_id")
+            title = doc_titles.get(str(doc_id)) or doc.get("metadata", {}).get("title") or doc.get("title") or "Tài liệu không rõ"
+            chunk_id = doc.get("chunk_id") or doc.get("id") or f"chunk-{index}"
+            
             citations.append({
-                "chunk_id": doc.get("chunk_id"),
-                "source": doc.get("metadata", {}).get("source", "Unknown"),
-                "title": doc.get("metadata", {}).get("title", ""),
+                "chunk_id": str(chunk_id),
+                "source": title,
+                "title": title,
+                "content": doc.get("text", doc.get("content", "")),
+                "score": float(doc.get("score") or doc.get("rrf_score", 0.9)),
+                "document_id": str(doc_id) if doc_id else None,
+                "chunk_index": doc.get("chunk_index"),
             })
         return citations
 
     def _deduplicate_docs(self, existing: list[dict], new: list[dict]) -> list[dict]:
-        """Remove duplicate docs by chunk_id."""
-        seen_ids = {d.get("chunk_id") for d in existing if d.get("chunk_id")}
-        return [d for d in new if d.get("chunk_id") not in seen_ids]
+        """Remove duplicate docs by chunk_id or id."""
+        seen_ids = {
+            d.get("chunk_id") or d.get("id") 
+            for d in existing 
+            if d.get("chunk_id") or d.get("id")
+        }
+        return [
+            d for d in new 
+            if (d.get("chunk_id") or d.get("id")) not in seen_ids
+        ]
 
     def _switch_strategy(self, current: str, bm25_index: Any) -> str:
         """Switch strategy for next iteration."""

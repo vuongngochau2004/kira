@@ -4,13 +4,14 @@ import { useState } from "react"
 import { CollapsibleSidebar } from "@/components/sidebar/CollapsibleSidebar"
 import { MobileNav } from "@/components/mobile/MobileNav"
 import { SourcePanel } from "@/components/sources/SourcePanel"
+import { useSourcesStore } from "@/lib/stores/sources-store"
 
 export default function ConversationLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [sourcePanelOpen, setSourcePanelOpen] = useState(false)
+  const { isOpen: sourcePanelOpen, toggleOpen } = useSourcesStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
@@ -47,7 +48,7 @@ export default function ConversationLayout({
       <div className="hidden lg:block">
         <SourcePanel
           isOpen={sourcePanelOpen}
-          onToggle={() => setSourcePanelOpen(!sourcePanelOpen)}
+          onToggle={toggleOpen}
         />
       </div>
     </div>

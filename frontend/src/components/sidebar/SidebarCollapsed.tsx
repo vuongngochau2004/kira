@@ -1,8 +1,9 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Search, Upload, MessageSquarePlus, ChevronRight, Sparkles } from 'lucide-react'
+import { Search, Upload, MessageSquarePlus, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { KiraLogoIcon } from '@/components/common/KiraLogo'
 import {
   Tooltip,
   TooltipContent,
@@ -25,9 +26,7 @@ export function SidebarCollapsed({ onToggle, onCreateConversation }: SidebarColl
         <div className="border-b shrink-0">
           {/* Logo */}
           <div className="h-14 flex items-center justify-center">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary" />
-            </div>
+            <KiraLogoIcon size={36} variant="default" />
           </div>
 
           {/* Toggle Button */}
