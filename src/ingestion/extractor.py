@@ -1,9 +1,8 @@
-"""Document extraction using PyMuPDF (Docling fallback)."""
+"""Document extraction using PyMuPDF with PaddleOCR fallback."""
 
 import sys
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -26,39 +25,83 @@ SUPPORTED_TYPES = {
 OCR_TYPES = {"png", "jpg", "jpeg", "tiff", "bmp", "gif", "webp"}
 
 
-def extract_pdf(file_path: str) -> ExtractionResult:
-    """Extract text from PDF using PyMuPDF (fitz).
+async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> ExtractionResult:
+    """Extract text from PDF using PyMuPDF with OCR fallback for scanned pages.
 
     Args:
         file_path: Path to PDF file
+        use_ocr_fallback: Enable OCR for pages with no extractable text
 
     Returns:
         ExtractionResult with text and metadata
     """
     try:
         import fitz
+        from src.ingestion.paddleocr_client import get_ocr_client
+
         doc = fitz.open(file_path)
         text_parts = []
+        pages_needing_ocr = []
 
+        # First pass: extract text with PyMuPDF
         for page_num, page in enumerate(doc):
             page_text = page.get_text()
             if page_text.strip():
                 text_parts.append(page_text)
+            else:
+                # Mark page for OCR - use placeholder
+                text_parts.append("")  # Placeholder for OCR result
+                pages_needing_ocr.append(page_num)
+
+        # If all pages have text or OCR disabled, return early
+        if not pages_needing_ocr or not use_ocr_fallback:
+            doc.close()
+            full_text = "\n\n".join([t for t in text_parts if t])
+            return ExtractionResult(
+                text=full_text,
+                pages=len(doc),
+                metadata={"extractor": "pymupdf", "engine": "fitz", "ocr_used": False},
+                success=bool(full_text.strip()),
+            )
+
+        # Second pass: OCR for pages without text
+        ocr_client = get_ocr_client()
+        async with ocr_client:
+            for page_num in pages_needing_ocr:
+                page = doc[page_num]
+
+                # Convert page to image
+                mat = fitz.Matrix(2.0, 2.0)  # 2x zoom for better OCR
+                pix = page.get_pixmap(matrix=mat)
+                img_bytes = pix.tobytes("png")
+
+                # Perform OCR
+                ocr_result = await ocr_client.ocr_image_bytes(img_bytes)
+
+                if ocr_result.success and ocr_result.text.strip():
+                    # Update placeholder with OCR text
+                    text_parts[page_num] = ocr_result.text
 
         doc.close()
 
-        full_text = "\n\n".join(text_parts)
+        full_text = "\n\n".join([t for t in text_parts if t])
 
         return ExtractionResult(
             text=full_text,
-            pages=len(text_parts),
-            metadata={"extractor": "pymupdf", "engine": "fitz"},
+            pages=len(doc),
+            metadata={
+                "extractor": "pymupdf-ocr-hybrid",
+                "engine": "fitz",
+                "ocr_used": True,
+                "ocr_pages": len(pages_needing_ocr),
+            },
             success=bool(full_text.strip()),
         )
+
     except Exception as e:
         return ExtractionResult(
             success=False,
-            error=f"PyMuPDF extraction failed: {e}",
+            error=f"PDF extraction failed: {e}",
         )
 
 
@@ -176,11 +219,47 @@ def extract_text_file(file_path: str) -> ExtractionResult:
         )
 
 
-def extract_image_ocr(file_path: str) -> ExtractionResult:
-    """Extract text from image using OCR (Docling).
+async def extract_image_ocr(file_path: str) -> ExtractionResult:
+    """Extract text from image using PaddleOCR service.
 
     Args:
         file_path: Path to image file
+
+    Returns:
+        ExtractionResult with text and metadata
+    """
+    try:
+        from src.ingestion.paddleocr_client import get_ocr_client
+
+        ocr_client = get_ocr_client()
+        async with ocr_client:
+            result = await ocr_client.ocr_file(file_path)
+
+        if result.success:
+            return ExtractionResult(
+                text=result.text,
+                pages=1,
+                metadata={
+                    "extractor": "paddleocr",
+                    "confidence": result.confidence,
+                },
+                success=True,
+            )
+        else:
+            # Fallback to Docling if PaddleOCR fails
+            return await _extract_image_docling(file_path)
+
+    except Exception as e:
+        # Fallback to Docling on any error
+        return await _extract_image_docling(file_path, error=str(e))
+
+
+async def _extract_image_docling(file_path: str, error: str | None = None) -> ExtractionResult:
+    """Fallback image extraction using Docling.
+
+    Args:
+        file_path: Path to image file
+        error: Original error that triggered fallback
 
     Returns:
         ExtractionResult with text and metadata
@@ -196,17 +275,18 @@ def extract_image_ocr(file_path: str) -> ExtractionResult:
         return ExtractionResult(
             text=text,
             pages=1,
-            metadata={"extractor": "docling-ocr"},
+            metadata={"extractor": "docling-ocr", "fallback_from": "paddleocr"},
             success=bool(text.strip()),
         )
     except Exception as e:
+        fallback_err = str(e)
         return ExtractionResult(
             success=False,
-            error=f"Image OCR failed: {e}",
+            error=f"Image OCR failed (PaddleOCR: {error}, Docling: {fallback_err})",
         )
 
 
-def extract_content(file_path: str, file_type: str) -> ExtractionResult:
+async def extract_content(file_path: str, file_type: str) -> ExtractionResult:
     """Extract text from file using appropriate extractor.
 
     Args:
@@ -234,7 +314,7 @@ def extract_content(file_path: str, file_type: str) -> ExtractionResult:
 
     try:
         if file_type == "pdf":
-            return extract_pdf(file_path)
+            return await extract_pdf(file_path)
         elif file_type == "docx":
             return extract_docx(file_path)
         elif file_type == "pptx":
@@ -242,7 +322,7 @@ def extract_content(file_path: str, file_type: str) -> ExtractionResult:
         elif file_type in {"txt", "md"}:
             return extract_text_file(file_path)
         elif file_type in OCR_TYPES:
-            return extract_image_ocr(file_path)
+            return await extract_image_ocr(file_path)
         else:
             return ExtractionResult(
                 success=False,
@@ -255,12 +335,45 @@ def extract_content(file_path: str, file_type: str) -> ExtractionResult:
         )
 
 
+def extract_content_sync(file_path: str, file_type: str) -> ExtractionResult:
+    """Synchronous wrapper for extract_content.
+
+    Args:
+        file_path: Path to the file
+        file_type: File extension (e.g., "pdf", "docx")
+
+    Returns:
+        ExtractionResult with text, pages, metadata
+    """
+    import asyncio
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # We're in an async context, use create_task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(
+                    asyncio.run,
+                    extract_content(file_path, file_type)
+                )
+                return future.result()
+        else:
+            # No event loop, run directly
+            return asyncio.run(extract_content(file_path, file_type))
+    except RuntimeError:
+        # No event loop, create new one
+        return asyncio.run(extract_content(file_path, file_type))
+
+
 __all__ = [
     "ExtractionResult",
     "extract_content",
+    "extract_content_sync",
     "extract_pdf",
     "extract_docx",
     "extract_pptx",
     "extract_text_file",
     "extract_image_ocr",
+    "_extract_image_docling",
 ]

@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.indexing.file_store import download_file
 from src.indexing.qdrant_store import store_chunks
 from src.indexing.document_store import update_document_status
-from src.ingestion.extractor import extract_content
+from src.ingestion.extractor import extract_content_sync
 from src.ingestion.cleaner import clean_document
 from src.ingestion.chunker import chunk_document
 from src.ingestion.embedding import embed
@@ -93,7 +93,7 @@ def _process_sync(
         print(f"[ETL] Download complete. File saved to temp path.")
 
         print(f"[ETL] [Step 2/7] Extracting content (format: {file_type})...")
-        extraction_result = extract_content(temp_file.name, file_type)
+        extraction_result = extract_content_sync(temp_file.name, file_type)
         if not extraction_result.success:
             print(f"[ETL ERROR] Extraction failed: {extraction_result.error}")
             return {"success": False, "error": extraction_result.error or ERR_EXTRACTION_FAILED}

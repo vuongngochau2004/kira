@@ -116,6 +116,14 @@ class Settings(BaseSettings):
     # ----- Auth -----
     auth_enabled: bool = Field(True, env="AUTH_ENABLED")
 
+    # ----- OCR (PaddleOCR) -----
+    ocr_enabled: bool = Field(True, env="OCR_ENABLED")
+    ocr_base_url: str = Field("", env="OCR_BASE_URL")
+    ocr_lang: str = Field("vi", env="OCR_LANG")  # vi, en, ch
+    ocr_timeout: int = Field(30, env="OCR_TIMEOUT")  # seconds per request
+    ocr_max_retries: int = Field(3, env="OCR_MAX_RETRIES")
+    ocr_batch_size: int = Field(5, env="OCR_BATCH_SIZE")  # concurrent pages
+
     @property
     def database_url(self) -> str:
         """Async PostgreSQL connection URL."""

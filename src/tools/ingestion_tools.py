@@ -75,10 +75,10 @@ def extract_text_tool(
     Returns:
         JSON string with success status and extracted text
     """
-    from src.ingestion.extractor import extract_content
+    from src.ingestion.extractor import extract_content_sync
 
     try:
-        result = extract_content(file_path, file_type)
+        result = extract_content_sync(file_path, file_type)
 
         if result.success:
             return json.dumps({
