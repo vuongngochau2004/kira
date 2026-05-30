@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { Upload, FileText, Trash2, Loader2, File, CheckCircle, XCircle, Clock, MoreVertical, Plus } from 'lucide-react'
 import { Document } from '@/lib/api/simple-client'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,9 @@ interface DocumentPanelProps {
   onDelete: (id: string) => Promise<void>
   isUploading: (filename: string) => boolean
   error?: string | null
+  uploadDurations?: Record<string, number>
+  activeUploadStarts?: Record<string, number>
+  documentStarts?: Record<string, number>
 }
 
 // File type icons with colors
@@ -36,10 +39,21 @@ export function DocumentPanel({
   onUpload,
   onDelete,
   isUploading,
-  error
+  error,
+  uploadDurations = {},
+  activeUploadStarts = {},
+  documentStarts = {}
 }: DocumentPanelProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [showUploadZone, setShowUploadZone] = useState(false)
+  const [now, setNow] = useState<number>(Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -90,6 +104,7 @@ export function DocumentPanel({
       console.error('Upload failed:', err)
     }
   }
+
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`
@@ -185,13 +200,15 @@ export function DocumentPanel({
               const fileType = FILE_TYPES[doc.file_type] || FILE_TYPES.default
               const Icon = fileType.icon
               const uploading = isUploading(doc.filename)
+              const isCurrentlyUploading = uploading || doc.status === 'uploading'
+              const uploadDuration = uploadDurations[doc.id] || uploadDurations[doc.filename]
 
               return (
                 <div
                   key={doc.id}
                   className={cn(
                     'flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors',
-                    uploading && 'bg-primary/5'
+                    isCurrentlyUploading && 'bg-primary/5'
                   )}
                 >
                   {/* File Icon */}
@@ -199,16 +216,39 @@ export function DocumentPanel({
                     <Icon className={cn('w-8 h-8', fileType.color)} />
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{doc.filename}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatFileSize(doc.file_size)}
+                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span>{formatFileSize(doc.file_size)}</span>
+                      {isCurrentlyUploading ? (
+                        <span className="text-blue-500 font-medium flex items-center gap-1">
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                          {(() => {
+                            const startTime = activeUploadStarts[doc.filename]
+                            return startTime ? `${Math.max(0, (now - startTime) / 1000).toFixed(0)}s` : 'Tải...'
+                          })()}
+                        </span>
+                      ) : doc.status === 'processing' ? (
+                        <span className="text-amber-500 font-medium flex items-center gap-1">
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                          Đang xử lý {(() => {
+                            const startTime = documentStarts[doc.id] || (doc.created_at ? (doc.created_at.endsWith('Z') ? Date.parse(doc.created_at) : Date.parse(doc.created_at + 'Z')) : null)
+                            return startTime ? `(${Math.max(0, (now - startTime) / 1000).toFixed(0)}s)` : ''
+                          })()}
+                        </span>
+                      ) : null}
+
+                      {uploadDuration !== undefined && !isCurrentlyUploading && (
+                        <>
+                          <span className="text-[10px] opacity-40">•</span>
+                          <span>Tải: {uploadDuration.toFixed(1)}s</span>
+                        </>
+                      )}
                     </p>
                   </div>
 
                   {/* Actions */}
-                  {!uploading && (
+                  {!isCurrentlyUploading && doc.status !== 'processing' && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -230,8 +270,8 @@ export function DocumentPanel({
                     </DropdownMenu>
                   )}
 
-                  {uploading && (
-                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  {(isCurrentlyUploading || doc.status === 'processing') && (
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
                   )}
                 </div>
               )

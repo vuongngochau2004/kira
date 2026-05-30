@@ -71,6 +71,8 @@ export default function UploadsPage() {
   const [mounted, setMounted] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
 
+  const [now, setNow] = useState<number>(Date.now())
+
   // Preview Dialog States
   const [previewDocId, setPreviewDocId] = useState<string | null>(null)
   const [previewFilename, setPreviewFilename] = useState<string>('')
@@ -78,6 +80,10 @@ export default function UploadsPage() {
 
   useEffect(() => {
     setMounted(true)
+    const interval = setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -133,6 +139,7 @@ export default function UploadsPage() {
     }
     e.target.value = ''
   }, [uploadFile])
+
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`
@@ -259,7 +266,8 @@ export default function UploadsPage() {
                     const Icon = fileType.icon
                     const uploading = documents.isUploading(doc.filename)
                     const isCompleted = doc.status === 'completed'
-                    
+                    const uploadDuration = documents.uploadDurations[doc.id] || documents.uploadDurations[doc.filename]
+
                     const ext = doc.file_type.toLowerCase()
                     const isWordOrPpt = ext === 'doc' || ext === 'docx' || ext === 'ppt' || ext === 'pptx'
 
@@ -298,13 +306,18 @@ export default function UploadsPage() {
                           <Icon className={cn('w-5 h-5', fileType.color)} />
                         </div>
 
-                        {/* File Info */}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate text-foreground group-hover:text-primary transition-colors">
                             {doc.filename}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {formatFileSize(doc.file_size)}
+                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span>{formatFileSize(doc.file_size)}</span>
+                            {uploadDuration !== undefined && (
+                              <>
+                                <span className="text-[10px] opacity-40">•</span>
+                                <span>Tải lên: {uploadDuration.toFixed(1)}s</span>
+                              </>
+                            )}
                           </p>
                         </div>
 
@@ -315,12 +328,18 @@ export default function UploadsPage() {
                           {(uploading || doc.status === 'uploading') ? (
                             <span className="flex items-center gap-1.5 text-xs text-blue-500 font-medium">
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              Đang tải
+                              Đang tải {(() => {
+                                const startTime = documents.activeUploadStarts[doc.filename]
+                                return startTime ? `(${Math.max(0, (now - startTime) / 1000).toFixed(1)}s)` : ''
+                              })()}
                             </span>
                           ) : doc.status === 'processing' ? (
                             <span className="flex items-center gap-1.5 text-xs text-amber-500 font-medium">
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              Đang xử lý
+                              Đang xử lý {(() => {
+                                const startTime = documents.documentStarts[doc.id] || (doc.created_at ? (doc.created_at.endsWith('Z') ? Date.parse(doc.created_at) : Date.parse(doc.created_at + 'Z')) : null)
+                                return startTime ? `(${Math.max(0, (now - startTime) / 1000).toFixed(1)}s)` : ''
+                              })()}
                             </span>
                           ) : doc.status === 'failed' ? (
                             <span 

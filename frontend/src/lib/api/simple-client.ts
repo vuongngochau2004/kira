@@ -26,6 +26,7 @@ export interface Document {
   status: 'uploading' | 'processing' | 'completed' | 'failed' | string
   error_message?: string
   created_at: string
+  updated_at?: string
 }
 
 export interface AuthUser {

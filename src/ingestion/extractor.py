@@ -28,6 +28,53 @@ SUPPORTED_TYPES = {
 OCR_TYPES = {"png", "jpg", "jpeg", "tiff", "bmp", "gif", "webp"}
 
 
+def _is_low_quality_text(text: str, lang: str = "vi") -> bool:
+    """Detect if the extracted text layer is low-quality, corrupt, or garbage.
+
+    Args:
+        text: Extracted text content
+        lang: Language for specific diacritics check (default: vi)
+
+    Returns:
+        True if the text is low-quality or corrupt, False otherwise
+    """
+    if not text or not text.strip():
+        return True
+
+    cleaned_text = text.strip()
+    # If the text is extremely short, treat as no text
+    if len(cleaned_text) < 10:
+        return True
+
+    # 1. Ratio of single-character words (indicates a broken layout/characters split by spaces)
+    words = cleaned_text.split()
+    if len(words) > 5:
+        single_char_words = [w for w in words if len(w) == 1 and w.isalpha()]
+        if len(single_char_words) / len(words) > 0.40:
+            logger.warning("Low quality text detected: excessive single-character words (spacing issue)")
+            return True
+
+    # 2. Vietnamese-specific diacritics check
+    if lang == "vi":
+        # Common Vietnamese accented vowels and character Đ/đ
+        vi_chars = set("áàảãạâấầẩẫậăắằẳẵặéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđĐ")
+        vi_char_count = sum(1 for c in cleaned_text if c in vi_chars)
+        total_letters = sum(1 for c in cleaned_text if c.isalpha())
+
+        if total_letters > 20:
+            vi_ratio = vi_char_count / total_letters
+            # A normal Vietnamese text usually has at least 5% to 15% accented characters.
+            # If it's less than 1.5%, it's highly likely a broken or English-only fallback text layer
+            if vi_ratio < 0.015:
+                logger.warning(
+                    "Low quality text detected: very low Vietnamese diacritics ratio (%.2f%%)",
+                    vi_ratio * 100
+                )
+                return True
+
+    return False
+
+
 async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> ExtractionResult:
     """Extract text from PDF using PyMuPDF with OCR fallback for scanned pages.
 
@@ -42,16 +89,20 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
     try:
         import fitz
         from src.ingestion.paddleocr_client import get_ocr_client
+        from config.config import settings
 
         doc = fitz.open(file_path)
         num_pages = len(doc)
         text_parts = []
         pages_needing_ocr = []
+        ocr_lang = settings.ocr_lang
 
         # First pass: extract text with PyMuPDF
         for page_num, page in enumerate(doc):
             page_text = page.get_text()
-            if page_text.strip():
+            # If the page has text and it is of acceptable quality, keep it.
+            # Otherwise, route the page to OCR.
+            if page_text.strip() and not _is_low_quality_text(page_text, lang=ocr_lang):
                 text_parts.append(page_text)
             else:
                 # Mark page for OCR - use placeholder
@@ -65,7 +116,12 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
             return ExtractionResult(
                 text=full_text,
                 pages=num_pages,
-                metadata={"extractor": "pymupdf", "engine": "fitz", "ocr_used": False},
+                metadata={
+                    "extractor": "pymupdf",
+                    "engine": "fitz",
+                    "ocr_used": False,
+                    "extraction_method": "normal",
+                },
                 success=bool(full_text.strip()),
             )
 
@@ -76,7 +132,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
                 page = doc[page_num]
 
                 # Convert page to image
-                mat = fitz.Matrix(2.0, 2.0)  # 2x zoom for better OCR
+                mat = fitz.Matrix(3.0, 3.0)  # 3x zoom for better OCR
                 pix = page.get_pixmap(matrix=mat)
                 img_bytes = pix.tobytes("png")
 
@@ -99,6 +155,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
                 "engine": "fitz",
                 "ocr_used": True,
                 "ocr_pages": len(pages_needing_ocr),
+                "extraction_method": "ocr",
             },
             success=bool(full_text.strip()),
         )
@@ -330,14 +387,19 @@ async def extract_content(file_path: str, file_type: str) -> ExtractionResult:
             error=f"Unsupported file type: {file_type}",
         )
 
-    is_ocr = file_type in OCR_TYPES
-    method_name = "OCR" if is_ocr else "normal (text-based)"
+    if file_type == "pdf":
+        method_name = "PDF (native/OCR hybrid)"
+    elif file_type in OCR_TYPES:
+        method_name = "OCR image"
+    else:
+        method_name = "normal (text-based)"
+
     print(f"[Extractor] Starting {method_name} extraction for file: {file_path} (format: {file_type})")
     logger.info("Starting %s extraction for file: %s (format: %s)", method_name, file_path, file_type)
 
     try:
         if file_type == "pdf":
-            return await extract_pdf(file_path)
+            result = await extract_pdf(file_path)
         elif file_type == "docx":
             result = extract_docx(file_path)
         elif file_type == "pptx":
@@ -345,7 +407,7 @@ async def extract_content(file_path: str, file_type: str) -> ExtractionResult:
         elif file_type in {"txt", "md"}:
             result = extract_text_file(file_path)
         elif file_type in OCR_TYPES:
-            return await extract_image_ocr(file_path)
+            result = await extract_image_ocr(file_path)
         else:
             result = ExtractionResult(
                 success=False,
@@ -354,10 +416,13 @@ async def extract_content(file_path: str, file_type: str) -> ExtractionResult:
 
         if result.success:
             if "extraction_method" not in result.metadata:
-                result.metadata["extraction_method"] = "ocr" if is_ocr else "normal"
+                is_ocr_result = result.metadata.get("ocr_used", False)
+                result.metadata["extraction_method"] = "ocr" if is_ocr_result else "normal"
             if "ocr_used" not in result.metadata:
-                result.metadata["ocr_used"] = is_ocr
-            print(f"[Extractor] Extraction successful. Method: {result.metadata['extraction_method'].upper()}, Pages: {result.pages}")
+                result.metadata["ocr_used"] = result.metadata.get("ocr_used", False)
+            
+            ext_method = result.metadata["extraction_method"].upper()
+            print(f"[Extractor] Extraction successful. Method: {ext_method}, Pages: {result.pages}")
             logger.info("Extraction successful. Method: %s, Pages: %d", result.metadata['extraction_method'], result.pages)
         else:
             print(f"[Extractor ERROR] Extraction failed: {result.error}")

@@ -107,7 +107,7 @@ export function SidebarExpanded({
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(true)
 
   // Document states inside sidebar
-  const { documents, deleteDocument, isLoading } = useDocumentsUpload()
+  const { documents, deleteDocument, isLoading, uploadDurations = {} } = useDocumentsUpload()
   const [previewDocId, setPreviewDocId] = useState<string | null>(null)
   const [previewFilename, setPreviewFilename] = useState<string>('')
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -264,6 +264,14 @@ export function SidebarExpanded({
                           <p className="text-[11px] font-medium truncate text-foreground group-hover:text-primary transition-colors">
                             {doc.filename}
                           </p>
+                          {(() => {
+                            const duration = uploadDurations[doc.id] || uploadDurations[doc.filename]
+                            return duration !== undefined ? (
+                              <p className="text-[9px] text-muted-foreground leading-none mt-0.5">
+                                Tải lên: {duration.toFixed(1)}s
+                              </p>
+                            ) : null
+                          })()}
                         </div>
 
                         {/* Inline Hover Action Helper & Trash */}

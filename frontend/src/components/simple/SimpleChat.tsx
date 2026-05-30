@@ -337,7 +337,13 @@ export function SimpleChat({
 
       {/* Source Panel - Mobile/Tablet only */}
       <SourcePanel
-        sources={store.sources}
+        sources={store.sources.map((s) => ({
+          id: s.id,
+          content: s.snippet,
+          score: s.score,
+          document_id: s.document_id || undefined,
+          chunk_index: s.page !== undefined ? s.page - 1 : undefined,
+        }))}
         isOpen={store.isOpen || sourcePanelOpen}
         onClose={() => {
           store.setIsOpen(false)

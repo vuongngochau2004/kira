@@ -168,6 +168,70 @@ class PaddleOCRClient:
             f"OCR request failed after {self.max_retries} attempts: {last_error}"
         ) from last_error
 
+    def _sort_ocr_lines(self, lines: list[dict]) -> list[dict]:
+        """Sort OCR lines in standard 2D reading order: top-to-bottom, left-to-right.
+
+        Args:
+            lines: List of raw OCR line dictionaries
+
+        Returns:
+            Sorted list of OCR line dictionaries
+        """
+        if not lines:
+            return []
+
+        coords = []
+        for line in lines:
+            if not isinstance(line, dict):
+                continue
+            box = line.get("box")
+            if box and isinstance(box, list) and len(box) == 4:
+                try:
+                    # y_center = average y of all 4 corners
+                    y_coord = sum(float(pt[1]) for pt in box) / 4.0
+                    # x_center = average x of all 4 corners
+                    x_coord = sum(float(pt[0]) for pt in box) / 4.0
+                    # Height of the box
+                    height = max(float(pt[1]) for pt in box) - min(float(pt[1]) for pt in box)
+                except Exception:
+                    y_coord = 0.0
+                    x_coord = 0.0
+                    height = 15.0
+            else:
+                y_coord = 0.0
+                x_coord = 0.0
+                height = 15.0
+
+            coords.append((y_coord, x_coord, height, line))
+
+        # Sort primarily by Y coordinate (top to bottom)
+        coords.sort(key=lambda item: item[0])
+
+        sorted_lines = []
+        current_group = []
+
+        for y, x, h, line in coords:
+            if not current_group:
+                current_group.append((y, x, line))
+                continue
+
+            prev_y = current_group[-1][0]
+            # If the difference in Y is less than 60% of the line height, group them as the same horizontal line
+            if abs(y - prev_y) < h * 0.6:
+                current_group.append((y, x, line))
+            else:
+                # Sort the previous line group left-to-right by X coordinate
+                current_group.sort(key=lambda item: item[1])
+                sorted_lines.extend(item[2] for item in current_group)
+                # Start a new group
+                current_group = [(y, x, line)]
+
+        if current_group:
+            current_group.sort(key=lambda item: item[1])
+            sorted_lines.extend(item[2] for item in current_group)
+
+        return sorted_lines
+
     async def ocr_image_bytes(
         self,
         image_bytes: bytes,
@@ -203,7 +267,14 @@ class PaddleOCRClient:
             # Extract text from response
             # Common response formats: {"text": "..."} or {"results": [{"text": "..."}]}
             if isinstance(response_data, dict):
-                text = response_data.get("text", "")
+                # If the server returned structured lines, we perform 2D layout sorting
+                # to reconstruct the text in the correct reading order (top-to-bottom, left-to-right)
+                lines_list = response_data.get("lines", [])
+                if lines_list and isinstance(lines_list, list):
+                    sorted_lines = self._sort_ocr_lines(lines_list)
+                    text = "\n".join(r.get("text", "") for r in sorted_lines if isinstance(r, dict))
+                else:
+                    text = response_data.get("text", "")
 
                 # Handle nested results format
                 if not text and "results" in response_data:

@@ -101,6 +101,32 @@ def _process_sync(
         ext_method = extraction_result.metadata.get("extraction_method", "normal")
         print(f"[ETL] Extraction complete. Method: {ext_method.upper()}, Raw length: {len(extraction_result.text)} characters.")
 
+        # Export OCR text for inspection if OCR was used
+        if extraction_result.metadata.get("ocr_used", False):
+            try:
+                project_root = Path(__file__).resolve().parents[2]
+                output_dir = project_root / "data" / "output"
+                output_dir.mkdir(parents=True, exist_ok=True)
+                output_file = output_dir / f"{document_id}.txt"
+                
+                header_info = (
+                    f"==================================================\n"
+                    f"OCR EXPORT FOR INSPECTION\n"
+                    f"Document ID: {document_id}\n"
+                    f"Original Storage Path: {storage_path}\n"
+                    f"Extractor: {extraction_result.metadata.get('extractor')}\n"
+                    f"OCR Pages: {extraction_result.metadata.get('ocr_pages')}\n"
+                    f"==================================================\n\n"
+                )
+                
+                with open(output_file, "w", encoding="utf-8") as f:
+                    f.write(header_info)
+                    f.write(extraction_result.text)
+                
+                print(f"[ETL] OCR output successfully exported for inspection to: {output_file}")
+            except Exception as e:
+                print(f"[ETL WARNING] Failed to export OCR text: {e}")
+
         print(f"[ETL] [Step 3/7] Cleaning document text...")
         cleaned_text = clean_document(extraction_result.text)
         if not cleaned_text.strip():

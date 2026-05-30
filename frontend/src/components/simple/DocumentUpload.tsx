@@ -159,7 +159,7 @@ export function DocumentUpload({
           <div className="space-y-2">
             {documents.map((doc) => {
               const Icon = FILE_ICONS[doc.file_type] || FILE_ICONS.default
-              const status = STATUS_CONFIG[doc.status]
+              const status = STATUS_CONFIG[doc.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending
               const StatusIcon = status.icon
               const uploading = isUploading(doc.filename)
 
