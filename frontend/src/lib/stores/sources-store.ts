@@ -8,6 +8,7 @@ export interface SourceItem {
   page?: number
   score: number
   document_id?: string
+  content_length?: number  // New: for "view more" UI decision
 }
 
 interface SourcesState {
@@ -45,10 +46,11 @@ export const useSourcesStore = create<SourcesState>((set) => ({
         id: s.chunk_id || s.id || `source-${idx}-${Date.now()}`,
         type,
         title,
-        snippet: s.content || s.snippet || '',
-        page: s.chunk_index !== undefined ? s.chunk_index + 1 : s.page,
+        snippet: s.snippet || s.content || '',  // Prefer snippet, fallback to content
+        page: s.page_number || (s.chunk_index !== undefined ? s.chunk_index + 1 : s.page),  // Use page_number if available
         score: typeof s.score === 'number' ? s.score : 0.9,
         document_id: s.document_id || null,
+        content_length: s.content_length,  // New field for "view more" UI
       }
     })
 

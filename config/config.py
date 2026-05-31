@@ -103,6 +103,11 @@ class Settings(BaseSettings):
     retrieval_k: int = _static_config.get("retrieval", {}).get("k", 5)
     rrf_k: int = _static_config.get("retrieval", {}).get("rrf_k", 60)
 
+    # ----- Citations (from settings.yaml) -----
+    max_citations: int = _static_config.get("citations", {}).get("max_citations", 10)
+    min_score_threshold: float = _static_config.get("citations", {}).get("min_score_threshold", 0.3)
+    snippet_length: int = _static_config.get("citations", {}).get("snippet_length", 200)
+
     # ----- Chunking (from settings.yaml) -----
     chunk_size: int = _static_config.get("chunking", {}).get("size", 2048)
     chunk_overlap: int = _static_config.get("chunking", {}).get("overlap", 256)

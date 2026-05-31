@@ -24,13 +24,33 @@ def dense_search(
         k: Number of results to return
 
     Returns:
-        List of retrieved chunks with scores
+        List of retrieved chunks with standardized structure
     """
-    return search_similar(
+    results = search_similar(
         query_embedding=query_embedding,
         user_id=user_id,
         limit=k,
     )
+
+    # Standardize structure: ensure all fields present
+    return [
+        {
+            "id": r.get("id"),
+            "text": r.get("text", ""),
+            "content": r.get("text", ""),  # Alias for consistency
+            "metadata": {
+                "document_id": r.get("document_id"),
+                "user_id": r.get("user_id"),
+                "chunk_index": r.get("chunk_index"),
+                "page_number": r.get("page_number"),
+            },
+            "document_id": r.get("document_id"),
+            "chunk_index": r.get("chunk_index"),
+            "page_number": r.get("page_number"),
+            "score": r.get("score", 0.0),
+        }
+        for r in results
+    ]
 
 
 __all__ = ["dense_search"]

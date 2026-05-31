@@ -11,6 +11,12 @@ retrieval:
   k: 5                         # Top-k chunks to retrieve
   rrf_k: 60                    # RRF constant (higher → more diversity)
 
+# Citations
+citations:
+  max_citations: 10            # Maximum citations to return (was hard-coded 5)
+  min_score_threshold: 0.3     # Minimum score for citations
+  snippet_length: 200           # Character length for citation snippets
+
 # Chunking
 chunking:
   size: 2048                   # Token limit per chunk

@@ -51,11 +51,18 @@ def _build_sorted_results(
     doc_map: dict[str, dict],
     scores: dict[str, float],
 ) -> list[dict]:
-    """Build sorted results with RRF scores."""
+    """Build sorted results with RRF scores and standardized structure."""
     results = []
     for key, rrf_score in sorted(scores.items(), key=lambda x: x[1], reverse=True):
         doc = doc_map[key].copy()
         doc["rrf_score"] = rrf_score
+
+        # Ensure standardized fields
+        if "text" not in doc:
+            doc["text"] = doc.get("content", "")
+        if "content" not in doc:
+            doc["content"] = doc.get("text", "")
+
         results.append(doc)
     return results
 

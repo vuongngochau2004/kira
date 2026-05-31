@@ -93,6 +93,65 @@ async def get_document(
     return result.scalar_one_or_none()
 
 
+async def get_documents_batch(
+    document_ids: list[UUID | str],
+    user_id: UUID | None = None,
+    db: AsyncSession | None = None,
+) -> dict[str, str]:
+    """Batch fetch documents by IDs, returning {document_id: filename} mapping.
+
+    Args:
+        document_ids: List of document IDs to fetch
+        user_id: Optional user ID filter
+        db: Optional database session
+
+    Returns:
+        Dict mapping document_id (str) to filename
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    if not document_ids:
+        return {}
+
+    try:
+        session = await _get_session(db)
+
+        # Convert string IDs to UUID for query
+        uuid_ids = []
+        for doc_id in document_ids:
+            if isinstance(doc_id, UUID):
+                uuid_ids.append(doc_id)
+            else:
+                try:
+                    uuid_id = UUID(doc_id)
+                    uuid_ids.append(uuid_id)
+                except ValueError:
+                    continue  # Skip invalid UUIDs
+
+        if not uuid_ids:
+            return {}
+
+        # Single batch query with WHERE IN clause
+        query = select(Document).where(
+            Document.id.in_(uuid_ids),
+            Document.deleted_at.is_(None),
+        )
+
+        if user_id is not None:
+            query = query.where(Document.user_id == user_id)
+
+        result = await session.execute(query)
+        documents = result.scalars().all()
+
+        # Return {document_id: filename} mapping
+        return {str(doc.id): doc.filename for doc in documents}
+
+    except Exception as e:
+        logger.error(f"Batch document query failed: {e}")
+        return {}
+
+
 async def list_documents(
     user_id: UUID,
     status: str | None = None,
@@ -310,6 +369,7 @@ __all__ = [
     "create_document",
     "update_document_status",
     "get_document",
+    "get_documents_batch",
     "list_documents",
     "delete_document",
     "create_chunks",

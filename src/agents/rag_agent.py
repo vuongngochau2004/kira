@@ -403,50 +403,65 @@ class AgenticRAG:
         }
 
     async def _resolve_document_titles(self, docs: list[dict]) -> dict[str, str]:
-        """Fetch document filenames for document_ids from Postgres."""
+        """Fetch document filenames for document_ids from Postgres using batch query."""
         doc_ids = {d.get("document_id") for d in docs if d.get("document_id")}
         if not doc_ids:
             return {}
 
         from src.database.session import async_session_factory
-        from src.indexing.document_store import get_document
-        import uuid
+        from src.indexing.document_store import get_documents_batch
 
-        titles = {}
         async with async_session_factory() as session:
-            for doc_id_str in doc_ids:
-                try:
-                    doc_uuid = uuid.UUID(str(doc_id_str))
-                    doc = await get_document(doc_uuid, db=session)
-                    if doc:
-                        titles[str(doc_id_str)] = doc.filename
-                except Exception:
-                    continue
+            # Single batch query instead of N+1 individual queries
+            titles = await get_documents_batch(
+                document_ids=list(doc_ids),
+                db=session,
+            )
         return titles
 
-    def _extract_citations(self, docs: list[dict], doc_titles: dict[str, str] | None = None) -> list[dict]:
+    def _extract_citations(self, docs: list[dict], doc_titles: dict[str, str] | None = None, max_citations: int | None = None) -> list[dict]:
         """Extract citation info from retrieved docs.
 
         Args:
             docs: Retrieved documents
             doc_titles: Pre-resolved document titles
+            max_citations: Maximum citations to extract (defaults to settings.max_citations)
 
         Returns:
             List of citation dicts
         """
+        from config.config import settings
+
+        if max_citations is None:
+            max_citations = settings.max_citations
+        if max_citations <= 0:
+            max_citations = 10
+
+        snippet_length = settings.snippet_length
         citations = []
         doc_titles = doc_titles or {}
-        for index, doc in enumerate(docs[:5]):  # Top 5 docs for citations
+        for index, doc in enumerate(docs[:max_citations]):  # Use configurable limit
             doc_id = doc.get("document_id")
             title = doc_titles.get(str(doc_id)) or doc.get("metadata", {}).get("title") or doc.get("title") or "Tài liệu không rõ"
             chunk_id = doc.get("chunk_id") or doc.get("id") or f"chunk-{index}"
-            
+
+            # Extract content and generate snippet
+            content = doc.get("text") or doc.get("content") or ""
+            content = content if isinstance(content, str) else str(content)
+            content_length = len(content)
+            snippet = content[:snippet_length]
+            if content_length > snippet_length:
+                snippet += "..."
+
             citations.append({
                 "chunk_id": str(chunk_id),
                 "source": title,
                 "title": title,
-                "content": doc.get("text", doc.get("content", "")),
-                "score": float(doc.get("score") or doc.get("rrf_score", 0.9)),
+                "snippet": snippet,  # Preview text
+                "content": content,
+                "content_length": content_length,  # Full content size
+                "page_number": doc.get("page_number") or doc.get("metadata", {}).get("page_number"),  # Page tracking
+                "score": float(doc.get("score") or doc.get("rrf_score") or 0.0),  # Use 0.0 as fallback
                 "document_id": str(doc_id) if doc_id else None,
                 "chunk_index": doc.get("chunk_index"),
             })

@@ -116,12 +116,16 @@ class BM25Index:
         # Sort by score descending
         scores.sort(key=lambda x: x[1], reverse=True)
 
-        # Return top-k documents
+        # Return top-k documents with standardized structure
         results = []
         for idx, score in scores[:k]:
+            metadata = self.doc_metadata[idx]
             results.append({
-                "content": self.doc_texts[idx],
-                "metadata": self.doc_metadata[idx],
+                "text": self.doc_texts[idx],
+                "content": self.doc_texts[idx],  # Alias for consistency
+                "metadata": metadata,
+                "document_id": metadata.get("document_id"),
+                "chunk_index": metadata.get("chunk_index"),
                 "score": score,
             })
 

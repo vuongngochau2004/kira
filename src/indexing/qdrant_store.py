@@ -150,6 +150,7 @@ def search_similar(
             "document_id": hit.payload.get("document_id"),
             "user_id": hit.payload.get("user_id"),
             "chunk_index": hit.payload.get("chunk_index"),
+            "page_number": hit.payload.get("page_number"),
         }
         for hit in results
     ]

@@ -19,6 +19,7 @@ class ExtractionResult:
     metadata: dict = field(default_factory=dict)
     success: bool = True
     error: str | None = None
+    page_texts: list[tuple[int, str]] = field(default_factory=list)  # (page_num, text) for page tracking
 
 
 SUPPORTED_TYPES = {
@@ -94,6 +95,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
         doc = fitz.open(file_path)
         num_pages = len(doc)
         text_parts = []
+        page_texts = []  # Track (page_num, text) for citation page tracking
         pages_needing_ocr = []
         ocr_lang = settings.ocr_lang
 
@@ -104,6 +106,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
             # Otherwise, route the page to OCR.
             if page_text.strip() and not _is_low_quality_text(page_text, lang=ocr_lang):
                 text_parts.append(page_text)
+                page_texts.append((page_num, page_text))  # Track page number
             else:
                 # Mark page for OCR - use placeholder
                 text_parts.append("")  # Placeholder for OCR result
@@ -116,6 +119,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
             return ExtractionResult(
                 text=full_text,
                 pages=num_pages,
+                page_texts=page_texts,  # Include page tracking
                 metadata={
                     "extractor": "pymupdf",
                     "engine": "fitz",
@@ -142,6 +146,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
                 if ocr_result.success and ocr_result.text.strip():
                     # Update placeholder with OCR text
                     text_parts[page_num] = ocr_result.text
+                    page_texts.append((page_num, ocr_result.text))  # Track OCR pages too
 
         doc.close()
 
@@ -150,6 +155,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
         return ExtractionResult(
             text=full_text,
             pages=num_pages,
+            page_texts=page_texts,  # Include page tracking
             metadata={
                 "extractor": "pymupdf-ocr-hybrid",
                 "engine": "fitz",

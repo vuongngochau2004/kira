@@ -69,6 +69,7 @@ def chunk_document(
     chunk_size: int | None = None,
     chunk_overlap: int | None = None,
     encoding_name: str = "cl100k_base",
+    page_number: int | None = None,
 ) -> list[Chunk]:
     """Split document text into semantic chunks.
 
@@ -78,6 +79,7 @@ def chunk_document(
         chunk_size: Target chunk size in tokens.
         chunk_overlap: Overlap between chunks in tokens.
         encoding_name: tiktoken encoding (default: cl100k_base).
+        page_number: Optional page number for this text (used in citations).
 
     Returns:
         List of Chunk objects.
@@ -96,6 +98,11 @@ def chunk_document(
     current_parts: list[str] = []
     current_tokens = 0
 
+    # Base metadata to include in all chunks
+    base_metadata = {"document_id": document_id}
+    if page_number is not None:
+        base_metadata["page_number"] = page_number
+
     for paragraph in paragraphs:
         para_tokens = _count_tokens(paragraph, encoding)
 
@@ -106,7 +113,7 @@ def chunk_document(
                     index=len(chunks),
                     content=chunk_text,
                     token_count=_count_tokens(chunk_text, encoding),
-                    metadata={"document_id": document_id},
+                    metadata=base_metadata.copy(),
                 ))
                 current_parts = []
                 current_tokens = 0
@@ -117,7 +124,7 @@ def chunk_document(
                     index=len(chunks),
                     content=sub,
                     token_count=_count_tokens(sub, encoding),
-                    metadata={"document_id": document_id},
+                    metadata=base_metadata.copy(),
                 ))
             continue
 
@@ -127,7 +134,7 @@ def chunk_document(
                 index=len(chunks),
                 content=chunk_text,
                 token_count=_count_tokens(chunk_text, encoding),
-                metadata={"document_id": document_id},
+                metadata=base_metadata.copy(),
             ))
 
             overlap_parts = _get_overlap_parts(current_parts, chunk_overlap, encoding)
@@ -143,7 +150,7 @@ def chunk_document(
             index=len(chunks),
             content=chunk_text,
             token_count=_count_tokens(chunk_text, encoding),
-            metadata={"document_id": document_id},
+            metadata=base_metadata.copy(),
         ))
 
     return chunks
