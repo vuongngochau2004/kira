@@ -64,12 +64,13 @@ class RAGRouter(BaseRouter):
         # Low confidence for very short queries (likely conversational)
         return 0.2
 
-    async def handle(self, query: str, user_id: str | UUID) -> dict[str, Any]:
+    async def handle(self, query: str, user_id: str | UUID, conversation_history: list[dict] | None = None) -> dict[str, Any]:
         """Process query with RAG (non-streaming).
 
         Args:
             query: User query
             user_id: User ID for filtering
+            conversation_history: Optional conversation history for context
 
         Returns:
             Response dict with RAG-generated answer
@@ -82,7 +83,7 @@ class RAGRouter(BaseRouter):
             )
 
         try:
-            result = await self.rag_agent.query(query, user_id)
+            result = await self.rag_agent.query(query, user_id, conversation_history=conversation_history)
 
             # Add backward-compatible fields
             result.setdefault("citations", [])
@@ -111,12 +112,14 @@ class RAGRouter(BaseRouter):
         self,
         query: str,
         user_id: str | UUID,
+        conversation_history: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         """Process query with RAG streaming.
 
         Args:
             query: User query
             user_id: User ID for filtering
+            conversation_history: Optional conversation history for context
 
         Yields:
             Dict chunks with type:
@@ -132,7 +135,7 @@ class RAGRouter(BaseRouter):
             )
 
         try:
-            async for chunk in self.rag_agent.query_stream(query, user_id):
+            async for chunk in self.rag_agent.query_stream(query, user_id, conversation_history=conversation_history):
                 yield chunk
 
         except Exception as e:

@@ -155,7 +155,7 @@ export function useSimpleChat() {
                 })
               }
 
-              nodeContent += `\n  ↳ LLM Reasoning:${reasoning.split('\n').map((line: string) => `    ${line}`).join('\n')}`
+              nodeContent += `\n${reasoning.split('\n').map((line: string) => `    ${line}`).join('\n')}`
 
               existingThinking = [
                 {
@@ -246,7 +246,7 @@ export function useSimpleChat() {
       }
       
       if (currentThoughtsRef.current) {
-        nodeContent += `\n  ↳ LLM Reasoning:${currentThoughtsRef.current.split('\n').map(line => `    ${line}`).join('\n')}`
+        nodeContent += `${currentThoughtsRef.current.split('\n').map(line => `    ${line}`).join('\n')}`
       }
 
       currentThinkingRef.current = [

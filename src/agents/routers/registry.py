@@ -71,12 +71,14 @@ class RouterRegistry:
         cls,
         query: str,
         user_id: str | UUID = "default",
+        conversation_history: list[dict] | None = None,
     ) -> dict[str, Any]:
         """Route query to appropriate router using multi-stage strategy.
 
         Args:
             query: User query
             user_id: User ID for filtering
+            conversation_history: Optional conversation history for context
 
         Returns:
             Response dict from selected router
@@ -84,7 +86,7 @@ class RouterRegistry:
         t0 = time.perf_counter()
 
         # Stage 1: Quick Filter - keyword-based confidence check
-        quick_result = await cls._quick_filter(query, user_id)
+        quick_result = await cls._quick_filter(query, user_id, conversation_history)
         if quick_result is not None:
             logger.info(f"Quick routed to: {quick_result.get('metadata', {}).get('router')}")
             return quick_result
@@ -118,7 +120,7 @@ class RouterRegistry:
 
         # Stage 4: Execute Router
         try:
-            result = await router.handle(query, user_id)
+            result = await router.handle(query, user_id, conversation_history=conversation_history)
             result["latency_ms"] = (time.perf_counter() - t0) * 1000
             result.setdefault("metadata", {})["classification"] = {
                 "intent": classification.intent,
@@ -135,12 +137,14 @@ class RouterRegistry:
         cls,
         query: str,
         user_id: str | UUID = "default",
+        conversation_history: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         """Route query to appropriate router with streaming response.
 
         Args:
             query: User query
             user_id: User ID for filtering
+            conversation_history: Optional conversation history for context
 
         Yields:
             Dict chunks with type:
@@ -163,7 +167,7 @@ class RouterRegistry:
                     "method": "quick_filter",
                 },
             }
-            async for chunk in quick_router.handle_stream(query, user_id):
+            async for chunk in quick_router.handle_stream(query, user_id, conversation_history=conversation_history):
                 yield chunk
             return
 
@@ -208,7 +212,7 @@ class RouterRegistry:
 
         # Stage 4: Execute Router with streaming
         try:
-            async for chunk in router.handle_stream(query, user_id):
+            async for chunk in router.handle_stream(query, user_id, conversation_history=conversation_history):
                 yield chunk
 
         except Exception as e:
@@ -315,19 +319,21 @@ class RouterRegistry:
         cls,
         query: str,
         user_id: str | UUID,
+        conversation_history: list[dict] | None = None,
     ) -> dict[str, Any] | None:
         """Quick filter stage - check routers with high confidence.
 
         Args:
             query: User query
             user_id: User ID
+            conversation_history: Optional conversation history for context
 
         Returns:
             Response dict if a router confidently handles it, None otherwise
         """
         router = await cls._quick_filter_router(query, user_id)
         if router:
-            return await router.handle(query, user_id)
+            return await router.handle(query, user_id, conversation_history=conversation_history)
         return None
 
     @classmethod

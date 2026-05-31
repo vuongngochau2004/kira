@@ -112,11 +112,24 @@ async def chat_completion(
         conversation_id, current_user.id, message, db
     )
 
+    # Load conversation history if continuing conversation
+    conversation_history = []
+    if conv_id:
+        messages = await get_conversation_messages(conv_id, db=db)
+        conversation_history = [
+            {
+                "role": msg.role,
+                "content": msg.content,
+            }
+            for msg in messages
+        ]
+
     # Use orchestrator for multi-stage routing
     orchestrator = get_orchestrator()
     response = await orchestrator.query(
         user_query=message,
         user_id=current_user.id,
+        conversation_history=conversation_history,
     )
 
     await _save_messages(conv_id, message, response, db)
@@ -153,8 +166,20 @@ async def _stream_generator_v2(
     citations = []
     conversation_id_to_save = conversation_id
 
+    # Load conversation history if continuing conversation
+    conversation_history = []
+    if conversation_id:
+        messages = await get_conversation_messages(conversation_id, db=db)
+        conversation_history = [
+            {
+                "role": msg.role,
+                "content": msg.content,
+            }
+            for msg in messages
+        ]
+
     try:
-        async for chunk in orchestrator.query_stream(query, user_id):
+        async for chunk in orchestrator.query_stream(query, user_id, conversation_history):
             chunk_type = chunk.get("type")
             chunk_data = chunk.get("data", {})
 

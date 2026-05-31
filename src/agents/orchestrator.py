@@ -66,19 +66,21 @@ class OrchestratorAgent:
         self,
         user_query: str,
         user_id: UUID | str = "default",
+        conversation_history: list[dict] | None = None,
     ) -> dict[str, Any]:
         """Route query using multi-stage strategy and return result.
 
         Args:
             user_query: User's query
             user_id: User ID for filtering
+            conversation_history: Optional conversation history for context
 
         Returns:
             Dict with answer, status, latency_ms, and metadata
         """
         t0 = time.perf_counter()
 
-        result = await RouterRegistry.route(user_query, user_id)
+        result = await RouterRegistry.route(user_query, user_id, conversation_history=conversation_history)
 
         # Ensure latency is tracked
         if "latency_ms" not in result:
@@ -90,12 +92,14 @@ class OrchestratorAgent:
         self,
         user_query: str,
         user_id: UUID | str = "default",
+        conversation_history: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         """Route query with streaming response.
 
         Args:
             user_query: User's query
             user_id: User ID for filtering
+            conversation_history: Optional conversation history for context
 
         Yields:
             Dict chunks with type:
@@ -106,7 +110,7 @@ class OrchestratorAgent:
         """
         t0 = time.perf_counter()
 
-        async for chunk in RouterRegistry.route_stream(user_query, user_id):
+        async for chunk in RouterRegistry.route_stream(user_query, user_id, conversation_history=conversation_history):
             # Add latency_ms to final metadata
             if chunk.get("type") == "metadata" and "latency_ms" not in chunk.get("data", {}):
                 chunk["data"]["latency_ms"] = (time.perf_counter() - t0) * 1000

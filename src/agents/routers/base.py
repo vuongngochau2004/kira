@@ -24,12 +24,13 @@ class BaseRouter(ABC):
         pass
 
     @abstractmethod
-    async def handle(self, query: str, user_id: str | UUID) -> dict[str, Any]:
+    async def handle(self, query: str, user_id: str | UUID, conversation_history: list[dict] | None = None) -> dict[str, Any]:
         """Process the query and generate response.
 
         Args:
             query: User query string
             user_id: User ID for personalization/filtering
+            conversation_history: Optional conversation history for context
 
         Returns:
             Response dict with:
@@ -47,6 +48,7 @@ class BaseRouter(ABC):
         self,
         query: str,
         user_id: str | UUID,
+        conversation_history: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         """Process the query with streaming response.
 
@@ -56,6 +58,7 @@ class BaseRouter(ABC):
         Args:
             query: User query string
             user_id: User ID for personalization/filtering
+            conversation_history: Optional conversation history for context
 
         Yields:
             Dict chunks with type:
@@ -63,7 +66,7 @@ class BaseRouter(ABC):
             - "metadata": {status, citations, sources, etc.}
         """
         # Default fallback: non-streaming
-        result = await self.handle(query, user_id)
+        result = await self.handle(query, user_id, conversation_history=conversation_history)
 
         # Yield content
         content = result.get("content", "")

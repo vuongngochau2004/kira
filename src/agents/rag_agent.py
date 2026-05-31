@@ -59,6 +59,67 @@ class AgenticRAG:
             return "hybrid"
         return "dense"
 
+    async def _rewrite_query_with_history(
+        self,
+        query: str,
+        conversation_history: list[dict] | None = None,
+    ) -> str:
+        """Rewrite query using conversation history for better retrieval.
+
+        Args:
+            query: Current user query
+            conversation_history: Optional conversation history
+
+        Returns:
+            Rewritten query for retrieval (or original if no history)
+        """
+        if not conversation_history:
+            return query
+
+        # Build context from conversation history
+        history_context = []
+        for msg in conversation_history[-3:]:  # Use last 3 messages for context
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+            if role and content:
+                history_context.append(f"{role}: {content}")
+
+        if not history_context:
+            return query
+
+        # Use LLM to rewrite query for better retrieval
+        system_prompt = (
+            "Bạn là trợ lý chuyên về viết lại câu hỏi để tìm kiếm thông tin. "
+            "Nhiệm vụ: Viết lại câu hỏi của người dùng thành câu hỏi đầy đủ và rõ ràng hơn, "
+            "dựa vào lịch sử trò chuyện nếu cần thiết để giải quyết các đại từ như 'nó', 'cái đó'.\n\n"
+            "QUAN TRỌNG: Chỉ trả lời CÂU HỎI đã viết lại, không giải thích gì thêm."
+        )
+
+        user_prompt = (
+            f"Lịch sử trò chuyện:\n" + "\n".join(history_context) + "\n\n"
+            f"Câu hỏi hiện tại: {query}\n\n"
+            f"Viết lại câu hỏi để tìm kiếm thông tin tốt hơn:"
+        )
+
+        try:
+            response = await chat_async(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.3,  # Low temperature for more deterministic rewriting
+                max_tokens=256,
+            )
+            rewritten = response["content"].strip()
+            # Return rewritten query if it's different and not too long
+            if rewritten and rewritten != query and len(rewritten) < 500:
+                return rewritten
+        except Exception as e:
+            # Fallback to original query if rewriting fails
+            pass
+
+        return query
+
     async def retrieve(
         self,
         query: str,
@@ -113,12 +174,14 @@ class AgenticRAG:
         self,
         query: str,
         docs: list[dict],
+        conversation_history: list[dict] | None = None,
     ) -> str:
         """Generate answer from context (non-streaming).
 
         Args:
             query: User query
             docs: Retrieved documents
+            conversation_history: Optional conversation history for context
 
         Returns:
             Generated answer
@@ -139,7 +202,8 @@ class AgenticRAG:
             "1. Trả lời DỰA TRÊN ngữ cảnh\n"
             "2. Trích dẫn nguồn (doc_id)\n"
             "3. Nếu thiếu thông tin, nói rõ\n"
-            "4. Trả lời tiếng Việt"
+            "4. Trả lời tiếng Việt\n"
+            "5. Sử dụng lịch sử trò chuyện (nếu có) để hiểu ngữ cảnh của câu hỏi hiện tại"
         )
         user_content = (
             f"Câu hỏi: {query}\n"
@@ -147,11 +211,14 @@ class AgenticRAG:
             "Trả lời:"
         )
 
+        # Build messages with conversation history
+        messages = [{"role": "system", "content": system_content}]
+        if conversation_history:
+            messages.extend(conversation_history)
+        messages.append({"role": "user", "content": user_content})
+
         response = await chat_async(
-            messages=[
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": user_content},
-            ],
+            messages=messages,
             temperature=0.7,
             max_tokens=2048,
         )
@@ -162,12 +229,14 @@ class AgenticRAG:
         self,
         query: str,
         docs: list[dict],
+        conversation_history: list[dict] | None = None,
     ) -> AsyncIterator[str]:
         """Generate streaming answer from context.
 
         Args:
             query: User query
             docs: Retrieved documents
+            conversation_history: Optional conversation history for context
 
         Yields:
             Text chunks as they arrive from LLM
@@ -188,7 +257,8 @@ class AgenticRAG:
             "1. Trả lời DỰA TRÊN ngữ cảnh\n"
             "2. Trích dẫn nguồn (doc_id)\n"
             "3. Nếu thiếu thông tin, nói rõ\n"
-            "4. Trả lời tiếng Việt"
+            "4. Trả lời tiếng Việt\n"
+            "5. Sử dụng lịch sử trò chuyện (nếu có) để hiểu ngữ cảnh của câu hỏi hiện tại"
         )
         user_content = (
             f"Câu hỏi: {query}\n"
@@ -196,11 +266,14 @@ class AgenticRAG:
             "Trả lời:"
         )
 
+        # Build messages with conversation history
+        messages = [{"role": "system", "content": system_content}]
+        if conversation_history:
+            messages.extend(conversation_history)
+        messages.append({"role": "user", "content": user_content})
+
         async for chunk in chat_async_stream(
-            messages=[
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": user_content},
-            ],
+            messages=messages,
             temperature=0.7,
             max_tokens=2048,
         ):
@@ -240,6 +313,7 @@ class AgenticRAG:
         query: str,
         user_id: UUID | str,
         initial_strategy: str | None = None,
+        conversation_history: list[dict] | None = None,
     ) -> dict[str, Any]:
         """Execute agentic RAG query (non-streaming).
 
@@ -247,6 +321,7 @@ class AgenticRAG:
             query: User query
             user_id: User ID for filtering
             initial_strategy: Initial strategy or None for auto-select
+            conversation_history: Optional conversation history for context
 
         Returns:
             Dict with answer, retrieval_history, status
@@ -259,9 +334,12 @@ class AgenticRAG:
         bm25_manager = get_bm25_manager()
         bm25_index = bm25_manager.get_index(user_id)
 
+        # Rewrite query using conversation history for better retrieval
+        retrieval_query = await self._rewrite_query_with_history(query, conversation_history)
+
         for iteration in range(self.max_iterations):
             docs = await self.retrieve(
-                query=query,
+                query=retrieval_query,  # Use rewritten query for retrieval
                 query_embedding=query_embedding,
                 user_id=user_id,
                 bm25_index=bm25_index if bm25_index and bm25_index.doc_freqs else None,
@@ -282,7 +360,7 @@ class AgenticRAG:
             })
 
             if sufficient:
-                answer = await self.generate_answer(query, all_docs)
+                answer = await self.generate_answer(query, all_docs, conversation_history)
                 titles = await self._resolve_document_titles(all_docs)
                 citations = self._extract_citations(all_docs, titles)
                 response = self._build_success_response(answer, retrieval_history, all_docs, iteration + 1)
@@ -292,7 +370,7 @@ class AgenticRAG:
 
             strategy = self._switch_strategy(strategy, bm25_index)
 
-        answer = await self.generate_answer(query, all_docs)
+        answer = await self.generate_answer(query, all_docs, conversation_history)
         titles = await self._resolve_document_titles(all_docs)
         citations = self._extract_citations(all_docs, titles)
         response = self._build_max_iterations_response(answer, retrieval_history, all_docs)
@@ -305,6 +383,7 @@ class AgenticRAG:
         query: str,
         user_id: UUID | str,
         initial_strategy: str | None = None,
+        conversation_history: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         """Execute agentic RAG query with streaming.
 
@@ -312,6 +391,7 @@ class AgenticRAG:
             query: User query
             user_id: User ID for filtering
             initial_strategy: Initial strategy or None for auto-select
+            conversation_history: Optional conversation history for context
 
         Yields:
             Dict chunks with type:
@@ -327,9 +407,12 @@ class AgenticRAG:
         bm25_manager = get_bm25_manager()
         bm25_index = bm25_manager.get_index(user_id)
 
+        # Rewrite query using conversation history for better retrieval
+        retrieval_query = await self._rewrite_query_with_history(query, conversation_history)
+
         for iteration in range(self.max_iterations):
             docs = await self.retrieve(
-                query=query,
+                query=retrieval_query,  # Use rewritten query for retrieval
                 query_embedding=query_embedding,
                 user_id=user_id,
                 bm25_index=bm25_index if bm25_index and bm25_index.doc_freqs else None,
@@ -357,7 +440,7 @@ class AgenticRAG:
 
             if sufficient:
                 # Stream content
-                async for chunk in self.generate_answer_stream(query, all_docs):
+                async for chunk in self.generate_answer_stream(query, all_docs, conversation_history):
                     yield {
                         "type": "content",
                         "data": {"text": chunk},
@@ -382,7 +465,7 @@ class AgenticRAG:
             strategy = self._switch_strategy(strategy, bm25_index)
 
         # Max iterations reached - stream with what we have
-        async for chunk in self.generate_answer_stream(query, all_docs):
+        async for chunk in self.generate_answer_stream(query, all_docs, conversation_history):
             yield {
                 "type": "content",
                 "data": {"text": chunk},

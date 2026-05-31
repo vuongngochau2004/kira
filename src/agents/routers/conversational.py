@@ -76,12 +76,13 @@ class ConversationalRouter(BaseRouter):
 
         return 0.0
 
-    async def handle(self, query: str, user_id: str | UUID) -> dict[str, Any]:
+    async def handle(self, query: str, user_id: str | UUID, conversation_history: list[dict] | None = None) -> dict[str, Any]:
         """Generate conversational response.
 
         Args:
             query: User query
             user_id: User ID (not used for conversational)
+            conversation_history: Optional conversation history for context
 
         Returns:
             Response dict with conversational answer
@@ -91,13 +92,16 @@ class ConversationalRouter(BaseRouter):
         system_content = CONVERSATIONAL_SYSTEM_PROMPT
         user_content = CONVERSATIONAL_USER_PROMPT.format(query=query)
 
+        # Build messages with history
+        messages = [{"role": "system", "content": system_content}]
+        if conversation_history:
+            messages.extend(conversation_history)
+        messages.append({"role": "user", "content": user_content})
+
         for attempt in range(self.max_retries + 1):
             try:
                 response = await chat_async(
-                    messages=[
-                        {"role": "system", "content": system_content},
-                        {"role": "user", "content": user_content},
-                    ],
+                    messages=messages,
                     temperature=0.8,
                     max_tokens=16000,
                 )
@@ -131,6 +135,7 @@ class ConversationalRouter(BaseRouter):
         self,
         query: str,
         user_id: str | UUID,
+        conversation_history: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         """Generate conversational response stream."""
         t0 = time.perf_counter()
@@ -138,12 +143,15 @@ class ConversationalRouter(BaseRouter):
         system_content = CONVERSATIONAL_SYSTEM_PROMPT
         user_content = CONVERSATIONAL_USER_PROMPT.format(query=query)
 
+        # Build messages with history
+        messages = [{"role": "system", "content": system_content}]
+        if conversation_history:
+            messages.extend(conversation_history)
+        messages.append({"role": "user", "content": user_content})
+
         try:
             async for chunk in chat_async_stream(
-                messages=[
-                    {"role": "system", "content": system_content},
-                    {"role": "user", "content": user_content},
-                ],
+                messages=messages,
                 temperature=0.8,
                 max_tokens=16000,
             ):
