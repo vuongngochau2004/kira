@@ -236,6 +236,9 @@ class Message(Base):
         JSONB, default=list, server_default=text("'[]'::jsonb"),
     )
     token_count: Mapped[int | None] = mapped_column(nullable=True)  # For analytics
+    thinking_data: Mapped[dict] = mapped_column(  # For thinking steps, routing info
+        JSONB, default=dict, server_default=text("'{}'::jsonb"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, server_default=text("NOW()"),
     )

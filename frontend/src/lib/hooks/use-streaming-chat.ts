@@ -66,7 +66,7 @@ export function useStreamingChat() {
   const [error, setError] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string>()
 
-  const eventSourceRef = useRef<EventSource | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
   const currentMessageRef = useRef<string>('')
   const currentThinkingRef = useRef<ThinkingStep[]>([])
   const currentSourcesRef = useRef<SourceChunk[]>([])
@@ -76,9 +76,9 @@ export function useStreamingChat() {
 
   // Cleanup function
   const cleanup = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close()
-      eventSourceRef.current = null
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
     }
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current)
@@ -93,37 +93,7 @@ export function useStreamingChat() {
     pendingMessageRef.current = ''
   }, [cleanup])
 
-  // Fetch SSE token
-  const getSSEToken = useCallback(async (): Promise<string | null> => {
-    try {
-      const token = localStorage.getItem('access_token')
-      if (!token) {
-        setError('Không tìm thấy token xác thực')
-        return null
-      }
-
-      const response = await fetch('/api/v1/chat/sse-token', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to get SSE token')
-      }
-
-      const data = await response.json()
-      return data.token
-    } catch (e) {
-      console.error('Failed to get SSE token:', e)
-      setError('Không thể lấy token SSE')
-      return null
-    }
-  }, [])
-
-  // Reconnection logic
+  // Reconnection logic with jitter to prevent thundering herd
   const reconnect = useCallback(async (content: string, assistantMessageId: string) => {
     const retryCount = retryCountRef.current
 
@@ -133,37 +103,29 @@ export function useStreamingChat() {
       return
     }
 
+    // Add jitter (±50% of base delay) to spread out reconnection attempts
+    const jitter = (Math.random() - 0.5) * RETRY_CONFIG.baseDelay
     const delay = Math.min(
-      RETRY_CONFIG.baseDelay * Math.pow(2, retryCount),
+      RETRY_CONFIG.baseDelay * Math.pow(2, retryCount) + jitter,
       RETRY_CONFIG.maxDelay
     )
-
-    console.log(`SSE reconnecting in ${delay}ms... (attempt ${retryCount + 1}/${RETRY_CONFIG.maxRetries})`)
 
     reconnectTimeoutRef.current = setTimeout(async () => {
       retryCountRef.current = retryCount + 1
       await startStream(content, assistantMessageId)
-    }, delay)
+    }, Math.max(delay, RETRY_CONFIG.baseDelay * 0.5)) // Minimum 50% of base delay
   }, [])
 
-  // Start SSE stream
+  // Start SSE stream using fetch (supports cookies)
   const startStream = useCallback(async (
     content: string,
     assistantMessageId: string
   ) => {
-    const sseToken = await getSSEToken()
-    if (!sseToken) {
-      setError('Không thể lấy token SSE')
-      setIsLoading(false)
-      return
-    }
-
     const params = new URLSearchParams({
       message: content,
       temperature: '0.7',
       max_tokens: '2048',
       _: Date.now().toString(),
-      sse_token: sseToken,
     })
 
     if (conversationId) {
@@ -171,30 +133,72 @@ export function useStreamingChat() {
     }
 
     const url = `/api/v1/chat/stream?${params.toString()}`
-    const eventSource = new EventSource(url)
-    eventSourceRef.current = eventSource
 
-    // Reset retry count on successful connection
-    eventSource.onopen = () => {
-      console.log('SSE connected')
-      retryCountRef.current = 0
-    }
+    // Create abort controller for this request
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data: StreamEvent = JSON.parse(event.data)
-        handleStreamEvent(data, assistantMessageId)
-      } catch (e) {
-        console.error('Failed to parse SSE event:', e)
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // CRITICAL: Sends httpOnly cookies
+        signal: abortController.signal,
+      })
+
+      if (!response.ok) {
+        throw new Error(`Stream failed: ${response.status}`)
       }
-    }
 
-    eventSource.onerror = () => {
-      console.warn('SSE connection error, attempting reconnect...')
-      cleanup()
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) {
+        throw new Error('No response body')
+      }
+
+      // Reset retry count on successful connection
+      retryCountRef.current = 0
+
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        // Process complete SSE events
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim()
+
+            // Skip empty lines and [DONE]
+            if (!data || data === '[DONE]') continue
+
+            try {
+              const parsed: StreamEvent = JSON.parse(data)
+              handleStreamEvent(parsed, assistantMessageId)
+            } catch (e) {
+              // Failed to parse SSE event
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      // Don't show error if aborted by user
+      if (e.name === 'AbortError') return
+
+      setError('Stream failed. Retrying...')
       reconnect(content, assistantMessageId)
     }
-  }, [conversationId, getSSEToken, cleanup, reconnect])
+  }, [conversationId, cleanup, reconnect])
 
   const handleStreamEvent = useCallback((
     event: StreamEvent,

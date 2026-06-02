@@ -23,6 +23,7 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
+  isHydrated: boolean // Track if persist middleware has hydrated
 
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, full_name?: string) => Promise<void>
@@ -30,6 +31,7 @@ interface AuthState {
   refreshTokens: () => Promise<void>
   clearError: () => void
   setTokens: (access: string, refresh: string) => void
+  setHydrated: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -41,9 +43,10 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      isHydrated: false,
 
       setTokens: (access: string, refresh: string) => {
-        localStorage.setItem('access_token', access)
+        // Tokens are now stored in httpOnly cookies, no localStorage needed
         set({ access_token: access, refresh_token: refresh })
       },
 
@@ -53,6 +56,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await fetch(`${getApiBase()}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',  // Send/receive httpOnly cookies
             body: JSON.stringify({ email, password }),
           })
 
@@ -69,12 +73,11 @@ export const useAuthStore = create<AuthState>()(
               full_name: data.full_name,
               role: data.role,
             },
-            access_token: data.access_token || data.tokens?.access_token,
-            refresh_token: data.refresh_token || data.tokens?.refresh_token,
+            access_token: null,  // Tokens now in httpOnly cookies
+            refresh_token: null,
             isAuthenticated: true,
             isLoading: false,
           })
-          localStorage.setItem('access_token', data.access_token || data.tokens?.access_token)
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Login failed',
@@ -90,6 +93,7 @@ export const useAuthStore = create<AuthState>()(
           const response = await fetch(`${getApiBase()}/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',  // Send/receive httpOnly cookies
             body: JSON.stringify({ email, password, full_name }),
           })
 
@@ -106,12 +110,11 @@ export const useAuthStore = create<AuthState>()(
               full_name: data.full_name,
               role: data.role,
             },
-            access_token: data.access_token || data.tokens?.access_token,
-            refresh_token: data.refresh_token || data.tokens?.refresh_token,
+            access_token: null,  // Tokens now in httpOnly cookies
+            refresh_token: null,
             isAuthenticated: true,
             isLoading: false,
           })
-          localStorage.setItem('access_token', data.access_token || data.tokens?.access_token)
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Registration failed',
@@ -122,23 +125,27 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshTokens: async () => {
-        const { refresh_token } = get()
-        if (!refresh_token) throw new Error('No refresh token')
-
+        // Note: With httpOnly cookies, the backend automatically handles refresh
+        // This is kept for backward compatibility but may not be needed
         try {
           const response = await fetch(`${getApiBase()}/auth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh_token }),
+            credentials: 'include',  // Send/receive httpOnly cookies
+            body: JSON.stringify({ refresh_token: 'cookie' }),  // Placeholder, backend reads from cookie
           })
 
           if (!response.ok) throw new Error('Refresh failed')
 
           const data = await response.json()
           set({
-            access_token: data.access_token,
+            user: {
+              id: data.id,
+              email: data.email,
+              full_name: data.full_name,
+              role: data.role,
+            },
           })
-          localStorage.setItem('access_token', data.access_token)
         } catch (error) {
           // Clear auth on refresh failure
           set({
@@ -147,31 +154,45 @@ export const useAuthStore = create<AuthState>()(
             refresh_token: null,
             isAuthenticated: false,
           })
-          localStorage.removeItem('access_token')
           throw error
         }
       },
 
       logout: async () => {
-        set({
-          user: null,
-          access_token: null,
-          refresh_token: null,
-          isAuthenticated: false,
-        })
-        localStorage.removeItem('access_token')
+        try {
+          // Call backend to clear cookies
+          await fetch(`${getApiBase()}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',  // Send/receive httpOnly cookies
+          })
+        } catch (error) {
+          console.error('Logout error:', error)
+        } finally {
+          // Always clear local state
+          set({
+            user: null,
+            access_token: null,
+            refresh_token: null,
+            isAuthenticated: false,
+          })
+          // Clean up returnUrl to prevent stale redirects after logout
+          sessionStorage.removeItem('returnUrl')
+        }
       },
 
       clearError: () => set({ error: null }),
+      setHydrated: () => set({ isHydrated: true }),
     }),
     {
       name: 'kira-auth-storage',
       partialize: (state) => ({
         user: state.user,
-        access_token: state.access_token,
-        refresh_token: state.refresh_token,
+        // Don't persist tokens - they're in httpOnly cookies now
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated()
+      },
     }
   )
 )

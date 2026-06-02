@@ -1,15 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useAutoRedirect, usePostLoginRedirect } from '@/lib/hooks/use-post-login-redirect'
 import { Mail, Lock, User, Eye, EyeOff, Loader2, Github, Chrome, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KiraLogoIcon } from '@/components/common/KiraLogo'
 
 export default function AuthLandingPage() {
   const router = useRouter()
-  const { isAuthenticated, login, register, isLoading, error, clearError } = useAuthStore()
+  const { isAuthenticated, isHydrated, login, register, isLoading, error, clearError } = useAuthStore()
+  const { handleRedirect } = usePostLoginRedirect()
+
+  // Auto-redirect if already authenticated
+  useAutoRedirect(isAuthenticated, isHydrated)
 
   // State
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -18,13 +23,6 @@ export default function AuthLandingPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/chat')
-    }
-  }, [isAuthenticated, router])
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,7 +42,8 @@ export default function AuthLandingPage() {
       } else {
         await register(email.trim(), password, fullName.trim() || undefined)
       }
-      router.push('/chat')
+
+      handleRedirect()
     } catch (err) {
       // Managed in auth store
     }

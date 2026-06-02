@@ -272,16 +272,32 @@ async def create_message(
     content: str,
     sources: list | None = None,
     token_count: int | None = None,
+    thinking_data: dict | None = None,
     db: AsyncSession | None = None,
 ) -> Message:
-    """Create a new message."""
+    """Create a new message with validated thinking_data."""
     session = await _get_session(db)
+
+    # Validate thinking_data structure to prevent malformed JSON
+    validated_thinking = {}
+    if thinking_data and isinstance(thinking_data, dict):
+        try:
+            # Only allow expected keys in thinking_data
+            allowed_keys = {"steps", "iterations", "router", "agent", "latency_ms", "thinking", "retrieval"}
+            validated_thinking = {
+                k: v for k, v in thinking_data.items()
+                if k in allowed_keys and isinstance(v, (str, int, float, list, dict, bool))
+            }
+        except (TypeError, AttributeError):
+            validated_thinking = {}
+
     msg = Message(
         conversation_id=conversation_id,
         role=role,
         content=content,
         sources=sources or [],
         token_count=token_count,
+        thinking_data=validated_thinking,
     )
     session.add(msg)
 

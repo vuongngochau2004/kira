@@ -88,7 +88,7 @@ export function useSimpleChat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   const abortControllerRef = useRef<AbortController | null>(null)
   const currentThinkingRef = useRef<ThinkingStep[]>([])
   const currentSourcesRef = useRef<SourceChunk[]>([])
@@ -97,6 +97,7 @@ export function useSimpleChat() {
   const currentActiveRouterRef = useRef<string>('')
   const retrievalStagesRef = useRef<string[]>([])
   const currentThoughtsRef = useRef<string>('')
+  const pendingConversationIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -107,6 +108,15 @@ export function useSimpleChat() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
+    // Cleanup all refs to prevent stale references
+    currentThinkingRef.current = []
+    currentSourcesRef.current = []
+    currentContentRef.current = ''
+    currentRawContentRef.current = ''
+    currentActiveRouterRef.current = ''
+    retrievalStagesRef.current = []
+    currentThoughtsRef.current = ''
+    pendingConversationIdRef.current = null
     setIsLoading(false)
   }, [])
 
@@ -131,41 +141,45 @@ export function useSimpleChat() {
         conversation.messages.map((msg) => {
           if (msg.role === 'assistant') {
             const { reasoning, content } = parseThinkingTags(msg.content)
-            let existingThinking = (msg.metadata as any)?.thinking || []
-            
-            // Detect if we already have a unified hierarchical node
-            const hasUnifiedNode = existingThinking.some((step: any) => step.node.includes('↳'))
+            const thinkingMetadata = (msg.thinking_data as any)?.thinking || null
 
-            if (reasoning && !hasUnifiedNode) {
-              const routerStep = existingThinking.find(
-                (step: any) => !step.node.includes('Thinking') && !step.node.includes('Retrieval')
-              )
-              const routerName = routerStep ? routerStep.node : 'Thinking'
-              
-              const retrievalSteps = existingThinking.filter(
-                (step: any) => step.node.includes('Retrieval')
-              )
+            let existingThinking: ThinkingStep[] = []
 
-              let nodeContent = routerName
-              if (retrievalSteps.length > 0) {
-                nodeContent += '\n  ↳ Tool Call: Retrieval'
-                retrievalSteps.forEach((step: any) => {
-                  const cleanDesc = step.node.replace(/Retrieval Stage\s*/i, '')
-                  nodeContent += `\n    • ${cleanDesc}`
-                })
-              }
+            // Handle new metadata format from backend
+            if (thinkingMetadata && typeof thinkingMetadata === 'object') {
+              const routerName = thinkingMetadata.router || null
+              const retrievalStages = thinkingMetadata.retrieval || []
 
-              nodeContent += `\n${reasoning.split('\n').map((line: string) => `    ${line}`).join('\n')}`
+              if (routerName) {
+                let nodeContent = routerName
 
-              existingThinking = [
-                {
-                  node: nodeContent,
-                  status: 'complete' as const,
+                // Add retrieval stages if any
+                if (retrievalStages.length > 0) {
+                  nodeContent += '\n  ↳ Tool Call: Retrieval'
+                  retrievalStages.forEach((stage: any) => {
+                    const iteration = stage.iteration || 1
+                    const strategy = stage.strategy || 'Hybrid'
+                    const docsCount = stage.docs_retrieved || 0
+                    nodeContent += `\n    • Iteration ${iteration}, Strategy: ${strategy}, Retrieved: ${docsCount} docs`
+                  })
                 }
-              ]
-            }
 
-            return {
+                // Add reasoning if present
+                if (reasoning) {
+                  nodeContent += `\n  ↳ LLM Reasoning:${reasoning.split('\n').map((line: string) => `${line}`).join('\n')}`
+                }
+
+                existingThinking = [
+                  {
+                    node: nodeContent,
+                    status: 'complete' as const,
+                  }
+                ]
+              }
+            }
+            // If we have existingThinking but no reasoning/routerName, keep original
+
+            const finalMessage = {
               id: msg.id,
               role: 'assistant' as const,
               content: content,
@@ -173,6 +187,7 @@ export function useSimpleChat() {
               thinking: existingThinking.length > 0 ? existingThinking : undefined,
               sources: msg.sources || (msg.metadata as any)?.sources || undefined,
             }
+            return finalMessage
           }
 
           return {
@@ -184,7 +199,7 @@ export function useSimpleChat() {
         })
       )
     } catch (err) {
-      console.error('Failed to load conversation:', err)
+      // Conversation load failed silently
     }
   }
 
@@ -224,6 +239,7 @@ export function useSimpleChat() {
     currentActiveRouterRef.current = ''
     retrievalStagesRef.current = []
     currentThoughtsRef.current = ''
+    pendingConversationIdRef.current = null
 
     const updateMessage = (updates: Partial<Message>) => {
       setMessages((prev) =>
@@ -234,7 +250,15 @@ export function useSimpleChat() {
     }
 
     const updateThinkingState = (isComplete: boolean) => {
-      const routerName = currentActiveRouterRef.current || 'Thinking'
+      // Only show thinking if we have a router name, retrieval stages, or reasoning
+      if (!currentActiveRouterRef.current && retrievalStagesRef.current.length === 0 && !currentThoughtsRef.current) {
+        // Clear thinking if nothing to show
+        currentThinkingRef.current = []
+        updateMessage({ thinking: [] })
+        return
+      }
+
+      const routerName = currentActiveRouterRef.current
       
       let nodeContent = routerName
       
@@ -246,7 +270,7 @@ export function useSimpleChat() {
       }
       
       if (currentThoughtsRef.current) {
-        nodeContent += `${currentThoughtsRef.current.split('\n').map(line => `    ${line}`).join('\n')}`
+        nodeContent += `\n  ↳ LLM Reasoning:${currentThoughtsRef.current.split('\n').map(line => `${line}`).join('\n')}`
       }
 
       currentThinkingRef.current = [
@@ -260,8 +284,6 @@ export function useSimpleChat() {
     }
 
     try {
-      const token = localStorage.getItem('access_token')
-
       // Use relative path — Next.js rewrites /api/* to backend (avoids CORS)
       const apiBase = ''
 
@@ -282,14 +304,12 @@ export function useSimpleChat() {
       const abortController = new AbortController()
       abortControllerRef.current = abortController
 
-      const headers: Record<string, string> = {}
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-
       const response = await fetch(streamUrl, {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // CRITICAL: Send httpOnly cookies
         signal: abortController.signal,
       })
 
@@ -365,13 +385,19 @@ export function useSimpleChat() {
 
                   if (eventData?.conversation_id !== undefined) {
                     if (!activeConversationId) {
+                      // Store conversation_id but don't navigate yet
+                      pendingConversationIdRef.current = eventData.conversation_id
                       setActiveConversation(eventData.conversation_id)
-                      router.push(`/conversation/${eventData.conversation_id}`)
                     }
                   }
                 } else if (type === 'done') {
                   updateThinkingState(true)
                   setIsLoading(false)
+                  // Navigate to conversation page only after stream is complete
+                  if (pendingConversationIdRef.current && !activeConversationId) {
+                    router.push(`/conversation/${pendingConversationIdRef.current}`)
+                    pendingConversationIdRef.current = null
+                  }
                 } else if (type === 'error') {
                   setError(eventData?.error || 'Đã xảy ra lỗi khi tải luồng dữ liệu')
                   setIsLoading(false)
@@ -424,10 +450,16 @@ export function useSimpleChat() {
                   updateMessage({ sources: [...currentSourcesRef.current] })
                 } else if (parsed.timestamp && Object.keys(parsed).length === 1) {
                   updateThinkingState(true)
+                  // Stream done - navigate if we have a pending conversation
+                  if (pendingConversationIdRef.current && !activeConversationId) {
+                    router.push(`/conversation/${pendingConversationIdRef.current}`)
+                    pendingConversationIdRef.current = null
+                  }
                 } else if (parsed.conversation_id !== undefined) {
                   if (!activeConversationId) {
+                    // Store conversation_id but don't navigate yet
+                    pendingConversationIdRef.current = parsed.conversation_id
                     setActiveConversation(parsed.conversation_id)
-                    router.push(`/conversation/${parsed.conversation_id}`)
                   }
                 }
               }
@@ -439,11 +471,10 @@ export function useSimpleChat() {
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        console.log('Stream aborted')
+        // Stream aborted by user
       } else {
         const errorMsg = err?.message || 'Đã xảy ra lỗi khi gửi tin nhắn'
         setError(errorMsg)
-        console.error('Stream error:', err)
       }
     } finally {
       setIsLoading(false)

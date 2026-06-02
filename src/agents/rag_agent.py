@@ -2,11 +2,15 @@
 
 import sys
 import asyncio
+import logging
 from pathlib import Path
 from uuid import UUID
 from typing import Any, AsyncIterator
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+# Module-level logger for efficient logging
+logger = logging.getLogger(__name__)
 
 from src.agents.llm import chat_async, chat_async_stream
 from src.agents.prompts import ANSWER_GENERATOR_PROMPT
@@ -76,9 +80,25 @@ class AgenticRAG:
         if not conversation_history:
             return query
 
-        # Build context from conversation history
+        # Build context from conversation history with token budget
+        # Token budget for conversation context (~2000 tokens max, ~4 chars/token)
+        MAX_CONTEXT_CHARS = 8000
+
+        # Limit history by character count
+        # Iterate from newest to oldest (reversed), skip messages that would exceed budget
+        # This allows including older smaller messages even if newest is too large
+        total_chars = 0
+        limited_history = []
+        for msg in reversed(conversation_history[-3:]):  # Max 3 messages
+            msg_content = msg.get("content", "")
+            if total_chars + len(msg_content) > MAX_CONTEXT_CHARS:
+                continue  # Skip this message, try older ones
+            total_chars += len(msg_content)
+            limited_history.insert(0, msg)
+
+        # Build context from limited history
         history_context = []
-        for msg in conversation_history[-3:]:  # Use last 3 messages for context
+        for msg in limited_history:
             role = msg.get("role", "")
             content = msg.get("content", "")
             if role and content:
@@ -115,8 +135,7 @@ class AgenticRAG:
             if rewritten and rewritten != query and len(rewritten) < 500:
                 return rewritten
         except Exception as e:
-            # Fallback to original query if rewriting fails
-            pass
+            logger.warning(f"Query rewrite failed: {e}, using original query")
 
         return query
 

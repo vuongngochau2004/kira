@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { usePostLoginRedirect } from '@/lib/hooks/use-post-login-redirect'
 import { Mail, Lock, Github, Chrome } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -14,13 +15,14 @@ export function LoginForm() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const { login, isLoading, error, clearError } = useAuthStore()
+  const { handleRedirect } = usePostLoginRedirect()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearError()
     try {
       await login(email, password)
-      router.push('/chat')
+      handleRedirect()
     } catch (err) {
       // Error handled by store
     }

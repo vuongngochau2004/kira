@@ -1,66 +1,58 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useConversationStore } from '@/lib/stores/conversation-store'
-import { useAuthStore } from '@/lib/stores/auth-store'
 import { SimpleChat } from '@/components/simple/SimpleChat'
 import { useSimpleChat } from '@/lib/hooks/use-simple-chat'
-import { Sparkles } from 'lucide-react'
+import { AuthGuard } from '@/components/auth/auth-guard'
 
 export default function ConversationPage() {
   const params = useParams()
   const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
   const { setActiveConversation, clearActiveConversation } = useConversationStore()
   const chat = useSimpleChat()
-  const [mounted, setMounted] = useState(false)
+  const prevIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    const conversationId = params.id as string
 
-  useEffect(() => {
-    if (!mounted) return
-
-    if (!isAuthenticated) {
-      router.push('/')
+    // Validate conversation ID (UUID v4 format)
+    if (!conversationId || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(conversationId)) {
+      router.push('/chat')
       return
     }
 
-    if (params.id) {
-      setActiveConversation(params.id as string)
+    if (conversationId) {
+      setActiveConversation(conversationId)
+      // Store in ref for cleanup comparison
+      if (prevIdRef.current !== conversationId) {
+        prevIdRef.current = conversationId
+      }
     }
 
     return () => {
-      clearActiveConversation()
+      // Only clear if ID actually changed (not just auth state change)
+      if (prevIdRef.current && prevIdRef.current !== conversationId) {
+        clearActiveConversation()
+        prevIdRef.current = null
+      }
     }
-  }, [params.id, isAuthenticated, router, setActiveConversation, clearActiveConversation, mounted])
-
-  if (!mounted || !isAuthenticated) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-zinc-950 text-white">
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 mx-auto animate-pulse">
-            <Sparkles className="w-6 h-6 text-primary" />
-          </div>
-          <h2 className="text-xl font-bold mb-1">K.I.R.A</h2>
-          <p className="text-xs text-zinc-500">Đang tải cuộc hội thoại...</p>
-        </div>
-      </div>
-    )
-  }
+  }, [params.id, router, setActiveConversation, clearActiveConversation])
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-background min-h-0">
-      <SimpleChat
-        messages={chat.messages}
-        isLoading={chat.isLoading}
-        onSendMessage={chat.sendMessage}
-        onClearChat={chat.clearMessages}
-        error={chat.error}
-        className="flex-1"
-      />
-    </div>
+    <AuthGuard>
+      <div className="h-full flex flex-col overflow-hidden bg-background min-h-0">
+        <SimpleChat
+          messages={chat.messages}
+          isLoading={chat.isLoading}
+          onSendMessage={chat.sendMessage}
+          onClearChat={chat.clearMessages}
+          error={chat.error}
+          className="flex-1"
+          isNewChat={false}
+        />
+      </div>
+    </AuthGuard>
   )
 }

@@ -72,7 +72,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 2000)
     } catch (err) {
-      console.error('Failed to copy text: ', err)
+      // Clipboard copy failed silently
     }
   }
 

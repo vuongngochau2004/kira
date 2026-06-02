@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -20,19 +20,23 @@ from src.auth.security import (
     decode_token,
 )
 from src.auth.dependencies import get_current_user
+from src.auth.jwt_cookie import set_auth_cookies, clear_auth_cookies
 from src.models.auth import (
     UserRegisterRequest,
     UserLoginRequest,
     TokenResponse,
+    TokenRefreshRequest,
     UserWithTokenResponse,
+    UserResponse,
 )
 
 router = APIRouter()
 
 
-@router.post("/register", response_model=UserWithTokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     data: UserRegisterRequest,
+    response: Response,
     db: AsyncSession = Depends(get_session),
 ):
     """Register a new user account."""
@@ -65,20 +69,22 @@ async def register(
     # Create tokens
     tokens = create_token_pair(str(user.id), user.email)
 
-    return UserWithTokenResponse(
+    # Set httpOnly cookies
+    set_auth_cookies(response, tokens["access_token"], tokens["refresh_token"])
+
+    return UserResponse(
         id=str(user.id),
         email=user.email,
         full_name=user.full_name,
         role=user.role,
         is_active=user.is_active,
-        access_token=tokens["access_token"],
-        refresh_token=tokens["refresh_token"],
     )
 
 
-@router.post("/login", response_model=UserWithTokenResponse)
+@router.post("/login", response_model=UserResponse)
 async def login(
     data: UserLoginRequest,
+    response: Response,
     db: AsyncSession = Depends(get_session),
 ):
     """Login with email and password."""
@@ -104,23 +110,83 @@ async def login(
     # Create tokens
     tokens = create_token_pair(str(user.id), user.email)
 
-    return UserWithTokenResponse(
+    # Set httpOnly cookies
+    set_auth_cookies(response, tokens["access_token"], tokens["refresh_token"])
+
+    return UserResponse(
         id=str(user.id),
         email=user.email,
         full_name=user.full_name,
         role=user.role,
         is_active=user.is_active,
-        access_token=tokens["access_token"],
-        refresh_token=tokens["refresh_token"],
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/logout")
+async def logout(response: Response):
+    """Logout user by clearing auth cookies."""
+    clear_auth_cookies(response)
+    return {"message": "Successfully logged out"}
+
+
+@router.post("/refresh", response_model=UserResponse)
 async def refresh_token(
-    refresh_token: str,
+    request_data: TokenRefreshRequest,
+    response: Response,
     db: AsyncSession = Depends(get_session),
 ):
-    """Refresh access token using refresh token."""
+    """Refresh access token using refresh token from request body."""
+    try:
+        payload = decode_token(request_data.refresh_token)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid refresh token: {e}",
+        )
+
+    # Check token type
+    token_type = payload.get("type")
+    if token_type != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+
+    # Get user
+    user_id = payload.get("sub")
+    result = await db.execute(
+        select(User).where(User.id == user_id).where(User.deleted_at.is_(None))
+    )
+    user = result.scalar_one_or_none()
+
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+
+    # Create new token pair
+    tokens = create_token_pair(str(user.id), user.email)
+
+    # Update httpOnly cookies
+    set_auth_cookies(response, tokens["access_token"], tokens["refresh_token"])
+
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        is_active=user.is_active,
+    )
+
+
+@router.post("/refresh-with-token", response_model=TokenResponse)
+async def refresh_token_with_body(
+    refresh_token: str,
+    response: Response,
+    db: AsyncSession = Depends(get_session),
+):
+    """Refresh access token using refresh token (for backward compatibility)."""
     try:
         payload = decode_token(refresh_token)
     except Exception as e:
@@ -152,6 +218,9 @@ async def refresh_token(
 
     # Create new token pair
     tokens = create_token_pair(str(user.id), user.email)
+
+    # Update httpOnly cookies
+    set_auth_cookies(response, tokens["access_token"], tokens["refresh_token"])
 
     return TokenResponse(**tokens)
 

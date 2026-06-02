@@ -88,11 +88,17 @@ async def _save_messages(
         db=db,
     )
 
+    # Extract thinking metadata if available
+    metadata = None
+    if "metadata" in response and "thinking" in response["metadata"]:
+        metadata = response["metadata"]
+
     msg = await create_message(
         conversation_id=conversation_id,
         role="assistant",
         content=response["content"],
         sources=response.get("sources", []),
+        thinking_data=metadata,
         db=db,
     )
     return msg.id
@@ -166,17 +172,27 @@ async def _stream_generator_v2(
     citations = []
     conversation_id_to_save = conversation_id
 
+    # Collect thinking data for metadata
+    router_name = None
+    retrieval_stages = []
+
     # Load conversation history if continuing conversation
     conversation_history = []
     if conversation_id:
-        messages = await get_conversation_messages(conversation_id, db=db)
-        conversation_history = [
-            {
-                "role": msg.role,
-                "content": msg.content,
-            }
-            for msg in messages
-        ]
+        try:
+            messages = await get_conversation_messages(conversation_id, db=db)
+            conversation_history = [
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                }
+                for msg in messages
+            ]
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to load conversation history: {e}")
+            conversation_history = []
 
     try:
         async for chunk in orchestrator.query_stream(query, user_id, conversation_history):
@@ -184,10 +200,23 @@ async def _stream_generator_v2(
             chunk_data = chunk.get("data", {})
 
             if chunk_type == "routing":
+                # Store router name for metadata
+                router_name = chunk_data.get("router", "Agent")
+                if chunk_data.get("intent"):
+                    router_name += f" ({chunk_data['intent']})"
                 # Emit routing info
                 yield f"data: {json.dumps({'type': 'routing', 'data': chunk_data})}\n\n"
 
             elif chunk_type == "retrieval":
+                # Store retrieval stage for metadata
+                iteration = chunk_data.get("iteration", 1)
+                strategy = chunk_data.get("strategy", "Hybrid")
+                docs_count = chunk_data.get("docs_retrieved", 0)
+                retrieval_stages.append({
+                    "iteration": iteration,
+                    "strategy": strategy,
+                    "docs_retrieved": docs_count,
+                })
                 # Emit retrieval status
                 yield f"data: {json.dumps({'type': 'retrieval', 'data': chunk_data})}\n\n"
 
@@ -211,6 +240,17 @@ async def _stream_generator_v2(
                     )
                     conversation_id_to_save = conv.id
 
+                # Build thinking metadata
+                thinking_metadata = {}
+                if router_name:
+                    thinking_metadata["router"] = router_name
+                if retrieval_stages:
+                    thinking_metadata["retrieval"] = retrieval_stages
+
+                # Only save thinking_data if we have actual metadata (not empty dict)
+                # Empty dict {} is falsy, but we want to be explicit about the check
+                should_save_thinking = thinking_metadata and len(thinking_metadata) > 0
+
                 # Save messages to DB
                 await create_message(
                     conversation_id=conversation_id_to_save,
@@ -224,6 +264,7 @@ async def _stream_generator_v2(
                     role="assistant",
                     content="".join(full_content),
                     sources=citations,
+                    thinking_data={"thinking": thinking_metadata} if should_save_thinking else None,
                     db=db,
                 )
 
@@ -419,6 +460,7 @@ async def get_conversation_detail(
                 "role": msg.role,
                 "content": msg.content,
                 "sources": msg.sources,
+                "thinking_data": msg.thinking_data or {},
                 "created_at": msg.created_at.isoformat(),
             }
             for msg in messages

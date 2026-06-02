@@ -88,7 +88,7 @@ export function DocumentUpload({
     try {
       await onUpload(file)
     } catch (err) {
-      console.error('Upload failed:', err)
+      // Error handled by UI feedback
     }
   }
 

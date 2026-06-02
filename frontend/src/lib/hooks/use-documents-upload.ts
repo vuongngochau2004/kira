@@ -36,7 +36,7 @@ export function useDocumentsUpload() {
           setDocumentStarts(JSON.parse(savedStarts))
         }
       } catch (e) {
-        console.error('Failed to load timing states:', e)
+        // localStorage read failed silently
       }
     }
   }, [])
@@ -125,7 +125,7 @@ export function useDocumentsUpload() {
         try {
           localStorage.setItem('kira-upload-durations', JSON.stringify(nextDurations))
         } catch (e) {
-          console.error('Failed to save upload durations:', e)
+          // localStorage write failed silently
         }
       }
     }
@@ -149,7 +149,7 @@ export function useDocumentsUpload() {
           try {
             localStorage.setItem('kira-document-starts', JSON.stringify(next))
           } catch (e) {
-            console.error('Failed to save document starts:', e)
+            // localStorage write failed silently
           }
         }
         return next

@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Loader2, X, Paperclip } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { ThinkingBlock } from '@/components/streaming/ThinkingBlock'
 import { SourceCitation } from '@/components/streaming/SourceCitation'
 import { SourcePanel } from '@/components/streaming/SourcePanel'
-import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useSourcesStore } from '@/lib/stores/sources-store'
@@ -49,6 +49,7 @@ interface SimpleChatProps {
   onClearChat: () => void
   error?: string | null
   className?: string
+  isNewChat?: boolean // Chỉ hiện welcome screen khi là cuộc trò chuyện mới
 }
 
 export function SimpleChat({
@@ -57,7 +58,8 @@ export function SimpleChat({
   onSendMessage,
   onClearChat,
   error,
-  className
+  className,
+  isNewChat = true
 }: SimpleChatProps) {
   const store = useSourcesStore()
   const [input, setInput] = useState('')
@@ -67,6 +69,10 @@ export function SimpleChat({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Chỉ hiện welcome screen khi là chat mới VÀ chưa có tin nhắn
+  const [welcomeVisible, setWelcomeVisible] = useState(isNewChat)
+  const [welcomeExiting, setWelcomeExiting] = useState(false)
+
   useEffect(() => {
     if (isLoading) {
       bottomRef.current?.scrollIntoView({ behavior: 'auto' })
@@ -74,6 +80,20 @@ export function SimpleChat({
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, isLoading])
+
+  // Handle welcome screen fade-out transition
+  useEffect(() => {
+    if (messages.length > 0 && welcomeVisible) {
+      // Start fade-out animation
+      setWelcomeExiting(true)
+      // Remove welcome screen after animation completes
+      const timer = setTimeout(() => {
+        setWelcomeVisible(false)
+        setWelcomeExiting(false)
+      }, 300) // Match transition duration
+      return () => clearTimeout(timer)
+    }
+  }, [messages.length, welcomeVisible])
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -105,8 +125,15 @@ export function SimpleChat({
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="max-w-3xl mx-auto px-4 py-6">
-          {messages.length === 0 ? (
-            <KiraWelcome className="min-h-full" variant="gradient" />
+          {welcomeVisible ? (
+            <div
+              className={cn(
+                'transition-opacity duration-300 ease-in-out',
+                welcomeExiting ? 'opacity-0' : 'opacity-100'
+              )}
+            >
+              <KiraWelcome className="min-h-full" variant="gradient" />
+            </div>
           ) : (
             <>
               {messages.map((message, index) => (

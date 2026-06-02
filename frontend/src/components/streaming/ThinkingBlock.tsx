@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { ChevronDown, ChevronRight, Sparkles, Circle, CheckCircle2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Sparkles, Circle, CheckCircle2, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface ThinkingStep {
@@ -22,16 +22,9 @@ export function ThinkingBlock({ steps, className, isLoading = false }: ThinkingB
 
   const displaySteps = useMemo(() => {
     if (steps.length > 0) return steps
-    if (!isLoading) {
-      return [
-        {
-          node: 'Thinking process completed',
-          status: 'complete' as const,
-        },
-      ]
-    }
+    // Don't show fallback text - only show actual steps
     return []
-  }, [steps, isLoading])
+  }, [steps])
 
   const isRunning = useMemo(
     () => displaySteps.some((s) => s.status === 'running') || isLoading,
@@ -43,11 +36,19 @@ export function ThinkingBlock({ steps, className, isLoading = false }: ThinkingB
     [displaySteps]
   )
 
+  // Calculate total duration from all steps
+  const totalDuration = useMemo(() => {
+    const durations = displaySteps.map(s => s.duration).filter((d): d is number => d !== undefined)
+    if (durations.length === 0) return null
+    return durations.reduce((sum, d) => sum + d, 0)
+  }, [displaySteps])
+
   useEffect(() => {
+    // Auto-expand when running, but don't auto-collapse when complete
     if (isRunning && !isExpanded) {
       setIsExpanded(true)
     }
-  }, [isRunning])
+  }, [isRunning, isExpanded])
 
   const handleToggle = () => setIsExpanded(!isExpanded)
 
@@ -58,21 +59,38 @@ export function ThinkingBlock({ steps, className, isLoading = false }: ThinkingB
       {/* Header */}
       <button
         onClick={handleToggle}
-        className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors border-0 outline-none"
+        className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors border-0 outline-none group"
       >
-        {/* Sparkles icon without ping animation */}
+        {/* Sparkles icon - green when complete */}
         <div className="relative w-4 h-4 flex items-center justify-center border-0">
-          <Sparkles className={cn(
-            'w-3.5 h-3.5 relative z-10 border-0',
-            isRunning ? 'text-zinc-650 dark:text-zinc-300' : 'text-zinc-400'
-          )} />
+          {isComplete ? (
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-500 dark:text-green-400" />
+          ) : (
+            <Sparkles className={cn(
+              'w-3.5 h-3.5 relative z-10 border-0',
+              isRunning ? 'text-zinc-650 dark:text-zinc-300' : 'text-zinc-400'
+            )} />
+          )}
         </div>
 
-        <span className="text-sm font-medium border-0">Thinking</span>
+        <span className={cn(
+          'text-sm font-medium border-0',
+          isComplete ? 'text-green-600 dark:text-green-400' : ''
+        )}>
+          {isComplete ? 'Done' : 'Thinking'}
+        </span>
+
+        {/* Total duration when complete */}
+        {isComplete && totalDuration && (
+          <span className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
+            <Clock className="w-3 h-3" />
+            {totalDuration < 1000 ? `${totalDuration}ms` : `${(totalDuration / 1000).toFixed(1)}s`}
+          </span>
+        )}
 
         <ChevronDown
           className={cn(
-            'w-4 h-4 transition-transform duration-200 border-0',
+            'w-4 h-4 transition-transform duration-300 border-0 opacity-50 group-hover:opacity-100',
             !isExpanded && '-rotate-90'
           )}
         />
@@ -81,7 +99,7 @@ export function ThinkingBlock({ steps, className, isLoading = false }: ThinkingB
       {/* Content */}
       <div
         className={cn(
-          'grid transition-[grid-template-rows] duration-200 ease-out border-0',
+          'grid transition-[grid-template-rows] duration-300 ease-in-out border-0',
           isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         )}
       >
@@ -160,9 +178,9 @@ function StepItem({ header, details, status, duration, index }: StepItemProps) {
           {/* Status Icon */}
           <div className="relative w-4 h-4 flex items-center justify-center shrink-0 border-0">
             {status === 'running' ? (
-              <Circle className="w-2 h-2 text-zinc-400 fill-zinc-400 dark:text-zinc-500 dark:fill-zinc-500 border-0" />
+              <Circle className="w-2 h-2 text-zinc-400 fill-zinc-400 dark:text-zinc-500 dark:fill-zinc-500 border-0 animate-pulse" />
             ) : status === 'complete' ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400 border-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 dark:text-green-400 border-0" />
             ) : (
               <Circle className="w-2 h-2 text-zinc-355 dark:text-zinc-600 border-0" />
             )}
@@ -201,7 +219,7 @@ function StepItem({ header, details, status, duration, index }: StepItemProps) {
       {details && (
         <div
           className={cn(
-            'grid transition-[grid-template-rows] duration-200 ease-out border-0 shadow-none',
+            'grid transition-[grid-template-rows] duration-300 ease-in-out border-0 shadow-none',
             isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
           )}
         >

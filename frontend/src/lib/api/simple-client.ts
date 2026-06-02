@@ -46,60 +46,29 @@ export class ApiError extends Error {
   }
 }
 
-/** Simple fetch wrapper with auth */
+/** Simple fetch wrapper with auth (uses httpOnly cookies) */
 async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
-
-  console.log(`[DEBUG fetchAPI] Sending request to ${API_BASE}${endpoint}`, { method: options?.method || 'GET', options });
-
   let response;
   try {
     response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options?.headers,
       },
+      credentials: 'include',  // CRITICAL: Send/receive httpOnly cookies
     })
-    console.log(`[DEBUG fetchAPI] Received response from ${API_BASE}${endpoint}:`, response.status, response.statusText);
   } catch (error) {
-    console.error(`[DEBUG fetchAPI] Network error when fetching ${API_BASE}${endpoint}:`, error);
-    throw error;
+    throw new ApiError('Network error', undefined)
   }
 
   if (response.status === 401) {
-    // Try refresh token
-    try {
-      const { useAuthStore } = await import('../stores/auth-store')
-      const store = useAuthStore.getState()
-      await store.refreshTokens()
-      // Retry with new token
-      const newToken = localStorage.getItem('access_token')
-      const retryResponse = await fetch(`${API_BASE}${endpoint}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(newToken ? { 'Authorization': `Bearer ${newToken}` } : {}),
-          ...options?.headers,
-        },
-      })
-      if (!retryResponse.ok) {
-        const error = await retryResponse.json().catch(() => ({}))
-        const message = error?.error?.message || error?.detail || error?.message || 'API Error'
-        throw new ApiError(message, retryResponse.status)
-      }
-      return retryResponse.json()
-    } catch {
-      // Refresh failed, redirect to login
-      const { useAuthStore } = await import('../stores/auth-store')
-      await useAuthStore.getState().logout()
-      window.location.href = '/'
-      throw new ApiError('Authentication required', 401)
-    }
+    // Token expired or invalid - redirect to login
+    window.location.href = '/'
+    throw new ApiError('Authentication required', 401)
   }
 
   if (!response.ok) {
@@ -134,13 +103,10 @@ export const documentsAPI = {
   upload: async (file: File): Promise<Document> => {
     const formData = new FormData()
     formData.append('file', file)
-    const token = localStorage.getItem('access_token')
 
     const response = await fetch(`${API_BASE}/api/v1/documents/upload`, {
       method: 'POST',
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      },
+      credentials: 'include',  // CRITICAL: Send httpOnly cookies
       body: formData,
     })
 
@@ -161,18 +127,19 @@ export const documentsAPI = {
 
 
   getDownloadUrl: (id: string): string => {
-    const token = localStorage.getItem('access_token')
-    return `${API_BASE}/api/v1/documents/${id}/download${token ? `?token=${encodeURIComponent(token)}` : ''}`
+    // No token needed - httpOnly cookies are sent automatically
+    return `${API_BASE}/api/v1/documents/${id}/download`
   },
 }
 
-/** Auth API */
+/** Auth API (uses httpOnly cookies) */
 export const authAPI = {
   login: async (email: string, password: string) => {
     const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
+      credentials: 'include',  // CRITICAL: Receive httpOnly cookies
     })
 
     if (!response.ok) {
@@ -189,6 +156,7 @@ export const authAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, full_name }),
+      credentials: 'include',  // CRITICAL: Receive httpOnly cookies
     })
 
     if (!response.ok) {
@@ -200,16 +168,15 @@ export const authAPI = {
     return response.json()
   },
 
-  refresh: async (refresh_token: string) => {
-    const response = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+  logout: async () => {
+    const response = await fetch(`${API_BASE}/api/v1/auth/logout`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token }),
+      credentials: 'include',  // CRITICAL: Send cookies for logout
     })
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
-      const message = error?.detail || 'Refresh failed'
+      const message = error?.detail || 'Logout failed'
       throw new ApiError(message, response.status)
     }
 

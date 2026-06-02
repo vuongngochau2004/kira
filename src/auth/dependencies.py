@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 # Add parent directory to path for imports
@@ -22,18 +22,39 @@ security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
     db: AsyncSession = Depends(get_session),
 ) -> User:
-    """Validate JWT and return current user."""
-    # --- Normal JWT auth flow ---
-    if not credentials:
+    """Validate JWT and return current user from httpOnly cookie or Authorization header.
+
+    Token Priority (Cookie-First Strategy):
+    1. httpOnly cookie (access_token) - PRIMARY, most secure
+       - Not accessible via JavaScript, prevents XSS token theft
+       - Automatically sent with same-origin requests
+       - Protected by SameSite and Secure flags
+
+    2. Authorization header (Bearer token) - FALLBACK, backward compatibility
+       - For API clients, mobile apps, external integrations
+       - Less secure than httpOnly cookies (exposed to JS)
+       - Will be phased out in favor of cookie-only auth
+
+    Rationale: Prioritizing httpOnly cookies provides better security against XSS attacks
+    while maintaining backward compatibility with existing API clients.
+    """
+    # Priority: httpOnly cookie > Authorization header
+    # Cookie-first for better security, header fallback for backward compatibility
+    token = request.cookies.get("access_token")
+
+    # Fallback to Authorization header for backward compatibility
+    if not token and credentials:
+        token = credentials.credentials
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
-
-    token = credentials.credentials
 
     try:
         payload = decode_token(token)
@@ -100,16 +121,17 @@ async def require_auth(
 def optional_auth():
     """Optional authentication - doesn't raise if no token provided."""
     async def _optional_auth(
+        request: Request,
         credentials: HTTPAuthorizationCredentials | None = Depends(
             HTTPBearer(auto_error=False)
         ),
         db: AsyncSession = Depends(get_session),
     ) -> User | None:
-        if not credentials:
+        if not credentials and not request.cookies.get("access_token"):
             return None
 
         try:
-            return await get_current_user(credentials, db)
+            return await get_current_user(request, credentials, db)
         except HTTPException:
             return None
 

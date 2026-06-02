@@ -128,9 +128,6 @@ export function SidebarExpanded({
             <KiraLogoIcon size={36} variant="gradient" />
             <div>
               <h1 className="text-sm font-bold">K.I.R.A</h1>
-              <p className="text-[10px] text-muted-foreground">
-                Knowledge & Intelligent Robotic Assistant
-              </p>
             </div>
           </div>
           <Button
