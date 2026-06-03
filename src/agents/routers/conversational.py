@@ -150,12 +150,18 @@ class ConversationalRouter(BaseRouter):
         messages.append({"role": "user", "content": user_content})
 
         try:
+            content_chunk_count = 0
+            logger.info(f"[CONVERSATIONAL STREAM] Starting stream")
             async for chunk in chat_async_stream(
                 messages=messages,
                 temperature=0.8,
                 max_tokens=16000,
             ):
+                content_chunk_count += 1
+                if content_chunk_count <= 3 or content_chunk_count % 10 == 0:
+                    logger.debug(f"[CONVERSATIONAL STREAM] Chunk #{content_chunk_count}: {len(chunk)} chars")
                 yield {"type": "content", "data": {"text": chunk}}
+            logger.info(f"[CONVERSATIONAL STREAM] Completed: {content_chunk_count} chunks")
 
             yield {
                 "type": "metadata",

@@ -43,4 +43,5 @@ class MessageResponse(BaseModel):
     role: str
     content: str
     sources: List[dict]
+    thinking_data: dict = Field(default_factory=dict)
     created_at: str

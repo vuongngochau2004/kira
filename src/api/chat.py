@@ -5,10 +5,12 @@ import uuid
 import asyncio
 import json
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -44,6 +46,12 @@ def get_orchestrator():
     if _orchestrator is None:
         _orchestrator = create_orchestrator()
     return _orchestrator
+
+
+# Request model for JSON body parsing
+class ChatStreamRequest(BaseModel):
+    message: str
+    conversation_id: Optional[str] = None
 
 
 async def _get_or_create_conversation_id(
@@ -336,10 +344,7 @@ async def _stream_generator_legacy(
 
 @router.post("/stream")
 async def chat_stream(
-    message: str,
-    conversation_id: str | None = None,
-    temperature: float = DEFAULT_TEMPERATURE,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
+    request: ChatStreamRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ):
@@ -351,11 +356,17 @@ async def chat_stream(
     - content: Text chunks as they arrive
     - metadata: Final response metadata
     - done: Stream completion signal
+
+    Request body (JSON):
+    {
+        "message": "user message",
+        "conversation_id": "uuid (optional)"
+    }
     """
     conv = None
-    if conversation_id:
+    if request.conversation_id:
         conv = await get_conversation(
-            conversation_id=uuid.UUID(conversation_id),
+            conversation_id=uuid.UUID(request.conversation_id),
             user_id=current_user.id,
             db=db,
         )
@@ -367,7 +378,7 @@ async def chat_stream(
 
     return StreamingResponse(
         _stream_generator_v2(
-            query=message,
+            query=request.message,
             user_id=current_user.id,
             conversation_id=conv.id if conv else None,
             db=db,

@@ -186,6 +186,11 @@ async def _chat_glm_stream(
     system_msg = next((m["content"] for m in messages if m["role"] == "system"), None)
     conv_messages = [m for m in messages if m["role"] != "system"]
 
+    chunk_count = 0
+    total_chars = 0
+
+    logger.info(f"[GLM STREAM] Starting stream with model={model}")
+
     async with client.messages.stream(
         model=model,
         system=system_msg,
@@ -195,7 +200,12 @@ async def _chat_glm_stream(
     ) as stream:
         async for text in stream.text_stream:
             if text:
+                chunk_count += 1
+                total_chars += len(text)
+                logger.debug(f"[GLM STREAM] Chunk #{chunk_count}: {len(text)} chars, total: {total_chars}")
                 yield text
+
+    logger.info(f"[GLM STREAM] Completed: {chunk_count} chunks, {total_chars} total chars")
 
 
 def _chat_gemini_sync(

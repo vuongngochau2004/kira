@@ -86,6 +86,146 @@ async function fetchAPI<T>(
   return response.json()
 }
 
+// ==================== SSE Streaming Types ====================
+
+export interface SSEChunk {
+  type: 'routing' | 'retrieval' | 'content' | 'metadata' | 'done' | 'error'
+  data: any
+}
+
+export interface RoutingData {
+  router: string
+  intent?: string
+  confidence?: number
+}
+
+export interface RetrievalData {
+  iteration: number
+  strategy: string
+  docs_retrieved: number
+}
+
+export interface ContentData {
+  text: string
+}
+
+export interface MetadataData {
+  citations?: any[]
+  conversation_id?: string
+  message_id?: string
+}
+
+export interface ErrorData {
+  error: string
+}
+
+// ==================== SSE Streaming Client ====================
+
+/**
+ * SSE Client for real-time chat streaming
+ * Handles connection, parsing, and error recovery
+ */
+export class SSEClient {
+  private controller: AbortController | null = null
+  private reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+  private decoder = new TextDecoder()
+  private buffer = ''
+
+  /**
+   * Connect to SSE stream and yield chunks
+   */
+  async *stream(
+    endpoint: string,
+    body: any
+  ): AsyncGenerator<SSEChunk, void, unknown> {
+    this.controller = new AbortController()
+
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: this.controller.signal,
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        let errorMessage = 'Stream connection failed'
+        try {
+          const cloned = response.clone()
+          const errorData = await cloned.json().catch(async () => {
+            const text = await cloned.text()
+            return { detail: text }
+          })
+          errorMessage = errorData?.error?.message || errorData?.detail || errorData?.message || errorMessage
+        } catch (e) {
+          // Ignore parse errors
+        }
+        throw new ApiError(errorMessage, response.status)
+      }
+
+      if (!response.body) {
+        throw new ApiError('Response body is null', undefined)
+      }
+
+      this.reader = response.body.getReader()
+
+      while (true) {
+        const { done, value } = await this.reader.read()
+
+        if (done) break
+
+        // Decode and process chunks
+        this.buffer += this.decoder.decode(value, { stream: true })
+
+        // Process complete SSE messages
+        const lines = this.buffer.split('\n\n')
+        this.buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+
+          // Parse SSE format: "data: {json}"
+          const match = line.match(/^data:\s*(.+)$/m)
+          if (match) {
+            try {
+              const data = JSON.parse(match[1])
+              yield data
+            } catch (e) {
+              console.error('[SSEClient] Failed to parse chunk:', match[1], e)
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Ignore abort errors (user cancellation)
+      if (error instanceof Error && error.name === 'AbortError') {
+        return
+      }
+      throw error
+    } finally {
+      this.cleanup()
+    }
+  }
+
+  /**
+   * Cancel the ongoing stream
+   */
+  abort(): void {
+    this.controller?.abort()
+    this.cleanup()
+  }
+
+  private cleanup(): void {
+    this.reader?.cancel().catch(() => {})
+    this.reader = null
+    this.controller = null
+    this.buffer = ''
+  }
+}
+
 /** Chat API */
 export const chatAPI = {
   sendMessage: async (message: string, conversationId?: string): Promise<ChatResponse> => {
@@ -95,6 +235,21 @@ export const chatAPI = {
         message,
         conversation_id: conversationId,
       }),
+    })
+  },
+
+  /**
+   * Stream chat response with SSE
+   * Returns an async generator that yields chunks
+   */
+  streamMessage: (
+    message: string,
+    conversationId?: string
+  ): AsyncGenerator<SSEChunk, void, unknown> => {
+    const client = new SSEClient()
+    return client.stream('/api/v1/chat/stream', {
+      message,
+      conversation_id: conversationId,
     })
   },
 }

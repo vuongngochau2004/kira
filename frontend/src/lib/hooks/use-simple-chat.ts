@@ -7,6 +7,8 @@ import { useConversationStore } from '@/lib/stores/conversation-store'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import type { ThinkingStep, SourceChunk } from '@/components/simple/SimpleChat'
 
+// ==================== Types ====================
+
 export interface Message {
   id: string
   role: 'user' | 'assistant'
@@ -14,117 +16,164 @@ export interface Message {
   timestamp: Date
   sources?: SourceChunk[]
   thinking?: ThinkingStep[]
+  isStreaming?: boolean
+  streamingState?: StreamingState
 }
 
+export type StreamingState = 'connecting' | 'routing' | 'retrieving' | 'generating' | 'complete' | 'error'
+
+interface StreamingContext {
+  state: StreamingState
+  router: string
+  retrievalStages: string[]
+  reasoning: string
+  sources: SourceChunk[]
+  content: string
+  rawContent: string
+}
+
+// ==================== Constants ====================
+
 const REASONING_NODE_LABEL = 'Thinking'
+const UPDATE_DEBOUNCE_MS = 16 // ~60fps
+const STREAM_TIMEOUT_MS = 30000 // 30s timeout
 
+// ==================== Pure Functions ====================
+
+/**
+ * Parse thinking tags from raw content
+ * Supports <thinking>, , and <suynghi> tags
+ */
 export function parseThinkingTags(raw: string) {
-  let thinkStart = raw.indexOf('<thinking>')
-  let tagLen = 10
-  let closeTag = '</thinking>'
+  const patterns = [
+    { start: '<thinking>', end: '</thinking>', startLen: 10 },
+    { start: '', end: '</thinkin>', startLen: 7 },
+    { start: '<suynghi>', end: '</suynghi>', startLen: 9 },
+  ]
 
-  if (thinkStart === -1) {
-    thinkStart = raw.indexOf('<think>')
-    tagLen = 7
-    closeTag = '</think>'
-  }
+  for (const { start, end, startLen } of patterns) {
+    const thinkStart = raw.indexOf(start)
+    if (thinkStart === -1) continue
 
-  if (thinkStart === -1) {
-    thinkStart = raw.indexOf('<suynghi>')
-    tagLen = 9
-    closeTag = '</suynghi>'
-  }
+    const thinkEnd = raw.indexOf(end)
+    if (thinkEnd === -1) {
+      // Incomplete thinking tag (still streaming)
+      const reasoning = raw.slice(thinkStart + startLen)
+      const cleanReasoning = stripPartialClosingTag(reasoning)
 
-  if (thinkStart === -1) {
+      return {
+        reasoning: cleanReasoning,
+        content: raw.slice(0, thinkStart),
+        isThinkingComplete: false,
+        hasThinking: true,
+      }
+    }
+
+    const reasoning = raw.slice(thinkStart + startLen, thinkEnd)
+    const afterThink = raw.slice(thinkEnd + end.length)
+
     return {
-      reasoning: '',
-      content: raw,
+      reasoning,
+      content: raw.slice(0, thinkStart) + afterThink,
       isThinkingComplete: true,
-      hasThinking: false,
-    }
-  }
-
-  const thinkEnd = raw.indexOf(closeTag)
-  if (thinkEnd === -1) {
-    // Thẻ think chưa được đóng (đang stream)
-    const reasoning = raw.slice(thinkStart + tagLen)
-    
-    // Strip partial closing tag from reasoning if present
-    let cleanReasoning = reasoning
-    const matchEnd = closeTag === '</thinking>'
-      ? reasoning.match(/<\/t?h?i?n?k?i?n?g?>?$/i)
-      : closeTag === '</think>'
-      ? reasoning.match(/<\/t?h?i?n?k?>?$/i)
-      : reasoning.match(/<\/s?u?y?n?g?h?i?>?$/i)
-      
-    if (matchEnd) {
-      cleanReasoning = reasoning.substring(0, matchEnd.index)
-    }
-
-    return {
-      reasoning: cleanReasoning,
-      content: raw.slice(0, thinkStart),
-      isThinkingComplete: false,
       hasThinking: true,
     }
   }
 
-  // Thẻ think đã được đóng hoàn toàn
-  const reasoning = raw.slice(thinkStart + tagLen, thinkEnd)
-  const afterThink = raw.slice(thinkEnd + closeTag.length)
   return {
-    reasoning,
-    content: raw.slice(0, thinkStart) + afterThink,
+    reasoning: '',
+    content: raw,
     isThinkingComplete: true,
-    hasThinking: true,
+    hasThinking: false,
   }
 }
 
+/**
+ * Strip partial closing tag from reasoning text
+ */
+function stripPartialClosingTag(text: string): string {
+  const patterns = [
+    /<\/t?h?i?n?k?i?n?g?>?$/i,
+    /<\/t?h?i?n?k?>?$/i,
+    /<\/s?u?y?n?g?h?i?>?$/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    if (match) {
+      return text.substring(0, match.index)
+    }
+  }
+  return text
+}
+
+/**
+ * Build thinking node from streaming context
+ */
+function buildThinkingNode(ctx: StreamingContext, isComplete: boolean): ThinkingStep | null {
+  if (!ctx.router && ctx.retrievalStages.length === 0 && !ctx.reasoning) {
+    return null
+  }
+
+  let nodeContent = ctx.router
+
+  if (ctx.retrievalStages.length > 0) {
+    nodeContent += '\n  ↳ Tool Call: Retrieval'
+    ctx.retrievalStages.forEach((stage) => {
+      nodeContent += `\n    • ${stage}`
+    })
+  }
+
+  if (ctx.reasoning) {
+    nodeContent += `\n  ↳ LLM Reasoning:${ctx.reasoning.split('\n').map((line) => `  ${line}`).join('\n')}`
+  }
+
+  return {
+    node: nodeContent,
+    status: isComplete ? 'complete' : 'running',
+  }
+}
+
+// ==================== Custom Hook ====================
+
 export function useSimpleChat() {
+  // ==================== Store & Router ====================
   const { activeConversationId, setActiveConversation } = useConversationStore()
   const { isAuthenticated } = useAuthStore()
   const router = useRouter()
+
+  // ==================== State ====================
   const [mounted, setMounted] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // ==================== Refs ====================
   const abortControllerRef = useRef<AbortController | null>(null)
-  const currentThinkingRef = useRef<ThinkingStep[]>([])
-  const currentSourcesRef = useRef<SourceChunk[]>([])
-  const currentContentRef = useRef<string>('')
-  const currentRawContentRef = useRef<string>('')
-  const currentActiveRouterRef = useRef<string>('')
-  const retrievalStagesRef = useRef<string[]>([])
-  const currentThoughtsRef = useRef<string>('')
+  const streamingCtxRef = useRef<StreamingContext>({
+    state: 'connecting',
+    router: '',
+    retrievalStages: [],
+    reasoning: '',
+    sources: [],
+    content: '',
+    rawContent: '',
+  })
+  const assistantMsgIdRef = useRef<string | null>(null)
   const pendingConversationIdRef = useRef<string | null>(null)
+  const updateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ==================== Effects ====================
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const cleanupStream = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      abortControllerRef.current = null
-    }
-    // Cleanup all refs to prevent stale references
-    currentThinkingRef.current = []
-    currentSourcesRef.current = []
-    currentContentRef.current = ''
-    currentRawContentRef.current = ''
-    currentActiveRouterRef.current = ''
-    retrievalStagesRef.current = []
-    currentThoughtsRef.current = ''
-    pendingConversationIdRef.current = null
-    setIsLoading(false)
-  }, [])
-
   useEffect(() => {
     return () => {
-      cleanupStream()
+      cleanup()
     }
-  }, [cleanupStream])
+  }, [])
 
   useEffect(() => {
     if (activeConversationId && mounted && isAuthenticated) {
@@ -134,6 +183,90 @@ export function useSimpleChat() {
     }
   }, [activeConversationId, mounted, isAuthenticated])
 
+  // ==================== Helpers ====================
+
+  /**
+   * Reset streaming context to initial state
+   */
+  const resetStreamingContext = useCallback(() => {
+    streamingCtxRef.current = {
+      state: 'connecting',
+      router: '',
+      retrievalStages: [],
+      reasoning: '',
+      sources: [],
+      content: '',
+      rawContent: '',
+    }
+  }, [])
+
+  /**
+   * Cleanup stream and reset state
+   */
+  const cleanup = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    if (updateTimerRef.current) {
+      clearTimeout(updateTimerRef.current)
+      updateTimerRef.current = null
+    }
+    resetStreamingContext()
+    assistantMsgIdRef.current = null
+    pendingConversationIdRef.current = null
+    setIsLoading(false)
+  }, [resetStreamingContext])
+
+  /**
+   * Debounced message update to reduce re-renders
+   */
+  const scheduleUpdate = useCallback((updater: () => void) => {
+    if (updateTimerRef.current) {
+      clearTimeout(updateTimerRef.current)
+    }
+    updateTimerRef.current = setTimeout(() => {
+      updater()
+      updateTimerRef.current = null
+    }, UPDATE_DEBOUNCE_MS)
+  }, [])
+
+  /**
+   * Update assistant message with current streaming context
+   */
+  const updateAssistantMessage = useCallback((isComplete: boolean = false) => {
+    const msgId = assistantMsgIdRef.current
+    if (!msgId) return
+
+    const ctx = streamingCtxRef.current
+    const { reasoning, content, isThinkingComplete } = parseThinkingTags(ctx.rawContent)
+
+    ctx.content = content
+    ctx.reasoning = reasoning
+
+    const thinkingNode = buildThinkingNode(ctx, isComplete && isThinkingComplete)
+
+    scheduleUpdate(() => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === msgId
+            ? {
+                ...msg,
+                content: ctx.content,
+                thinking: thinkingNode ? [thinkingNode] : undefined,
+                sources: ctx.sources.length > 0 ? [...ctx.sources] : undefined,
+                streamingState: ctx.state,
+                isStreaming: !isComplete,
+              }
+            : msg
+        )
+      )
+    })
+  }, [scheduleUpdate])
+
+  /**
+   * Load conversation from API
+   */
   const loadConversation = async (id: string) => {
     try {
       const conversation = await conversationsAPI.get(id)
@@ -145,7 +278,6 @@ export function useSimpleChat() {
 
             let existingThinking: ThinkingStep[] = []
 
-            // Handle new metadata format from backend
             if (thinkingMetadata && typeof thinkingMetadata === 'object') {
               const routerName = thinkingMetadata.router || null
               const retrievalStages = thinkingMetadata.retrieval || []
@@ -153,7 +285,6 @@ export function useSimpleChat() {
               if (routerName) {
                 let nodeContent = routerName
 
-                // Add retrieval stages if any
                 if (retrievalStages.length > 0) {
                   nodeContent += '\n  ↳ Tool Call: Retrieval'
                   retrievalStages.forEach((stage: any) => {
@@ -164,7 +295,6 @@ export function useSimpleChat() {
                   })
                 }
 
-                // Add reasoning if present
                 if (reasoning) {
                   nodeContent += `\n  ↳ LLM Reasoning:${reasoning.split('\n').map((line: string) => `${line}`).join('\n')}`
                 }
@@ -177,17 +307,17 @@ export function useSimpleChat() {
                 ]
               }
             }
-            // If we have existingThinking but no reasoning/routerName, keep original
 
-            const finalMessage = {
+            return {
               id: msg.id,
               role: 'assistant' as const,
               content: content,
               timestamp: new Date(msg.created_at),
               thinking: existingThinking.length > 0 ? existingThinking : undefined,
               sources: msg.sources || (msg.metadata as any)?.sources || undefined,
+              streamingState: 'complete' as const,
+              isStreaming: false,
             }
-            return finalMessage
           }
 
           return {
@@ -195,299 +325,148 @@ export function useSimpleChat() {
             role: 'user' as const,
             content: msg.content,
             timestamp: new Date(msg.created_at),
+            isStreaming: false,
           }
         })
       )
     } catch (err) {
-      // Conversation load failed silently
+      // Silent fail on conversation load error
     }
   }
 
+  /**
+   * Send message and handle streaming response
+   */
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return
 
-    cleanupStream()
+    cleanup()
     setError(null)
     setIsLoading(true)
 
-    const userMessageId = Date.now().toString()
-    const assistantMessageId = (Date.now() + 1).toString()
+    const userMsgId = Date.now().toString()
+    const assistantMsgId = (Date.now() + 1).toString()
+    assistantMsgIdRef.current = assistantMsgId
 
     const userMessage: Message = {
-      id: userMessageId,
+      id: userMsgId,
       role: 'user',
       content: content.trim(),
       timestamp: new Date(),
+      isStreaming: false,
     }
 
     const assistantMessage: Message = {
-      id: assistantMessageId,
+      id: assistantMsgId,
       role: 'assistant',
       content: '',
       timestamp: new Date(),
       thinking: [],
       sources: [],
+      streamingState: 'connecting',
+      isStreaming: true,
     }
 
     setMessages((prev) => [...prev, userMessage, assistantMessage])
 
-    // Reset refs
-    currentThinkingRef.current = []
-    currentSourcesRef.current = []
-    currentContentRef.current = ''
-    currentRawContentRef.current = ''
-    currentActiveRouterRef.current = ''
-    retrievalStagesRef.current = []
-    currentThoughtsRef.current = ''
-    pendingConversationIdRef.current = null
-
-    const updateMessage = (updates: Partial<Message>) => {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId ? { ...msg, ...updates } : msg
-        )
-      )
-    }
-
-    const updateThinkingState = (isComplete: boolean) => {
-      // Only show thinking if we have a router name, retrieval stages, or reasoning
-      if (!currentActiveRouterRef.current && retrievalStagesRef.current.length === 0 && !currentThoughtsRef.current) {
-        // Clear thinking if nothing to show
-        currentThinkingRef.current = []
-        updateMessage({ thinking: [] })
-        return
-      }
-
-      const routerName = currentActiveRouterRef.current
-      
-      let nodeContent = routerName
-      
-      if (retrievalStagesRef.current.length > 0) {
-        nodeContent += '\n  ↳ Tool Call: Retrieval'
-        retrievalStagesRef.current.forEach((stage) => {
-          nodeContent += `\n    • ${stage}`
-        })
-      }
-      
-      if (currentThoughtsRef.current) {
-        nodeContent += `\n  ↳ LLM Reasoning:${currentThoughtsRef.current.split('\n').map(line => `${line}`).join('\n')}`
-      }
-
-      currentThinkingRef.current = [
-        {
-          node: nodeContent,
-          status: (isComplete ? 'complete' : 'running') as 'complete' | 'running',
-        }
-      ]
-
-      updateMessage({ thinking: [...currentThinkingRef.current] })
-    }
-
     try {
-      // Use relative path — Next.js rewrites /api/* to backend (avoids CORS)
-      const apiBase = ''
+      const { chatAPI } = await import('@/lib/api/simple-client')
+      const stream = chatAPI.streamMessage(content.trim(), activeConversationId || undefined)
 
-      // Build stream URL with query params (backend expects query parameters)
-      const params = new URLSearchParams({
-        message: content.trim(),
-        temperature: '0.7',
-        max_tokens: '2048',
-      })
+      // Stream timeout
+      const timeoutId = setTimeout(() => {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+          setError('Streaming timeout - please try again')
+        }
+      }, STREAM_TIMEOUT_MS)
 
-      if (activeConversationId) {
-        params.append('conversation_id', activeConversationId)
-      }
+      for await (const chunk of stream) {
+        const { type, data: eventData } = chunk
+        const ctx = streamingCtxRef.current
 
-      const streamUrl = `${apiBase}/api/v1/chat/stream?${params.toString()}`
+        switch (type) {
+          case 'routing':
+            ctx.state = 'routing'
+            ctx.router = `${eventData?.router || 'Routing'}${eventData?.intent ? ` (${eventData.intent})` : ''}`
+            updateAssistantMessage(false)
+            break
 
-      // Use fetch with streaming reader
-      const abortController = new AbortController()
-      abortControllerRef.current = abortController
+          case 'retrieval':
+            ctx.state = 'retrieving'
+            const iteration = eventData?.iteration || 1
+            const strategy = eventData?.strategy || 'Hybrid'
+            const docsCount = eventData?.docs_retrieved || 0
+            ctx.retrievalStages.push(
+              `Iteration ${iteration}, Strategy: ${strategy}, Retrieved: ${docsCount} docs`
+            )
+            updateAssistantMessage(false)
+            break
 
-      const response = await fetch(streamUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // CRITICAL: Send httpOnly cookies
-        signal: abortController.signal,
-      })
+          case 'content':
+            ctx.state = 'generating'
+            ctx.rawContent += eventData?.text || ''
+            updateAssistantMessage(false)
+            break
 
-      if (!response.ok) throw new Error(`Stream error: ${response.status}`)
-
-
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No response body')
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-
-        // Process complete SSE messages
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || '' // Keep incomplete line in buffer
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim()
-
-            if (data === '[DONE]') {
-              setIsLoading(false)
-              break
+          case 'metadata':
+            if (eventData?.citations) {
+              ctx.sources = eventData.citations
+            } else if (eventData?.sources) {
+              ctx.sources = eventData.sources
             }
 
-            try {
-              const parsed = JSON.parse(data)
-
-              // Support new structured event system: { type: string, data?: any }
-              if (parsed.type !== undefined) {
-                const { type, data: eventData } = parsed
-
-                if (type === 'content') {
-                  currentRawContentRef.current += eventData?.text || ''
-                  const { reasoning, content, isThinkingComplete, hasThinking } = parseThinkingTags(currentRawContentRef.current)
-                  currentContentRef.current = content
-                  if (hasThinking) {
-                    currentThoughtsRef.current = reasoning
-                    updateThinkingState(isThinkingComplete)
-                    updateMessage({ content: currentContentRef.current })
-                  } else {
-                    updateMessage({ content: currentContentRef.current })
-                  }
-                } else if (type === 'routing') {
-                  const routerName = eventData?.router || 'Routing'
-                  const intent = eventData?.intent ? ` (${eventData.intent})` : ''
-                  const fullRouterName = `${routerName}${intent}`
-                  currentActiveRouterRef.current = fullRouterName
-                  updateThinkingState(false)
-                } else if (type === 'retrieval') {
-                  const iteration = eventData?.iteration || 1
-                  const strategy = eventData?.strategy || 'Hybrid'
-                  const docsCount = eventData?.docs_retrieved || 0
-                  retrievalStagesRef.current.push(
-                    `Iteration ${iteration}, Strategy: ${strategy}, Retrieved: ${docsCount} docs`
-                  )
-                  updateThinkingState(false)
-                } else if (type === 'metadata') {
-                  if (eventData?.citations !== undefined) {
-                    currentSourcesRef.current = eventData.citations
-                    updateMessage({ sources: [...currentSourcesRef.current] })
-                  } else if (eventData?.sources !== undefined) {
-                    currentSourcesRef.current = eventData.sources
-                    updateMessage({ sources: [...currentSourcesRef.current] })
-                  }
-
-                  if (eventData?.conversation_id !== undefined) {
-                    if (!activeConversationId) {
-                      // Store conversation_id but don't navigate yet
-                      pendingConversationIdRef.current = eventData.conversation_id
-                      setActiveConversation(eventData.conversation_id)
-                    }
-                  }
-                } else if (type === 'done') {
-                  updateThinkingState(true)
-                  setIsLoading(false)
-                  // Navigate to conversation page only after stream is complete
-                  if (pendingConversationIdRef.current && !activeConversationId) {
-                    router.push(`/conversation/${pendingConversationIdRef.current}`)
-                    pendingConversationIdRef.current = null
-                  }
-                } else if (type === 'error') {
-                  setError(eventData?.error || 'Đã xảy ra lỗi khi tải luồng dữ liệu')
-                  setIsLoading(false)
-                }
-              } else {
-                // Backward-compatible legacy events
-                if (parsed.token !== undefined) {
-                  currentRawContentRef.current += parsed.token
-                  const { reasoning, content, isThinkingComplete, hasThinking } = parseThinkingTags(currentRawContentRef.current)
-                  currentContentRef.current = content
-                  if (hasThinking) {
-                    currentThoughtsRef.current = reasoning
-                    updateThinkingState(isThinkingComplete)
-                    updateMessage({ content: currentContentRef.current })
-                  } else {
-                    updateMessage({ content: currentContentRef.current })
-                  }
-                } else if (parsed.content !== undefined && typeof parsed.content === 'string') {
-                  currentRawContentRef.current += parsed.content
-                  const { reasoning, content, isThinkingComplete, hasThinking } = parseThinkingTags(currentRawContentRef.current)
-                  currentContentRef.current = content
-                  if (hasThinking) {
-                    currentThoughtsRef.current = reasoning
-                    updateThinkingState(isThinkingComplete)
-                    updateMessage({ content: currentContentRef.current })
-                  } else {
-                    updateMessage({ content: currentContentRef.current })
-                  }
-                } else if (parsed.message !== undefined && typeof parsed.message === 'string') {
-                  currentRawContentRef.current = parsed.message
-                  const { reasoning, content, isThinkingComplete, hasThinking } = parseThinkingTags(currentRawContentRef.current)
-                  currentContentRef.current = content
-                  if (hasThinking) {
-                    currentThoughtsRef.current = reasoning
-                    updateThinkingState(isThinkingComplete)
-                    updateMessage({ content: currentContentRef.current })
-                  } else {
-                    updateMessage({ content: currentContentRef.current })
-                  }
-                } else if (parsed.node !== undefined) {
-                  const nodeName = parsed.node || 'unknown'
-                  if (nodeName.toLowerCase().includes('retrieval')) {
-                    retrievalStagesRef.current.push(nodeName)
-                  } else {
-                    currentActiveRouterRef.current = nodeName
-                  }
-                  updateThinkingState(false)
-                } else if (parsed.sources !== undefined) {
-                  currentSourcesRef.current = parsed.sources
-                  updateMessage({ sources: [...currentSourcesRef.current] })
-                } else if (parsed.timestamp && Object.keys(parsed).length === 1) {
-                  updateThinkingState(true)
-                  // Stream done - navigate if we have a pending conversation
-                  if (pendingConversationIdRef.current && !activeConversationId) {
-                    router.push(`/conversation/${pendingConversationIdRef.current}`)
-                    pendingConversationIdRef.current = null
-                  }
-                } else if (parsed.conversation_id !== undefined) {
-                  if (!activeConversationId) {
-                    // Store conversation_id but don't navigate yet
-                    pendingConversationIdRef.current = parsed.conversation_id
-                    setActiveConversation(parsed.conversation_id)
-                  }
-                }
-              }
-            } catch (e) {
-              // Ignore parse errors for non-JSON lines
+            if (eventData?.conversation_id && !activeConversationId) {
+              pendingConversationIdRef.current = eventData.conversation_id
+              setActiveConversation(eventData.conversation_id)
             }
-          }
+            break
+
+          case 'done':
+            clearTimeout(timeoutId)
+            ctx.state = 'complete'
+            updateAssistantMessage(true)
+            setIsLoading(false)
+
+            if (pendingConversationIdRef.current && !activeConversationId) {
+              router.push(`/conversation/${pendingConversationIdRef.current}`)
+              pendingConversationIdRef.current = null
+            }
+            break
+
+          case 'error':
+            clearTimeout(timeoutId)
+            ctx.state = 'error'
+            updateAssistantMessage(true)
+            setError(eventData?.error || 'Streaming error occurred')
+            setIsLoading(false)
+            break
         }
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        // Stream aborted by user
+        // User cancelled - silent fail
       } else {
-        const errorMsg = err?.message || 'Đã xảy ra lỗi khi gửi tin nhắn'
+        const errorMsg = err?.message || 'Failed to send message'
         setError(errorMsg)
+        streamingCtxRef.current.state = 'error'
+        updateAssistantMessage(true)
       }
     } finally {
       setIsLoading(false)
       abortControllerRef.current = null
     }
-  }, [activeConversationId, setActiveConversation, router, cleanupStream, isAuthenticated, mounted])
+  }, [activeConversationId, setActiveConversation, router, cleanup, updateAssistantMessage, isAuthenticated, mounted])
 
+  /**
+   * Clear all messages and reset conversation
+   */
   const clearMessages = useCallback(() => {
-    cleanupStream()
+    cleanup()
     setMessages([])
     setActiveConversation(null)
     setError(null)
-  }, [setActiveConversation, cleanupStream])
+  }, [setActiveConversation, cleanup])
 
   return {
     messages,

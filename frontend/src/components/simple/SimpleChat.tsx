@@ -1,21 +1,16 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { Send, Loader2, X, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ThinkingBlock } from '@/components/streaming/ThinkingBlock'
 import { SourceCitation } from '@/components/streaming/SourceCitation'
 import { SourcePanel } from '@/components/streaming/SourcePanel'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { StreamingText } from '@/components/streaming/StreamingText'
 import { useSourcesStore } from '@/lib/stores/sources-store'
 import { KiraWelcome } from '@/components/common/KiraLogo'
 
-// Helper function to preprocess content, replacing plain [1], [2] brackets with markdown links
-const preprocessContent = (content: string) => {
-  if (!content) return ''
-  return content.replace(/(?<!\[)\[(\d+)\](?!\]|\()/g, '[$1](#source-$1)')
-}
+// ==================== Types ====================
 
 export interface ThinkingStep {
   node: string
@@ -26,7 +21,7 @@ export interface ThinkingStep {
 
 export interface SourceChunk {
   id: string
-  chunk_id?: string  // Backend may provide chunk_id
+  chunk_id?: string
   content: string
   score: number
   document_id?: string
@@ -40,6 +35,8 @@ export interface Message {
   timestamp: Date
   sources?: SourceChunk[]
   thinking?: ThinkingStep[]
+  isStreaming?: boolean
+  streamingState?: 'connecting' | 'routing' | 'retrieving' | 'generating' | 'complete' | 'error'
 }
 
 interface SimpleChatProps {
@@ -49,8 +46,116 @@ interface SimpleChatProps {
   onClearChat: () => void
   error?: string | null
   className?: string
-  isNewChat?: boolean // Chỉ hiện welcome screen khi là cuộc trò chuyện mới
+  isNewChat?: boolean
 }
+
+// ==================== Memoized Components ====================
+
+/**
+ * User message component - memoized to prevent unnecessary re-renders
+ */
+const UserMessage = memo(({ content }: { content: string }) => (
+  <div className="bg-muted/60 text-foreground px-5 py-3 rounded-3xl">
+    <p className="whitespace-pre-wrap break-words leading-relaxed">
+      {content}
+    </p>
+  </div>
+))
+UserMessage.displayName = 'UserMessage'
+
+/**
+ * Assistant message component with streaming support
+ */
+const AssistantMessage = memo((
+  { message, isLoading, onCitationClick }: {
+    message: Message
+    isLoading: boolean
+    onCitationClick: (index: number, source: SourceChunk) => void
+  }
+) => {
+  const showLoader = !message.content && isLoading
+  const isStreaming = message.isStreaming ?? isLoading
+
+  return (
+    <>
+      {/* Thinking Block */}
+      <ThinkingBlock
+        steps={message.thinking || []}
+        isLoading={isLoading}
+        streamingState={message.streamingState}
+      />
+
+      {/* Content */}
+      <div className="text-base py-2 text-foreground">
+        {showLoader ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Đang phản hồi...</span>
+          </div>
+        ) : (
+          <StreamingText
+            content={message.content || ''}
+            isStreaming={isStreaming}
+            className="text-[15px] md:text-base leading-relaxed"
+            sources={message.sources}
+            onCitationClick={onCitationClick}
+          />
+        )}
+      </div>
+    </>
+  )
+})
+AssistantMessage.displayName = 'AssistantMessage'
+
+/**
+ * Message row component
+ */
+const MessageRow = memo((
+  { message, isLoading, isLast, onCitationClick }: {
+    message: Message
+    isLoading: boolean
+    isLast: boolean
+    onCitationClick: (index: number, source: SourceChunk) => void
+  }
+) => (
+  <div
+    className={cn(
+      'flex gap-3 mb-6',
+      message.role === 'user' ? 'justify-end' : 'justify-start'
+    )}
+  >
+    <div className={cn(
+      'max-w-[85%]',
+      message.role === 'user' ? 'flex flex-col items-end' : 'flex flex-col w-full max-w-full'
+    )}>
+      {message.role === 'assistant' ? (
+        <AssistantMessage
+          message={message}
+          isLoading={isLoading && isLast}
+          onCitationClick={onCitationClick}
+        />
+      ) : (
+        <UserMessage content={message.content} />
+      )}
+
+      {/* Source Citation */}
+      {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
+        <div className="mt-2">
+          <SourceCitation
+            sources={message.sources}
+            onClick={() => {
+              // Click handler will be provided by parent
+              onCitationClick(0, message.sources![0])
+            }}
+          />
+        </div>
+      )}
+    </div>
+  </div>
+))
+MessageRow.displayName = 'MessageRow'
+
+// ==================== Main Component ====================
 
 export function SimpleChat({
   messages,
@@ -63,16 +168,20 @@ export function SimpleChat({
 }: SimpleChatProps) {
   const store = useSourcesStore()
   const [input, setInput] = useState('')
-  const [sourcePanelOpen, setSourcePanelOpen] = useState(false) // fallback local state for mobile only
-  const [selectedSources, setSelectedSources] = useState<SourceChunk[]>([]) // fallback local state for mobile only
+  const [sourcePanelOpen, setSourcePanelOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Chỉ hiện welcome screen khi là chat mới VÀ chưa có tin nhắn
+  // Welcome screen state
   const [welcomeVisible, setWelcomeVisible] = useState(isNewChat)
   const [welcomeExiting, setWelcomeExiting] = useState(false)
 
+  // ==================== Effects ====================
+
+  /**
+   * Auto-scroll to bottom on new messages
+   */
   useEffect(() => {
     if (isLoading) {
       bottomRef.current?.scrollIntoView({ behavior: 'auto' })
@@ -81,30 +190,37 @@ export function SimpleChat({
     }
   }, [messages, isLoading])
 
-  // Handle welcome screen fade-out transition
+  /**
+   * Handle welcome screen fade-out
+   */
   useEffect(() => {
     if (messages.length > 0 && welcomeVisible) {
-      // Start fade-out animation
       setWelcomeExiting(true)
-      // Remove welcome screen after animation completes
       const timer = setTimeout(() => {
         setWelcomeVisible(false)
         setWelcomeExiting(false)
-      }, 300) // Match transition duration
+      }, 300)
       return () => clearTimeout(timer)
     }
   }, [messages.length, welcomeVisible])
 
+  // ==================== Handlers ====================
+
+  /**
+   * Handle form submission
+   */
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
 
     onSendMessage(input.trim())
     setInput('')
-
     setTimeout(() => textareaRef.current?.focus(), 100)
   }, [input, isLoading, onSendMessage])
 
+  /**
+   * Handle keyboard events
+   */
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -112,13 +228,25 @@ export function SimpleChat({
     }
   }, [handleSubmit])
 
-  const handleFileAttach = () => {
+  /**
+   * Handle file attachment
+   */
+  const handleFileAttach = useCallback(() => {
     fileInputRef.current?.click()
-  }
+  }, [])
 
-  const isLastMessageLoading = (messageIndex: number) => {
-    return isLoading && messageIndex === messages.length - 1
-  }
+  /**
+   * Handle citation click - memoized to prevent re-renders
+   */
+  const handleCitationClick = useCallback((citationIndex: number, source: SourceChunk, allSources?: SourceChunk[]) => {
+    const sources = allSources || messages.find(m => m.id === source.id)?.sources || []
+    store.setSources(sources)
+    store.setIsOpen(true)
+    const targetId = source.chunk_id || source.id || `source-${citationIndex}`
+    store.setActiveSourceId(targetId)
+  }, [store, messages])
+
+  // ==================== Render ====================
 
   return (
     <div className={cn('flex flex-col h-full bg-background min-h-0', className)}>
@@ -137,137 +265,13 @@ export function SimpleChat({
           ) : (
             <>
               {messages.map((message, index) => (
-                <div
+                <MessageRow
                   key={message.id}
-                  className={cn(
-                    'flex gap-3 mb-6',
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                  )}
-                >
-                  {/* Message Content */}
-                  <div className={cn(
-                    'max-w-[85%]',
-                    message.role === 'user' ? 'flex flex-col items-end' : 'flex flex-col w-full max-w-full'
-                  )}>
-                    {/* Thinking Block - for assistant messages */}
-                    {message.role === 'assistant' && (
-                      <ThinkingBlock
-                        steps={message.thinking || []}
-                        isLoading={isLastMessageLoading(index)}
-                      />
-                    )}
-
-                    {/* Response Content */}
-                    {message.role === 'assistant' ? (
-                      <div className="text-base py-2 text-foreground">
-                        {!message.content && isLastMessageLoading(index) ? (
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="text-sm">Đang phản hồi...</span>
-                          </div>
-                        ) : (
-                          <div className="prose dark:prose-invert max-w-none text-foreground text-[15px] md:text-base leading-relaxed break-words">
-                            <ReactMarkdown 
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                p: ({ children }) => <p className="mb-4 last:mb-0 leading-relaxed">{children}</p>,
-                                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-                                ul: ({ children }) => <ul className="list-disc pl-5 mb-4 space-y-1">{children}</ul>,
-                                ol: ({ children }) => <ol className="list-decimal pl-5 mb-4 space-y-1">{children}</ol>,
-                                li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                                h1: ({ children }) => <h1 className="text-2xl font-bold mt-6 mb-3 text-foreground">{children}</h1>,
-                                h2: ({ children }) => <h2 className="text-xl font-bold mt-5 mb-2.5 text-foreground">{children}</h2>,
-                                h3: ({ children }) => <h3 className="text-lg font-semibold mt-4 mb-2 text-foreground">{children}</h3>,
-                                a: ({ href, children }) => {
-                                  if (href && href.startsWith('#source-')) {
-                                    const citationIndex = parseInt(href.replace('#source-', ''), 10) - 1
-                                    return (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.preventDefault()
-                                          e.stopPropagation()
-                                          if (message.sources && message.sources.length > citationIndex) {
-                                            const target = message.sources[citationIndex]
-                                            store.setSources(message.sources)
-                                            store.setIsOpen(true)
-                                            // Use chunk_id if available, otherwise generate from id
-                                            const targetId = target.chunk_id || target.id || `source-${citationIndex}`
-                                            store.setActiveSourceId(targetId)
-                                          }
-                                        }}
-                                        className={cn(
-                                          "inline-flex items-center justify-center rounded px-1.5 py-0.5 mx-0.5",
-                                          "bg-primary/15 hover:bg-primary/25 active:bg-primary/35 text-primary",
-                                          "text-xs font-semibold font-mono leading-none transition-colors duration-150",
-                                          "border border-primary/20 hover:border-primary/30 align-middle shrink-0",
-                                          "cursor-pointer"
-                                        )}
-                                        style={{ verticalAlign: 'baseline', position: 'relative', top: '-1px' }}
-                                        title="Xem nguồn"
-                                      >
-                                        {children}
-                                      </button>
-                                    )
-                                  }
-                                  return (
-                                    <a
-                                      href={href}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline"
-                                    >
-                                      {children}
-                                    </a>
-                                  )
-                                },
-                                code: ({ className, children }) => {
-                                  const match = /language-(\w+)/.exec(className || '')
-                                  return match ? (
-                                    <pre className="bg-muted p-4 rounded-xl overflow-x-auto text-sm my-4 font-mono">
-                                      <code>{children}</code>
-                                    </pre>
-                                  ) : (
-                                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
-                                  )
-                                }
-                              }}
-                            >
-                              {preprocessContent(message.content || '')}
-                            </ReactMarkdown>
-                          </div>
-                        )}
-                      </div>
-                    ) : message.content ? (
-                      /* User message */
-                      <div className="bg-muted/60 text-foreground px-5 py-3 rounded-3xl">
-                        <p className="whitespace-pre-wrap break-words leading-relaxed">
-                          {message.content}
-                        </p>
-                      </div>
-                    ) : null}
-
-                    {/* Source Citation */}
-                    {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
-                      <div className="mt-2">
-                        <SourceCitation
-                          sources={message.sources}
-                          onClick={() => {
-                            // Update both store and local fallback state (for mobile)
-                            store.setSources(message.sources!)
-                            store.setIsOpen(true)
-                            // Set first source as active for highlighting
-                            const firstSource = message.sources![0]
-                            const firstId = firstSource.chunk_id || firstSource.id || `source-0`
-                            store.setActiveSourceId(firstId)
-                            setSelectedSources(message.sources!)
-                            setSourcePanelOpen(true)
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  message={message}
+                  isLoading={isLoading}
+                  isLast={index === messages.length - 1}
+                  onCitationClick={(idx, src) => handleCitationClick(idx, src, message.sources)}
+                />
               ))}
 
               <div ref={bottomRef} />

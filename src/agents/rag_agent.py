@@ -459,11 +459,17 @@ class AgenticRAG:
 
             if sufficient:
                 # Stream content
+                content_chunk_count = 0
+                logger.info(f"[RAG STREAM] Starting content stream (iteration {iteration + 1})")
                 async for chunk in self.generate_answer_stream(query, all_docs, conversation_history):
+                    content_chunk_count += 1
+                    if content_chunk_count <= 3 or content_chunk_count % 10 == 0:
+                        logger.debug(f"[RAG STREAM] Content chunk #{content_chunk_count}: {len(chunk)} chars")
                     yield {
                         "type": "content",
                         "data": {"text": chunk},
                     }
+                logger.info(f"[RAG STREAM] Completed content stream: {content_chunk_count} chunks")
 
                 # Resolve document titles and extract citations
                 titles = await self._resolve_document_titles(all_docs)
@@ -484,11 +490,17 @@ class AgenticRAG:
             strategy = self._switch_strategy(strategy, bm25_index)
 
         # Max iterations reached - stream with what we have
+        content_chunk_count = 0
+        logger.info(f"[RAG STREAM] Max iterations reached, starting content stream")
         async for chunk in self.generate_answer_stream(query, all_docs, conversation_history):
+            content_chunk_count += 1
+            if content_chunk_count <= 3 or content_chunk_count % 10 == 0:
+                logger.debug(f"[RAG STREAM] Content chunk #{content_chunk_count}: {len(chunk)} chars")
             yield {
                 "type": "content",
                 "data": {"text": chunk},
             }
+        logger.info(f"[RAG STREAM] Completed content stream: {content_chunk_count} chunks")
 
         # Resolve document titles and extract citations
         titles = await self._resolve_document_titles(all_docs)
