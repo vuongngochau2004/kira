@@ -24,6 +24,7 @@ interface AuthState {
   isLoading: boolean
   error: string | null
   isHydrated: boolean // Track if persist middleware has hydrated
+  isVerified: boolean // Track if authentication has been verified with backend
 
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, full_name?: string) => Promise<void>
@@ -32,6 +33,9 @@ interface AuthState {
   clearError: () => void
   setTokens: (access: string, refresh: string) => void
   setHydrated: () => void
+  setIsVerified: (verified: boolean) => void
+  verifyAuth: () => Promise<void> // Verify auth state with backend
+  clearAuth: () => void // Clear auth state (called on 401)
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -44,10 +48,69 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       isHydrated: false,
+      isVerified: false, // Auth verification not done yet
 
       setTokens: (access: string, refresh: string) => {
         // Tokens are now stored in httpOnly cookies, no localStorage needed
         set({ access_token: access, refresh_token: refresh })
+      },
+
+      setIsVerified: (verified: boolean) => {
+        set({ isVerified: verified })
+      },
+
+      verifyAuth: async () => {
+        // Verify authentication state with backend
+        // This prevents localStorage/cookies mismatch
+        try {
+          const response = await fetch(`${getApiBase()}/auth/me`, {
+            method: 'GET',
+            credentials: 'include',  // Send httpOnly cookies
+            headers: { 'Content-Type': 'application/json' },
+          })
+
+          if (!response.ok) {
+            // Not authenticated - clear state
+            set({
+              user: null,
+              isAuthenticated: false,
+              isVerified: true,
+            })
+            return
+          }
+
+          const data = await response.json()
+          set({
+            user: {
+              id: data.id,
+              email: data.email,
+              full_name: data.full_name,
+              role: data.role,
+            },
+            isAuthenticated: true,
+            isVerified: true,
+          })
+        } catch (error) {
+          // Network error or auth failed - clear state
+          console.error('Auth verification failed:', error)
+          set({
+            user: null,
+            isAuthenticated: false,
+            isVerified: true,
+          })
+        }
+      },
+
+      clearAuth: () => {
+        // Clear all auth state - called on 401 errors
+        set({
+          user: null,
+          access_token: null,
+          refresh_token: null,
+          isAuthenticated: false,
+          isVerified: true, // Verified as not authenticated
+          error: 'Session expired. Please login again.',
+        })
       },
 
       login: async (email: string, password: string) => {
@@ -76,6 +139,7 @@ export const useAuthStore = create<AuthState>()(
             access_token: null,  // Tokens now in httpOnly cookies
             refresh_token: null,
             isAuthenticated: true,
+            isVerified: true, // Auth verified after successful login
             isLoading: false,
           })
         } catch (error) {
@@ -113,6 +177,7 @@ export const useAuthStore = create<AuthState>()(
             access_token: null,  // Tokens now in httpOnly cookies
             refresh_token: null,
             isAuthenticated: true,
+            isVerified: true, // Auth verified after successful registration
             isLoading: false,
           })
         } catch (error) {
@@ -145,6 +210,7 @@ export const useAuthStore = create<AuthState>()(
               full_name: data.full_name,
               role: data.role,
             },
+            isVerified: true, // Verified after successful refresh
           })
         } catch (error) {
           // Clear auth on refresh failure
@@ -153,6 +219,7 @@ export const useAuthStore = create<AuthState>()(
             access_token: null,
             refresh_token: null,
             isAuthenticated: false,
+            isVerified: true, // Verified as not authenticated
           })
           throw error
         }
@@ -174,6 +241,7 @@ export const useAuthStore = create<AuthState>()(
             access_token: null,
             refresh_token: null,
             isAuthenticated: false,
+            isVerified: true, // Verified as not authenticated
           })
           // Clean up returnUrl to prevent stale redirects after logout
           sessionStorage.removeItem('returnUrl')
@@ -192,6 +260,15 @@ export const useAuthStore = create<AuthState>()(
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated()
+        // After hydration, verify auth state with backend
+        // This runs async and doesn't block hydration
+        if (typeof window !== 'undefined' && state?.isAuthenticated) {
+          // If localStorage says authenticated, verify with backend
+          state?.verifyAuth()
+        } else {
+          // If not authenticated in localStorage, mark as verified immediately
+          state?.setIsVerified(true)
+        }
       },
     }
   )

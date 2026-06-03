@@ -129,7 +129,7 @@ export function ThinkingBlock({ steps, className, isLoading = false }: ThinkingB
                   <Circle className="w-2.5 h-2.5 relative z-10 text-zinc-400 fill-zinc-400 dark:text-zinc-500 dark:fill-zinc-500 border-0" />
                 </div>
                 <span className="border-0">
-                  Starting thinking process
+                  Thinking 
                   <span className="inline-flex ml-0.5 text-zinc-500 font-bold">
                     <span className="animate-[pulse_1.2s_infinite_0ms]">.</span>
                     <span className="animate-[pulse_1.2s_infinite_200ms]">.</span>

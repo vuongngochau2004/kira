@@ -18,14 +18,16 @@ class OrchestratorAgent:
 
     Routing stages:
     1. Quick Filter: Keyword-based confidence check
-    2. LLM Classification: Intent detection for complex queries
-    3. Router Dispatch: Map intent to appropriate handler
+    2. Semantic Routing: Embedding-based similarity matching
+    3. LLM Classification: Intent detection for complex queries
+    4. Router Dispatch: Map intent to appropriate handler
     """
 
     def __init__(
         self,
         rag_agent: AgenticRAG | None = None,
         classifier: QueryClassifier | None = None,
+        enable_semantic: bool = True,
         auto_register: bool = True,
     ):
         """Initialize orchestrator with router registry.
@@ -33,21 +35,24 @@ class OrchestratorAgent:
         Args:
             rag_agent: Optional RAG agent for RAGRouter
             classifier: Optional query classifier
+            enable_semantic: Enable semantic routing layer
             auto_register: If True, automatically register default routers
         """
         if auto_register:
-            self._setup_routers(rag_agent, classifier)
+            self._setup_routers(rag_agent, classifier, enable_semantic)
 
     def _setup_routers(
         self,
         rag_agent: AgenticRAG | None = None,
         classifier: QueryClassifier | None = None,
+        enable_semantic: bool = True,
     ) -> None:
         """Set up default routers.
 
         Args:
             rag_agent: Optional RAG agent
             classifier: Optional classifier
+            enable_semantic: Enable semantic routing layer
         """
         # Clear any existing routers
         RouterRegistry.clear()
@@ -61,6 +66,23 @@ class OrchestratorAgent:
         # Set up classifier
         if classifier:
             RouterRegistry.set_classifier(classifier)
+
+        # Set up semantic router
+        if enable_semantic:
+            try:
+                from src.agents.routers.semantic import KIRASemanticRouter
+                from config.config import settings
+
+                semantic_router = KIRASemanticRouter(
+                    threshold=settings.semantic_threshold
+                )
+                RouterRegistry.set_semantic_router(semantic_router)
+                import logging
+                logging.getLogger(__name__).info("Semantic router initialized successfully")
+            except Exception as e:
+                # Don't fail if semantic router can't be initialized
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to initialize semantic router: {e}")
 
     async def query(
         self,
@@ -137,12 +159,14 @@ class OrchestratorAgent:
 def create_orchestrator(
     rag_agent: AgenticRAG | None = None,
     classifier: QueryClassifier | None = None,
+    enable_semantic: bool = True,
 ) -> OrchestratorAgent:
     """Create orchestrator instance with default routers.
 
     Args:
         rag_agent: Optional RAG agent instance
         classifier: Optional query classifier
+        enable_semantic: Enable semantic routing layer
 
     Returns:
         OrchestratorAgent instance with routers registered
@@ -150,6 +174,7 @@ def create_orchestrator(
     return OrchestratorAgent(
         rag_agent=rag_agent,
         classifier=classifier,
+        enable_semantic=enable_semantic,
         auto_register=True,
     )
 

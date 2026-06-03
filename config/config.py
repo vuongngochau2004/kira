@@ -129,6 +129,16 @@ class Settings(BaseSettings):
     ocr_max_retries: int = Field(3, env="OCR_MAX_RETRIES")
     ocr_batch_size: int = Field(5, env="OCR_BATCH_SIZE")  # concurrent pages
 
+    # ----- Semantic Routing (from settings.yaml) -----
+    semantic_routing_enabled: bool = Field(
+        default=_static_config.get("semantic_routing", {}).get("enabled", True),
+        env="SEMANTIC_ROUTING_ENABLED"
+    )
+    semantic_threshold: float = Field(
+        default=_static_config.get("semantic_routing", {}).get("threshold", 0.75),
+        env="SEMANTIC_THRESHOLD"
+    )
+
     @property
     def database_url(self) -> str:
         """Async PostgreSQL connection URL."""

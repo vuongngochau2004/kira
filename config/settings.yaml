@@ -26,3 +26,8 @@ chunking:
 qdrant:
   collection: "document_chunks"
   vector_dim: 1024
+
+# Semantic Routing
+semantic_routing:
+  enabled: true                 # Feature flag for semantic routing
+  threshold: 0.75              # Similarity threshold (0.0-1.0)

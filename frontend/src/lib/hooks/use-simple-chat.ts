@@ -141,7 +141,7 @@ export function useSimpleChat() {
         conversation.messages.map((msg) => {
           if (msg.role === 'assistant') {
             const { reasoning, content } = parseThinkingTags(msg.content)
-            const thinkingMetadata = (msg.thinking_data as any)?.thinking || null
+            const thinkingMetadata = (msg.metadata as any)?.thinking || null
 
             let existingThinking: ThinkingStep[] = []
 

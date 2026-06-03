@@ -19,7 +19,7 @@ from src.indexing.qdrant_store import ensure_collection, get_client
 from src.tools.retrieval_tools import init_retrieval_tools
 from src.tools.ingestion_tools import init_ingestion_tools
 from src.ingestion.embedding import preload_model
-from src.api import auth, documents, chat
+from src.api import auth, documents, chat, metrics
 
 
 @asynccontextmanager
@@ -92,6 +92,7 @@ def _setup_routes(app: FastAPI) -> None:
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(documents.router, prefix="/api/v1/documents", tags=["documents"])
     app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
+    app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["metrics"])
 
 
 def _setup_health_checks(app: FastAPI) -> None:

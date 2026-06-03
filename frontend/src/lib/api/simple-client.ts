@@ -66,7 +66,13 @@ async function fetchAPI<T>(
   }
 
   if (response.status === 401) {
-    // Token expired or invalid - redirect to login
+    // Token expired or invalid - clear auth state and redirect to login
+    // Import dynamically to avoid circular dependency
+    if (typeof window !== 'undefined') {
+      import('@/lib/stores/auth-store').then(({ useAuthStore }) => {
+        useAuthStore.getState().clearAuth()
+      })
+    }
     window.location.href = '/'
     throw new ApiError('Authentication required', 401)
   }

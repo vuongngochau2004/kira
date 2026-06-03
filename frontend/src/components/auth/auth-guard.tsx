@@ -33,11 +33,13 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
   // Safely get auth state with error boundary
   let isAuthenticated = false
   let isHydrated = false
+  let isVerified = false
 
   try {
     const authStore = useAuthStore()
     isAuthenticated = authStore.isAuthenticated
     isHydrated = authStore.isHydrated
+    isVerified = authStore.isVerified ?? false
   } catch (error) {
     // Auth store failed - treat as unauthenticated for safety
     console.error('AuthGuard: Auth store error', error)
@@ -45,9 +47,9 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
   }
 
   useEffect(() => {
-    // Only redirect after auth state is hydrated
-    // This prevents redirecting during the async hydration delay
-    if (isHydrated && !isAuthenticated && !hasError) {
+    // Only redirect after auth state is hydrated AND verified
+    // This prevents redirecting during the async hydration delay or verification phase
+    if (isHydrated && isVerified && !isAuthenticated && !hasError) {
       // Store current URL for post-login redirect
       try {
         sessionStorage.setItem('returnUrl', pathname)
@@ -56,7 +58,7 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
         console.error('AuthGuard: Redirect error', error)
       }
     }
-  }, [isHydrated, isAuthenticated, pathname, router, hasError])
+  }, [isHydrated, isVerified, isAuthenticated, pathname, router, hasError])
 
   // Show error state if auth store failed
   if (hasError) {
@@ -75,12 +77,13 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
     )
   }
 
-  // Show loading while auth state is hydrating
-  if (!isHydrated) {
+  // Show loading while auth state is hydrating OR being verified with backend
+  // This prevents flash of login page before we know the true auth state
+  if (!isHydrated || !isVerified) {
     return fallback || <LoadingScreen />
   }
 
-  // If not authenticated after hydration, return null (will redirect via useEffect)
+  // If not authenticated after hydration AND verification, return null (will redirect via useEffect)
   if (!isAuthenticated) {
     return null
   }

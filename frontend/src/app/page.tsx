@@ -10,11 +10,11 @@ import { KiraLogoIcon } from '@/components/common/KiraLogo'
 
 export default function AuthLandingPage() {
   const router = useRouter()
-  const { isAuthenticated, isHydrated, login, register, isLoading, error, clearError } = useAuthStore()
+  const { isAuthenticated, isHydrated, isVerified, login, register, isLoading, error, clearError } = useAuthStore()
   const { handleRedirect } = usePostLoginRedirect()
 
-  // Auto-redirect if already authenticated
-  useAutoRedirect(isAuthenticated, isHydrated)
+  // Auto-redirect if already authenticated AND verified
+  useAutoRedirect(isAuthenticated, isHydrated, isVerified)
 
   // State
   const [mode, setMode] = useState<'login' | 'register'>('login')

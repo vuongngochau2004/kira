@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
       {
         source: '/api/:path*',
         destination: `${apiUrl}/api/:path*`,
+        // Important: Forward credentials for httpOnly cookie auth
+        basePath: false,
       },
     ]
   },

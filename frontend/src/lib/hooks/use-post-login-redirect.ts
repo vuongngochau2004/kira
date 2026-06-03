@@ -53,13 +53,20 @@ export function usePostLoginRedirect() {
 /**
  * Hook for auto-redirect when already authenticated
  * Used in page.tsx to redirect authenticated users away from login page
+ *
+ * FIXED: Only redirect after auth verification is complete (isVerified)
+ * This prevents redirecting when localStorage says authenticated but cookies are invalid
  */
-export function useAutoRedirect(isAuthenticated: boolean, isHydrated: boolean) {
+export function useAutoRedirect(isAuthenticated: boolean, isHydrated: boolean, isVerified: boolean) {
   const { handleRedirect } = usePostLoginRedirect()
 
   useEffect(() => {
-    if (isAuthenticated && isHydrated) {
+    // Only redirect if all three conditions are met:
+    // 1. isAuthenticated: localStorage says user is logged in
+    // 2. isHydrated: persist middleware has finished hydration
+    // 3. isVerified: backend verification has completed
+    if (isAuthenticated && isHydrated && isVerified) {
       handleRedirect()
     }
-  }, [isAuthenticated, isHydrated, handleRedirect])
+  }, [isAuthenticated, isHydrated, isVerified, handleRedirect])
 }
