@@ -30,56 +30,70 @@ async def stream_with_thinking_separation(
     """
     buffer = ""
     in_thinking = False
-    pos = 0  # Current position in buffer
 
     async for raw_chunk in raw_stream:
         buffer += raw_chunk
 
-        # Process buffer incrementally
-        while pos < len(buffer):
+        while True:
             if not in_thinking:
-                # Look for <thinking> start
-                start_idx = buffer.find(THINKING_START, pos)
-                if start_idx == -1:
-                    # No <thinking> found - yield everything from pos as content
-                    if pos < len(buffer):
-                        yield {"type": "content", "text": buffer[pos:]}
-                    pos = len(buffer)
-                    break
-                else:
-                    # Yield content before <thinking>
-                    if start_idx > pos:
-                        yield {"type": "content", "text": buffer[pos:start_idx]}
-                    pos = start_idx + len(THINKING_START)
+                start_idx = buffer.find(THINKING_START)
+                if start_idx != -1:
+                    content_before = buffer[:start_idx]
+                    if content_before:
+                        yield {"type": "content", "text": content_before}
+                    buffer = buffer[start_idx + len(THINKING_START):]
                     in_thinking = True
-
-            else:  # in_thinking is True
-                # Look for </thinking> end
-                end_idx = buffer.find(THINKING_END, pos)
-                if end_idx == -1:
-                    # No </thinking> yet - yield thinking content incrementally for streaming
-                    # IMPORTANT: Yield current thinking content so UI can show it in real-time
-                    if pos < len(buffer):
-                        yield {"type": "thinking", "text": buffer[pos:]}
-                    pos = len(buffer)
-                    break
+                    continue
                 else:
-                    # Yield thinking content (without the closing tag)
-                    yield {"type": "thinking", "text": buffer[pos:end_idx]}
-                    pos = end_idx + len(THINKING_END)
+                    # Check for partial prefix of "<thinking>" at the end of the buffer
+                    partial_match_len = 0
+                    for i in range(1, len(THINKING_START)):
+                        prefix = THINKING_START[:i]
+                        if buffer.endswith(prefix):
+                            partial_match_len = i
+                    
+                    if partial_match_len > 0:
+                        content_to_yield = buffer[:-partial_match_len]
+                        buffer = buffer[-partial_match_len:]
+                    else:
+                        content_to_yield = buffer
+                        buffer = ""
+                    
+                    if content_to_yield:
+                        yield {"type": "content", "text": content_to_yield}
+                    break
+            else:
+                end_idx = buffer.find(THINKING_END)
+                if end_idx != -1:
+                    thinking_content = buffer[:end_idx]
+                    if thinking_content:
+                        yield {"type": "thinking", "text": thinking_content}
+                    buffer = buffer[end_idx + len(THINKING_END):]
                     in_thinking = False
+                    continue
+                else:
+                    # Check for partial prefix of "</thinking>" at the end of the buffer
+                    partial_match_len = 0
+                    for i in range(1, len(THINKING_END)):
+                        prefix = THINKING_END[:i]
+                        if buffer.endswith(prefix):
+                            partial_match_len = i
+                    
+                    if partial_match_len > 0:
+                        thinking_to_yield = buffer[:-partial_match_len]
+                        buffer = buffer[-partial_match_len:]
+                    else:
+                        thinking_to_yield = buffer
+                        buffer = ""
+                    
+                    if thinking_to_yield:
+                        yield {"type": "thinking", "text": thinking_to_yield}
+                    break
 
-        # Trim processed content from buffer to prevent unbounded growth
-        if pos > 1000:  # Keep some buffer for tag detection
-            buffer = buffer[pos - 100:]  # Keep last 100 chars
-            pos = 100
-
-    # Yield remaining content
-    # If still in thinking mode, treat remaining as thinking (LLM forgot closing tag)
-    # Otherwise treat as content
-    if pos < len(buffer):
+    if buffer:
         chunk_type = "thinking" if in_thinking else "content"
-        yield {"type": chunk_type, "text": buffer[pos:]}
+        yield {"type": chunk_type, "text": buffer}
+
 
 
 __all__ = ["stream_with_thinking_separation"]

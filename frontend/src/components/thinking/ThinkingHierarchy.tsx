@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { ChevronDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ThinkingHierarchy, ExecutionThinking } from '@/types/thinking'
@@ -88,33 +88,48 @@ export function ThinkingHierarchy({
   // Data-driven filter: Only render if there's actual thinking process
   const hasThinkingProcess = hasRouting || hasExecution || hasReasoning
 
-  // DEBUG
-  console.log('[DEBUG ThinkingHierarchy] render:', {
-    hasRouting,
-    hasExecution,
-    hasReasoning,
-    isRunning,
-    isError,
-    hasThinkingProcess,
-    routing: hierarchy.routing,
-    executionLen: hierarchy.execution.length,
-    hasReasoningContent: !!hierarchy.reasoning?.content,
-    willRender: !!(hasThinkingProcess || isError || isRunning)
-  })
-
-  // NEW: Always render when running (loading state), even without data yet
+  // CRITICAL FIX: Always render when running (loading state), even without data yet
   // This ensures optimistic messages show the thinking block immediately
+  // Only skip if we have no data AND not running AND not error
   if (!hasThinkingProcess && !isError && !isRunning) {
-    console.log('[DEBUG ThinkingHierarchy] returning null - no thinking data')
     return null
+  }
+
+  // CRITICAL: When running but no data yet, render skeleton with loading state
+  // This prevents thinking text from appearing outside the component
+  if (isRunning && !hasThinkingProcess) {
+    // Return skeleton block - will populate with real data when it arrives
+    return (
+      <div
+        className={cn(
+          'rounded-lg border overflow-hidden',
+          'border-border/30',
+          'transition-all duration-200 ease-out',
+          className
+        )}
+      >
+        <button className="flex items-center gap-3 w-full px-4 py-3">
+          <Loader2 className="w-4 h-4 text-muted-foreground animate-spin flex-shrink-0" />
+          <span className="text-sm font-medium text-foreground flex-1 text-left">
+            Thinking...
+          </span>
+          <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        </button>
+        {/* Empty content area that will populate when data arrives */}
+        <div className="px-4 pb-3">
+          <div className="text-sm text-muted-foreground italic px-3 py-2">
+            <span className="inline-block w-1 h-4 bg-muted-foreground/40 animate-pulse ml-1 align-middle" />
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div
       className={cn(
         'rounded-lg border overflow-hidden',
-        'bg-muted/30',
-        'border-border/50',
+        'border-border/30',
         'transition-all duration-200 ease-out',
         className
       )}
@@ -165,24 +180,6 @@ export function ThinkingHierarchy({
               {hierarchy.error}
             </div>
           )}
-
-          {/* Routing Information */}
-          {hasRouting && (
-            <div className="mb-2">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground/60">•</span>
-                <span className="text-muted-foreground">
-                  Router: <span className="font-medium">{hierarchy.routing!.router}</span>
-                </span>
-                {hierarchy.routing!.intent && (
-                  <span className="text-muted-foreground/70">
-                    (intent: {hierarchy.routing!.intent})
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Agent Blocks with nested Tool Calls */}
           {hasExecution && (
             <AgentBlock
@@ -190,11 +187,6 @@ export function ThinkingHierarchy({
               execution={hierarchy.execution}
               isRunning={isRunning}
             />
-          )}
-
-          {/* Simple divider before reasoning */}
-          {(hasRouting || hasExecution) && hasReasoning && (
-            <div className="h-px bg-border/50 my-3" />
           )}
 
           {/* AI Reasoning Content */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSimpleChat } from '@/lib/hooks/use-simple-chat'
 import { useConversationStore } from '@/lib/stores/conversation-store'
@@ -13,13 +13,18 @@ function ConversationContent() {
   const conversationId = searchParams.get('id')
   const chat = useSimpleChat()
   const { syncFromURL, isLoading: storeLoading } = useConversationStore()
+  const prevConversationIdRef = useRef<string | null>(null)
 
   // Sync conversation state from URL
   const isNewChat = !conversationId || !isValidUUID(conversationId)
 
-  // FIX: Sync URL state in useEffect, not during render
+  // FIX: Smooth URL sync without jarring re-render
   useEffect(() => {
-    syncFromURL(conversationId)
+    // Only sync if conversationId actually changed (not just on mount)
+    if (conversationId !== prevConversationIdRef.current) {
+      syncFromURL(conversationId)
+      prevConversationIdRef.current = conversationId
+    }
   }, [conversationId, syncFromURL])
 
   return (

@@ -1,10 +1,8 @@
 /**
- * useSimpleChat - React hook for chat functionality with streaming support
+ * useSimpleChat - Simple, clean chat hook with streaming support
  *
- * Architecture:
- * - SSE Client → StreamingStateBuilder → MessageState → UI Components
- * - Clean separation: parse → build → render
- * - Type-safe throughout
+ * Architecture: Send Message → Stream → Update State → Render
+ * No complex parsing, just accumulate and display
  */
 
 'use client'
@@ -15,14 +13,14 @@ import { useConversationStore } from '@/lib/stores/conversation-store'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useOptimistic, useTransition } from 'react'
 import { MessageQueue, type QueuedMessage } from '@/lib/utils/message-queue'
-import { ConversationError, ConversationErrorType, getErrorUserMessage } from '@/lib/types/errors'
+import type { ThinkingHierarchy } from '@/types/thinking'
 import {
   createStreamingStateBuilder,
+  parseChunk,
   type MessageState as StreamingMessageState,
   type StreamingState,
   type SourceChunk,
 } from '@/lib/streaming'
-import type { ThinkingHierarchy, ThinkingHierarchy as ThinkingHierarchyType } from '@/types/thinking'
 
 // ==================== Types ====================
 
@@ -32,7 +30,7 @@ export interface Message {
   content: string
   timestamp: Date
   sources?: SourceChunk[]
-  thinkingHierarchy?: ThinkingHierarchyType
+  thinkingHierarchy?: ThinkingHierarchy
   streamingState?: StreamingState
   isStreaming?: boolean
   isOptimistic?: boolean
@@ -40,46 +38,31 @@ export interface Message {
 
 // ==================== Constants ====================
 
-const STREAM_TIMEOUT_MS = 30000 // 30s timeout
-
 // ==================== Helpers ====================
 
 /**
- * Convert StreamingMessageState to ThinkingHierarchy for UI rendering
+ * Convert StreamingMessageState to ThinkingHierarchy for UI
+ * Simple mapping, strip any remaining thinking tags
  */
-function messageStateToThinkingHierarchy(state: StreamingMessageState): ThinkingHierarchy | undefined {
-  // DEBUG: Log what we're converting
-  console.log('[messageStateToThinkingHierarchy] Converting state:', {
-    hasRouting: !!state.routing,
-    routing: state.routing,
-    retrievalCount: state.retrieval.length,
-    retrieval: state.retrieval,
-    reasoningLength: state.reasoning?.length || 0,
-    reasoningPreview: state.reasoning ? state.reasoning.substring(0, 100) + '...' : 'N/A',
-    status: state.status
-  })
-
+function stateToHierarchy(state: StreamingMessageState): ThinkingHierarchy {
   const hierarchy: ThinkingHierarchy = {
-    execution: [],
     status: state.status === 'complete' ? 'complete' : 'running',
+    execution: [],
   }
 
-  // Add routing if present
+  // Map routing
   if (state.routing) {
-    const routerMatch = state.routing.router.match(/^(\w+)(?:\s+\((\w+)\))?/)
-    if (routerMatch) {
-      hierarchy.routing = {
-        router: routerMatch[1],
-        intent: routerMatch[2] || state.routing.intent,
-        timestamp: state.timestamp,
-      }
+    hierarchy.routing = {
+      router: state.routing.router,
+      intent: state.routing.intent,
+      timestamp: state.timestamp,
     }
   }
 
-  // Add retrieval stages
+  // Map retrieval
   if (state.retrieval.length > 0) {
     hierarchy.execution = state.retrieval.map(stage => ({
-      stage: 'retrieval' as const,
+      stage: 'retrieval',
       iteration: stage.iteration,
       strategy: stage.strategy,
       docsRetrieved: stage.docsRetrieved,
@@ -87,44 +70,37 @@ function messageStateToThinkingHierarchy(state: StreamingMessageState): Thinking
     }))
   }
 
-  // Add reasoning if present
-  if (state.reasoning) {
+  // Map thinking content - STRIP any remaining thinking tags
+  if (state.thinking) {
+    // Remove <thinking>, </thinking> tags if present (defense in depth)
+    const cleanThinking = state.thinking
+      .replace(/<\/?thinking[^>]*>/gi, '')
+      .trim()
+
     hierarchy.reasoning = {
-      content: state.reasoning,
+      content: cleanThinking,
       isStreaming: state.status !== 'complete',
       timestamp: state.timestamp,
     }
   }
 
-  // Only return if we have meaningful data
-  if (hierarchy.routing || hierarchy.execution.length > 0 || hierarchy.reasoning) {
-    console.log('[messageStateToThinkingHierarchy] Returning hierarchy:', {
-      hasRouting: !!hierarchy.routing,
-      hasExecution: hierarchy.execution.length > 0,
-      hasReasoning: !!hierarchy.reasoning,
-      reasoningLength: hierarchy.reasoning?.content?.length || 0
-    })
-    return hierarchy
-  }
-
-  console.log('[messageStateToThinkingHierarchy] Returning undefined - no data')
-  return undefined
+  return hierarchy
 }
 
 // ==================== Custom Hook ====================
 
 export function useSimpleChat() {
-  // ==================== Store & Router ====================
+  // Store & Router
   const { activeConversationId, setActiveConversation, updateURL } = useConversationStore()
   const { isAuthenticated } = useAuthStore()
 
-  // ==================== State ====================
+  // State
   const [mounted, setMounted] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Optimistic state
+  // Optimistic
   const [isPending, startTransition] = useTransition()
   const [optimisticMessages, addOptimistic] = useOptimistic(
     messages,
@@ -139,43 +115,30 @@ export function useSimpleChat() {
     }
   )
 
-  // Conversation creation state
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
-
-  // Message queue for pending conversation
   const queueRef = useRef(new MessageQueue())
   const failedMessageRef = useRef<string | null>(null)
-
-  // Typed error state
-  const [conversationError, setConversationError] = useState<ConversationError | null>(null)
+  const conversationError = useRef<any>(null)
 
   // Refs for streaming
   const abortControllerRef = useRef<AbortController | null>(null)
   const stateBuilderRef = useRef<ReturnType<typeof createStreamingStateBuilder> | null>(null)
   const assistantMsgIdRef = useRef<string | null>(null)
 
-  // ==================== Effects ====================
+  // Effects
+  useEffect(() => { setMounted(true) }, [])
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      cleanup()
-    }
-  }, [])
+  useEffect(() => { return () => { cleanup() } }, [])
 
   useEffect(() => {
     return () => {
       if (isCreatingConversation) {
-        queueRef.current.clear()
+        queueRef.current = new MessageQueue()
         setIsCreatingConversation(false)
       }
     }
   }, [isCreatingConversation])
 
-  // Load conversation when activeConversationId changes
   useEffect(() => {
     if (!activeConversationId || !mounted || !isAuthenticated || isCreatingConversation) {
       return
@@ -183,7 +146,6 @@ export function useSimpleChat() {
     loadConversation(activeConversationId)
   }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation])
 
-  // Clear messages when no active conversation
   useEffect(() => {
     if (!activeConversationId && mounted && isAuthenticated && !isCreatingConversation) {
       setMessages([])
@@ -192,91 +154,81 @@ export function useSimpleChat() {
 
   // ==================== Helpers ====================
 
-  /**
-   * Cleanup stream and reset state
-   */
-  const cleanup = useCallback(() => {
+  function cleanup() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
-    // CRITICAL: Reset state builder to prevent unbounded buffer growth
     if (stateBuilderRef.current) {
       stateBuilderRef.current.reset()
       stateBuilderRef.current = null
     }
     assistantMsgIdRef.current = null
     setIsLoading(false)
-  }, [])
+  }
 
   /**
    * Update assistant message with current streaming state
+   * Simple mapping: state → hierarchy → message
    */
-  const updateAssistantMessage = useCallback((
-    msgId: string | null,
-    stateBuilder: ReturnType<typeof createStreamingStateBuilder>
-  ) => {
+  function updateAssistantMessage(msgId: string | null, stateBuilder: ReturnType<typeof createStreamingStateBuilder>) {
     if (!msgId) return
 
-    const messageState = stateBuilder.getState()
-    const thinkingHierarchy = messageStateToThinkingHierarchy(messageState)
+    const state = stateBuilder.getState()
+    
+    // Parse thinking tags from state.content in case the backend sent them in the content stream
+    const parsed = parseChunk(state.content, false)
+    const hierarchy = stateToHierarchy(state)
+
+    // Merge reasoning extracted from content stream
+    const contentReasoning = parsed.reasoning.trim()
+    if (contentReasoning) {
+      hierarchy.reasoning = {
+        content: ((hierarchy.reasoning?.content || '') + '\n' + contentReasoning).trim(),
+        isStreaming: state.status !== 'complete',
+        timestamp: state.timestamp,
+      }
+    }
 
     setMessages((prev) =>
       prev.map((msg) =>
         msg.id === msgId
           ? {
               ...msg,
-              content: messageState.content,
-              thinkingHierarchy,
-              sources: messageState.sources.length > 0 ? [...messageState.sources] : undefined,
-              streamingState: messageState.status,
-              isStreaming: messageState.status !== 'complete',
+              content: parsed.content,
+              thinkingHierarchy: hierarchy,
+              sources: state.sources.length > 0 ? [...state.sources] : undefined,
+              streamingState: state.status,
+              isStreaming: state.status !== 'complete',
             }
           : msg
       )
     )
-  }, [])
+  }
 
-  /**
-   * Load conversation from API
-   */
-  const loadConversation = async (id: string) => {
+  async function loadConversation(id: string) {
     try {
       const conversation = await conversationsAPI.get(id)
 
       setMessages(
         conversation.messages.map((msg) => {
           if (msg.role === 'assistant') {
-            let content = msg.content || ''
-            let extractedReasoning = ''
-
-            // Parse thinking tags from content
-            const thinkingMatch = content.match(/<thinking>([\s\S]*?)<\/thinking>/gi)
-            if (thinkingMatch) {
-              extractedReasoning = thinkingMatch
-                .map(match => match.replace(/<\/?thinking[^>]*>/gi, '').trim())
-                .join('\n\n')
-              content = content.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim()
-            }
-
             const thinkingData = (msg as any).thinking_data || null
             const isEmptyObject = thinkingData && typeof thinkingData === 'object' && Object.keys(thinkingData).length === 0
             const thinkingMetadata = (isEmptyObject || !thinkingData) ? null : (thinkingData?.thinking || thinkingData)
 
-            let thinkingHierarchy: ThinkingHierarchy | undefined = undefined
+            const parsed = parseChunk(msg.content || '', false)
+            let hierarchy: ThinkingHierarchy | undefined = undefined
 
             if (thinkingMetadata && typeof thinkingMetadata === 'object') {
               const routerName = thinkingMetadata.router || null
               const retrievalStages = thinkingMetadata.retrieval || []
-              let reasoning = thinkingMetadata.reasoning || extractedReasoning || ''
-              reasoning = reasoning.replace(/<\/?thinking[^>]*>/gi, '').trim()
+              let reasoning = thinkingMetadata.reasoning || ''
 
-              const hasThinkingData = routerName || retrievalStages.length > 0 || reasoning
-
-              if (hasThinkingData) {
-                const hierarchy: ThinkingHierarchy = {
-                  execution: [],
+              if (routerName || retrievalStages.length > 0 || reasoning) {
+                hierarchy = {
                   status: 'complete',
+                  execution: [],
                 }
 
                 if (routerName) {
@@ -292,7 +244,7 @@ export function useSimpleChat() {
 
                 if (retrievalStages.length > 0) {
                   hierarchy.execution = retrievalStages.map((stage: any) => ({
-                    stage: 'retrieval' as const,
+                    stage: 'retrieval',
                     iteration: stage.iteration || 1,
                     strategy: (stage.strategy?.toLowerCase() === 'hybrid' ? 'hybrid' : 'dense') as 'dense' | 'hybrid',
                     docsRetrieved: stage.docs_retrieved || 0,
@@ -301,35 +253,40 @@ export function useSimpleChat() {
                 }
 
                 if (reasoning) {
+                  // Strip any <thinking> tags from reasoning content
+                  const cleanReasoning = reasoning.replace(/<\/?thinking[^>]*>/gi, '').trim()
+
                   hierarchy.reasoning = {
-                    content: reasoning,
+                    content: cleanReasoning,
                     isStreaming: false,
                     timestamp: new Date(msg.created_at).getTime(),
                   }
                 }
-
-                thinkingHierarchy = hierarchy
               }
             }
 
-            if (!thinkingHierarchy && extractedReasoning) {
-              thinkingHierarchy = {
-                execution: [],
-                status: 'complete',
-                reasoning: {
-                  content: extractedReasoning.replace(/<\/?thinking[^>]*>/gi, '').trim(),
-                  isStreaming: false,
-                  timestamp: new Date(msg.created_at).getTime(),
-                },
+            // Also integrate any thinking tags found in the content itself (defensive fallback)
+            const contentReasoning = parsed.reasoning.trim()
+            if (contentReasoning) {
+              if (!hierarchy) {
+                hierarchy = {
+                  status: 'complete',
+                  execution: [],
+                }
+              }
+              hierarchy.reasoning = {
+                content: ((hierarchy.reasoning?.content || '') + '\n' + contentReasoning).trim(),
+                isStreaming: false,
+                timestamp: new Date(msg.created_at).getTime(),
               }
             }
 
             return {
               id: msg.id,
               role: 'assistant' as const,
-              content: content,
+              content: parsed.content || '',
               timestamp: new Date(msg.created_at),
-              thinkingHierarchy,
+              thinkingHierarchy: hierarchy,
               sources: msg.sources || (msg.metadata as any)?.sources || undefined,
               streamingState: 'complete' as const,
               isStreaming: false,
@@ -346,14 +303,11 @@ export function useSimpleChat() {
         })
       )
     } catch (err) {
-      // Silent fail on conversation load error
+      // Silent fail
     }
   }
 
-  /**
-   * Flush queued messages after conversation is created
-   */
-  const flushQueuedMessages = useCallback(async (conversationId: string) => {
+  async function flushQueuedMessages(conversationId: string) {
     const queue = queueRef.current
 
     if (queue.isEmpty()) {
@@ -365,7 +319,6 @@ export function useSimpleChat() {
         const assistantMsgId = queuedMsg.assistantId || (Date.now() + Math.random()).toString()
         assistantMsgIdRef.current = assistantMsgId
 
-        // Create new state builder for this message
         const stateBuilder = createStreamingStateBuilder()
         stateBuilderRef.current = stateBuilder
 
@@ -386,18 +339,17 @@ export function useSimpleChat() {
               sources: existingMsg?.sources || [],
               streamingState: 'connecting',
               isStreaming: true,
+              isOptimistic: false,
             }
           ]
         })
 
         try {
-          // Stream response
           const stream = chatAPI.streamMessage(queuedMsg.content, conversationId)
 
           for await (const chunk of stream) {
             const { type, data: eventData } = chunk
 
-            // Check for error chunks from server
             if (type === 'error') {
               const errorMsg = eventData?.error || eventData?.message || 'Server error occurred'
               setMessages((prev) =>
@@ -419,10 +371,14 @@ export function useSimpleChat() {
             updateAssistantMessage(assistantMsgId, stateBuilder)
           }
 
-          // Clean up optimistic messages
-          setMessages((prev) => prev.filter(msg => !msg.id.startsWith('temp-user-')))
+          // Mark optimistic messages as real
+          setMessages((prev) =>
+            prev.map(msg => msg.id.startsWith('temp-')
+              ? { ...msg, isOptimistic: false }
+              : msg
+            )
+          )
         } catch (streamErr: any) {
-          // IMPROVED: Better error handling for individual message streaming
           const errorMsg = streamErr?.message || 'Failed to stream response'
           setMessages((prev) =>
             prev.map((msg) =>
@@ -440,27 +396,20 @@ export function useSimpleChat() {
       })
     } catch (err: any) {
       setError(err?.message || 'Failed to send queued messages')
-      queue.clear()
     }
-  }, [updateAssistantMessage])
+  }
 
-  /**
-   * Send message and handle streaming response
-   */
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return
 
-    // CRITICAL: Prevent race condition - check if already processing
     if (isLoading || isCreatingConversation) {
       console.warn('[useSimpleChat] Message send blocked: already processing')
       return
     }
 
-    // Clear previous errors
     setError(null)
     failedMessageRef.current = null
 
-    // If we have an active conversation, send normally
     if (activeConversationId) {
       cleanup()
       setIsLoading(true)
@@ -489,39 +438,14 @@ export function useSimpleChat() {
       setMessages((prev) => [...prev, userMessage, assistantMessage])
 
       try {
-        // Create state builder for streaming
         const stateBuilder = createStreamingStateBuilder()
         stateBuilderRef.current = stateBuilder
 
         const stream = chatAPI.streamMessage(content.trim(), activeConversationId)
 
-        let timeoutId: NodeJS.Timeout | null = null
-
-        // IMPROVED: Better timeout handling with cleanup
-        timeoutId = setTimeout(() => {
-          if (abortControllerRef.current) {
-            abortControllerRef.current.abort()
-            setError('Streaming timeout - please try again')
-            // Update assistant message to show error
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMsgId
-                  ? {
-                      ...msg,
-                      streamingState: 'error' as const,
-                      isStreaming: false,
-                      content: '⏱️ Request timeout. Please try again.',
-                    }
-                  : msg
-              )
-            )
-          }
-        }, STREAM_TIMEOUT_MS)
-
         for await (const chunk of stream) {
           const { type, data: eventData } = chunk
 
-          // Check for error chunks from server
           if (type === 'error') {
             const errorMsg = eventData?.error || eventData?.message || 'Server error occurred'
             setError(errorMsg)
@@ -543,15 +467,8 @@ export function useSimpleChat() {
           stateBuilder.processChunk(type, eventData)
           updateAssistantMessage(assistantMsgId, stateBuilder)
         }
-
-        // Clear timeout if stream completed successfully
-        if (timeoutId) {
-          clearTimeout(timeoutId)
-        }
       } catch (err: any) {
-        // IMPROVED: Better error handling with user-visible feedback
         if (err.name === 'AbortError') {
-          // User cancelled or timeout - show cancellation message
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMsgId
@@ -565,7 +482,6 @@ export function useSimpleChat() {
             )
           )
         } else {
-          // Network or other errors - show error to user
           const errorMsg = err?.message || 'Failed to send message. Please check your connection.'
           setError(errorMsg)
           setMessages((prev) =>
@@ -614,15 +530,13 @@ export function useSimpleChat() {
       },
     }
 
-    // Show optimistic messages immediately
+    setMessages((prev) => [...prev, tempUserMessage, tempAssistantMessage])
+
     startTransition(() => {
       addOptimistic(tempUserMessage)
       addOptimistic(tempAssistantMessage)
     })
 
-    setMessages((prev) => [...prev, tempAssistantMessage])
-
-    // Queue the message
     queueRef.current.enqueue({
       id: tempUserMsgId,
       content: content.trim(),
@@ -630,14 +544,12 @@ export function useSimpleChat() {
       assistantId: tempAssistantMsgId,
     })
 
-    // Start conversation creation
     if (!isCreatingConversation) {
       setIsCreatingConversation(true)
 
       try {
         const { id: newConversationId } = await conversationsAPI.create('web')
 
-        // Update URL
         const currentUrl = new URL(window.location.href)
         currentUrl.searchParams.set('id', newConversationId)
         window.history.replaceState({}, '', currentUrl.toString())
@@ -645,50 +557,38 @@ export function useSimpleChat() {
         setActiveConversation(newConversationId)
         await flushQueuedMessages(newConversationId)
 
-        setMessages((prev) => prev.filter(msg => !msg.id.startsWith('temp-user-')))
+        setMessages((prev) =>
+          prev.map(msg => msg.id.startsWith('temp-')
+            ? { ...msg, isOptimistic: false }
+            : msg
+          )
+        )
         setIsCreatingConversation(false)
       } catch (err: any) {
-        const error = new ConversationError(
-          ConversationErrorType.CREATE_FAILED,
-          err?.message || 'Failed to create conversation',
-          true,
-          'Failed to create conversation. Please try again.'
-        )
-
-        setConversationError(error)
-        setError(getErrorUserMessage(error))
+        setError(err?.message || 'Failed to create conversation. Please try again.')
         failedMessageRef.current = content
-        queueRef.current.clear()
+        queueRef.current = new MessageQueue()
         setIsCreatingConversation(false)
-        setMessages((prev) => prev.filter(msg => !msg.id.startsWith('temp-user-')))
+        setMessages((prev) => prev.filter(msg => !msg.id.startsWith('temp-')))
       }
     }
   }, [
     activeConversationId,
     setActiveConversation,
     cleanup,
-    updateAssistantMessage,
-    flushQueuedMessages,
     isCreatingConversation,
     addOptimistic,
     isAuthenticated,
     mounted,
   ])
 
-  /**
-   * Clear all messages and reset conversation
-   */
   const clearMessages = useCallback(() => {
     cleanup()
     setMessages([])
     setActiveConversation(null)
     setError(null)
-    queueRef.current.clear()
   }, [setActiveConversation, cleanup])
 
-  /**
-   * Retry failed message
-   */
   const retryMessage = useCallback(() => {
     if (failedMessageRef.current) {
       setError(null)
@@ -707,7 +607,7 @@ export function useSimpleChat() {
     clearMessages,
     retryMessage,
     activeConversationId,
-    errorType: conversationError?.type,
-    isRetryable: conversationError?.retryable ?? false,
+    errorType: conversationError.current?.type,
+    isRetryable: conversationError.current?.retryable ?? false,
   }
 }
