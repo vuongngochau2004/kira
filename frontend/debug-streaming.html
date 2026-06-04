@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Streaming</title>
+</head>
+<body>
+    <h1>Streaming Debug Tool</h1>
+    <p>Mở file này và chat với "hello" để xem logs chi tiết.</p>
+    <p>Sau đó copy toàn bộ console logs (Ctrl+Shift+J) và gửi cho tôi.</p>
+
+    <h2>Hoặc copy logs từ console của trang chính:</h2>
+    <ol>
+        <li>Mở trang http://localhost:3001/chat</li>
+        <li>Mở DevTools (F12)</li>
+        <li>Tab Console</li>
+        <li>Clear console (Ctrl+L)</li>
+        <li>Chat "hello"</li>
+        <li>Tìm các logs bắt đầu bằng: <code>[STREAM]</code>, <code>[buildThinkingHierarchy]</code>, <code>[ThinkingHierarchy]</code></li>
+    </ol>
+
+    <h2>Các logs cần tìm:</h2>
+    <ul>
+        <li><code>[STREAM] Chunk received:</code> - Backend emit chunk gì?</li>
+        <li><code>[STREAM] Thinking appended:</code> - Thinking buffer được append không?</li>
+        <li><code>[buildThinkingHierarchy] Built:</code> - Hierarchy được build không?</li>
+        <li><code>[ThinkingHierarchy] Render:</code> - Component render không?</li>
+    </ul>
+</body>
+</html>

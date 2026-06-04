@@ -183,6 +183,7 @@ async def _stream_generator_v2(
     # Collect thinking data for metadata
     router_name = None
     retrieval_stages = []
+    thinking_content = []  # NEW: Collect LLM reasoning content
 
     # Load conversation history if continuing conversation
     conversation_history = []
@@ -234,6 +235,12 @@ async def _stream_generator_v2(
                 full_content.append(text)
                 yield f"data: {json.dumps({'type': 'content', 'data': {'text': text}})}\n\n"
 
+            elif chunk_type == "thinking":
+                # Collect LLM reasoning content for persistence
+                thinking_text = chunk_data.get("text", "")
+                thinking_content.append(thinking_text)
+                yield f"data: {json.dumps({'type': 'thinking', 'data': {'text': thinking_text}})}\n\n"
+
             elif chunk_type == "metadata":
                 # Collect citations from metadata
                 if "citations" in chunk_data:
@@ -248,12 +255,15 @@ async def _stream_generator_v2(
                     )
                     conversation_id_to_save = conv.id
 
-                # Build thinking metadata
-                thinking_metadata = {}
+                # Build thinking metadata with actual content
+                thinking_metadata: dict = {}
                 if router_name:
                     thinking_metadata["router"] = router_name
                 if retrieval_stages:
                     thinking_metadata["retrieval"] = retrieval_stages
+                # NEW: Add actual LLM reasoning content
+                if thinking_content:
+                    thinking_metadata["reasoning"] = "".join(thinking_content)
 
                 # Only save thinking_data if we have actual metadata (not empty dict)
                 # Empty dict {} is falsy, but we want to be explicit about the check

@@ -1,31 +1,21 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useSimpleChat } from '@/lib/hooks/use-simple-chat'
-import { useConversationStore } from '@/lib/stores/conversation-store'
-import { SimpleChat } from '@/components/simple/SimpleChat'
+import { useRouter } from 'next/navigation'
 import { AuthGuard } from '@/components/auth/auth-guard'
 
 export default function ChatPage() {
-  const chat = useSimpleChat()
-  const { setActiveConversation } = useConversationStore()
+  const router = useRouter()
 
   useEffect(() => {
-    // Clear active conversation on new chat
-    setActiveConversation(null)
-  }, [setActiveConversation])
+    // Immediate redirect to new conversation page
+    router.replace('/conversation')
+  }, [router])
 
   return (
     <AuthGuard>
-      <div className="h-full flex flex-col overflow-hidden bg-background min-h-0">
-        <SimpleChat
-          messages={chat.messages}
-          isLoading={chat.isLoading}
-          onSendMessage={chat.sendMessage}
-          onClearChat={chat.clearMessages}
-          error={chat.error}
-          isNewChat={true}
-        />
+      <div className="h-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     </AuthGuard>
   )

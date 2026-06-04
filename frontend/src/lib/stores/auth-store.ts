@@ -92,7 +92,6 @@ export const useAuthStore = create<AuthState>()(
           })
         } catch (error) {
           // Network error or auth failed - clear state
-          console.error('Auth verification failed:', error)
           set({
             user: null,
             isAuthenticated: false,
@@ -233,7 +232,7 @@ export const useAuthStore = create<AuthState>()(
             credentials: 'include',  // Send/receive httpOnly cookies
           })
         } catch (error) {
-          console.error('Logout error:', error)
+          // Ignore logout errors
         } finally {
           // Always clear local state
           set({

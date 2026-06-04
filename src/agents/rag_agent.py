@@ -13,8 +13,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 logger = logging.getLogger(__name__)
 
 from src.agents.llm import chat_async, chat_async_stream
-from src.agents.prompts import ANSWER_GENERATOR_PROMPT
+from src.agents.llm_post_process import stream_with_thinking_separation
+from src.agents.prompts import ANSWER_GENERATOR_PROMPT, CITATION_AWARE_SYSTEM_PROMPT, format_context_with_citations
 from src.agents.utils import format_context
+from src.agents.citation_parser import CitationParser
+from src.agents.citation_verifier import CitationVerifier
 from src.retrieval.hybrid import hybrid_search
 from src.retrieval.dense import dense_search
 from src.ingestion.embedding import embed_single
@@ -45,6 +48,11 @@ class AgenticRAG:
         """
         self.max_iterations = max_iterations
         self.retrieval_k = retrieval_k
+        # Initialize citation parser and verifier
+        self.citation_parser = CitationParser()
+        self.citation_verifier = CitationVerifier(
+            grounding_threshold=getattr(settings, 'grounding_threshold', 0.7)
+        )
 
     def select_strategy(self, query: str, bm25_available: bool = True) -> str:
         """Select retrieval strategy.
@@ -379,22 +387,61 @@ class AgenticRAG:
             })
 
             if sufficient:
-                answer = await self.generate_answer(query, all_docs, conversation_history)
+                # GENERATION PASS 1: G-Cite with enhanced prompt
+                answer = await self._generate_with_citation_aware_prompt(
+                    query, all_docs, conversation_history
+                )
+
+                # VERIFICATION PASS
+                parsed = self.citation_parser.parse(answer)
+                verification = self.citation_verifier.verify(parsed, all_docs, answer)
+
+                # CHECK IF REGENERATE NEEDED
+                if self._should_regenerate(verification):
+                    logger.info("Citation verification failed, regenerating...")
+                    answer = await self._regenerate_with_explicit_sources(
+                        query, all_docs, verification, conversation_history
+                    )
+                    # 2nd verification for warnings
+                    parsed = self.citation_parser.parse(answer)
+                    verification = self.citation_verifier.verify(parsed, all_docs, answer)
+
+                # Build response with verification metadata
                 titles = await self._resolve_document_titles(all_docs)
                 citations = self._extract_citations(all_docs, titles)
                 response = self._build_success_response(answer, retrieval_history, all_docs, iteration + 1)
                 response["citations"] = citations
                 response["sources"] = citations
+                response["citation_verification"] = self.citation_verifier.get_summary_stats(verification)
                 return response
 
             strategy = self._switch_strategy(strategy, bm25_index)
 
-        answer = await self.generate_answer(query, all_docs, conversation_history)
+        # Max iterations reached - same flow with available docs
+        answer = await self._generate_with_citation_aware_prompt(
+            query, all_docs, conversation_history
+        )
+
+        # Verification pass
+        parsed = self.citation_parser.parse(answer)
+        verification = self.citation_verifier.verify(parsed, all_docs, answer)
+
+        # Check if regenerate needed
+        if self._should_regenerate(verification):
+            logger.info("Citation verification failed on max iterations, regenerating...")
+            answer = await self._regenerate_with_explicit_sources(
+                query, all_docs, verification, conversation_history
+            )
+            parsed = self.citation_parser.parse(answer)
+            verification = self.citation_verifier.verify(parsed, all_docs, answer)
+
+        # Build response
         titles = await self._resolve_document_titles(all_docs)
         citations = self._extract_citations(all_docs, titles)
         response = self._build_max_iterations_response(answer, retrieval_history, all_docs)
         response["citations"] = citations
         response["sources"] = citations
+        response["citation_verification"] = self.citation_verifier.get_summary_stats(verification)
         return response
 
     async def query_stream(
@@ -458,24 +505,86 @@ class AgenticRAG:
             }
 
             if sufficient:
-                # Stream content
+                # Stream content with citation-aware prompt
                 content_chunk_count = 0
+                full_response = ""
+
                 logger.info(f"[RAG STREAM] Starting content stream (iteration {iteration + 1})")
-                async for chunk in self.generate_answer_stream(query, all_docs, conversation_history):
+
+                # Use citation-aware prompt for streaming
+                system_content = CITATION_AWARE_SYSTEM_PROMPT.format(
+                    context_with_headers=format_context_with_citations(all_docs)
+                )
+
+                user_content = f"Câu hỏi: {query}\n\nTrả lời:"
+
+                messages = [{"role": "system", "content": system_content}]
+                if conversation_history:
+                    messages.extend(conversation_history)
+                messages.append({"role": "user", "content": user_content})
+
+                # Apply post-processing to separate thinking from content
+                raw_stream = chat_async_stream(
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=2048,
+                )
+
+                # Process stream to separate thinking and content
+                thinking_yielded = False
+                async for processed_chunk in stream_with_thinking_separation(raw_stream):
+                    chunk_type = processed_chunk.get("type")
+                    chunk_text = processed_chunk.get("text", "")
+
+                    if not chunk_text:
+                        continue
+
                     content_chunk_count += 1
+                    full_response += chunk_text
+
                     if content_chunk_count <= 3 or content_chunk_count % 10 == 0:
-                        logger.debug(f"[RAG STREAM] Content chunk #{content_chunk_count}: {len(chunk)} chars")
-                    yield {
-                        "type": "content",
-                        "data": {"text": chunk},
-                    }
+                        logger.debug(f"[RAG STREAM] {chunk_type.upper()} chunk #{content_chunk_count}: {len(chunk_text)} chars")
+
+                    # Yield thinking chunks (for UI display in thinking block)
+                    if chunk_type == "thinking":
+                        thinking_yielded = True
+                        yield {
+                            "type": "thinking",
+                            "data": {"text": chunk_text},
+                        }
+                    # Yield content chunks (actual answer)
+                    elif chunk_type == "content":
+                        yield {
+                            "type": "content",
+                            "data": {"text": chunk_text},
+                        }
+
+                # DEBUG: Log if no thinking was yielded
+                if not thinking_yielded:
+                    logger.warning("[RAG STREAM] No thinking content was yielded - LLM may not be outputting <thinking> tags")
+
                 logger.info(f"[RAG STREAM] Completed content stream: {content_chunk_count} chunks")
+
+                # Verification pass after streaming completes
+                parsed = self.citation_parser.parse(full_response)
+                verification = self.citation_verifier.verify(parsed, all_docs, full_response)
+
+                # Check if regeneration is needed (streaming mode - emit warning instead)
+                if self._should_regenerate(verification):
+                    logger.warning("Citation verification failed in streaming mode, emitting warning")
+                    yield {
+                        "type": "warning",
+                        "data": {
+                            "message": "Một số citation không được verify. Vui lòng kiểm tra kỹ.",
+                            "verification": self.citation_verifier.get_summary_stats(verification)
+                        }
+                    }
 
                 # Resolve document titles and extract citations
                 titles = await self._resolve_document_titles(all_docs)
                 citations = self._extract_citations(all_docs, titles)
 
-                # Emit final metadata
+                # Emit final metadata with verification stats
                 yield {
                     "type": "metadata",
                     "data": {
@@ -483,17 +592,38 @@ class AgenticRAG:
                         "iterations": iteration + 1,
                         "status": "success",
                         "citations": citations,
+                        "citation_verification": self.citation_verifier.get_summary_stats(verification),
                     },
                 }
                 return
 
             strategy = self._switch_strategy(strategy, bm25_index)
 
-        # Max iterations reached - stream with what we have
+        # Max iterations reached - stream with what we have (citation-aware)
         content_chunk_count = 0
+        full_response = ""
+
         logger.info(f"[RAG STREAM] Max iterations reached, starting content stream")
-        async for chunk in self.generate_answer_stream(query, all_docs, conversation_history):
+
+        # Use citation-aware prompt
+        system_content = CITATION_AWARE_SYSTEM_PROMPT.format(
+            context_with_headers=format_context_with_citations(all_docs)
+        )
+
+        user_content = f"Câu hỏi: {query}\n\nTrả lời:"
+
+        messages = [{"role": "system", "content": system_content}]
+        if conversation_history:
+            messages.extend(conversation_history)
+        messages.append({"role": "user", "content": user_content})
+
+        async for chunk in chat_async_stream(
+            messages=messages,
+            temperature=0.7,
+            max_tokens=2048,
+        ):
             content_chunk_count += 1
+            full_response += chunk
             if content_chunk_count <= 3 or content_chunk_count % 10 == 0:
                 logger.debug(f"[RAG STREAM] Content chunk #{content_chunk_count}: {len(chunk)} chars")
             yield {
@@ -501,6 +631,20 @@ class AgenticRAG:
                 "data": {"text": chunk},
             }
         logger.info(f"[RAG STREAM] Completed content stream: {content_chunk_count} chunks")
+
+        # Verification pass
+        parsed = self.citation_parser.parse(full_response)
+        verification = self.citation_verifier.verify(parsed, all_docs, full_response)
+
+        # Emit warning if verification failed
+        if self._should_regenerate(verification):
+            yield {
+                "type": "warning",
+                "data": {
+                    "message": "Một số citation không được verify. Vui lòng kiểm tra kỹ.",
+                    "verification": self.citation_verifier.get_summary_stats(verification)
+                }
+            }
 
         # Resolve document titles and extract citations
         titles = await self._resolve_document_titles(all_docs)
@@ -513,6 +657,7 @@ class AgenticRAG:
                 "iterations": self.max_iterations,
                 "status": "max_iterations_reached",
                 "citations": citations,
+                "citation_verification": self.citation_verifier.get_summary_stats(verification),
             },
         }
 
@@ -631,6 +776,107 @@ class AgenticRAG:
             "iterations": self.max_iterations,
             "status": "max_iterations_reached",
         }
+
+    async def _generate_with_citation_aware_prompt(
+        self,
+        query: str,
+        docs: list[dict],
+        conversation_history: list[dict] | None = None
+    ) -> str:
+        """Generate answer with citation-aware prompt.
+
+        Args:
+            query: User question
+            docs: Retrieved documents
+            conversation_history: Optional conversation history
+
+        Returns:
+            Generated answer with inline citation markers
+        """
+        system_content = CITATION_AWARE_SYSTEM_PROMPT.format(
+            context_with_headers=format_context_with_citations(docs)
+        )
+
+        user_content = f"Câu hỏi: {query}\n\nTrả lời:"
+
+        messages = [{"role": "system", "content": system_content}]
+        if conversation_history:
+            messages.extend(conversation_history)
+        messages.append({"role": "user", "content": user_content})
+
+        response = await chat_async(
+            messages=messages,
+            temperature=0.7,
+            max_tokens=2048,
+        )
+
+        return response["content"]
+
+    def _should_regenerate(self, verification: dict) -> bool:
+        """Decide whether to regenerate based on verification results.
+
+        Args:
+            verification: Results from CitationVerifier.verify()
+
+        Returns:
+            True if regeneration is needed
+        """
+        # Regenerate if any hallucinated citations
+        if verification.get("hallucinated"):
+            return True
+
+        # Regenerate if too many uncited claims (>3)
+        if len(verification.get("missing", [])) > 3:
+            return True
+
+        return False
+
+    async def _regenerate_with_explicit_sources(
+        self,
+        query: str,
+        docs: list[dict],
+        failed_verification: dict,
+        conversation_history: list[dict] | None = None
+    ) -> str:
+        """Regenerate with explicit source mapping.
+
+        Args:
+            query: User question
+            docs: Retrieved documents
+            failed_verification: Previous verification results
+            conversation_history: Optional conversation history
+
+        Returns:
+            Regenerated answer
+        """
+        # Build explicit source list
+        source_list = "\n".join([
+            f"- [{doc.get('chunk_id', doc.get('id', ''))[:8]}] {doc.get('metadata', {}).get('title', 'Unknown')}"
+            for doc in docs[:5]
+        ])
+
+        system_content = f"""
+TRƯỜNG HỢP CÁC BẠN:
+1. PHẢI trích dẫn source cho mỗi claim
+2. Chỉ sử dụng sources trong list này:
+{source_list}
+3. Format: [source:chunk_id]
+4. KHÔNG tạo ra citations mới
+"""
+
+        user_content = f"Câu hỏi: {query}\n\nTrả lời:"
+        messages = [{"role": "system", "content": system_content}]
+        if conversation_history:
+            messages.extend(conversation_history)
+        messages.append({"role": "user", "content": user_content})
+
+        response = await chat_async(
+            messages=messages,
+            temperature=0.3,  # Lower temperature for more deterministic output
+            max_tokens=2048,
+        )
+
+        return response["content"]
 
 
 async def generate_response(

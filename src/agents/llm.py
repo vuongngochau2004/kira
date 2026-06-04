@@ -188,6 +188,7 @@ async def _chat_glm_stream(
 
     chunk_count = 0
     total_chars = 0
+    full_output = ""  # DEBUG: Collect full output
 
     logger.info(f"[GLM STREAM] Starting stream with model={model}")
 
@@ -202,8 +203,18 @@ async def _chat_glm_stream(
             if text:
                 chunk_count += 1
                 total_chars += len(text)
+                full_output += text
+                # DEBUG: Log first few chunks to see if LLM outputs thinking tags
+                if chunk_count <= 3:
+                    logger.info(f"[GLM STREAM] Chunk #{chunk_count}: {repr(text[:100])}")
                 logger.debug(f"[GLM STREAM] Chunk #{chunk_count}: {len(text)} chars, total: {total_chars}")
                 yield text
+
+    # DEBUG: Log if thinking tags were found
+    if "<thinking>" in full_output:
+        logger.info(f"[GLM STREAM] Found <thinking> tags in output!")
+    else:
+        logger.warning(f"[GLM STREAM] NO <thinking> tags found in output! LLM ignored system prompt instructions.")
 
     logger.info(f"[GLM STREAM] Completed: {chunk_count} chunks, {total_chars} total chars")
 

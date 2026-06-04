@@ -89,7 +89,7 @@ async function fetchAPI<T>(
 // ==================== SSE Streaming Types ====================
 
 export interface SSEChunk {
-  type: 'routing' | 'retrieval' | 'content' | 'metadata' | 'done' | 'error'
+  type: 'routing' | 'retrieval' | 'content' | 'thinking' | 'metadata' | 'done' | 'error'
   data: any
 }
 
@@ -194,7 +194,7 @@ export class SSEClient {
               const data = JSON.parse(match[1])
               yield data
             } catch (e) {
-              console.error('[SSEClient] Failed to parse chunk:', match[1], e)
+              // Ignore parse errors
             }
           }
         }

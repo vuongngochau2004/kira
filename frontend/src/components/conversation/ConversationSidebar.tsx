@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConversationStore } from '@/lib/stores/conversation-store'
 import { conversationsAPI } from '@/lib/api/simple-client'
@@ -18,12 +18,16 @@ interface ConversationSidebarProps {
 }
 
 export function ConversationSidebar({ className }: ConversationSidebarProps) {
-  const { activeConversationId, setActiveConversation } = useConversationStore()
+  const { setActiveConversation } = useConversationStore()
   const { user, logout, isAuthenticated } = useAuthStore()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [mounted, setMounted] = useState(false)
+
+  // NEW: Get active conversation ID from URL params
+  const activeConversationId = searchParams.get('id')
 
   const queryClient = useQueryClient()
 
@@ -52,7 +56,8 @@ export function ConversationSidebar({ className }: ConversationSidebarProps) {
     mutationFn: (id: string) => conversationsAPI.delete(id),
     onSuccess: () => {
       if (activeConversationId === deleteId) {
-        setActiveConversation(null)
+        // Navigate to new conversation page
+        router.push('/conversation')
       }
       setDeleteId(null)
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
@@ -70,6 +75,18 @@ export function ConversationSidebar({ className }: ConversationSidebarProps) {
     const title = conv.title || 'Cuộc trò chuyện mới'
     return title.toLowerCase().includes(searchQuery.toLowerCase())
   }) || []
+
+  // NEW: Handle new conversation click
+  const handleNewConversation = () => {
+    setActiveConversation(null)
+    router.push('/conversation')
+  }
+
+  // NEW: Handle conversation click with query param
+  const handleConversationClick = (conversationId: string) => {
+    setActiveConversation(conversationId)
+    router.push(`/conversation?id=${conversationId}`)
+  }
 
   return (
     <div className={cn('flex flex-col h-full bg-background', className)}>
@@ -105,12 +122,9 @@ export function ConversationSidebar({ className }: ConversationSidebarProps) {
           />
         </div>
 
-        {/* New Chat Button */}
+        {/* New Chat Button - Updated URL */}
         <button
-          onClick={() => {
-            setActiveConversation(null)
-            router.push('/chat')
-          }}
+          onClick={handleNewConversation}
           className={cn(
             'w-full mt-3 flex items-center justify-center gap-2',
             'px-4 py-2.5 rounded-xl text-sm font-medium',
@@ -150,10 +164,7 @@ export function ConversationSidebar({ className }: ConversationSidebarProps) {
                    key={conversation.id}
                    conversation={conversation}
                    isActive={conversation.id === activeConversationId}
-                   onClick={() => {
-                     setActiveConversation(conversation.id)
-                     router.push(`/conversation/${conversation.id}`)
-                   }}
+                   onClick={() => handleConversationClick(conversation.id)}
                    onDelete={() => setDeleteId(conversation.id)}
                 />
               ))}

@@ -6,6 +6,7 @@ from uuid import UUID
 from typing import Any, AsyncIterator
 
 from src.agents.llm import chat_async, chat_async_stream
+from src.agents.llm_post_process import stream_with_thinking_separation
 from src.agents.prompts import (
     CONVERSATIONAL_SYSTEM_PROMPT,
     CONVERSATIONAL_USER_PROMPT,
@@ -152,15 +153,32 @@ class ConversationalRouter(BaseRouter):
         try:
             content_chunk_count = 0
             logger.info(f"[CONVERSATIONAL STREAM] Starting stream")
-            async for chunk in chat_async_stream(
+
+            # Apply post-processing to separate thinking from content
+            raw_stream = chat_async_stream(
                 messages=messages,
                 temperature=0.8,
                 max_tokens=16000,
-            ):
+            )
+
+            async for processed_chunk in stream_with_thinking_separation(raw_stream):
+                chunk_type = processed_chunk.get("type")
+                chunk_text = processed_chunk.get("text", "")
+
+                if not chunk_text:
+                    continue
+
                 content_chunk_count += 1
                 if content_chunk_count <= 3 or content_chunk_count % 10 == 0:
-                    logger.debug(f"[CONVERSATIONAL STREAM] Chunk #{content_chunk_count}: {len(chunk)} chars")
-                yield {"type": "content", "data": {"text": chunk}}
+                    logger.debug(f"[CONVERSATIONAL STREAM] {chunk_type.upper()} chunk #{content_chunk_count}: {len(chunk_text)} chars")
+
+                # Yield thinking chunks (for UI display in thinking block)
+                if chunk_type == "thinking":
+                    yield {"type": "thinking", "data": {"text": chunk_text}}
+                # Yield content chunks (actual answer)
+                elif chunk_type == "content":
+                    yield {"type": "content", "data": {"text": chunk_text}}
+
             logger.info(f"[CONVERSATIONAL STREAM] Completed: {content_chunk_count} chunks")
 
             yield {

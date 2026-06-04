@@ -17,6 +17,13 @@ citations:
   min_score_threshold: 0.3     # Minimum score for citations
   snippet_length: 200           # Character length for citation snippets
 
+# Citation Verification (New: Hybrid Citation System)
+citation_verification:
+  enabled: true                 # Enable citation verification and regenerate
+  grounding_threshold: 0.7      # Minimum similarity for verified status (0-1)
+  max_regenerate_attempts: 2    # Max regenerations to prevent infinite loops
+  enable_warnings: true         # Show warning tags for weak grounding
+
 # Chunking
 chunking:
   size: 2048                   # Token limit per chunk

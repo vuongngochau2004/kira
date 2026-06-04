@@ -40,9 +40,9 @@ export function KiraLogoIcon({ size = 64, className, variant = 'default' }: Logo
         <svg {...baseProps}>
           <defs>
             <linearGradient id="kiraGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#6366F1" />
-              <stop offset="50%" stopColor="#8B5CF6" />
-              <stop offset="100%" stopColor="#EC4899" />
+              <stop offset="0%" stopColor="#FF9A44" />
+              <stop offset="50%" stopColor="#FF7A33" />
+              <stop offset="100%" stopColor="#FF6A22" />
             </linearGradient>
           </defs>
           {/* Hexagon Frame */}
@@ -115,8 +115,8 @@ export function KiraLogoIcon({ size = 64, className, variant = 'default' }: Logo
         <svg {...baseProps}>
           <defs>
             <linearGradient id="kiraFilledGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#6366F1" />
-              <stop offset="100%" stopColor="#8B5CF6" />
+              <stop offset="0%" stopColor="#FF9A44" />
+              <stop offset="100%" stopColor="#FF7A33" />
             </linearGradient>
           </defs>
           {/* Filled Hexagon */}

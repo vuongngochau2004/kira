@@ -108,6 +108,12 @@ class Settings(BaseSettings):
     min_score_threshold: float = _static_config.get("citations", {}).get("min_score_threshold", 0.3)
     snippet_length: int = _static_config.get("citations", {}).get("snippet_length", 200)
 
+    # ----- Citation Verification (from settings.yaml) -----
+    citation_verification_enabled: bool = _static_config.get("citation_verification", {}).get("enabled", True)
+    grounding_threshold: float = _static_config.get("citation_verification", {}).get("grounding_threshold", 0.7)
+    max_regenerate_attempts: int = _static_config.get("citation_verification", {}).get("max_regenerate_attempts", 2)
+    enable_warnings: bool = _static_config.get("citation_verification", {}).get("enable_warnings", True)
+
     # ----- Chunking (from settings.yaml) -----
     chunk_size: int = _static_config.get("chunking", {}).get("size", 2048)
     chunk_overlap: int = _static_config.get("chunking", {}).get("overlap", 256)

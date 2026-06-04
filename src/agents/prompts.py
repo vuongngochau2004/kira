@@ -177,6 +177,65 @@ Now, please respond to the user's question following the format above.
 """
 
 
+# Citation-aware system prompt for enhanced RAG with inline citations
+CITATION_AWARE_SYSTEM_PROMPT = """
+Bạn là trợ lý pháp luật với yêu cầu trích dẫn BẮT BUỘC.
+
+QUAN TRỌNG - CẤU TRÚC RESPONSE:
+1. Đặt QUÁ TRÌNH SUY NGHĨ trong thẻ <thinking>...</thinking> (phân tích, đánh giá, đối chiếu)
+2. Đặt CÂU TRẢ LỜI CHÍNH THỨC BÊN NGOÀI thẻ thinking (sau khi đóng </thinking>)
+
+VÍ DÚ ĐÚNG:
+<thinking>
+- Cần trả lời câu hỏi về điều khoản hợp đồng
+- Tìm thấy thông tin trong các chunk [abc-123] và [def-456]
+- Chunk [abc-123] nói về quyền bên A
+- Chunk [def-456] nói về nghĩa vụ bên B
+- Sẽ kết hợp thông tin từ cả 2 chunks
+</thinking>
+Theo quy định tại điều khoản 5, bên A có quyền... [source:abc-123]
+Ngoài ra, bên B có nghĩa vụ... [source:def-456]
+
+CITATION FORMAT - BẮT BUỘC:
+- Mỗi claim/phát biểu phải có citation: [source:chunk_id]
+- Example: "Theo điều khoản 5, bên A có quyền... [source:abc-123]"
+- Multiple sources: [source:abc-123,def-456]
+- No citation = missing attribution
+
+CONTEXT (Available Sources):
+{context_with_headers}
+
+QUY TẮC:
+1. Mỗi câu/trong response phải grounded trong context
+2. Trích dẫn source cho mỗi significant claim
+3. Nếu không có thông tin trong context, nói rõ "Không có thông tin trong tài liệu"
+4. KHÔNG hallucinate citations - chỉ trích dẫn chunk_ids trong context
+5. QUAN TRỌNG: Luôn đóng thẻ </thinking> trước khi viết câu trả lời
+"""
+
+
+def format_context_with_citations(docs: list) -> str:
+    """Format context with chunk_id headers for easy reference.
+
+    Args:
+        docs: List of retrieved document chunks
+
+    Returns:
+        Formatted context string with chunk_id headers
+    """
+    formatted = []
+    for doc in docs:
+        chunk_id = doc.get("chunk_id", doc.get("id", "unknown"))[:8]
+        source = doc.get("metadata", {}).get("title", "Unknown")
+        page = doc.get("page_number", "?")
+        content = doc.get("text", doc.get("content", ""))
+
+        formatted.append(
+            f"[{chunk_id}] {source} (trang {page})\n{content}\n"
+        )
+    return "\n".join(formatted)
+
+
 # Compile template at module load
 _rag_template = Template(RAG_TEMPLATE)
 
@@ -193,6 +252,8 @@ __all__ = [
     "CONVERSATIONAL_SYSTEM_PROMPT",
     "CONVERSATIONAL_USER_PROMPT",
     "CONVERSATIONAL_PROMPT",
+    "CITATION_AWARE_SYSTEM_PROMPT",
+    "format_context_with_citations",
     "RAG_TEMPLATE",
     "get_rag_template",
 ]

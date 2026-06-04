@@ -16,6 +16,7 @@ class ChatResponse(BaseModel):
     """Chat response."""
     content: str
     citations: List[dict]
+    citation_verification: Optional[dict] = None  # Citation verification stats
     conversation_id: str
     message_id: str
     metadata: dict
