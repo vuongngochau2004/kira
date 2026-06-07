@@ -47,3 +47,11 @@ qdrant:
 semantic_routing:
   enabled: true                 # Feature flag for semantic routing
   threshold: 0.75              # Similarity threshold (0.0-1.0)
+
+# Feature Flags
+# Gradual rollout flags for new architecture phases
+feature_flags:
+  use_new_classification: false  # Phase 02: New classification strategies (Keyword + Cached + LLM)
+  use_new_handlers: false       # Phase 03: New handler architecture (RAG + Conversational)
+  enable_semantic_router: true  # Semantic routing (existing feature)
+  enable_llmlite_provider: false # Experimental: LLMlite provider

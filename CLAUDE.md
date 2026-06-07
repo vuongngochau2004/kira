@@ -299,7 +299,7 @@ sequenceDiagram
 
 ### 4-Layer Architecture
 
-The project follows a strict 4-layer architecture pattern:
+The project follows a strict 4-layer architecture pattern with SOLID-compliant refactor:
 
 1. **SERVING Layer** (`src/api/`)
    - FastAPI endpoints, authentication, request/response handling
@@ -310,6 +310,7 @@ The project follows a strict 4-layer architecture pattern:
    - Multi-stage routing: Quick Filter → LLM Classification → Router Dispatch
    - LangChain tools for agent integration
    - RAG and Conversational routers
+   - **NEW**: Protocol-based architecture with Strategy pattern
 
 3. **RETRIEVAL Layer** (`src/retrieval/`, `src/indexing/`)
    - Dense (Qdrant) + BM25 (keyword) search
@@ -321,6 +322,39 @@ The project follows a strict 4-layer architecture pattern:
    - PaddleOCR fallback for low-quality PDFs
    - Per-user document processing
 
+### SOLID Architecture Refactor
+
+The system has been refactored to follow SOLID principles with new packages:
+
+#### **src/protocols/** - Protocol Abstractions (DIP, OCP)
+- **ClassificationStrategy**: Protocol for query classification
+- **QueryHandler**: Protocol for query execution
+- **Retriever**: Protocol for document retrieval
+- **Lifecycle**: Service lifecycle management (SINGLETON, TRANSIENT, SCOPED)
+
+#### **src/classification/** - Query Intent Detection (Strategy Pattern)
+```
+Classification Chain (fastest → slowest):
+1. KeywordStrategy   → Fuzzy file matching (<5ms)
+2. CachedStrategy    → LRU cache wrapper (<10ms)
+3. LLMStrategy       → LLM classifier (~800ms)
+
+CompositeClassifier chains strategies with fallback:
+- Try each strategy in order
+- Stop at first high-confidence result (>0.8)
+- Fall back to next strategy if low confidence
+```
+
+#### **src/handlers/** - Query Execution (SRP Compliance)
+- **RAGHandler**: Document retrieval + LLM generation with citations
+- **ConversationalHandler**: Direct LLM chat without retrieval
+- **adapters/router_adapter.py**: Adapts old routers to new handler protocol
+
+#### **src/di/** - Dependency Injection (DIP Compliance)
+- **ServiceContainer**: Protocol-based DI container with lifecycle management
+- **ServiceRegistry**: Centralized service registration
+- **FeatureFlagManager**: Percentage-based feature rollouts
+
 ### Key Design Patterns
 
 - **Per-User Isolation**: BM25 indexes, document filtering, and conversations are scoped to `user_id`
@@ -328,6 +362,9 @@ The project follows a strict 4-layer architecture pattern:
 - **LangChain Tools**: Retrieval and ingestion operations use `@tool` decorators
 - **SSE Streaming**: Chat responses stream structured chunks (routing, retrieval, content, metadata)
 - **Soft Delete**: Conversations use soft delete pattern (`deleted_at` timestamp)
+- **Strategy Pattern**: Pluggable classification strategies
+- **Protocol-Based Design**: High-level modules depend on abstractions, not concretions (DIP)
+- **Adapter Pattern**: Backward compatibility with legacy router implementations
 
 ## Code Organization
 
@@ -343,8 +380,29 @@ The project follows a strict 4-layer architecture pattern:
 src/
 ├── api/              # HTTP endpoints only
 ├── agents/           # Routing and LLM logic
-│   └── routers/      # Router implementations
+│   └── routers/      # Router implementations (legacy - being migrated)
 ├── tools/            # LangChain tools
+├── protocols/        # Protocol/ABC abstractions (SOLID layer)
+│   ├── classification.py  # ClassificationStrategy, Intent, ClassificationResult
+│   ├── handlers.py        # QueryHandler, HandlerResult, Citation
+│   ├── retrieval.py       # Retriever, Document protocols
+│   └── container.py       # DI container protocols
+├── classification/   # Query intent detection (Strategy pattern)
+│   ├── strategies/        # Classification implementations
+│   │   ├── keyword.py     # Fast keyword-based classifier (<5ms)
+│   │   ├── cached.py      # LRU cache wrapper
+│   │   ├── llm.py         # LLM-based classifier (~800ms)
+│   │   └── composite.py   # CompositeClassifier with fallback chain
+│   └── cache/             # LRU cache implementation
+├── handlers/         # Query execution handlers (SRP compliance)
+│   ├── rag.py              # RAGHandler: retrieval + LLM generation
+│   ├── conversational.py   # ConversationalHandler: direct LLM chat
+│   └── adapters/           # Adapter pattern for backward compatibility
+│       └── router_adapter.py  # Adapts old routers to new handlers
+├── di/               # Dependency injection (DIP compliance)
+│   ├── container.py        # ServiceContainer with lifecycle management
+│   ├── registry.py         # ServiceRegistry for service registration
+│   └── feature_flags.py    # FeatureFlagManager with percentage rollout
 ├── retrieval/        # Search algorithms
 ├── indexing/         # Database/Vector DB clients
 ├── ingestion/        # ETL pipeline
@@ -357,23 +415,100 @@ src/
 
 ## Key Features Implementation
 
-### Multi-Stage Query Routing
+### Multi-Stage Query Routing (Legacy → Migration Path)
 
-Located in `src/agents/routers/registry.py`:
+**Current Location**: `src/agents/routers/registry.py` (being migrated)
 
-1. **Quick Filter**: Fast path for file-related queries
-   - Fuzzy filename matching against user documents
-   - File keyword detection (tài liệu, doc, pdf, etc.)
-   - Router confidence checks
+**New Architecture**:
+- Classification moved to `src/classification/` with Strategy pattern
+- Handlers moved to `src/handlers/` with QueryHandler protocol
+- Use CompositeClassifier for fallback chain
 
-2. **LLM Classification**: For complex queries
-   - Intent detection (rag vs conversational)
-   - Confidence scoring
-   - Fallback to default router if low confidence
+**Migration Path**: See "Router-to-Handler Migration Guide" below
 
-3. **Router Dispatch**: Route to appropriate handler
-   - `RAGRouter`: Document retrieval + LLM generation
-   - `ConversationalRouter`: Direct LLM chat
+### Classification with Strategy Pattern
+
+Located in `src/classification/strategies/composite.py`:
+
+```python
+from src.classification.strategies.composite import CompositeClassifier
+from src.classification.strategies.keyword import KeywordStrategy
+from src.classification.strategies.cached import CachedStrategy
+from src.classification.strategies.llm import LLMStrategy
+
+# Build classification chain (fast → slow)
+classifier = CompositeClassifier([
+    KeywordStrategy(),      # <5ms: keyword detection
+    CachedStrategy(LLMStrategy())  # ~800ms: LLM with cache
+])
+
+# Classify query
+result = await classifier.classify("hỏi về contract.pdf", "user123")
+```
+
+**Classification Flow**:
+1. **KeywordStrategy**: Fast keyword matching, fuzzy filename search
+2. **CachedStrategy**: LRU cache of recent LLM classifications
+3. **LLMStrategy**: Fallback to LLM-based classification
+
+**Intent Types**:
+- `RAG`: Document retrieval required
+- `CONVERSATIONAL`: Direct chat without retrieval
+- `DRAFTING`: Content creation (future)
+- `SEMANTIC`: Semantic routing (future)
+
+### Handler Execution Pattern
+
+Located in `src/handlers/`:
+
+```python
+from src.handlers.rag import RAGHandler
+from src.handlers.conversational import ConversationalHandler
+
+# Handlers receive pre-classified queries
+rag_handler = RAGHandler(retriever, llm_client, config)
+result = await rag_handler.handle(
+    query="hỏi về contract.pdf",
+    user_id="user123",
+    classification=classification_result  # Pre-classified
+)
+
+# Streaming support
+async for chunk in rag_handler.handle_stream(query, user_id, classification):
+    if chunk["type"] == "content":
+        print(chunk["data"]["text"])
+```
+
+**Handler Responsibilities**:
+- Execute domain-specific logic (RAG, conversational, etc.)
+- NO classification logic (SRP compliance)
+- Support both sync and streaming responses
+- Return HandlerResult with citations and metadata
+
+### Dependency Injection with ServiceContainer
+
+Located in `src/di/container.py`:
+
+```python
+from src.di.container import ServiceContainer
+from src.protocols.classification import ClassificationStrategy
+from src.protocols.handlers import QueryHandler
+
+container = ServiceContainer()
+
+# Register services with lifecycle
+await container.register_singleton(ClassificationStrategy, CompositeClassifier(...))
+await container.register_singleton(QueryHandler, RAGHandler(...))
+
+# Resolve dependencies
+classifier = await container.get(ClassificationStrategy)
+handler = await container.get(QueryHandler)
+```
+
+**Lifecycle Types**:
+- **SINGLETON**: One instance for app lifetime (classifiers, handlers)
+- **TRANSIENT**: New instance each time (rarely used)
+- **SCOPED**: One instance per scope (e.g., per request)
 
 ### Intelligent OCR Fallback
 
@@ -590,13 +725,131 @@ All infrastructure runs in Docker Compose:
 
 Set `DEBUG=true` in `.env` for detailed logging.
 
+## Router-to-Handler Migration Guide
+
+### Overview
+
+The system is migrating from router-based architecture (`src/agents/routers/`) to handler-based architecture (`src/handlers/`) with protocol-based design. This improves:
+
+- **SRP Compliance**: Handlers execute, classifiers classify (separation of concerns)
+- **DIP Compliance**: High-level modules depend on protocols, not concretions
+- **Testability**: Protocol-based design enables easy mocking
+- **Extensibility**: New handlers can be added without modifying existing code
+
+### Migration Steps
+
+#### Step 1: Create Handler Implementation
+
+```python
+# src/handlers/my_handler.py
+from src.protocols.handlers import QueryHandler, HandlerResult, HandlerConfig
+from src.protocols.classification import ClassificationResult
+from typing import AsyncIterator
+from uuid import UUID
+
+class MyHandler:
+    def __init__(self, config: HandlerConfig):
+        self.config = config
+
+    async def handle(
+        self,
+        query: str,
+        user_id: str | UUID,
+        classification: ClassificationResult,
+        context: dict | None = None
+    ) -> HandlerResult:
+        # Execute query logic (NO classification logic here!)
+        return HandlerResult(
+            content="Response...",
+            metadata={"handler": "MyHandler"}
+        )
+
+    async def handle_stream(
+        self,
+        query: str,
+        user_id: str | UUID,
+        classification: ClassificationResult,
+        context: dict | None = None
+    ) -> AsyncIterator[dict]:
+        # Yield streaming chunks
+        yield {"type": "content", "data": {"text": "Response..."}}
+        yield {"type": "done"}
+
+    def can_handle(self, classification: ClassificationResult) -> bool:
+        # Check if handler can handle this intent
+        return classification.is_rag_intent()
+
+    def get_config(self) -> HandlerConfig:
+        return self.config
+
+    def get_name(self) -> str:
+        return "MyHandler"
+```
+
+#### Step 2: Use Router Adapter (Backward Compatibility)
+
+For existing routers, use the adapter pattern:
+
+```python
+# src/handlers/adapters/router_adapter.py
+from src.agents.routers.rag_router import RAGRouter
+from src.protocols.handlers import QueryHandler
+
+class RAGRouterAdapter(QueryHandler):
+    def __init__(self, router: RAGRouter):
+        self.router = router
+
+    async def handle(self, query, user_id, classification, context=None):
+        # Convert old router output to HandlerResult
+        result = await self.router.handle(query, user_id)
+        return HandlerResult(
+            content=result.content,
+            citations=result.citations,
+            metadata=result.metadata
+        )
+```
+
+#### Step 3: Update Orchestrator
+
+```python
+# OLD (router-based)
+router = RouterRegistry.get_router(query, user_id)
+result = await router.handle(query, user_id)
+
+# NEW (handler-based)
+classifier = CompositeClassifier([...])
+classification = await classifier.classify(query, user_id)
+
+handler = await container.get(QueryHandler)  # Resolve handler
+result = await handler.handle(query, user_id, classification)
+```
+
+### Comparison: Old vs New
+
+| Aspect | Old Router Pattern | New Handler Pattern |
+|--------|-------------------|---------------------|
+| Classification | Mixed in router logic | Separate classification layer |
+| Interface | `BaseRouter` | `QueryHandler` protocol |
+| Dispatch | RouterRegistry | Handler selection via classification |
+| Testing | Hard to mock | Protocol-based mocking |
+| Extensibility | Modify registry | Add new handler, register in DI |
+
+### Legacy Support
+
+Old routers remain functional via `RouterAdapter` in `src/handlers/adapters/`. Gradual migration recommended:
+
+1. New features → Use new handler pattern
+2. Existing features → Migrate when touched
+3. Critical paths → Keep old pattern until validated
+
 ## Resources
 
-- **Architecture**: 4-layer pattern from agentic-rag
+- **Architecture**: 4-layer pattern + SOLID refactor
 - **Hybrid Retrieval**: RRF (Reciprocal Rank Fusion) algorithm
 - **OCR**: PaddleOCR HTTP API
 - **Vector DB**: Qdrant documentation
 - **Frontend**: Next.js 16 + shadcn/ui
+- **SOLID Principles**: SRP, DIP, OCP, LSP, ISP
 
 ---
 

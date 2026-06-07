@@ -153,6 +153,17 @@ class Settings(BaseSettings):
         env="SEMANTIC_THRESHOLD"
     )
 
+    # ----- Feature Flags (from settings.yaml) -----
+    # Feature flags for gradual rollout of new architecture
+    feature_flags: dict[str, bool | int] = Field(
+        default=_static_config.get("feature_flags", {
+            "use_new_classification": False,  # Phase 02: New classification strategies
+            "use_new_handlers": False,  # Phase 03: New handler architecture
+            "enable_semantic_router": True,  # Semantic routing (existing)
+            "enable_llmlite_provider": False,  # Experimental LLMlite provider
+        })
+    )
+
     @property
     def database_url(self) -> str:
         """Async PostgreSQL connection URL."""
