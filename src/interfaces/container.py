@@ -1,29 +1,61 @@
 """
-Dependency injection container protocols.
+Interface definitions for dependency injection container using Abstract Base Classes (ABC).
 
-This module defines Protocol-based interfaces for the DI container,
-enabling protocol-based dependency injection following the DIP principle.
+This module provides ABC-based container interfaces for stricter interface compliance
+with @abstractmethod decorators.
 
-Service Lifecycle:
-- Singleton: One instance for app lifetime
-- Transient: New instance each time
-- Scoped: One instance per scope (e.g., per request)
+Key differences from Protocol:
+- Uses @abstractmethod for enforced implementation
+- Requires explicit inheritance (nominal subtyping)
+- Better for production code enforcement
+
+This module now contains BOTH ABC interfaces AND data models (Lifecycle, ServiceDescriptor).
+Previously, data models were in src.protocols.container - now unified in ABC-only architecture.
 
 Example:
-    >>> from src.protocols.container import DependencyContainer, ServiceRegistry
+    >>> from src.interfaces.container import ScopeManagerBase
     >>>
-    >>> container = DependencyContainer()
-    >>> container.register_singleton(MyProtocol, MyImplementation)
-    >>> instance = await container.get(MyProtocol)
+    >>> class RequestScopeManager(ScopeManagerBase):
+    ...     def __init__(self):
+    ...         self._scopes: dict[str, dict[Type, Any]] = {}
+    ...
+    ...     async def create_scope(self, scope_id: str) -> None:
+    ...         self._scopes[scope_id] = {}
+    ...
+    ...     async def get_scoped_service(self, interface: Type[T], scope_id: str, container) -> T:
+    ...         if scope_id not in self._scopes:
+    ...             raise ValueError(f"Scope {scope_id} not created")
+    ...         if interface not in self._scopes[scope_id]:
+    ...             self._scopes[scope_id][interface] = await container.get(interface)
+    ...         return self._scopes[scope_id][interface]
+    ...
+    ...     async def dispose_scope(self, scope_id: str) -> None:
+    ...         if scope_id in self._scopes:
+    ...             del self._scopes[scope_id]
 """
 
-from typing import Protocol, TypeVar, Type, Any, Callable, Awaitable
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
 from enum import Enum
-
+from typing import TypeVar, Type, Any, Callable, Awaitable
+from dataclasses import dataclass
 
 T = TypeVar("T")
 
+
+__all__ = [
+    # Data models
+    "Lifecycle",
+    "ServiceDescriptor",
+    # ABC interfaces
+    "DependencyContainerBase",
+    "ServiceRegistryBase",
+    "ScopeManagerBase",
+]
+
+
+# ============================================================================
+# DATA MODELS (formerly in src.protocols.container)
+# ============================================================================
 
 class Lifecycle(str, Enum):
     """
@@ -81,14 +113,19 @@ class ServiceDescriptor:
         return self.lifecycle == Lifecycle.SCOPED
 
 
-class DependencyContainer(Protocol):
-    """
-    Protocol for dependency injection container.
+# ============================================================================
+# ABC INTERFACES
+# ============================================================================
 
-    Enables protocol-based dependency injection following the DIP principle.
+class DependencyContainerBase(ABC):
+    """
+    Base class for dependency injection container.
+
+    Enforces implementation of all DI container methods using @abstractmethod.
+    Defines the interface contract that all DI container implementations must follow.
 
     Example:
-        >>> class ServiceContainer:
+        >>> class ServiceContainer(DependencyContainerBase):
         ...     def __init__(self):
         ...         self._services: dict[Type, ServiceDescriptor] = {}
         ...         self._singletons: dict[Type, Any] = {}
@@ -96,15 +133,10 @@ class DependencyContainer(Protocol):
         ...     async def register_singleton(self, interface: Type[T], implementation: Type[T] | T) -> None:
         ...         self._services[interface] = ServiceDescriptor(interface, implementation, Lifecycle.SINGLETON)
         ...
-        ...     async def get(self, interface: Type[T]) -> T:
-        ...         descriptor = self._services.get(interface)
-        ...         if descriptor.is_singleton():
-        ...             if interface not in self._singletons:
-        ...                 self._singletons[interface] = descriptor.implementation()
-        ...             return self._singletons[interface]
-        ...         return descriptor.implementation()
+        ...     # Must implement all abstract methods
     """
 
+    @abstractmethod
     async def register_singleton(
         self,
         interface: Type[T],
@@ -122,6 +154,7 @@ class DependencyContainer(Protocol):
         """
         ...
 
+    @abstractmethod
     async def register_transient(
         self,
         interface: Type[T],
@@ -139,6 +172,7 @@ class DependencyContainer(Protocol):
         """
         ...
 
+    @abstractmethod
     async def register_scoped(
         self,
         interface: Type[T],
@@ -158,6 +192,7 @@ class DependencyContainer(Protocol):
         """
         ...
 
+    @abstractmethod
     async def register_factory(
         self,
         interface: Type[T],
@@ -171,7 +206,7 @@ class DependencyContainer(Protocol):
             factory: Factory function (sync or async)
 
         Example:
-            >>> def create_classifier(container: DependencyContainer) -> ClassificationStrategy:
+            >>> def create_classifier(container: DependencyContainerBase) -> ClassificationStrategy:
             ...     retriever = await container.get(Retriever)
             ...     llm = await container.get(LLMClient)
             ...     return CompositeClassifier(retriever, llm)
@@ -180,6 +215,7 @@ class DependencyContainer(Protocol):
         """
         ...
 
+    @abstractmethod
     async def get(self, interface: Type[T]) -> T:
         """
         Resolve dependency by protocol.
@@ -200,6 +236,7 @@ class DependencyContainer(Protocol):
         """
         ...
 
+    @abstractmethod
     def get_sync(self, interface: Type[T]) -> T | None:
         """
         Synchronous get for non-async contexts.
@@ -220,6 +257,7 @@ class DependencyContainer(Protocol):
         """
         ...
 
+    @abstractmethod
     async def is_registered(self, interface: Type) -> bool:
         """
         Check if service is registered.
@@ -236,6 +274,7 @@ class DependencyContainer(Protocol):
         """
         ...
 
+    @abstractmethod
     async def get_all(self, interface: Type[T]) -> list[T]:
         """
         Get all registered implementations for interface.
@@ -251,10 +290,11 @@ class DependencyContainer(Protocol):
         Example:
             >>> handlers = await container.get_all(QueryHandler)
             >>> for handler in handlers:
-            ...     print(handler.get_name())
+            ...         print(handler.get_name())
         """
         ...
 
+    @abstractmethod
     def get_stats(self) -> dict[str, Any]:
         """
         Get container statistics.
@@ -268,6 +308,7 @@ class DependencyContainer(Protocol):
         """
         ...
 
+    @abstractmethod
     async def clear_scope(self, scope_id: str) -> None:
         """
         Clear scoped services for a scope.
@@ -281,22 +322,30 @@ class DependencyContainer(Protocol):
         ...
 
 
-class ServiceRegistry(Protocol):
+class ServiceRegistryBase(ABC):
     """
-    Protocol for service registration and container initialization.
+    Base class for service registration and container initialization.
+
+    Defines the interface contract for service registry implementations.
+    Enforces implementation using @abstractmethod.
 
     Example:
-        >>> class MyServiceRegistry:
+        >>> class MyServiceRegistry(ServiceRegistryBase):
         ...     @staticmethod
-        ...     async def initialize_container() -> DependencyContainer:
+        ...     async def initialize_container() -> DependencyContainerBase:
         ...         container = ServiceContainer()
         ...         await container.register_singleton(ClassificationStrategy, CompositeClassifier)
         ...         await container.register_singleton(QueryHandler, RAGHandler)
         ...         return container
+        ...
+        ...     async def warm_up(self, container: DependencyContainerBase) -> None:
+        ...         # Pre-instantiate critical services
+        ...         pass
     """
 
     @staticmethod
-    async def initialize_container() -> DependencyContainer:
+    @abstractmethod
+    async def initialize_container() -> "DependencyContainerBase":
         """
         Initialize DI container with all services.
 
@@ -304,12 +353,13 @@ class ServiceRegistry(Protocol):
             Initialized dependency container
 
         Example:
-            >>> container = await ServiceRegistry.initialize_container()
+            >>> container = await ServiceRegistryBase.initialize_container()
             >>> classifier = await container.get(ClassificationStrategy)
         """
         ...
 
-    async def warm_up(self, container: DependencyContainer) -> None:
+    @abstractmethod
+    async def warm_up(self, container: "DependencyContainerBase") -> None:
         """
         Warm up container by pre-instantiating critical services.
 
@@ -322,22 +372,34 @@ class ServiceRegistry(Protocol):
         ...
 
 
-class ScopeManager(Protocol):
+class ScopeManagerBase(ABC):
     """
-    Protocol for managing scoped services.
+    Base class for managing scoped services.
+
+    Defines the interface contract for scope manager implementations.
+    Enforces strict implementation with @abstractmethod decorators.
 
     Example:
-        >>> class RequestScopeManager:
-        ...     def __init__(self, request_id: str):
-        ...         self.request_id = request_id
-        ...         self._scoped_services: dict[Type, Any] = {}
+        >>> class RequestScopeManager(ScopeManagerBase):
+        ...     def __init__(self):
+        ...         self._scopes: dict[str, dict[Type, Any]] = {}
         ...
-        ...     async def get(self, interface: Type[T], container: DependencyContainer) -> T:
-        ...         if interface not in self._scoped_services:
-        ...             self._scoped_services[interface] = await container.get(interface)
-        ...         return self._scoped_services[interface]
+        ...     async def create_scope(self, scope_id: str) -> None:
+        ...         self._scopes[scope_id] = {}
+        ...
+        ...     async def get_scoped_service(self, interface: Type[T], scope_id: str, container) -> T:
+        ...         if scope_id not in self._scopes:
+        ...             raise ValueError(f"Scope {scope_id} not created")
+        ...         if interface not in self._scopes[scope_id]:
+        ...             self._scopes[scope_id][interface] = await container.get(interface)
+        ...         return self._scopes[scope_id][interface]
+        ...
+        ...     async def dispose_scope(self, scope_id: str) -> None:
+        ...         if scope_id in self._scopes:
+        ...             del self._scopes[scope_id]
     """
 
+    @abstractmethod
     async def create_scope(self, scope_id: str) -> None:
         """
         Create a new scope.
@@ -350,11 +412,12 @@ class ScopeManager(Protocol):
         """
         ...
 
+    @abstractmethod
     async def get_scoped_service(
         self,
         interface: Type[T],
         scope_id: str,
-        container: DependencyContainer
+        container: "DependencyContainerBase"
     ) -> T:
         """
         Get service within scope.
@@ -372,6 +435,7 @@ class ScopeManager(Protocol):
         """
         ...
 
+    @abstractmethod
     async def dispose_scope(self, scope_id: str) -> None:
         """
         Dispose scoped services.

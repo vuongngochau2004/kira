@@ -8,15 +8,11 @@ import re
 from typing import Any
 from uuid import UUID
 
-from src.abc.classification import ClassificationStrategyABC
-from src.protocols.classification import (
-    ClassificationResult,
-    Intent
-)
-from src.protocols.retrieval import Document
+from src.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
+from src.interfaces.retrieval import Document
 
 
-class KeywordStrategy(ClassificationStrategyABC):
+class KeywordStrategy(ClassificationStrategyBase):
     """
     Fast keyword-based classification strategy.
 

@@ -6,20 +6,15 @@ Protocol-based DI container following SOLID principles.
 
 import asyncio
 from typing import Type, TypeVar, Any, Callable, Awaitable, Optional
-from dataclasses import dataclass
 from threading import Lock
 
-from src.abc.container import (
-    Lifecycle,
-    DependencyContainerABC
-)
-from src.protocols.container import ServiceDescriptor
+from src.interfaces.container import Lifecycle, DependencyContainerBase, ServiceDescriptor
 
 
 T = TypeVar("T")
 
 
-class ServiceContainer(DependencyContainerABC):
+class ServiceContainer(DependencyContainerBase):
     """
     Async-safe dependency injection container with protocol-based registration.
 

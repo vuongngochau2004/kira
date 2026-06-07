@@ -1,14 +1,14 @@
 """
-Tests for ScopeManagerABC.
+Tests for ScopeManagerBase.
 """
 
 import pytest
 
-from src.abc.container import ScopeManagerABC
-from src.protocols.container import DependencyContainer
+from src.interfaces.container import ScopeManagerBase
+from src.interfaces.container import DependencyContainer
 
 
-class MockScopeManager(ScopeManagerABC):
+class MockScopeManager(ScopeManagerBase):
     """Mock ScopeManager implementation for testing."""
 
     def __init__(self):
@@ -53,15 +53,15 @@ class MockProtocol:
 
 
 @pytest.mark.asyncio
-async def test_abc_cannot_be_instantiated():
-    """Test that ScopeManagerABC cannot be instantiated directly."""
+async def test_interface_cannot_be_instantiated():
+    """Test that ScopeManagerBase interface cannot be instantiated directly."""
     with pytest.raises(TypeError):
-        ScopeManagerABC()
+        ScopeManagerBase()
 
 
 @pytest.mark.asyncio
 async def test_concrete_implementation_works():
-    """Test that concrete implementation of ScopeManagerABC works."""
+    """Test that concrete implementation of ScopeManagerBase works."""
     manager = MockScopeManager()
 
     await manager.create_scope("test_scope")
@@ -187,12 +187,12 @@ async def test_multiple_scopes():
 
 
 @pytest.mark.asyncio
-async def test_abc_enforces_all_methods():
-    """Test that ABC enforces implementation of all abstract methods."""
+async def test_interface_enforces_all_methods():
+    """Test that interface enforces implementation of all abstract methods."""
     from abc import ABC
 
     # Try to create incomplete implementation
-    class IncompleteScopeManager(ScopeManagerABC):
+    class IncompleteScopeManager(ScopeManagerBase):
         async def create_scope(self, scope_id: str) -> None:
             pass
 
@@ -203,11 +203,11 @@ async def test_abc_enforces_all_methods():
 
 
 @pytest.mark.asyncio
-async def test_abc_has_abstractmethod_decorators():
-    """Test that ABC methods are properly marked as abstract."""
-    from src.abc.container import ScopeManagerABC
+async def test_interface_has_abstractmethod_decorators():
+    """Test that interface methods are properly marked as abstract."""
+    from src.interfaces.container import ScopeManagerBase
 
     # Check that methods are abstract
-    assert hasattr(ScopeManagerABC.create_scope, '__isabstractmethod__')
-    assert hasattr(ScopeManagerABC.get_scoped_service, '__isabstractmethod__')
-    assert hasattr(ScopeManagerABC.dispose_scope, '__isabstractmethod__')
+    assert hasattr(ScopeManagerBase.create_scope, '__isabstractmethod__')
+    assert hasattr(ScopeManagerBase.get_scoped_service, '__isabstractmethod__')
+    assert hasattr(ScopeManagerBase.dispose_scope, '__isabstractmethod__')

@@ -8,17 +8,13 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from src.abc.classification import ClassificationStrategyABC
-from src.protocols.classification import (
-    ClassificationResult,
-    Intent
-)
+from src.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
 
 
 logger = logging.getLogger(__name__)
 
 
-class CompositeClassifier(ClassificationStrategyABC):
+class CompositeClassifier(ClassificationStrategyBase):
     """
     Composite classifier with strategy chain and fallback.
 
@@ -44,7 +40,7 @@ class CompositeClassifier(ClassificationStrategyABC):
 
     def __init__(
         self,
-        strategies: list[ClassificationStrategyABC],
+        strategies: list[ClassificationStrategyBase],
         thresholds: dict[str, float] | None = None,
         default_intent: Intent = Intent.RAG
     ):
@@ -237,7 +233,7 @@ class CompositeClassifier(ClassificationStrategyABC):
 
     def add_strategy(
         self,
-        strategy: ClassificationStrategyABC,
+        strategy: ClassificationStrategyBase,
         position: int | None = None,
         threshold: float | None = None
     ) -> None:

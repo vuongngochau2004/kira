@@ -11,8 +11,7 @@ from dataclasses import dataclass
 from typing import Any, TypeVar, Generic
 from uuid import UUID
 
-from src.protocols.classification import ClassificationResult
-from src.abc.classification import ClassificationCacheABC
+from src.interfaces.classification import ClassificationResult, ClassificationCacheBase
 
 
 T = TypeVar("T")
@@ -30,7 +29,7 @@ class CacheEntry:
         return self.expires_at is not None and time.time() > self.expires_at
 
 
-class AsyncLRUCache(ClassificationCacheABC):
+class AsyncLRUCache(ClassificationCacheBase):
     """
     Async-safe LRU cache with TTL support.
 

@@ -7,8 +7,8 @@ Registers and configures all services for the DI container.
 from typing import Optional
 
 from src.di.container import ServiceContainer
-from src.abc.classification import ClassificationStrategyABC
-from src.protocols.handlers import QueryHandler
+from src.interfaces.classification import ClassificationStrategyBase
+from src.interfaces.handlers import QueryHandlerBase
 
 
 # Global container instance
@@ -68,7 +68,7 @@ class ServiceRegistry:
                 thresholds={"keyword": 0.7, "cached": 0.6, "llm": 0.5}
             )
 
-            await container.register_singleton(ClassificationStrategyABC, classifier)
+            await container.register_singleton(ClassificationStrategyBase, classifier)
 
         except ImportError as e:
             # Fallback if classification module not available
@@ -80,8 +80,8 @@ class ServiceRegistry:
             from src.handlers.conversational import ConversationalHandler
 
             # Register handlers as singletons (stateless)
-            await container.register_singleton(QueryHandler, RAGHandler())
-            await container.register_singleton(QueryHandler, ConversationalHandler())
+            await container.register_singleton(QueryHandlerBase, RAGHandler())
+            await container.register_singleton(QueryHandlerBase, ConversationalHandler())
 
         except ImportError as e:
             print(f"Warning: Could not import handlers: {e}")
@@ -104,18 +104,18 @@ class ServiceRegistry:
         """
         # Warm up classification strategy (likely to be used immediately)
         try:
-            await container.get(ClassificationStrategyABC)
+            await container.get(ClassificationStrategyBase)
         except Exception as e:
-            print(f"Warning: Failed to warm up ClassificationStrategyABC: {e}")
+            print(f"Warning: Failed to warm up ClassificationStrategyBase: {e}")
 
         # Warm up handlers
         try:
             # Get all handler implementations
-            handlers = await container.get_all(QueryHandler)
+            handlers = await container.get_all(QueryHandlerBase)
             for handler in handlers:
                 pass  # Handler already instantiated
         except Exception as e:
-            print(f"Warning: Failed to warm up QueryHandler: {e}")
+            print(f"Warning: Failed to warm up QueryHandlerBase: {e}")
 
 
 async def get_container() -> ServiceContainer:

@@ -8,13 +8,13 @@ Protocol to ABC migration testing.
 import pytest
 from uuid import uuid4
 
-from src.protocols.classification import Intent, ClassificationResult
-from src.protocols.handlers import Citation, HandlerConfig
+from src.interfaces.classification import Intent, ClassificationResult
+from src.interfaces.handlers import Citation, HandlerConfig
 
 from tests.fixtures.abc_fixtures import (
-    ClassificationStrategyABC,
-    QueryHandlerABC,
-    DependencyContainerABC,
+    ClassificationStrategyBase,
+    QueryHandlerBase,
+    DependencyContainerBase,
     create_abc_mock,
     assert_abc_compliance,
 )
@@ -29,14 +29,14 @@ class TestABCImplementationBasics:
 
     def test_create_classification_abc_mock(self):
         """Test creating mock classification ABC implementation."""
-        impl = create_abc_mock(ClassificationStrategyABC)
+        impl = create_abc_mock(ClassificationStrategyBase)
         assert impl is not None
         assert hasattr(impl, 'classify')
         assert hasattr(impl, 'can_handle')
 
     def test_create_query_handler_abc_mock(self):
         """Test creating mock query handler ABC implementation."""
-        impl = create_abc_mock(QueryHandlerABC)
+        impl = create_abc_mock(QueryHandlerBase)
         assert impl is not None
         assert hasattr(impl, 'handle')
         assert hasattr(impl, 'can_handle')
@@ -45,7 +45,7 @@ class TestABCImplementationBasics:
 
     def test_create_container_abc_mock(self):
         """Test creating mock dependency container ABC implementation."""
-        impl = create_abc_mock(DependencyContainerABC)
+        impl = create_abc_mock(DependencyContainerBase)
         assert impl is not None
         assert hasattr(impl, 'register_singleton')
         assert hasattr(impl, 'get')
@@ -61,18 +61,18 @@ class TestABCCompliance:
 
     def test_classification_abc_compliance(self):
         """Test that mock classification strategy complies with ABC."""
-        from tests.fixtures.abc_fixtures import MockClassificationStrategyABC
-        assert_abc_compliance(ClassificationStrategyABC, MockClassificationStrategyABC)
+        from tests.fixtures.abc_fixtures import MockClassificationStrategyBase
+        assert_abc_compliance(ClassificationStrategyBase, MockClassificationStrategyBase)
 
     def test_query_handler_abc_compliance(self):
         """Test that mock query handler complies with ABC."""
-        from tests.fixtures.abc_fixtures import MockQueryHandlerABC
-        assert_abc_compliance(QueryHandlerABC, MockQueryHandlerABC)
+        from tests.fixtures.abc_fixtures import MockQueryHandlerBase
+        assert_abc_compliance(QueryHandlerBase, MockQueryHandlerBase)
 
     def test_container_abc_compliance(self):
         """Test that mock container complies with ABC."""
-        from tests.fixtures.abc_fixtures import MockDependencyContainerABC
-        assert_abc_compliance(DependencyContainerABC, MockDependencyContainerABC)
+        from tests.fixtures.abc_fixtures import MockDependencyContainerBase
+        assert_abc_compliance(DependencyContainerBase, MockDependencyContainerBase)
 
 
 # ============================================================================
@@ -84,7 +84,7 @@ class TestFixtureBasedABC:
 
     def test_abc_implementation_fixture(self, abc_implementation):
         """Test abc_implementation fixture."""
-        impl = abc_implementation(ClassificationStrategyABC)
+        impl = abc_implementation(ClassificationStrategyBase)
         assert impl is not None
         assert hasattr(impl, 'classify')
 
@@ -92,12 +92,12 @@ class TestFixtureBasedABC:
         """Test protocol_vs_abc comparison fixture."""
         from tests.fixtures.abc_fixtures import (
             MockClassificationStrategyProtocol,
-            MockClassificationStrategyABC
+            MockClassificationStrategyBase
         )
 
         protocol_impl, abc_impl = protocol_vs_abc(
             MockClassificationStrategyProtocol,
-            ClassificationStrategyABC
+            ClassificationStrategyBase
         )
 
         assert protocol_impl is not None
@@ -147,7 +147,7 @@ class TestABCAsyncExecution:
     @pytest.mark.asyncio
     async def test_classification_async_execution(self, abc_implementation):
         """Test async classify method of ABC implementation."""
-        impl = abc_implementation(ClassificationStrategyABC)
+        impl = abc_implementation(ClassificationStrategyBase)
         result = await impl.classify("test query", uuid4())
 
         assert result is not None
@@ -164,7 +164,7 @@ class TestABCAsyncExecution:
             reason="Test classification"
         )
 
-        impl = abc_implementation(QueryHandlerABC)
+        impl = abc_implementation(QueryHandlerBase)
         result = await impl.handle("test query", uuid4(), classification)
 
         assert result is not None
@@ -179,12 +179,12 @@ class TestABCAsyncExecution:
 
         # Register service
         await container.register_singleton(
-            ClassificationStrategyABC,
-            create_abc_mock(ClassificationStrategyABC)
+            ClassificationStrategyBase,
+            create_abc_mock(ClassificationStrategyBase)
         )
 
         # Resolve service
-        strategy = await container.get(ClassificationStrategyABC)
+        strategy = await container.get(ClassificationStrategyBase)
         assert strategy is not None
 
         # Use service
@@ -198,13 +198,13 @@ class TestABCAsyncExecution:
 
         # Register singleton
         await container.register_singleton(
-            ClassificationStrategyABC,
-            create_abc_mock(ClassificationStrategyABC)
+            ClassificationStrategyBase,
+            create_abc_mock(ClassificationStrategyBase)
         )
 
         # Resolve twice
-        strategy1 = await container.get(ClassificationStrategyABC)
-        strategy2 = await container.get(ClassificationStrategyABC)
+        strategy1 = await container.get(ClassificationStrategyBase)
+        strategy2 = await container.get(ClassificationStrategyBase)
 
         # Should be same instance
         assert strategy1 is strategy2
@@ -229,12 +229,12 @@ class TestProtocolVsABCComparison:
         """Test that Protocol and ABC produce consistent results."""
         from tests.fixtures.abc_fixtures import (
             MockClassificationStrategyProtocol,
-            MockClassificationStrategyABC
+            MockClassificationStrategyBase
         )
 
         protocol_impl, abc_impl = protocol_vs_abc(
             MockClassificationStrategyProtocol,
-            ClassificationStrategyABC
+            ClassificationStrategyBase
         )
 
         query = "test query"
@@ -252,12 +252,12 @@ class TestProtocolVsABCComparison:
         """Test handler consistency between Protocol and ABC."""
         from tests.fixtures.abc_fixtures import (
             MockQueryHandlerProtocol,
-            MockQueryHandlerABC
+            MockQueryHandlerBase
         )
 
         protocol_impl, abc_impl = protocol_vs_abc(
             MockQueryHandlerProtocol,
-            QueryHandlerABC
+            QueryHandlerBase
         )
 
         classification = ClassificationResult(
@@ -292,7 +292,7 @@ class TestABCBenchmarking:
 
         results = await benchmark_abc_vs_protocol(
             MockClassificationStrategyProtocol,
-            ClassificationStrategyABC,
+            ClassificationStrategyBase,
             iterations=100
         )
 
@@ -318,7 +318,7 @@ class TestABCBenchmarking:
         # Use classification strategy for benchmarking instead
         results = await benchmark_abc_vs_protocol(
             MockClassificationStrategyProtocol,
-            ClassificationStrategyABC,
+            ClassificationStrategyBase,
             iterations=50
         )
 
@@ -381,21 +381,21 @@ class TestABCIntegrationSuite:
 
         # Register services
         await container.register_singleton(
-            ClassificationStrategyABC,
+            ClassificationStrategyBase,
             suite["abc_strategy"]
         )
 
         await container.register_singleton(
-            QueryHandlerABC,
+            QueryHandlerBase,
             suite["abc_handler"]
         )
 
         # Verify registration
-        assert await container.is_registered(ClassificationStrategyABC)
-        assert await container.is_registered(QueryHandlerABC)
+        assert await container.is_registered(ClassificationStrategyBase)
+        assert await container.is_registered(QueryHandlerBase)
 
         # Resolve and use
-        strategy = await container.get(ClassificationStrategyABC)
+        strategy = await container.get(ClassificationStrategyBase)
         result = await strategy.classify("test", uuid4())
         assert result.intent == Intent.RAG
 
@@ -416,7 +416,7 @@ class TestABCEdgeCases:
     @pytest.mark.asyncio
     async def test_empty_query_handling(self, abc_implementation):
         """Test handling of empty queries."""
-        impl = abc_implementation(ClassificationStrategyABC)
+        impl = abc_implementation(ClassificationStrategyBase)
 
         # Empty query should still work
         result = await impl.classify("", uuid4())
@@ -428,7 +428,7 @@ class TestABCEdgeCases:
     @pytest.mark.asyncio
     async def test_low_confidence_handling(self, abc_implementation):
         """Test handling of low confidence classifications."""
-        handler = abc_implementation(QueryHandlerABC)
+        handler = abc_implementation(QueryHandlerBase)
 
         # Low confidence classification
         classification = ClassificationResult(
@@ -447,7 +447,7 @@ class TestABCEdgeCases:
 
         # Try to get unregistered service
         with pytest.raises(ValueError, match="not registered"):
-            await container.get(QueryHandlerABC)
+            await container.get(QueryHandlerBase)
 
     @pytest.mark.asyncio
     async def test_abc_compliance_failure(self):
@@ -458,7 +458,7 @@ class TestABCEdgeCases:
             pass
 
         with pytest.raises(AssertionError, match="missing abstract method"):
-            assert_abc_compliance(ClassificationStrategyABC, NonCompliantImplementation)
+            assert_abc_compliance(ClassificationStrategyBase, NonCompliantImplementation)
 
 
 # ============================================================================

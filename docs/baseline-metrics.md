@@ -81,7 +81,7 @@ tests/
 | **Classification** | ✓ Complete | ✓ Complete | `src/classification/` | None |
 | **Handlers** | ✓ Complete | ✓ Complete | `src/handlers/` | `src/handlers/adapters/router_adapter.py` |
 | **DI Container** | ✓ Complete | ✓ Complete | `src/di/` | None |
-| **ABCs** | N/A | ✓ Complete | `src/abc/` | - |
+| **ABCs** | N/A | ✓ Complete | `src/interfaces/` | - |
 | **Protocols** | ✓ Complete | ✓ Migrated | `src/protocols/` (deprecated) | - |
 | **Routers** | ✗ Pending | N/A | `src/agents/routers/` | Active (migrating) |
 

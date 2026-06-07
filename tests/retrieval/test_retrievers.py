@@ -3,8 +3,7 @@ Tests for Retriever ABCs.
 
 This test suite verifies:
 - ABC compliance with @abstractmethod decorators
-- Inheritance chain (Dense/BM25/Hybrid inherit from RetrieverABC)
-- Protocol equivalence (ABC methods match Protocol methods)
+- Inheritance chain (Dense/BM25/Hybrid inherit from RetrieverBase)
 - Mock implementations for testing
 """
 
@@ -12,18 +11,12 @@ import pytest
 from abc import ABC
 from typing import Any
 
-from src.abc.retrieval import (
-    RetrieverABC,
-    DenseRetrieverABC,
-    BM25RetrieverABC,
-    HybridRetrieverABC,
+from src.interfaces.retrieval import (
+    RetrieverBase,
+    DenseRetrieverBase,
+    BM25RetrieverBase,
+    HybridRetrieverBase,
     Document
-)
-from src.protocols.retrieval import (
-    Retriever,
-    DenseRetriever,
-    BM25Retriever,
-    HybridRetriever as ProtocolHybridRetriever
 )
 
 
@@ -100,17 +93,17 @@ class TestDocument:
         assert excerpt == short_content
 
 
-class TestRetrieverABC:
-    """Test RetrieverABC abstract base class."""
+class TestRetrieverBase:
+    """Test RetrieverBase abstract base class."""
 
     def test_retriever_abc_is_abstract(self):
-        """Test that RetrieverABC cannot be instantiated."""
+        """Test that RetrieverBase cannot be instantiated."""
         with pytest.raises(TypeError):
-            RetrieverABC()
+            RetrieverBase()
 
     def test_retriever_abc_has_abstract_methods(self):
-        """Test that RetrieverABC defines abstract methods."""
-        abstract_methods = RetrieverABC.__abstractmethods__
+        """Test that RetrieverBase defines abstract methods."""
+        abstract_methods = RetrieverBase.__abstractmethods__
 
         assert "retrieve" in abstract_methods
         assert "get_stats" in abstract_methods
@@ -118,15 +111,15 @@ class TestRetrieverABC:
         assert len(abstract_methods) == 3
 
     def test_retriever_abc_inherits_from_abc(self):
-        """Test that RetrieverABC inherits from ABC."""
-        assert issubclass(RetrieverABC, ABC)
+        """Test that RetrieverBase inherits from ABC."""
+        assert issubclass(RetrieverBase, ABC)
 
     def test_retriever_abc_method_signatures(self):
-        """Test that RetrieverABC methods have correct signatures."""
+        """Test that RetrieverBase methods have correct signatures."""
         import inspect
 
         # Check retrieve signature
-        retrieve_sig = inspect.signature(RetrieverABC.retrieve)
+        retrieve_sig = inspect.signature(RetrieverBase.retrieve)
         params = list(retrieve_sig.parameters.keys())
         assert "query" in params
         assert "user_id" in params
@@ -134,18 +127,18 @@ class TestRetrieverABC:
         assert "filters" in params
 
         # Check get_stats signature (only self parameter)
-        get_stats_sig = inspect.signature(RetrieverABC.get_stats)
+        get_stats_sig = inspect.signature(RetrieverBase.get_stats)
         assert len(get_stats_sig.parameters) == 1  # Only self
         assert "self" in get_stats_sig.parameters
 
         # Check health_check signature (only self parameter)
-        health_check_sig = inspect.signature(RetrieverABC.health_check)
+        health_check_sig = inspect.signature(RetrieverBase.health_check)
         assert len(health_check_sig.parameters) == 1  # Only self
         assert "self" in health_check_sig.parameters
 
 
-class MockRetriever(RetrieverABC):
-    """Mock implementation of RetrieverABC for testing."""
+class MockRetriever(RetrieverBase):
+    """Mock implementation of RetrieverBase for testing."""
 
     async def retrieve(
         self,
@@ -164,13 +157,13 @@ class MockRetriever(RetrieverABC):
 
 
 class TestRetrieverImplementation:
-    """Test that concrete implementations of RetrieverABC work correctly."""
+    """Test that concrete implementations of RetrieverBase work correctly."""
 
     @pytest.mark.asyncio
     async def test_mock_retriever_can_be_instantiated(self):
         """Test that a concrete implementation can be instantiated."""
         retriever = MockRetriever()
-        assert isinstance(retriever, RetrieverABC)
+        assert isinstance(retriever, RetrieverBase)
 
     @pytest.mark.asyncio
     async def test_mock_retriever_retrieve(self):
@@ -199,26 +192,26 @@ class TestRetrieverImplementation:
         assert is_healthy is True
 
 
-class TestDenseRetrieverABC:
-    """Test DenseRetrieverABC abstract base class."""
+class TestDenseRetrieverBase:
+    """Test DenseRetrieverBase abstract base class."""
 
     def test_dense_retriever_abc_inherits_from_retriever(self):
-        """Test that DenseRetrieverABC inherits from RetrieverABC."""
-        assert issubclass(DenseRetrieverABC, RetrieverABC)
+        """Test that DenseRetrieverBase inherits from RetrieverBase."""
+        assert issubclass(DenseRetrieverBase, RetrieverBase)
 
     def test_dense_retriever_abc_is_abstract(self):
-        """Test that DenseRetrieverABC cannot be instantiated."""
+        """Test that DenseRetrieverBase cannot be instantiated."""
         with pytest.raises(TypeError):
-            DenseRetrieverABC()
+            DenseRetrieverBase()
 
     def test_dense_retriever_abc_has_retrieve_by_vector(self):
-        """Test that DenseRetrieverABC has retrieve_by_vector method."""
-        assert "retrieve_by_vector" in DenseRetrieverABC.__abstractmethods__
+        """Test that DenseRetrieverBase has retrieve_by_vector method."""
+        assert "retrieve_by_vector" in DenseRetrieverBase.__abstractmethods__
 
     def test_dense_retriever_abc_total_abstract_methods(self):
         """Test total abstract methods count."""
-        # Should have 3 from RetrieverABC + 1 from DenseRetrieverABC
-        abstract_methods = DenseRetrieverABC.__abstractmethods__
+        # Should have 3 from RetrieverBase + 1 from DenseRetrieverBase
+        abstract_methods = DenseRetrieverBase.__abstractmethods__
         assert "retrieve" in abstract_methods
         assert "get_stats" in abstract_methods
         assert "health_check" in abstract_methods
@@ -226,8 +219,8 @@ class TestDenseRetrieverABC:
         assert len(abstract_methods) == 4
 
 
-class MockDenseRetriever(DenseRetrieverABC):
-    """Mock implementation of DenseRetrieverABC for testing."""
+class MockDenseRetriever(DenseRetrieverBase):
+    """Mock implementation of DenseRetrieverBase for testing."""
 
     async def retrieve(
         self,
@@ -255,14 +248,14 @@ class MockDenseRetriever(DenseRetrieverABC):
 
 
 class TestDenseRetrieverImplementation:
-    """Test that concrete implementations of DenseRetrieverABC work correctly."""
+    """Test that concrete implementations of DenseRetrieverBase work correctly."""
 
     @pytest.mark.asyncio
     async def test_mock_dense_retriever_can_be_instantiated(self):
         """Test that a concrete implementation can be instantiated."""
         retriever = MockDenseRetriever()
-        assert isinstance(retriever, DenseRetrieverABC)
-        assert isinstance(retriever, RetrieverABC)
+        assert isinstance(retriever, DenseRetrieverBase)
+        assert isinstance(retriever, RetrieverBase)
 
     @pytest.mark.asyncio
     async def test_mock_dense_retriever_retrieve_by_vector(self):
@@ -274,29 +267,29 @@ class TestDenseRetrieverImplementation:
         assert docs[0].content == "Vector result"
 
 
-class TestBM25RetrieverABC:
-    """Test BM25RetrieverABC abstract base class."""
+class TestBM25RetrieverBase:
+    """Test BM25RetrieverBase abstract base class."""
 
     def test_bm25_retriever_abc_inherits_from_retriever(self):
-        """Test that BM25RetrieverABC inherits from RetrieverABC."""
-        assert issubclass(BM25RetrieverABC, RetrieverABC)
+        """Test that BM25RetrieverBase inherits from RetrieverBase."""
+        assert issubclass(BM25RetrieverBase, RetrieverBase)
 
     def test_bm25_retriever_abc_is_abstract(self):
-        """Test that BM25RetrieverABC cannot be instantiated."""
+        """Test that BM25RetrieverBase cannot be instantiated."""
         with pytest.raises(TypeError):
-            BM25RetrieverABC()
+            BM25RetrieverBase()
 
     def test_bm25_retriever_abc_has_indexing_methods(self):
-        """Test that BM25RetrieverABC has indexing methods."""
-        abstract_methods = BM25RetrieverABC.__abstractmethods__
+        """Test that BM25RetrieverBase has indexing methods."""
+        abstract_methods = BM25RetrieverBase.__abstractmethods__
         assert "index_document" in abstract_methods
         assert "remove_document" in abstract_methods
         assert "bulk_index" in abstract_methods
 
     def test_bm25_retriever_abc_total_abstract_methods(self):
         """Test total abstract methods count."""
-        # Should have 3 from RetrieverABC + 3 from BM25RetrieverABC
-        abstract_methods = BM25RetrieverABC.__abstractmethods__
+        # Should have 3 from RetrieverBase + 3 from BM25RetrieverBase
+        abstract_methods = BM25RetrieverBase.__abstractmethods__
         assert "retrieve" in abstract_methods
         assert "get_stats" in abstract_methods
         assert "health_check" in abstract_methods
@@ -306,8 +299,8 @@ class TestBM25RetrieverABC:
         assert len(abstract_methods) == 6
 
 
-class MockBM25Retriever(BM25RetrieverABC):
-    """Mock implementation of BM25RetrieverABC for testing."""
+class MockBM25Retriever(BM25RetrieverBase):
+    """Mock implementation of BM25RetrieverBase for testing."""
 
     async def retrieve(
         self,
@@ -335,14 +328,14 @@ class MockBM25Retriever(BM25RetrieverABC):
 
 
 class TestBM25RetrieverImplementation:
-    """Test that concrete implementations of BM25RetrieverABC work correctly."""
+    """Test that concrete implementations of BM25RetrieverBase work correctly."""
 
     @pytest.mark.asyncio
     async def test_mock_bm25_retriever_can_be_instantiated(self):
         """Test that a concrete implementation can be instantiated."""
         retriever = MockBM25Retriever()
-        assert isinstance(retriever, BM25RetrieverABC)
-        assert isinstance(retriever, RetrieverABC)
+        assert isinstance(retriever, BM25RetrieverBase)
+        assert isinstance(retriever, RetrieverBase)
 
     @pytest.mark.asyncio
     async def test_mock_bm25_retriever_index_document(self):
@@ -374,28 +367,28 @@ class TestBM25RetrieverImplementation:
         await retriever.bulk_index(docs, "user123")
 
 
-class TestHybridRetrieverABC:
-    """Test HybridRetrieverABC abstract base class."""
+class TestHybridRetrieverBase:
+    """Test HybridRetrieverBase abstract base class."""
 
     def test_hybrid_retriever_abc_inherits_from_retriever(self):
-        """Test that HybridRetrieverABC inherits from RetrieverABC."""
-        assert issubclass(HybridRetrieverABC, RetrieverABC)
+        """Test that HybridRetrieverBase inherits from RetrieverBase."""
+        assert issubclass(HybridRetrieverBase, RetrieverBase)
 
     def test_hybrid_retriever_abc_is_abstract(self):
-        """Test that HybridRetrieverABC cannot be instantiated."""
+        """Test that HybridRetrieverBase cannot be instantiated."""
         with pytest.raises(TypeError):
-            HybridRetrieverABC()
+            HybridRetrieverBase()
 
     def test_hybrid_retriever_abc_has_hybrid_methods(self):
-        """Test that HybridRetrieverABC has hybrid methods."""
-        abstract_methods = HybridRetrieverABC.__abstractmethods__
+        """Test that HybridRetrieverBase has hybrid methods."""
+        abstract_methods = HybridRetrieverBase.__abstractmethods__
         assert "retrieve_with_scores" in abstract_methods
         assert "get_rrf_k" in abstract_methods
 
     def test_hybrid_retriever_abc_total_abstract_methods(self):
         """Test total abstract methods count."""
-        # Should have 3 from RetrieverABC + 2 from HybridRetrieverABC
-        abstract_methods = HybridRetrieverABC.__abstractmethods__
+        # Should have 3 from RetrieverBase + 2 from HybridRetrieverBase
+        abstract_methods = HybridRetrieverBase.__abstractmethods__
         assert "retrieve" in abstract_methods
         assert "get_stats" in abstract_methods
         assert "health_check" in abstract_methods
@@ -404,8 +397,8 @@ class TestHybridRetrieverABC:
         assert len(abstract_methods) == 5
 
 
-class MockHybridRetriever(HybridRetrieverABC):
-    """Mock implementation of HybridRetrieverABC for testing."""
+class MockHybridRetriever(HybridRetrieverBase):
+    """Mock implementation of HybridRetrieverBase for testing."""
 
     async def retrieve(
         self,
@@ -440,14 +433,14 @@ class MockHybridRetriever(HybridRetrieverABC):
 
 
 class TestHybridRetrieverImplementation:
-    """Test that concrete implementations of HybridRetrieverABC work correctly."""
+    """Test that concrete implementations of HybridRetrieverBase work correctly."""
 
     @pytest.mark.asyncio
     async def test_mock_hybrid_retriever_can_be_instantiated(self):
         """Test that a concrete implementation can be instantiated."""
         retriever = MockHybridRetriever()
-        assert isinstance(retriever, HybridRetrieverABC)
-        assert isinstance(retriever, RetrieverABC)
+        assert isinstance(retriever, HybridRetrieverBase)
+        assert isinstance(retriever, RetrieverBase)
 
     @pytest.mark.asyncio
     async def test_mock_hybrid_retriever_retrieve_with_scores(self):
@@ -469,94 +462,35 @@ class TestHybridRetrieverImplementation:
         assert rrf_k == 60
 
 
-class TestProtocolEquivalence:
-    """Test that ABCs match their corresponding Protocol interfaces."""
-
-    def test_retriever_abc_matches_protocol_methods(self):
-        """Test that RetrieverABC has same methods as Retriever Protocol."""
-        abc_methods = {
-            "retrieve", "get_stats", "health_check"
-        }
-
-        # Get protocol methods (excluding private/special)
-        protocol_methods = {
-            m for m in dir(Retriever)
-            if not m.startswith('_') and callable(getattr(Retriever, m))
-        }
-
-        assert abc_methods == protocol_methods
-
-    def test_dense_retriever_abc_matches_protocol_methods(self):
-        """Test that DenseRetrieverABC has same methods as DenseRetriever Protocol."""
-        abc_methods = {
-            "retrieve", "get_stats", "health_check", "retrieve_by_vector"
-        }
-
-        protocol_methods = {
-            m for m in dir(DenseRetriever)
-            if not m.startswith('_') and callable(getattr(DenseRetriever, m))
-        }
-
-        assert abc_methods == protocol_methods
-
-    def test_bm25_retriever_abc_matches_protocol_methods(self):
-        """Test that BM25RetrieverABC has same methods as BM25Retriever Protocol."""
-        abc_methods = {
-            "retrieve", "get_stats", "health_check",
-            "index_document", "remove_document", "bulk_index"
-        }
-
-        protocol_methods = {
-            m for m in dir(BM25Retriever)
-            if not m.startswith('_') and callable(getattr(BM25Retriever, m))
-        }
-
-        assert abc_methods == protocol_methods
-
-    def test_hybrid_retriever_abc_matches_protocol_methods(self):
-        """Test that HybridRetrieverABC has same methods as HybridRetriever Protocol."""
-        abc_methods = {
-            "retrieve", "get_stats", "health_check",
-            "retrieve_with_scores", "get_rrf_k"
-        }
-
-        protocol_methods = {
-            m for m in dir(ProtocolHybridRetriever)
-            if not m.startswith('_') and callable(getattr(ProtocolHybridRetriever, m))
-        }
-
-        assert abc_methods == protocol_methods
-
-
 class TestInheritanceChain:
     """Test inheritance chain of retriever ABCs."""
 
     def test_dense_retriever_inheritance(self):
-        """Test DenseRetrieverABC inheritance chain."""
-        assert issubclass(DenseRetrieverABC, RetrieverABC)
-        assert issubclass(DenseRetrieverABC, ABC)
+        """Test DenseRetrieverBase inheritance chain."""
+        assert issubclass(DenseRetrieverBase, RetrieverBase)
+        assert issubclass(DenseRetrieverBase, ABC)
 
         # Test mock implementation
-        assert isinstance(MockDenseRetriever(), DenseRetrieverABC)
-        assert isinstance(MockDenseRetriever(), RetrieverABC)
+        assert isinstance(MockDenseRetriever(), DenseRetrieverBase)
+        assert isinstance(MockDenseRetriever(), RetrieverBase)
         assert isinstance(MockDenseRetriever(), ABC)
 
     def test_bm25_retriever_inheritance(self):
-        """Test BM25RetrieverABC inheritance chain."""
-        assert issubclass(BM25RetrieverABC, RetrieverABC)
-        assert issubclass(BM25RetrieverABC, ABC)
+        """Test BM25RetrieverBase inheritance chain."""
+        assert issubclass(BM25RetrieverBase, RetrieverBase)
+        assert issubclass(BM25RetrieverBase, ABC)
 
         # Test mock implementation
-        assert isinstance(MockBM25Retriever(), BM25RetrieverABC)
-        assert isinstance(MockBM25Retriever(), RetrieverABC)
+        assert isinstance(MockBM25Retriever(), BM25RetrieverBase)
+        assert isinstance(MockBM25Retriever(), RetrieverBase)
         assert isinstance(MockBM25Retriever(), ABC)
 
     def test_hybrid_retriever_inheritance(self):
-        """Test HybridRetrieverABC inheritance chain."""
-        assert issubclass(HybridRetrieverABC, RetrieverABC)
-        assert issubclass(HybridRetrieverABC, ABC)
+        """Test HybridRetrieverBase inheritance chain."""
+        assert issubclass(HybridRetrieverBase, RetrieverBase)
+        assert issubclass(HybridRetrieverBase, ABC)
 
         # Test mock implementation
-        assert isinstance(MockHybridRetriever(), HybridRetrieverABC)
-        assert isinstance(MockHybridRetriever(), RetrieverABC)
+        assert isinstance(MockHybridRetriever(), HybridRetrieverBase)
+        assert isinstance(MockHybridRetriever(), RetrieverBase)
         assert isinstance(MockHybridRetriever(), ABC)

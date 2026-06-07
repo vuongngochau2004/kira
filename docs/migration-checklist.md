@@ -54,7 +54,7 @@
 ### Migration Checklist Details
 
 #### Phase 1: Foundation (✅ Complete)
-- [x] Create ABC module structure (`src/abc/`)
+- [x] Create ABC module structure (`src/interfaces/`)
 - [x] Implement validation tools
 - [x] Setup benchmarking infrastructure
 - [x] Document pre-migration baseline
@@ -84,16 +84,16 @@
 
 | Protocol → ABC | Status | Location |
 |----------------|--------|----------|
-| ClassificationStrategy → ClassificationStrategyABC | ✅ | `src/abc/classification.py` |
-| QueryHandler → QueryHandlerABC | ✅ | `src/abc/handlers.py` |
-| DependencyContainer → DependencyContainerABC | ✅ | `src/abc/container.py` |
-| Retriever → RetrieverABC | ✅ | `src/abc/retrieval.py` |
-| Document → DocumentABC | ✅ | `src/abc/retrieval.py` |
-| ClassificationCache → ClassificationCacheABC | ✅ | `src/abc/classification.py` |
-| HandlerConfig → HandlerConfigABC | ✅ | `src/abc/handlers.py` |
-| Lifecycle → Lifecycle (enum, unchanged) | ✅ | `src/abc/container.py` |
-| Citation → Citation (dataclass, unchanged) | ✅ | `src/abc/handlers.py` |
-| HandlerResult → HandlerResult (dataclass, unchanged) | ✅ | `src/abc/handlers.py` |
+| ClassificationStrategy → ClassificationStrategyABC | ✅ | `src/interfaces/classification.py` |
+| QueryHandler → QueryHandlerABC | ✅ | `src/interfaces/handlers.py` |
+| DependencyContainer → DependencyContainerABC | ✅ | `src/interfaces/container.py` |
+| Retriever → RetrieverABC | ✅ | `src/interfaces/retrieval.py` |
+| Document → DocumentABC | ✅ | `src/interfaces/retrieval.py` |
+| ClassificationCache → ClassificationCacheABC | ✅ | `src/interfaces/classification.py` |
+| HandlerConfig → HandlerConfigABC | ✅ | `src/interfaces/handlers.py` |
+| Lifecycle → Lifecycle (enum, unchanged) | ✅ | `src/interfaces/container.py` |
+| Citation → Citation (dataclass, unchanged) | ✅ | `src/interfaces/handlers.py` |
+| HandlerResult → HandlerResult (dataclass, unchanged) | ✅ | `src/interfaces/handlers.py` |
 
 **Total: 10 protocols migrated to ABCs**
 

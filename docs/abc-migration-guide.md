@@ -146,7 +146,7 @@ class KeywordStrategy(ClassificationStrategy):
 #### After (ABC)
 
 ```python
-# src/abc/classification.py
+# src/interfaces/classification.py
 from abc import ABC, abstractmethod
 
 class ClassificationStrategyABC(ABC):
@@ -321,11 +321,11 @@ class DocumentABC(ABC):
 ```bash
 # Create ABC module structure
 mkdir -p src/abc
-touch src/abc/__init__.py
-touch src/abc/classification.py
-touch src/abc/handlers.py
-touch src/abc/container.py
-touch src/abc/retrieval.py
+touch src/interfaces/__init__.py
+touch src/interfaces/classification.py
+touch src/interfaces/handlers.py
+touch src/interfaces/container.py
+touch src/interfaces/retrieval.py
 ```
 
 #### Step 1.2: Create Validation Tools
@@ -399,8 +399,8 @@ def validate_implementation(cls: Type, abc_cls: Type) -> bool:
 
 def main():
     """Validate all ABC conversions."""
-    import src.protocols.classification as protocol_module
-    import src.abc.classification as abc_module
+    import src.interfaces.classification as protocol_module
+    import src.interfaces.classification as abc_module
     
     # Validate ClassificationStrategy
     validate_protocol_to_abc(
@@ -541,7 +541,7 @@ class ClassificationCache(Protocol):
 
 **After:**
 ```python
-# src/abc/classification.py
+# src/interfaces/classification.py
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -608,8 +608,8 @@ class ClassificationCacheABC(ABC):
 ```python
 # src/classification/cache/lru_cache.py
 from abc import ABC
-from src.abc.classification import ClassificationCacheABC
-from src.protocols.classification import ClassificationResult
+from src.interfaces.classification import ClassificationCacheABC
+from src.interfaces.classification import ClassificationResult
 
 class LRUCache(ClassificationCacheABC):  # Changed from Protocol to ABC
     """LRU cache implementation."""
@@ -665,7 +665,7 @@ class HandlerConfig:
 
 **After:**
 ```python
-# src/abc/handlers.py
+# src/interfaces/handlers.py
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
@@ -724,7 +724,7 @@ pytest tests/protocols/ -v
 
 # Check type safety
 mypy src/classification/
-mypy src/abc/
+mypy src/interfaces/
 ```
 
 ### Phase 3: Medium Complexity Migration (Week 4-5)
@@ -739,7 +739,7 @@ mypy src/abc/
 
 **ABC Definition:**
 ```python
-# src/abc/classification.py
+# src/interfaces/classification.py
 from abc import ABC, abstractmethod
 from typing import Any
 from uuid import UUID
@@ -821,8 +821,8 @@ class ClassificationStrategyABC(ABC):
 **Update KeywordStrategy:**
 ```python
 # src/classification/strategies/keyword.py
-from src.abc.classification import ClassificationStrategyABC
-from src.protocols.classification import ClassificationResult, Intent
+from src.interfaces.classification import ClassificationStrategyABC
+from src.interfaces.classification import ClassificationResult, Intent
 
 class KeywordStrategy(ClassificationStrategyABC):  # Changed: Protocol → ABC
     """Fast keyword-based classification strategy."""
@@ -886,7 +886,7 @@ class KeywordStrategy(ClassificationStrategyABC):  # Changed: Protocol → ABC
 **Update LLMStrategy:**
 ```python
 # src/classification/strategies/llm.py
-from src.abc.classification import ClassificationStrategyABC
+from src.interfaces.classification import ClassificationStrategyABC
 
 class LLMStrategy(ClassificationStrategyABC):  # Changed: Protocol → ABC
     """LLM-based classification strategy."""
@@ -928,7 +928,7 @@ class LLMStrategy(ClassificationStrategyABC):  # Changed: Protocol → ABC
 **Update CompositeClassifier:**
 ```python
 # src/classification/strategies/composite.py
-from src.abc.classification import ClassificationStrategyABC
+from src.interfaces.classification import ClassificationStrategyABC
 
 class CompositeClassifier(ClassificationStrategyABC):  # Changed: Protocol → ABC
     """Composite classifier with strategy chain."""
@@ -985,7 +985,7 @@ class CompositeClassifier(ClassificationStrategyABC):  # Changed: Protocol → A
 
 **ABC Definition:**
 ```python
-# src/abc/handlers.py
+# src/interfaces/handlers.py
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, Any
 from uuid import UUID
@@ -1075,7 +1075,7 @@ class QueryHandlerABC(ABC):
 **Update RAGHandler:**
 ```python
 # src/handlers/rag.py
-from src.abc.handlers import QueryHandlerABC
+from src.interfaces.handlers import QueryHandlerABC
 
 class RAGHandler(QueryHandlerABC):  # Changed: Protocol → ABC
     """RAG handler for document-based queries."""
@@ -1170,7 +1170,7 @@ mypy src/
 
 ```python
 # src/classification/strategies/composite.py
-from src.abc.classification import ClassificationStrategyABC
+from src.interfaces.classification import ClassificationStrategyABC
 
 class CompositeClassifier(ClassificationStrategyABC):
     """Composite classifier with ABC-based strategies."""
@@ -1220,7 +1220,7 @@ class CompositeClassifier(ClassificationStrategyABC):
 
 **ABC Definition:**
 ```python
-# src/abc/container.py
+# src/interfaces/container.py
 from abc import ABC, abstractmethod
 from typing import TypeVar, Type, Any, Callable, Awaitable
 
@@ -1276,7 +1276,7 @@ class DependencyContainerABC(ABC):
 **Update ServiceContainer:**
 ```python
 # src/di/container.py
-from src.abc.container import DependencyContainerABC
+from src.interfaces.container import DependencyContainerABC
 
 class ServiceContainer(DependencyContainerABC):  # Changed: Protocol → ABC
     """Protocol-based DI container implementation."""
@@ -1373,8 +1373,8 @@ mypy src/ --strict
 ```python
 # tests/fixtures/abc_fixtures.py
 import pytest
-from src.abc.classification import ClassificationStrategyABC
-from src.abc.handlers import QueryHandlerABC
+from src.interfaces.classification import ClassificationStrategyABC
+from src.interfaces.handlers import QueryHandlerABC
 
 @pytest.fixture
 def mock_abc_classifier():
@@ -1421,7 +1421,7 @@ def mock_abc_handler():
 # tests/unit/test_abc_compliance.py
 import pytest
 from abc import ABC
-from src.abc.classification import ClassificationStrategyABC
+from src.interfaces.classification import ClassificationStrategyABC
 from src.classification.strategies.keyword import KeywordStrategy
 from src.classification.strategies.llm import LLMStrategy
 
@@ -1470,8 +1470,8 @@ class TestABCCompliance:
 # tests/unit/test_classification_with_abc.py
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from src.abc.classification import ClassificationStrategyABC
-from src.protocols.classification import ClassificationResult, Intent
+from src.interfaces.classification import ClassificationStrategyABC
+from src.interfaces.classification import ClassificationResult, Intent
 
 class MockClassificationStrategy(ClassificationStrategyABC):
     """Mock ABC strategy for testing."""
@@ -1516,8 +1516,8 @@ async def test_abc_strategy_usage():
 ```python
 # tests/integration/test_abc_di_container.py
 import pytest
-from src.abc.container import DependencyContainerABC
-from src.abc.classification import ClassificationStrategyABC
+from src.interfaces.container import DependencyContainerABC
+from src.interfaces.classification import ClassificationStrategyABC
 from src.di.container import ServiceContainer
 from src.classification.strategies.composite import CompositeClassifier
 
@@ -1594,8 +1594,8 @@ bad = BadImpl()  # TypeError: Can't instantiate abstract class
 **Problem:**
 ```python
 # Some files use Protocol, others use ABC
-from src.protocols.classification import ClassificationStrategy
-from src.abc.classification import ClassificationStrategyABC
+from src.interfaces.classification import ClassificationStrategy
+from src.interfaces.classification import ClassificationStrategyABC
 
 # Type confusion
 def register_strategy(strategy: ClassificationStrategy):  # Protocol
@@ -1607,7 +1607,7 @@ register_strategy(MyABCStrategy())  # Type mismatch!
 **Solution:**
 ```python
 # Use consistent imports
-from src.abc.classification import ClassificationStrategyABC
+from src.interfaces.classification import ClassificationStrategyABC
 
 def register_strategy(strategy: ClassificationStrategyABC):
     # Runtime type check
@@ -1804,7 +1804,7 @@ top_stats = snapshot2.compare_to(snapshot1, 'lineno')
 - [ ] Implement validation tools
 - [ ] Setup benchmarking infrastructure
 - [ ] Document pre-migration baseline
-- **Deliverables:** `src/abc/` module, validation tools
+- **Deliverables:** `src/interfaces/` module, validation tools
 
 ### Week 2-3: Low Complexity Migration
 - [ ] Migrate ClassificationCache
@@ -1899,16 +1899,16 @@ The Protocol-to-ABC migration was successfully completed on **2025-06-07**. All 
 
 | Protocol → ABC | Status | File Location |
 |----------------|--------|---------------|
-| ClassificationStrategy → ClassificationStrategyABC | ✅ Complete | `src/abc/classification.py` |
-| QueryHandler → QueryHandlerABC | ✅ Complete | `src/abc/handlers.py` |
-| DependencyContainer → DependencyContainerABC | ✅ Complete | `src/abc/container.py` |
-| Retriever → RetrieverABC | ✅ Complete | `src/abc/retrieval.py` |
-| Document → DocumentABC | ✅ Complete | `src/abc/retrieval.py` |
-| ClassificationCache → ClassificationCacheABC | ✅ Complete | `src/abc/classification.py` |
-| HandlerConfig → HandlerConfigABC | ✅ Complete | `src/abc/handlers.py` |
-| Lifecycle | ✅ Unchanged (enum) | `src/abc/container.py` |
-| Citation | ✅ Unchanged (dataclass) | `src/abc/handlers.py` |
-| HandlerResult | ✅ Unchanged (dataclass) | `src/abc/handlers.py` |
+| ClassificationStrategy → ClassificationStrategyABC | ✅ Complete | `src/interfaces/classification.py` |
+| QueryHandler → QueryHandlerABC | ✅ Complete | `src/interfaces/handlers.py` |
+| DependencyContainer → DependencyContainerABC | ✅ Complete | `src/interfaces/container.py` |
+| Retriever → RetrieverABC | ✅ Complete | `src/interfaces/retrieval.py` |
+| Document → DocumentABC | ✅ Complete | `src/interfaces/retrieval.py` |
+| ClassificationCache → ClassificationCacheABC | ✅ Complete | `src/interfaces/classification.py` |
+| HandlerConfig → HandlerConfigABC | ✅ Complete | `src/interfaces/handlers.py` |
+| Lifecycle | ✅ Unchanged (enum) | `src/interfaces/container.py` |
+| Citation | ✅ Unchanged (dataclass) | `src/interfaces/handlers.py` |
+| HandlerResult | ✅ Unchanged (dataclass) | `src/interfaces/handlers.py` |
 
 **Total: 10 protocols migrated**
 
@@ -1949,7 +1949,7 @@ From `docs/baseline-metrics.md`:
 - ✅ `docs/abc-migration-guide.md` - This file (migration completion added)
 - ✅ `docs/baseline-metrics.md` - Performance documented
 - ✅ `docs/migration-checklist.md` - Final checklist created
-- ✅ `src/abc/` - All ABC files created
+- ✅ `src/interfaces/` - All ABC files created
 - ✅ `src/classification/` - All strategies updated
 - ✅ `src/handlers/` - All handlers updated
 - ✅ `src/di/` - DI container updated

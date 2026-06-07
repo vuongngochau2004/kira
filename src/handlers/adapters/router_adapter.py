@@ -9,13 +9,12 @@ from typing import Any, AsyncIterator
 from uuid import UUID
 
 from src.agents.routers.base import BaseRouter
-from src.protocols.classification import ClassificationResult, Intent
-from src.protocols.handlers import HandlerResult, HandlerConfig
-from src.abc.handlers import QueryHandlerABC
+from src.interfaces.classification import ClassificationResult
+from src.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig, Citation
 from src.agents.routers.classifier import QueryClassifier
 
 
-class RouterToHandlerAdapter(QueryHandlerABC):
+class RouterToHandlerAdapter(QueryHandlerBase):
     """
     Adapts BaseRouter to QueryHandler protocol.
 
@@ -165,8 +164,6 @@ class RouterToHandlerAdapter(QueryHandlerABC):
 
     def _convert_citations(self, raw_citations: list) -> list:
         """Convert raw citations to HandlerResult format."""
-        from src.protocols.handlers import Citation
-
         citations = []
 
         for cite in raw_citations:
@@ -185,7 +182,7 @@ class RouterToHandlerAdapter(QueryHandlerABC):
 
 class HandlerToRouterAdapter(BaseRouter):
     """
-    Adapts QueryHandlerABC to BaseRouter protocol.
+    Adapts QueryHandlerBase to BaseRouter protocol.
 
     Wraps new QueryHandler implementations to work with old Router interface.
     Enables gradual migration from routers to handlers.
@@ -199,7 +196,7 @@ class HandlerToRouterAdapter(BaseRouter):
 
     def __init__(
         self,
-        handler: QueryHandlerABC,
+        handler: QueryHandlerBase,
         classifier: QueryClassifier
     ):
         """

@@ -1,35 +1,35 @@
 """
-Handler protocols for query execution.
+Interface definitions for query handlers using Abstract Base Classes (ABC).
 
-This module defines the Protocol-based interfaces for query handlers,
-following the separation of concerns principle (SRP).
+This module provides ABC-based handler interfaces for nominal type checking.
+These ABCs define the interface contract that all query handler implementations must follow.
 
-Handlers receive pre-classified queries and execute domain-specific logic.
-No classification logic should be in handlers - that's the job of the
-classification layer.
-
-Handler Types:
-- RAGHandler: Document retrieval + LLM generation
-- ConversationalHandler: Direct LLM chat without retrieval
-- DraftingHandler: Content creation (future)
-- SemanticHandler: Semantic routing (future)
-
-Example:
-    >>> from src.protocols.handlers import QueryHandler, HandlerResult
-    >>>
-    >>> class MyHandler:
-    ...     async def handle(self, query: str, user_id: str, classification: ClassificationResult, context: dict | None = None) -> HandlerResult:
-    ...         # Execute query with known classification
-    ...         return HandlerResult(content="Response", citations=[], metadata={})
+This module now contains BOTH ABC interfaces AND data models (Citation, HandlerResult, HandlerConfig).
+Previously, data models were in src.protocols.handlers - now unified in ABC-only architecture.
 """
 
-from typing import Protocol, AsyncIterator, Any
+from abc import ABC, abstractmethod
+from typing import AsyncIterator, Any
 from dataclasses import dataclass, field
 from uuid import UUID
-from datetime import datetime
 
-from src.protocols.classification import ClassificationResult
+# Import from unified interfaces module
+from src.interfaces.classification import ClassificationResult
 
+
+__all__ = [
+    # Data models
+    "Citation",
+    "HandlerResult",
+    "HandlerConfig",
+    # ABC interfaces
+    "QueryHandlerBase",
+]
+
+
+# ============================================================================
+# DATA MODELS (formerly in src.protocols.handlers)
+# ============================================================================
 
 @dataclass(frozen=True)
 class Citation:
@@ -176,53 +176,42 @@ class HandlerConfig:
         }
 
 
-class StreamingChunk(Protocol):
+# ============================================================================
+# ABC INTERFACES
+# ============================================================================
+
+class QueryHandlerBase(ABC):
     """
-    Protocol for streaming response chunks.
+    Abstract base class for query execution handlers.
 
-    Streaming chunks are yielded during handle_stream() execution.
-
-    Chunk types:
-    - routing: Routing decision information
-    - retrieval: Retrieval progress and results
-    - content: Response content chunks
-    - metadata: Final metadata (citations, sources, etc.)
-    - done: Done signal
-
-    Example:
-        >>> chunk = {"type": "content", "data": {"text": "Response chunk..."}}
-    """
-
-    async def to_dict(self) -> dict[str, Any]:
-        """Convert chunk to dictionary for SSE streaming."""
-        ...
-
-
-class QueryHandler(Protocol):
-    """
-    Protocol for query execution handlers.
-
+    This ABC defines the interface that all query handler implementations must implement.
     Handlers receive pre-classified queries and execute domain-specific logic.
     No classification logic should be in handlers (SRP compliance).
 
-    All handlers must implement both handle() and handle_stream() methods.
-
     Example:
-        >>> class RAGHandler:
-        ...     def __init__(self, retriever: Retriever, llm_client: LLMClient, config: HandlerConfig):
-        ...         self.retriever = retriever
-        ...         self.llm_client = llm_client
+        >>> from src.interfaces.handlers import QueryHandlerBase
+        >>>
+        >>> class MyHandler(QueryHandlerBase):
+        ...     def __init__(self, config: HandlerConfig):
         ...         self.config = config
         ...
-        ...     async def handle(self, query: str, user_id: str, classification: ClassificationResult, context: dict | None = None) -> HandlerResult:
-        ...         docs = await self.retriever.retrieve(query, user_id)
-        ...         response = await self.llm_client.generate(query, docs)
-        ...         return HandlerResult(content=response.content, citations=response.citations)
+        ...     async def handle(self, query, user_id, classification, context=None):
+        ...         return HandlerResult(content="Response")
         ...
-        ...     async def handle_stream(self, query: str, user_id: str, classification: ClassificationResult, context: dict | None = None) -> AsyncIterator[dict]:
-        ...         yield {"type": "content", "data": {"text": "Streaming..."}}
+        ...     async def handle_stream(self, query, user_id, classification, context=None):
+        ...         yield {"type": "content", "data": {"text": "..."}}
+        ...
+        ...     def can_handle(self, classification):
+        ...         return classification.intent == Intent.RAG
+        ...
+        ...     def get_config(self):
+        ...         return self.config
+        ...
+        ...     def get_name(self):
+        ...         return "MyHandler"
     """
 
+    @abstractmethod
     async def handle(
         self,
         query: str,
@@ -252,8 +241,9 @@ class QueryHandler(Protocol):
             >>> assert result.content
             >>> assert result.is_success()
         """
-        ...
+        pass
 
+    @abstractmethod
     async def handle_stream(
         self,
         query: str,
@@ -283,8 +273,9 @@ class QueryHandler(Protocol):
             ...     if chunk["type"] == "content":
             ...         print(chunk["data"]["text"])
         """
-        ...
+        pass
 
+    @abstractmethod
     def can_handle(self, classification: ClassificationResult) -> bool:
         """
         Check if handler can handle the given classification.
@@ -301,8 +292,9 @@ class QueryHandler(Protocol):
             >>> if handler.can_handle(classification):
             ...     result = await handler.handle(query, user_id, classification)
         """
-        return True
+        pass
 
+    @abstractmethod
     def get_config(self) -> HandlerConfig:
         """
         Get handler configuration.
@@ -314,8 +306,9 @@ class QueryHandler(Protocol):
             >>> config = handler.get_config()
             >>> assert config.max_retrieved_docs == 5
         """
-        ...
+        pass
 
+    @abstractmethod
     def get_name(self) -> str:
         """
         Get handler name for telemetry/logging.
@@ -327,96 +320,4 @@ class QueryHandler(Protocol):
             >>> name = handler.get_name()
             >>> print(f"Using handler: {name}")
         """
-        ...
-
-
-class Document(Protocol):
-    """
-    Protocol for retrieved documents.
-
-    Represents a document chunk retrieved from the indexing layer.
-
-    Example:
-        >>> document = Document(
-        ...     content="Contract text...",
-        ...     filename="contract.pdf",
-        ...     page=1,
-        ...     metadata={"chunk_id": "123"}
-        ... )
-    """
-
-    @property
-    def content(self) -> str:
-        """Document text content."""
-        ...
-
-    @property
-    def filename(self) -> str:
-        """Source filename."""
-        ...
-
-    @property
-    def page(self) -> int | None:
-        """Page number (if applicable)."""
-        ...
-
-    @property
-    def metadata(self) -> dict[str, Any]:
-        """Additional metadata."""
-        ...
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for serialization."""
-        ...
-
-
-class Retriever(Protocol):
-    """
-    Protocol for document retrieval.
-
-    Implementations can use vector search (Qdrant), BM25, or hybrid retrieval.
-
-    Example:
-        >>> class HybridRetriever:
-        ...     async def retrieve(self, query: str, user_id: str, top_k: int = 5) -> list[Document]:
-        ...         # Hybrid dense + BM25 retrieval
-        ...         return await self._hybrid_search(query, user_id, top_k)
-    """
-
-    async def retrieve(
-        self,
-        query: str,
-        user_id: str | UUID,
-        top_k: int = 5,
-        filters: dict[str, Any] | None = None
-    ) -> list[Document]:
-        """
-        Retrieve documents for the query.
-
-        Args:
-            query: User query string
-            user_id: User ID for user-scoped retrieval
-            top_k: Number of documents to retrieve
-            filters: Optional filters (document type, date range, etc.)
-
-        Returns:
-            List of retrieved documents, ranked by relevance
-
-        Example:
-            >>> docs = await retriever.retrieve("hỏi về hợp đồng", "user123", top_k=5)
-            >>> assert len(docs) <= 5
-        """
-        ...
-
-    def get_stats(self) -> dict[str, Any]:
-        """
-        Get retrieval statistics.
-
-        Returns:
-            Dict with stats: total_docs, avg_latency, etc.
-
-        Example:
-            >>> stats = retriever.get_stats()
-            >>> print(f"Average latency: {stats['avg_latency_ms']}ms")
-        """
-        ...
+        pass

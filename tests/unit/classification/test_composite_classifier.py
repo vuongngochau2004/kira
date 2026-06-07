@@ -5,7 +5,7 @@ Tests for CompositeClassifier.
 import pytest
 
 from src.classification.strategies.composite import CompositeClassifier
-from src.protocols.classification import Intent, ClassificationResult
+from src.interfaces.classification import Intent, ClassificationResult
 
 
 class HighConfidenceStrategy:

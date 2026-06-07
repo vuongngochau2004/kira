@@ -8,14 +8,13 @@ import time
 from typing import Any, AsyncIterator
 from uuid import UUID
 
-from src.protocols.classification import ClassificationResult, Intent
-from src.protocols.handlers import HandlerResult, HandlerConfig, Citation
-from src.abc.handlers import QueryHandlerABC
+from src.interfaces.classification import ClassificationResult, Intent
+from src.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig, Citation
 from src.agents.rag_agent import AgenticRAG
 from config.config import settings
 
 
-class RAGHandler(QueryHandlerABC):
+class RAGHandler(QueryHandlerBase):
     """
     Handler for RAG (Retrieval-Augmented Generation) queries.
 

@@ -1,30 +1,33 @@
 """
-Tests for handler protocols.
+Tests for handler interfaces.
 
-Validates protocol compliance and HandlerResult/Citation behavior.
+Validates QueryHandlerBase ABC compliance and data models (HandlerResult, Citation, HandlerConfig).
 """
 
 import pytest
 from uuid import uuid4
-from unittest.mock import AsyncMock
+from abc import ABC
 
-from src.protocols.handlers import (
-    QueryHandler,
+from src.interfaces.handlers import (
+    QueryHandlerBase,
     HandlerResult,
     HandlerConfig,
     Citation,
-    Document,
-    Retriever
 )
-from src.protocols.classification import ClassificationResult, Intent
+from src.interfaces.retrieval import Document, RetrieverBase
+from src.interfaces.classification import ClassificationResult, Intent
 
 
-class MockQueryHandler:
-    """Mock implementation of QueryHandler protocol."""
+# ============================================================================
+# Mock Implementations
+# ============================================================================
 
-    def __init__(self, name: str = "MockHandler"):
-        self.name = name
-        self.config = HandlerConfig(max_retrieved_docs=5)
+class MockQueryHandler(QueryHandlerBase):
+    """Mock handler for testing ABC compliance."""
+
+    def __init__(self, config: HandlerConfig | None = None):
+        self.config = config or HandlerConfig()
+        self.name = "MockHandler"
 
     async def handle(
         self,
@@ -33,9 +36,9 @@ class MockQueryHandler:
         classification: ClassificationResult,
         context: dict | None = None
     ) -> HandlerResult:
+        """Mock handle implementation."""
         return HandlerResult(
-            content="Mock response",
-            citations=[],
+            content=f"Mock response for: {query}",
             metadata={"handler": self.name}
         )
 
@@ -46,16 +49,20 @@ class MockQueryHandler:
         classification: ClassificationResult,
         context: dict | None = None
     ):
-        yield {"type": "content", "data": {"text": "Mock streaming"}}
+        """Mock handle_stream implementation."""
+        yield {"type": "content", "data": {"text": f"Mock stream for: {query}"}}
         yield {"type": "done"}
 
     def can_handle(self, classification: ClassificationResult) -> bool:
+        """Mock can_handle implementation."""
         return classification.intent == Intent.RAG
 
     def get_config(self) -> HandlerConfig:
+        """Mock get_config implementation."""
         return self.config
 
     def get_name(self) -> str:
+        """Mock get_name implementation."""
         return self.name
 
 
@@ -117,6 +124,105 @@ class MockRetriever:
     async def health_check(self) -> bool:
         return True
 
+
+# ============================================================================
+# ABC Compliance Tests
+# ============================================================================
+
+def test_abc_is_abstract():
+    """Test that QueryHandlerBase is an abstract base class."""
+    assert issubclass(QueryHandlerBase, ABC)
+
+    # Should not be able to instantiate ABC directly
+    with pytest.raises(TypeError):
+        QueryHandlerBase()
+
+
+def test_mock_handler_is_instance():
+    """Test that mock handler is instance of QueryHandlerBase."""
+    handler = MockQueryHandler()
+    assert isinstance(handler, QueryHandlerBase)
+
+
+def test_mock_handler_has_all_methods():
+    """Test that mock handler implements all required methods."""
+    handler = MockQueryHandler()
+
+    # Check all abstract methods are implemented
+    assert hasattr(handler, 'handle')
+    assert hasattr(handler, 'handle_stream')
+    assert hasattr(handler, 'can_handle')
+    assert hasattr(handler, 'get_config')
+    assert hasattr(handler, 'get_name')
+
+    # Check methods are callable
+    assert callable(handler.handle)
+    assert callable(handler.handle_stream)
+    assert callable(handler.can_handle)
+    assert callable(handler.get_config)
+    assert callable(handler.get_name)
+
+
+@pytest.mark.asyncio
+async def test_mock_handler_methods_work():
+    """Test that mock handler methods work correctly."""
+    handler = MockQueryHandler()
+    classification = ClassificationResult(
+        intent=Intent.RAG,
+        confidence=0.9,
+        reason="Test classification"
+    )
+
+    # Test handle
+    result = await handler.handle("test query", "user123", classification)
+    assert result.content == "Mock response for: test query"
+    assert result.metadata["handler"] == "MockHandler"
+    assert result.is_success()
+
+    # Test handle_stream
+    chunks = []
+    async for chunk in handler.handle_stream("test query", "user123", classification):
+        chunks.append(chunk)
+
+    assert len(chunks) == 2
+    assert chunks[0]["type"] == "content"
+    assert chunks[1]["type"] == "done"
+
+    # Test can_handle
+    assert handler.can_handle(classification) is True
+
+    # Test get_config
+    config = handler.get_config()
+    assert isinstance(config, HandlerConfig)
+
+    # Test get_name
+    assert handler.get_name() == "MockHandler"
+
+
+def test_handler_has_correct_abstract_methods():
+    """Test that QueryHandlerBase has correct abstract methods."""
+    abstract_methods = []
+    for name in dir(QueryHandlerBase):
+        if not name.startswith('_'):
+            attr = getattr(QueryHandlerBase, name)
+            if getattr(attr, '__isabstractmethod__', False):
+                abstract_methods.append(name)
+
+    expected_abstracts = {
+        'handle',
+        'handle_stream',
+        'can_handle',
+        'get_config',
+        'get_name'
+    }
+
+    assert set(abstract_methods) == expected_abstracts, \
+        f"Abstract methods mismatch. Expected: {expected_abstracts}, Got: {set(abstract_methods)}"
+
+
+# ============================================================================
+# Data Model Tests
+# ============================================================================
 
 @pytest.mark.asyncio
 async def test_citation_creation():
@@ -281,64 +387,9 @@ async def test_handler_config_to_dict():
     assert data["metadata"]["custom"] == "value"
 
 
-@pytest.mark.asyncio
-async def test_query_handler_protocol():
-    """Test QueryHandler protocol compliance."""
-    handler = MockQueryHandler("TestHandler")
-
-    # Test handle method
-    classification = ClassificationResult(intent=Intent.RAG, confidence=0.9)
-    result = await handler.handle("test query", "user123", classification)
-
-    assert result.content == "Mock response"
-    assert result.metadata["handler"] == "TestHandler"
-
-
-@pytest.mark.asyncio
-async def test_query_handler_streaming():
-    """Test QueryHandler handle_stream method."""
-    handler = MockQueryHandler()
-    classification = ClassificationResult(intent=Intent.RAG, confidence=0.9)
-
-    chunks = []
-    async for chunk in handler.handle_stream("test query", "user123", classification):
-        chunks.append(chunk)
-
-    assert len(chunks) == 2
-    assert chunks[0]["type"] == "content"
-    assert chunks[1]["type"] == "done"
-
-
-@pytest.mark.asyncio
-async def test_query_handler_can_handle():
-    """Test QueryHandler.can_handle() method."""
-    handler = MockQueryHandler()
-
-    # RAG intent
-    rag_classification = ClassificationResult(intent=Intent.RAG, confidence=0.9)
-    assert handler.can_handle(rag_classification)
-
-    # CONVERSATIONAL intent
-    conv_classification = ClassificationResult(intent=Intent.CONVERSATIONAL, confidence=0.9)
-    assert not handler.can_handle(conv_classification)
-
-
-@pytest.mark.asyncio
-async def test_query_handler_get_config():
-    """Test QueryHandler.get_config() method."""
-    handler = MockQueryHandler()
-    config = handler.get_config()
-
-    assert isinstance(config, HandlerConfig)
-    assert config.max_retrieved_docs == 5
-
-
-@pytest.mark.asyncio
-async def test_query_handler_get_name():
-    """Test QueryHandler.get_name() method."""
-    handler = MockQueryHandler("CustomHandler")
-    assert handler.get_name() == "CustomHandler"
-
+# ============================================================================
+# Integration Tests
+# ============================================================================
 
 @pytest.mark.asyncio
 async def test_query_handler_with_uuid():
@@ -362,41 +413,6 @@ async def test_query_handler_with_context():
     result = await handler.handle("test query", "user123", classification, context)
 
     assert result.is_success()
-
-
-@pytest.mark.asyncio
-async def test_document_protocol():
-    """Test Document protocol compliance."""
-    doc = MockDocument("Test content", "test.pdf", page=1)
-
-    assert doc.content == "Test content"
-    assert doc.filename == "test.pdf"
-    assert doc.page == 1
-    assert isinstance(doc.metadata, dict)
-
-    data = doc.to_dict()
-    assert data["content"] == "Test content"
-    assert data["filename"] == "test.pdf"
-
-
-@pytest.mark.asyncio
-async def test_retriever_protocol():
-    """Test Retriever protocol compliance."""
-    retriever = MockRetriever()
-
-    # Test retrieve method
-    docs = await retriever.retrieve("test query", "user123", top_k=5)
-
-    assert len(docs) == 3
-    assert all(isinstance(doc, MockDocument) for doc in docs)
-
-    # Test get_stats method
-    stats = retriever.get_stats()
-    assert stats["total_docs"] == 100
-    assert stats["avg_latency_ms"] == 50.0
-
-    # Test health_check method
-    assert await retriever.health_check()
 
 
 @pytest.mark.asyncio

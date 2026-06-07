@@ -12,7 +12,7 @@ Fixtures support:
 
 Example:
     >>> def test_classification_with_abc(abc_implementation):
-    ...     impl = abc_implementation(ClassificationStrategyABC)
+    ...     impl = abc_implementation(ClassificationStrategyBase)
     ...     result = await impl.classify("test query", "user123")
     ...     assert result.intent == Intent.RAG
 """
@@ -28,18 +28,18 @@ import asyncio
 from functools import wraps
 import time
 
-from src.protocols.classification import (
+from src.interfaces.classification import (
     ClassificationStrategy,
     ClassificationResult,
     Intent,
 )
-from src.protocols.handlers import (
+from src.interfaces.handlers import (
     QueryHandler,
     HandlerResult,
     Citation,
     HandlerConfig,
 )
-from src.protocols.container import (
+from src.interfaces.container import (
     DependencyContainer,
     ServiceDescriptor,
     Lifecycle,
@@ -54,7 +54,7 @@ K = TypeVar("K")
 # ABC Implementations for Testing
 # ============================================================================
 
-class ClassificationStrategyABC(ABC):
+class ClassificationStrategyBase(ABC):
     """ABC version of ClassificationStrategy for testing migration."""
 
     @abstractmethod
@@ -73,7 +73,7 @@ class ClassificationStrategyABC(ABC):
         pass
 
 
-class QueryHandlerABC(ABC):
+class QueryHandlerBase(ABC):
     """ABC version of QueryHandler for testing migration."""
 
     @abstractmethod
@@ -103,7 +103,7 @@ class QueryHandlerABC(ABC):
         pass
 
 
-class DependencyContainerABC(ABC):
+class DependencyContainerBase(ABC):
     """ABC version of DependencyContainer for testing migration."""
 
     @abstractmethod
@@ -130,7 +130,7 @@ class DependencyContainerABC(ABC):
 # Mock Implementations for Testing
 # ============================================================================
 
-class MockClassificationStrategyABC(ClassificationStrategyABC):
+class MockClassificationStrategyBase(ClassificationStrategyBase):
     """Mock ABC implementation for testing."""
 
     def __init__(self, intent: Intent = Intent.RAG, confidence: float = 0.95):
@@ -156,7 +156,7 @@ class MockClassificationStrategyABC(ClassificationStrategyABC):
         return len(query) > 0
 
 
-class MockQueryHandlerABC(QueryHandlerABC):
+class MockQueryHandlerBase(QueryHandlerBase):
     """Mock ABC implementation for testing with citations."""
 
     def __init__(
@@ -185,7 +185,7 @@ class MockQueryHandlerABC(QueryHandlerABC):
             content=self.content,
             citations=self.citations,
             metadata={
-                "handler": "MockQueryHandlerABC",
+                "handler": "MockQueryHandlerBase",
                 "call_count": self.call_count,
                 "intent": classification.intent.value
             }
@@ -198,10 +198,10 @@ class MockQueryHandlerABC(QueryHandlerABC):
         return self.config
 
     def get_name(self) -> str:
-        return "MockQueryHandlerABC"
+        return "MockQueryHandlerBase"
 
 
-class MockDependencyContainerABC(DependencyContainerABC):
+class MockDependencyContainerBase(DependencyContainerBase):
     """Mock ABC implementation for testing singleton resolution."""
 
     def __init__(self):
@@ -348,17 +348,17 @@ def abc_implementation():
 
     Example:
         >>> def test_classification_with_abc(abc_implementation):
-        ...     impl = abc_implementation(ClassificationStrategyABC)
+        ...     impl = abc_implementation(ClassificationStrategyBase)
         ...     result = await impl.classify("test", "user123")
         ...     assert result.intent == Intent.RAG
     """
     def _create_impl(abc_class: Type[T]) -> T:
-        if abc_class == ClassificationStrategyABC:
-            return cast(T, MockClassificationStrategyABC())
-        elif abc_class == QueryHandlerABC:
-            return cast(T, MockQueryHandlerABC())
-        elif abc_class == DependencyContainerABC:
-            return cast(T, MockDependencyContainerABC())
+        if abc_class == ClassificationStrategyBase:
+            return cast(T, MockClassificationStrategyBase())
+        elif abc_class == QueryHandlerBase:
+            return cast(T, MockQueryHandlerBase())
+        elif abc_class == DependencyContainerBase:
+            return cast(T, MockDependencyContainerBase())
         else:
             raise ValueError(f"No mock implementation for {abc_class.__name__}")
 
@@ -376,7 +376,7 @@ def protocol_vs_abc():
         >>> def test_protocol_vs_abc_consistency(protocol_vs_abc):
         ...     protocol_impl, abc_impl = protocol_vs_abc(
         ...         MockClassificationStrategyProtocol,
-        ...         ClassificationStrategyABC
+        ...         ClassificationStrategyBase
         ...     )
         ...     result_protocol = await protocol_impl.classify("test", "user123")
         ...     result_abc = await abc_impl.classify("test", "user123")
@@ -386,12 +386,12 @@ def protocol_vs_abc():
         protocol_impl = protocol_class()
         abc_impl: Any
 
-        if abc_class == QueryHandlerABC:
-            abc_impl = MockQueryHandlerABC()
-        elif abc_class == DependencyContainerABC:
-            abc_impl = MockDependencyContainerABC()
+        if abc_class == QueryHandlerBase:
+            abc_impl = MockQueryHandlerBase()
+        elif abc_class == DependencyContainerBase:
+            abc_impl = MockDependencyContainerBase()
         else:
-            abc_impl = MockClassificationStrategyABC()
+            abc_impl = MockClassificationStrategyBase()
 
         return (protocol_impl, cast(T, abc_impl))
 
@@ -414,8 +414,8 @@ def mock_classification_strategy():
     def _create(
         intent: Intent = Intent.RAG,
         confidence: float = 0.95
-    ) -> MockClassificationStrategyABC:
-        return MockClassificationStrategyABC(intent, confidence)
+    ) -> MockClassificationStrategyBase:
+        return MockClassificationStrategyBase(intent, confidence)
 
     return _create
 
@@ -439,8 +439,8 @@ def mock_query_handler():
     def _create(
         content: str = "Test response",
         citations: list[Citation] | None = None
-    ) -> MockQueryHandlerABC:
-        return MockQueryHandlerABC(content, citations)
+    ) -> MockQueryHandlerBase:
+        return MockQueryHandlerBase(content, citations)
 
     return _create
 
@@ -456,14 +456,14 @@ def mock_dependency_container():
         >>> def test_di_container(mock_dependency_container):
         ...     container = mock_dependency_container()
         ...     await container.register_singleton(
-        ...         ClassificationStrategyABC,
-        ...         MockClassificationStrategyABC()
+        ...         ClassificationStrategyBase,
+        ...         MockClassificationStrategyBase()
         ...     )
-        ...     strategy = await container.get(ClassificationStrategyABC)
+        ...     strategy = await container.get(ClassificationStrategyBase)
         ...     result = await strategy.classify("test", "user123")
         ...     assert result.intent == Intent.RAG
     """
-    return MockDependencyContainerABC
+    return MockDependencyContainerBase
 
 
 # ============================================================================
@@ -484,15 +484,15 @@ def create_abc_mock(abc_class: Type[T]) -> T:
         Mock implementation instance
 
     Example:
-        >>> impl = create_abc_mock(ClassificationStrategyABC)
+        >>> impl = create_abc_mock(ClassificationStrategyBase)
         >>> result = await impl.classify("test", "user123")
     """
-    if abc_class == ClassificationStrategyABC:
-        return cast(T, MockClassificationStrategyABC())
-    elif abc_class == QueryHandlerABC:
-        return cast(T, MockQueryHandlerABC())
-    elif abc_class == DependencyContainerABC:
-        return cast(T, MockDependencyContainerABC())
+    if abc_class == ClassificationStrategyBase:
+        return cast(T, MockClassificationStrategyBase())
+    elif abc_class == QueryHandlerBase:
+        return cast(T, MockQueryHandlerBase())
+    elif abc_class == DependencyContainerBase:
+        return cast(T, MockDependencyContainerBase())
     else:
         raise ValueError(f"No mock implementation for {abc_class.__name__}")
 
@@ -511,7 +511,7 @@ def assert_abc_compliance(abc_class: Type, implementation: Type | object) -> Non
         AssertionError: If implementation doesn't comply with ABC
 
     Example:
-        >>> assert_abc_compliance(ClassificationStrategyABC, MockClassificationStrategyABC)
+        >>> assert_abc_compliance(ClassificationStrategyBase, MockClassificationStrategyBase)
         >>> # Passes if all abstract methods are implemented
     """
     if isinstance(implementation, type):
@@ -558,7 +558,7 @@ async def benchmark_abc_vs_protocol(
     Example:
         >>> results = await benchmark_abc_vs_protocol(
         ...     MockClassificationStrategyProtocol,
-        ...     ClassificationStrategyABC
+        ...     ClassificationStrategyBase
         ... )
         >>> print(f"Protocol: {results['protocol_time']:.4f}s")
         >>> print(f"ABC: {results['abc_time']:.4f}s")
@@ -746,21 +746,21 @@ async def initialized_di_container(mock_dependency_container):
 
     Example:
         >>> async def test_full_pipeline(initialized_di_container):
-        ...     classifier = await container.get(ClassificationStrategyABC)
+        ...     classifier = await container.get(ClassificationStrategyBase)
         ...     result = await classifier.classify("test", "user123")
     """
     container = mock_dependency_container()
 
     # Register classification strategy
     await container.register_singleton(
-        ClassificationStrategyABC,
-        MockClassificationStrategyABC()
+        ClassificationStrategyBase,
+        MockClassificationStrategyBase()
     )
 
     # Register query handler
     await container.register_singleton(
-        QueryHandlerABC,
-        MockQueryHandlerABC()
+        QueryHandlerBase,
+        MockQueryHandlerBase()
     )
 
     return container
@@ -784,16 +784,16 @@ def abc_migration_suite():
         return {
             # Classification
             "protocol_strategy": MockClassificationStrategyProtocol(),
-            "abc_strategy": MockClassificationStrategyABC(),
+            "abc_strategy": MockClassificationStrategyBase(),
             "protocol_classification": ClassificationStrategy,
 
             # Handler
             "protocol_handler": MockQueryHandlerProtocol(),
-            "abc_handler": MockQueryHandlerABC(),
+            "abc_handler": MockQueryHandlerBase(),
             "protocol_handler_protocol": QueryHandler,
 
             # Container
-            "abc_container": MockDependencyContainerABC(),
+            "abc_container": MockDependencyContainerBase(),
             "protocol_container": DependencyContainer,
 
             # Test data

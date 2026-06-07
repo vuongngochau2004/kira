@@ -1,18 +1,18 @@
 """
-Retrieval ABCs for document search.
+Retrieval interfaces using Abstract Base Classes (ABC) for document search.
 
-This module defines Abstract Base Classes for retrieval operations,
+This module defines ABC interfaces for retrieval operations,
 enforcing pluggable retrieval strategies (dense, BM25, hybrid).
 
 Retrieval Strategies:
-- DenseRetrieverABC: Vector-based semantic search (Qdrant)
-- BM25RetrieverABC: Keyword-based search (BM25)
-- HybridRetrieverABC: Combined dense + BM25 with RRF fusion
+- DenseRetrieverBase: Vector-based semantic search (Qdrant)
+- BM25RetrieverBase: Keyword-based search (BM25)
+- HybridRetrieverBase: Combined dense + BM25 with RRF fusion
 
 Example:
-    >>> from src.abc.retrieval import RetrieverABC, Document
+    >>> from src.interfaces.retrieval import RetrieverBase, Document
     >>>
-    >>> class MyRetriever(RetrieverABC):
+    >>> class MyRetriever(RetrieverBase):
     ...     async def retrieve(self, query: str, user_id: str, top_k: int = 5) -> list[Document]:
     ...         # Custom retrieval logic
     ...         return [Document(content="...", filename="doc.pdf")]
@@ -27,6 +27,17 @@ Example:
 from abc import ABC, abstractmethod
 from typing import Any
 from dataclasses import dataclass, field
+
+
+__all__ = [
+    # Data models
+    "Document",
+    # ABC interfaces
+    "RetrieverBase",
+    "DenseRetrieverBase",
+    "BM25RetrieverBase",
+    "HybridRetrieverBase",
+]
 
 
 @dataclass(frozen=True)
@@ -77,7 +88,7 @@ class Document:
         return self.content[:max_length] + "..."
 
 
-class RetrieverABC(ABC):
+class RetrieverBase(ABC):
     """
     ABC for document retrieval.
 
@@ -86,12 +97,12 @@ class RetrieverABC(ABC):
     All retrieval operations should be user-scoped for multi-tenancy.
 
     Subclasses:
-        DenseRetrieverABC: Vector-based retrieval
-        BM25RetrieverABC: Keyword-based retrieval
-        HybridRetrieverABC: Combined retrieval with RRF
+        DenseRetrieverBase: Vector-based retrieval
+        BM25RetrieverBase: Keyword-based retrieval
+        HybridRetrieverBase: Combined retrieval with RRF
 
     Example:
-        >>> class HybridRetriever(RetrieverABC):
+        >>> class HybridRetriever(RetrieverBase):
         ...     def __init__(self, dense_retriever, bm25_retriever):
         ...         self.dense = dense_retriever
         ...         self.bm25 = bm25_retriever
@@ -169,16 +180,16 @@ class RetrieverABC(ABC):
         ...
 
 
-class DenseRetrieverABC(RetrieverABC):
+class DenseRetrieverBase(RetrieverBase):
     """
-    ABC for dense (vector-based) retrieval.
+    Base class for dense (vector-based) retrieval.
 
-    Extends RetrieverABC with vector-based search capabilities.
+    Extends RetrieverBase with vector-based search capabilities.
 
     Uses semantic search with embeddings.
 
     Example:
-        >>> class QdrantRetriever(DenseRetrieverABC):
+        >>> class QdrantRetriever(DenseRetrieverBase):
         ...     async def retrieve(self, query: str, user_id: str, top_k: int = 5) -> list[Document]:
         ...         query_vector = await self.embedding_service.embed(query)
         ...         results = await self.qdrant_client.search(
@@ -230,16 +241,16 @@ class DenseRetrieverABC(RetrieverABC):
         ...
 
 
-class BM25RetrieverABC(RetrieverABC):
+class BM25RetrieverBase(RetrieverBase):
     """
-    ABC for BM25 (keyword-based) retrieval.
+    Base class for BM25 (keyword-based) retrieval.
 
-    Extends RetrieverABC with BM25 index management.
+    Extends RetrieverBase with BM25 index management.
 
     Uses keyword matching and TF-IDF scoring.
 
     Example:
-        >>> class MyBM25Retriever(BM25RetrieverABC):
+        >>> class MyBM25Retriever(BM25RetrieverBase):
         ...     def __init__(self, bm25_index):
         ...         self.index = bm25_index
         ...
@@ -320,16 +331,16 @@ class BM25RetrieverABC(RetrieverABC):
         ...
 
 
-class HybridRetrieverABC(RetrieverABC):
+class HybridRetrieverBase(RetrieverBase):
     """
-    ABC for hybrid retrieval (dense + BM25 fusion).
+    Base class for hybrid retrieval (dense + BM25 fusion).
 
-    Extends RetrieverABC with RRF fusion capabilities.
+    Extends RetrieverBase with RRF fusion capabilities.
 
     Uses Reciprocal Rank Fusion (RRF) to merge results.
 
     Example:
-        >>> class MyHybridRetriever(HybridRetrieverABC):
+        >>> class MyHybridRetriever(HybridRetrieverBase):
         ...     def __init__(self, dense_retriever, bm25_retriever, rrf_k=60):
         ...         self.dense = dense_retriever
         ...         self.bm25 = bm25_retriever

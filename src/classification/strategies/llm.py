@@ -8,11 +8,7 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
-from src.abc.classification import ClassificationStrategyABC
-from src.protocols.classification import (
-    ClassificationResult,
-    Intent
-)
+from src.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
 from src.agents.llm import chat_async
 from src.agents.utils import parse_json_response
 
@@ -46,7 +42,7 @@ Phân tích câu hỏi và chọn loại intent phù hợp nhất:
 ```"""
 
 
-class LLMStrategy(ClassificationStrategyABC):
+class LLMStrategy(ClassificationStrategyBase):
     """
     LLM-based classification strategy.
 

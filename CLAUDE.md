@@ -326,11 +326,11 @@ The project follows a strict 4-layer architecture pattern with SOLID-compliant r
 
 The system has been refactored to follow SOLID principles with new packages:
 
-#### **src/abc/** - Abstract Base Classes (DIP, OCP) ✅ Migration Complete (2025-06-07)
-- **ClassificationStrategyABC**: ABC for query classification
-- **QueryHandlerABC**: ABC for query execution
-- **RetrieverABC**: ABC for document retrieval
-- **DependencyContainerABC**: ABC for DI container
+#### **src/interfaces/** - Abstract Base Classes (DIP, OCP) ✅ Migration Complete (2025-06-07)
+- **ClassificationStrategyBase**: ABC for query classification
+- **QueryHandlerBase**: ABC for query execution
+- **RetrieverBase**: ABC for document retrieval
+- **DependencyContainerBase**: ABC for DI container
 - **Lifecycle**: Service lifecycle management (SINGLETON, TRANSIENT, SCOPED)
 
 **Migration Note**: Protocol-based design successfully migrated to ABC-based design on 2025-06-07. All 10 protocols converted to ABCs with <1% performance overhead. See `docs/abc-migration-summary.md` for details.
@@ -385,12 +385,11 @@ src/
 ├── agents/           # Routing and LLM logic
 │   └── routers/      # Router implementations (legacy - being migrated)
 ├── tools/            # LangChain tools
-├── abc/              # ABC abstractions (SOLID layer) ✅ Migration Complete
-│   ├── classification.py  # ClassificationStrategyABC, Intent, ClassificationResult
-│   ├── handlers.py        # QueryHandlerABC, HandlerResult, Citation
-│   ├── retrieval.py       # RetrieverABC, Document ABCs
-│   └── container.py       # DependencyContainerABC, Lifecycle
-├── protocols/        # Legacy protocols (deprecated - use src/abc/)
+├── interfaces/       # Interface/ABC abstractions (SOLID layer) ✅ Complete
+│   ├── classification.py  # ClassificationStrategyBase, Intent, ClassificationResult
+│   ├── handlers.py        # QueryHandlerBase, HandlerResult, Citation
+│   ├── retrieval.py       # RetrieverBase, Document ABCs
+│   └── container.py       # DependencyContainerBase, Lifecycle
 ├── classification/   # Query intent detection (Strategy pattern)
 │   ├── strategies/        # Classification implementations
 │   │   ├── keyword.py     # Fast keyword-based classifier (<5ms)
@@ -425,7 +424,7 @@ src/
 
 **New Architecture**:
 - Classification moved to `src/classification/` with Strategy pattern (ABC-based)
-- Handlers moved to `src/handlers/` with QueryHandlerABC
+- Handlers moved to `src/handlers/` with QueryHandlerBase
 - Use CompositeClassifier (ABC-based) for fallback chain
 
 **Migration Path**: See "Router-to-Handler Migration Guide" below
@@ -495,18 +494,18 @@ Located in `src/di/container.py`:
 
 ```python
 from src.di.container import ServiceContainer
-from src.abc.classification import ClassificationStrategyABC
-from src.abc.handlers import QueryHandlerABC
+from src.interfaces.classification import ClassificationStrategyBase
+from src.interfaces.handlers import QueryHandlerBase
 
 container = ServiceContainer()
 
 # Register services with lifecycle
-await container.register_singleton(ClassificationStrategyABC, CompositeClassifier(...))
-await container.register_singleton(QueryHandlerABC, RAGHandler(...))
+await container.register_singleton(ClassificationStrategyBase, CompositeClassifier(...))
+await container.register_singleton(QueryHandlerBase, RAGHandler(...))
 
 # Resolve dependencies
-classifier = await container.get(ClassificationStrategyABC)
-handler = await container.get(QueryHandlerABC)
+classifier = await container.get(ClassificationStrategyBase)
+handler = await container.get(QueryHandlerBase)
 ```
 
 **Lifecycle Types**:
@@ -746,12 +745,12 @@ The system is migrating from router-based architecture (`src/agents/routers/`) t
 
 ```python
 # src/handlers/my_handler.py
-from src.abc.handlers import QueryHandlerABC, HandlerResult, HandlerConfig
-from src.protocols.classification import ClassificationResult
+from src.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig
+from src.interfaces.classification import ClassificationResult
 from typing import AsyncIterator
 from uuid import UUID
 
-class MyHandler(QueryHandlerABC):  # Inherit from ABC
+class MyHandler(QueryHandlerBase):  # Inherit from ABC
     def __init__(self, config: HandlerConfig):
         self.config = config
 
@@ -797,9 +796,9 @@ For existing routers, use the adapter pattern:
 ```python
 # src/handlers/adapters/router_adapter.py
 from src.agents.routers.rag_router import RAGRouter
-from src.abc.handlers import QueryHandlerABC
+from src.interfaces.handlers import QueryHandlerBase
 
-class RAGRouterAdapter(QueryHandlerABC):  # Inherit from ABC
+class RAGRouterAdapter(QueryHandlerBase):  # Inherit from ABC
     def __init__(self, router: RAGRouter):
         self.router = router
 
@@ -838,7 +837,7 @@ result = await router.handle(query, user_id)
 classifier = CompositeClassifier([...])  # ABC-based strategies
 classification = await classifier.classify(query, user_id)
 
-handler = await container.get(QueryHandlerABC)  # Resolve ABC handler
+handler = await container.get(QueryHandlerBase)  # Resolve ABC handler
 result = await handler.handle(query, user_id, classification)
 ```
 
@@ -847,7 +846,7 @@ result = await handler.handle(query, user_id, classification)
 | Aspect | Old Router Pattern | New Handler Pattern (ABC) |
 |--------|-------------------|---------------------|
 | Classification | Mixed in router logic | Separate classification layer (ABC-based) |
-| Interface | `BaseRouter` | `QueryHandlerABC` (compile-time verified) |
+| Interface | `BaseRouter` | `QueryHandlerBase` (compile-time verified) |
 | Dispatch | RouterRegistry | Handler selection via classification |
 | Testing | Hard to mock | ABC-based mocking with type safety |
 | Extensibility | Modify registry | Add new handler, register in DI |
