@@ -37,6 +37,7 @@ from src.retrieval.dense import dense_search
 from src.ingestion.embedding import embed_single
 from src.ingestion.chunker import count_tokens
 from src.ingestion.bm25_builder import get_bm25_manager
+from src.models.responses import DocumentSource, SourceChunk, SourceMetadata, GroupedDocumentResponse
 from config.config import settings
 from src.constants import MAX_CONTEXT_TOKENS, MIN_CONTEXT_LENGTH
 
@@ -412,14 +413,37 @@ class AgenticRAG:
                     parsed = self.citation_parser.parse(answer)
                     verification = self.citation_verifier.verify(parsed, all_docs, answer)
 
-                # Build response with verification metadata
+                # Build response with verification metadata using grouped structure
                 titles = await self._resolve_document_titles(all_docs)
-                citations = self._extract_citations(all_docs, titles)
-                response = self._build_success_response(answer, retrieval_history, all_docs, iteration + 1)
-                response["citations"] = citations
-                response["sources"] = citations
-                response["citation_verification"] = self.citation_verifier.get_summary_stats(verification)
-                return response
+                document_sources = self._group_by_document(all_docs, titles)
+
+                # Create metadata
+                top_document = document_sources[0].filename if document_sources else ""
+                source_metadata = SourceMetadata(
+                    total_documents=len(document_sources),
+                    total_chunks=sum(ds.total_chunks_used for ds in document_sources),
+                    top_document=top_document
+                )
+
+                # Build grouped response
+                response = GroupedDocumentResponse(
+                    content=answer,
+                    sources=document_sources,
+                    metadata=source_metadata
+                )
+
+                # Add legacy fields for backward compatibility
+                response_dict = response.model_dump()
+                response_dict["retrieval_history"] = retrieval_history
+                response_dict["total_docs"] = len(all_docs)
+                response_dict["iterations"] = iteration + 1
+                response_dict["status"] = "success"
+                response_dict["citation_verification"] = self.citation_verifier.get_summary_stats(verification)
+
+                # Add legacy citations (flat list)
+                response_dict["citations"] = response.get_legacy_citations()
+
+                return response_dict
 
             strategy = self._switch_strategy(strategy, bm25_index)
 
@@ -441,14 +465,37 @@ class AgenticRAG:
             parsed = self.citation_parser.parse(answer)
             verification = self.citation_verifier.verify(parsed, all_docs, answer)
 
-        # Build response
+        # Build grouped response with available docs
         titles = await self._resolve_document_titles(all_docs)
-        citations = self._extract_citations(all_docs, titles)
-        response = self._build_max_iterations_response(answer, retrieval_history, all_docs)
-        response["citations"] = citations
-        response["sources"] = citations
-        response["citation_verification"] = self.citation_verifier.get_summary_stats(verification)
-        return response
+        document_sources = self._group_by_document(all_docs, titles)
+
+        # Create metadata
+        top_document = document_sources[0].filename if document_sources else ""
+        source_metadata = SourceMetadata(
+            total_documents=len(document_sources),
+            total_chunks=sum(ds.total_chunks_used for ds in document_sources),
+            top_document=top_document
+        )
+
+        # Build grouped response
+        response = GroupedDocumentResponse(
+            content=answer,
+            sources=document_sources,
+            metadata=source_metadata
+        )
+
+        # Add legacy fields for backward compatibility
+        response_dict = response.model_dump()
+        response_dict["retrieval_history"] = retrieval_history
+        response_dict["total_docs"] = len(all_docs)
+        response_dict["iterations"] = self.max_iterations
+        response_dict["status"] = "max_iterations_reached"
+        response_dict["citation_verification"] = self.citation_verifier.get_summary_stats(verification)
+
+        # Add legacy citations (flat list)
+        response_dict["citations"] = response.get_legacy_citations()
+
+        return response_dict
 
     async def query_stream(
         self,
@@ -496,15 +543,35 @@ class AgenticRAG:
 
             sufficient = self.evaluate_context(query, all_docs)
 
+            # Extract unique document information for enhanced display
+            unique_doc_ids = set()
+            doc_title_counts: dict[str, int] = {}
+
+            for doc in docs:
+                doc_id = doc.get("document_id")
+                if doc_id:
+                    unique_doc_ids.add(doc_id)
+                    # Track chunk counts per document
+                    doc_title_counts[doc_id] = doc_title_counts.get(doc_id, 0) + 1
+
+            # Get top documents by chunk count (max 3 for display brevity)
+            top_docs = sorted(
+                doc_title_counts.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:3]
+
             retrieval_history.append({
                 "iteration": iteration + 1,
                 "strategy": strategy,
-                "docs_retrieved": len(docs),
+                "chunks_retrieved": len(docs),  # Renamed from docs_retrieved for clarity
+                "unique_documents": len(unique_doc_ids),  # Number of unique documents
+                "top_documents": [doc_id for doc_id, _ in top_docs],  # Top doc IDs
                 "new_docs": len(new_docs),
                 "sufficient": sufficient,
             })
 
-            # Emit retrieval status
+            # Emit retrieval status with document-level information
             yield {
                 "type": "retrieval",
                 "data": retrieval_history[-1],
@@ -586,19 +653,30 @@ class AgenticRAG:
                         }
                     }
 
-                # Resolve document titles and extract citations
+                # Resolve document titles and group by document
                 titles = await self._resolve_document_titles(all_docs)
-                citations = self._extract_citations(all_docs, titles)
+                document_sources = self._group_by_document(all_docs, titles)
 
-                # Emit final metadata with verification stats
+                # Create metadata
+                top_document = document_sources[0].filename if document_sources else ""
+
+                # Convert DocumentSource objects to dicts for JSON serialization
+                sources_data = [ds.model_dump() for ds in document_sources]
+
+                # Emit final metadata with grouped structure and verification stats
                 yield {
                     "type": "metadata",
                     "data": {
                         "total_docs": len(all_docs),
                         "iterations": iteration + 1,
                         "status": "success",
-                        "citations": citations,
+                        "sources": sources_data,
                         "citation_verification": self.citation_verifier.get_summary_stats(verification),
+                        "metadata": {
+                            "total_documents": len(document_sources),
+                            "total_chunks": sum(ds.total_chunks_used for ds in document_sources),
+                            "top_document": top_document
+                        }
                     },
                 }
                 return
@@ -652,9 +730,15 @@ class AgenticRAG:
                 }
             }
 
-        # Resolve document titles and extract citations
+        # Resolve document titles and group by document
         titles = await self._resolve_document_titles(all_docs)
-        citations = self._extract_citations(all_docs, titles)
+        document_sources = self._group_by_document(all_docs, titles)
+
+        # Create metadata
+        top_document = document_sources[0].filename if document_sources else ""
+
+        # Convert DocumentSource objects to dicts for JSON serialization
+        sources_data = [ds.model_dump() for ds in document_sources]
 
         yield {
             "type": "metadata",
@@ -662,8 +746,13 @@ class AgenticRAG:
                 "total_docs": len(all_docs),
                 "iterations": self.max_iterations,
                 "status": "max_iterations_reached",
-                "citations": citations,
+                "sources": sources_data,
                 "citation_verification": self.citation_verifier.get_summary_stats(verification),
+                "metadata": {
+                    "total_documents": len(document_sources),
+                    "total_chunks": sum(ds.total_chunks_used for ds in document_sources),
+                    "top_document": top_document
+                }
             },
         }
 
@@ -731,6 +820,106 @@ class AgenticRAG:
                 "chunk_index": doc.get("chunk_index"),
             })
         return citations
+
+    def _group_by_document(
+        self,
+        docs: list[dict],
+        doc_titles: dict[str, str] | None = None,
+        max_chunks_per_doc: int | None = None
+    ) -> list[DocumentSource]:
+        """Group retrieved chunks by their source documents.
+
+        This creates a user-friendly structure where chunks are organized
+        by their originating documents, making it clear which documents
+        contributed to the answer and how many chunks from each.
+
+        Args:
+            docs: Retrieved document chunks
+            doc_titles: Pre-resolved document titles (document_id → filename/title)
+            max_chunks_per_doc: Maximum chunks to include per document
+
+        Returns:
+            List of DocumentSource objects, each representing one document
+            with its associated chunks
+        """
+        from config.config import settings
+
+        if max_chunks_per_doc is None:
+            max_chunks_per_doc = settings.max_citations or DEFAULT_MAX_CITATIONS
+
+        doc_titles = doc_titles or {}
+        snippet_length = settings.snippet_length
+
+        # Group chunks by document_id
+        docs_by_document: dict[str, list[dict]] = {}
+        for doc in docs:
+            doc_id = doc.get("document_id") or doc.get("metadata", {}).get("document_id", "unknown")
+            if doc_id not in docs_by_document:
+                docs_by_document[doc_id] = []
+            docs_by_document[doc_id].append(doc)
+
+        # Create DocumentSource for each document
+        document_sources = []
+
+        for doc_id, chunks in docs_by_document.items():
+            # Sort chunks by score (descending)
+            sorted_chunks = sorted(
+                chunks,
+                key=lambda d: float(d.get("score") or d.get("rrf_score") or 0.0),
+                reverse=True
+            )[:max_chunks_per_doc]
+
+            if not sorted_chunks:
+                continue
+
+            # Get document metadata
+            title = (
+                doc_titles.get(str(doc_id)) or
+                sorted_chunks[0].get("metadata", {}).get("title") or
+                sorted_chunks[0].get("title") or
+                "Tài liệu không rõ"
+            )
+
+            # Calculate aggregate relevance score for this document
+            scores = [
+                float(d.get("score") or d.get("rrf_score") or 0.0)
+                for d in sorted_chunks
+            ]
+            avg_relevance = sum(scores) / len(scores) if scores else 0.0
+
+            # Create SourceChunk objects
+            source_chunks = []
+            for chunk in sorted_chunks:
+                content = chunk.get("text") or chunk.get("content") or ""
+                content = content if isinstance(content, str) else str(content)
+                snippet = content[:snippet_length]
+                if len(content) > snippet_length:
+                    snippet += "..."
+
+                source_chunks.append(SourceChunk(
+                    chunk_id=chunk.get("chunk_id") or chunk.get("id") or f"chunk-{hash(content)}",
+                    page=chunk.get("page_number") or chunk.get("metadata", {}).get("page_number"),
+                    snippet=snippet,
+                    score=float(chunk.get("score") or chunk.get("rrf_score") or 0.0),
+                    content=content
+                ))
+
+            # Create DocumentSource
+            document_source = DocumentSource(
+                document_id=doc_id if isinstance(doc_id, str) else str(doc_id),
+                filename=title,  # Using title as filename for now
+                title=title,
+                total_chunks_used=len(source_chunks),
+                relevance_score=avg_relevance,
+                chunks=source_chunks
+            )
+
+            document_sources.append(document_source)
+
+        # Sort documents by relevance score (descending)
+        document_sources.sort(key=lambda ds: ds.relevance_score, reverse=True)
+
+        return document_sources
 
     def _deduplicate_docs(self, existing: list[dict], new: list[dict]) -> list[dict]:
         """Remove duplicate docs by chunk_id or id."""

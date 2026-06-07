@@ -22,14 +22,21 @@ class ConversationalRouter(BaseRouter):
 
     # Keywords for conversational queries
     CONVERSATIONAL_KEYWORDS = [
+        # Greetings
         "hello", "hi", "hey", "chao", "xin chào",
         "bạn tên", "ten la gi", "tên là gì",
+        "chào buổi sáng", "chào buổi tối",
+        # Small talk
         "nhiet độ", "weather", "thoi tiet",
         "how are you", "bạn sao", "có khỏe không",
+        # Gratitude
         "thanks", "cảm ơn", "thank",
+        # Farewell
         "goodbye", "tạm biệt", "bye",
-        "chào buổi sáng", "chào buổi tối",
-        "bot", "ai", "trợ lý"
+        # Meta questions about the bot
+        "bot", "ai", "trợ lý",
+        "bạn là ai", "làm được gì", "bạn làm gì", "kira là ai",
+        "cách sử dụng", "sử dụng hệ thống"
     ]
 
     def __init__(self, max_retries: int = 2):
@@ -43,6 +50,14 @@ class ConversationalRouter(BaseRouter):
     async def can_handle(self, query: str) -> float:
         """Check if query is conversational with confidence scoring.
 
+        Scoring strategy:
+        - 0.0: Not conversational (document queries, research questions)
+        - 0.5-0.7: Likely conversational (bot questions, casual chat)
+        - 0.8+: Greetings (very short queries, keyword matches)
+
+        Note: Returns appropriate confidence for query type. Quick Filter
+        logic should handle routing decisions, not individual router scoring.
+
         Args:
             query: User query
 
@@ -54,6 +69,16 @@ class ConversationalRouter(BaseRouter):
         # Exclude file/document queries immediately
         file_keywords = ["file", "tài liệu", "tập tin", "doc", "docx", "pdf", "txt", "đính kèm", "trích dẫn"]
         if any(kw in query_lower for kw in file_keywords):
+            return 0.0
+
+        # Exclude document-related queries (ĐHBKĐN keywords)
+        doc_keywords = [
+            "quy định", "thủ tục", "điều kiện", "điều khoản",
+            "tuyển sinh", "tốt nghiệp", "học bạ", "tín chỉ",
+            "học phí", "quy chế", "sinh viên", "đào tạo",
+            "xét", "nghiên cứu", "giảng dạy", "quản lý"
+        ]
+        if any(kw in query_lower for kw in doc_keywords):
             return 0.0
 
         # Very short queries (likely greetings) - high confidence

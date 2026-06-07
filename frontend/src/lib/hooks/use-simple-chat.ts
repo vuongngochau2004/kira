@@ -65,7 +65,9 @@ function stateToHierarchy(state: StreamingMessageState): ThinkingHierarchy {
       stage: 'retrieval',
       iteration: stage.iteration,
       strategy: stage.strategy,
-      docsRetrieved: stage.docsRetrieved,
+      chunksRetrieved: stage.chunksRetrieved,
+      uniqueDocuments: stage.uniqueDocuments,
+      topDocuments: stage.topDocuments,
       timestamp: state.timestamp,
     }))
   }
@@ -247,7 +249,9 @@ export function useSimpleChat() {
                     stage: 'retrieval',
                     iteration: stage.iteration || 1,
                     strategy: (stage.strategy?.toLowerCase() === 'hybrid' ? 'hybrid' : 'dense') as 'dense' | 'hybrid',
-                    docsRetrieved: stage.docs_retrieved || 0,
+                    chunksRetrieved: stage.chunks_retrieved ?? stage.docs_retrieved ?? 0,
+                    uniqueDocuments: stage.unique_documents ?? 1,
+                    topDocuments: stage.top_documents,
                     timestamp: new Date(msg.created_at).getTime(),
                   }))
                 }

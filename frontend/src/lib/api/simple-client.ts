@@ -102,7 +102,10 @@ export interface RoutingData {
 export interface RetrievalData {
   iteration: number
   strategy: string
-  docs_retrieved: number
+  chunks_retrieved?: number  // New field name
+  unique_documents?: number  // New field
+  top_documents?: string[]   // New field
+  docs_retrieved?: number   // Deprecated: legacy field name
 }
 
 export interface ContentData {

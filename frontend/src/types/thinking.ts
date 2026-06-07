@@ -23,7 +23,9 @@ export interface ExecutionThinking {
   stage: 'retrieval' | 'embedding' | 'search'
   iteration: number
   strategy: 'dense' | 'hybrid'
-  docsRetrieved: number
+  chunksRetrieved: number      // Number of chunks retrieved
+  uniqueDocuments: number      // Number of unique documents
+  topDocuments?: string[]      // Top document IDs (max 3)
   duration?: number           // milliseconds
   timestamp: number
 }

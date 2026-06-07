@@ -18,7 +18,9 @@ export interface RoutingInfo {
 export interface RetrievalStage {
   iteration: number
   strategy: 'dense' | 'hybrid'
-  docsRetrieved: number
+  chunksRetrieved: number      // Number of chunks retrieved
+  uniqueDocuments: number      // Number of unique documents
+  topDocuments?: string[]      // Top document IDs (max 3)
 }
 
 export interface SourceChunk {
@@ -161,12 +163,17 @@ export class StreamingStateBuilder {
 
     const iteration = data?.iteration ?? 1
     const strategy = data?.strategy ?? 'hybrid'
-    const docsRetrieved = data?.docs_retrieved ?? 0
+    // Support both old (docs_retrieved) and new (chunks_retrieved) field names
+    const chunksRetrieved = data?.chunks_retrieved ?? data?.docs_retrieved ?? 0
+    const uniqueDocuments = data?.unique_documents ?? 1
+    const topDocuments = data?.top_documents ?? []
 
     this.state.retrieval.push({
       iteration,
       strategy: strategy.toLowerCase() === 'hybrid' ? 'hybrid' : 'dense',
-      docsRetrieved,
+      chunksRetrieved,
+      uniqueDocuments,
+      topDocuments,
     })
   }
 

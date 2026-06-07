@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     minio_secure: bool = False
 
     # ----- JWT -----
-    jwt_secret_key: str = Field(..., env="JWT_SECRET_KEY")  # Required
+    jwt_secret_key: str = Field(...)  # Required (loaded from JWT_SECRET_KEY env var)
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 7
@@ -128,29 +128,26 @@ class Settings(BaseSettings):
 
     # ----- CORS -----
     cors_origins: str = Field(
-        "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,http://localhost:8006",
-        env="CORS_ORIGINS"
+        "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,http://localhost:8006"
     )
 
     # ----- Auth -----
-    auth_enabled: bool = Field(True, env="AUTH_ENABLED")
+    auth_enabled: bool = Field(True)
 
     # ----- OCR (PaddleOCR) -----
-    ocr_enabled: bool = Field(True, env="OCR_ENABLED")
-    ocr_base_url: str = Field("", env="OCR_BASE_URL")
-    ocr_lang: str = Field("vi", env="OCR_LANG")  # vi, en, ch
-    ocr_timeout: int = Field(30, env="OCR_TIMEOUT")  # seconds per request
-    ocr_max_retries: int = Field(3, env="OCR_MAX_RETRIES")
-    ocr_batch_size: int = Field(5, env="OCR_BATCH_SIZE")  # concurrent pages
+    ocr_enabled: bool = Field(True)
+    ocr_base_url: str = Field("")
+    ocr_lang: str = Field("vi")  # vi, en, ch
+    ocr_timeout: int = Field(30)  # seconds per request
+    ocr_max_retries: int = Field(3)
+    ocr_batch_size: int = Field(5)  # concurrent pages
 
     # ----- Semantic Routing (from settings.yaml) -----
     semantic_routing_enabled: bool = Field(
-        default=_static_config.get("semantic_routing", {}).get("enabled", True),
-        env="SEMANTIC_ROUTING_ENABLED"
+        default=_static_config.get("semantic_routing", {}).get("enabled", True)
     )
     semantic_threshold: float = Field(
-        default=_static_config.get("semantic_routing", {}).get("threshold", 0.75),
-        env="SEMANTIC_THRESHOLD"
+        default=_static_config.get("semantic_routing", {}).get("threshold", 0.75)
     )
 
     # ----- Feature Flags (from settings.yaml) -----
@@ -162,6 +159,26 @@ class Settings(BaseSettings):
             "enable_semantic_router": True,  # Semantic routing (existing)
             "enable_llmlite_provider": False,  # Experimental LLMlite provider
         })
+    )
+
+    # ----- RAGAS Evaluation -----
+    ragas_evaluation_enabled: bool = Field(
+        default=_static_config.get("ragas_evaluation", {}).get("enabled", False)
+    )
+    ragas_llm_provider: str = Field(
+        default="glm"
+    )
+    ragas_timeout_seconds: int = Field(
+        default=30
+    )
+    ragas_cache_enabled: bool = Field(
+        default=True
+    )
+    ragas_cache_ttl_seconds: int = Field(
+        default=3600
+    )
+    ragas_batch_size: int = Field(
+        default=10
     )
 
     @property

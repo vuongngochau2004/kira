@@ -13,9 +13,16 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    """Chat response."""
+    """Chat response with grouped document structure."""
     content: str
-    citations: List[dict]
+    citations: List[dict] = Field(
+        default_factory=list,
+        description="Legacy flat list of citations (deprecated, use 'sources' instead)"
+    )
+    sources: List[dict] = Field(
+        default_factory=list,
+        description="Grouped document sources (preferred format)"
+    )
     citation_verification: Optional[dict] = None  # Citation verification stats
     conversation_id: str
     message_id: str
@@ -38,11 +45,18 @@ class ConversationResponse(BaseModel):
 
 
 class MessageResponse(BaseModel):
-    """Message response."""
+    """Message response with grouped document structure."""
     id: str
     conversation_id: str
     role: str
     content: str
-    sources: List[dict]
+    sources: List[dict] = Field(
+        default_factory=list,
+        description="Grouped document sources with chunks"
+    )
+    citations: List[dict] = Field(
+        default_factory=list,
+        description="Legacy flat citations list (deprecated)"
+    )
     thinking_data: dict = Field(default_factory=dict)
     created_at: str

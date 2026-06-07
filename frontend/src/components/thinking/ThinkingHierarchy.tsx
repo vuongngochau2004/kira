@@ -53,7 +53,7 @@ function AgentBlock({ agentName, execution, isRunning }: AgentBlockProps) {
             <div key={idx} className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground/60">•</span>
               <span className="text-muted-foreground">
-                Iteration {stage.iteration} · {stage.strategy} · {stage.docsRetrieved} docs
+                Iteration {stage.iteration} · {stage.strategy} · {stage.uniqueDocuments} document{stage.uniqueDocuments !== 1 ? 's' : ''}, {stage.chunksRetrieved} chunk{stage.chunksRetrieved !== 1 ? 's' : ''}
               </span>
               {stage.duration && (
                 <span className="text-muted-foreground/50 ml-auto">

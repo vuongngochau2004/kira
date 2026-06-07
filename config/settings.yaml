@@ -55,3 +55,16 @@ feature_flags:
   use_new_handlers: false       # Phase 03: New handler architecture (RAG + Conversational)
   enable_semantic_router: true  # Semantic routing (existing feature)
   enable_llmlite_provider: false # Experimental: LLMlite provider
+
+# RAGAS Evaluation
+ragas_evaluation:
+  enabled: false  # Disabled by default, enable per-request or via env var
+  metrics:
+    - faithfulness
+    - answer_relevancy
+    - context_precision
+    - context_recall
+  timeout_seconds: 30
+  cache_enabled: true
+  cache_ttl_seconds: 3600  # 1 hour
+  batch_size: 10  # Concurrent evaluations in batch mode

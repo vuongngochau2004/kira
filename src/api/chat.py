@@ -32,6 +32,7 @@ from src.constants import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Global orchestrator instance (will be initialized on first use)
 _orchestrator = None
@@ -49,6 +50,8 @@ def get_orchestrator():
 class ChatStreamRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
+    evaluate: bool = False
+    evaluation_metrics: Optional[list[str]] = None
 
 
 async def _get_or_create_conversation_id(
@@ -358,6 +361,8 @@ async def _stream_generator_v2(
     user_id: uuid.UUID,
     conversation_id: uuid.UUID | None,
     db: AsyncSession,
+    evaluate: bool = False,
+    evaluation_metrics: list[str] | None = None,
 ):
     """Generator for streaming response with real LLM streaming.
 
@@ -367,6 +372,7 @@ async def _stream_generator_v2(
     - content: Text chunks from LLM
     - thinking: LLM reasoning chunks
     - metadata: Final metadata with citations
+    - evaluation: RAGAS evaluation results (if enabled)
     - done: Completion signal
     """
     orchestrator = get_orchestrator()
@@ -437,6 +443,48 @@ async def _stream_generator_v2(
                     'conversation_id': str(conversation_id_to_save),
                     'message_id': str(msg_id),
                 }})}\n\n"
+
+                # RAGAS Evaluation (optional)
+                if evaluate:
+                    try:
+                        yield f"data: {json.dumps({'type': 'evaluation_start', 'data': {}})}\n\n"
+
+                        # Build contexts from citations
+                        contexts = [c.get("content", "") for c in citations if c.get("content")]
+
+                        if contexts:
+                            from src.evaluation.service import get_evaluation_service
+                            from src.models.evaluation import EvaluationRequest, EvaluationMetric
+
+                            # Map metric names to enum
+                            metrics = evaluation_metrics or ["faithfulness", "answer_relevancy"]
+                            metric_enums = []
+                            for m in metrics:
+                                try:
+                                    metric_enums.append(EvaluationMetric(m))
+                                except ValueError:
+                                    logger.warning(f"[RAGAS EVAL] Invalid metric: {m}")
+
+                            if metric_enums:
+                                eval_request = EvaluationRequest(
+                                    query=query,
+                                    answer="".join(full_content),
+                                    contexts=contexts,
+                                    metrics=metric_enums,
+                                )
+
+                                eval_service = get_evaluation_service()
+                                eval_result = await eval_service.evaluate(eval_request)
+
+                                yield f"data: {json.dumps({'type': 'evaluation', 'data': eval_result.model_dump()})}\n\n"
+                            else:
+                                yield f"data: {json.dumps({'type': 'evaluation_error', 'data': {'error': 'No valid metrics'}})}\n\n"
+                        else:
+                            yield f"data: {json.dumps({'type': 'evaluation_error', 'data': {'error': 'No contexts to evaluate'}})}\n\n"
+
+                    except Exception as e:
+                        logger.error(f"[RAGAS EVAL] Real-time evaluation failed: {e}")
+                        yield f"data: {json.dumps({'type': 'evaluation_error', 'data': {'error': str(e)}})}\n\n"
 
                 # Emit done signal
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
@@ -537,6 +585,8 @@ async def chat_stream(
             user_id=current_user.id,
             conversation_id=conv.id if conv else None,
             db=db,
+            evaluate=request.evaluate,
+            evaluation_metrics=request.evaluation_metrics,
         ),
         media_type="text/event-stream",
     )

@@ -18,6 +18,17 @@ from src.models.documents import (
     MessageCreate,
     MessageResponse,
 )
+from src.models.evaluation import (
+    EvaluationMetric,
+    EvaluationRequest,
+    EvaluationResponse,
+    EvaluationResult,
+    BatchEvaluationRequest,
+    BatchEvaluationResponse,
+    GoldenDataset,
+    GoldenDatasetSample,
+    EvaluationHistory,
+)
 
 __all__ = [
     # Auth
@@ -36,4 +47,14 @@ __all__ = [
     "ConversationResponse",
     "MessageCreate",
     "MessageResponse",
+    # Evaluation
+    "EvaluationMetric",
+    "EvaluationRequest",
+    "EvaluationResponse",
+    "EvaluationResult",
+    "BatchEvaluationRequest",
+    "BatchEvaluationResponse",
+    "GoldenDataset",
+    "GoldenDatasetSample",
+    "EvaluationHistory",
 ]

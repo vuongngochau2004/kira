@@ -16,7 +16,7 @@ from src.tools.reranking_tools import init_reranking_tools
 from src.ingestion.embedding import preload_model
 from src.agents.llm import LLMClient
 from src.retrieval.hybrid import set_llm_client
-from src.api import auth, documents, chat, metrics
+from src.api import auth, documents, chat, metrics, evaluation
 
 
 @asynccontextmanager
@@ -102,6 +102,7 @@ def _setup_routes(app: FastAPI) -> None:
     app.include_router(documents.router, prefix="/api/v1/documents", tags=["documents"])
     app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
     app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["metrics"])
+    app.include_router(evaluation.router, prefix="/api/v1/evaluation", tags=["evaluation"])
 
 
 def _setup_health_checks(app: FastAPI) -> None:
