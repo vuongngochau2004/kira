@@ -1,12 +1,7 @@
 """Metrics API endpoints for routing monitoring and analysis."""
 
-import sys
-from pathlib import Path
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.database import get_session
 from src.monitoring.routing_metrics import get_metrics_collector

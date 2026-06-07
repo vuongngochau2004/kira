@@ -1,7 +1,5 @@
 """FastAPI application entry point for K.I.R.A Simplified."""
 
-import sys
-from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
@@ -9,16 +7,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-# Add project root to path for imports
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
-
 from config.config import settings
 from src.database.session import init_db, close_db
 from src.indexing.qdrant_store import ensure_collection, get_client
 from src.tools.retrieval_tools import init_retrieval_tools
 from src.tools.ingestion_tools import init_ingestion_tools
+from src.tools.reranking_tools import init_reranking_tools
 from src.ingestion.embedding import preload_model
+from src.agents.llm import LLMClient
+from src.retrieval.hybrid import set_llm_client
 from src.api import auth, documents, chat, metrics
 
 
@@ -30,6 +27,18 @@ async def lifespan(app: FastAPI):
     preload_model()
     init_retrieval_tools(qdrant_store=get_client())
     init_ingestion_tools()
+
+    # Initialize LLM client for reranking
+    llm_client = LLMClient(
+        provider=settings.llm_provider,
+        model=settings.glm_model if settings.llm_provider == "glm" else None,
+        temperature=0.1,  # Low temperature for consistent reranking
+        max_tokens=512,
+        timeout=30.0,
+    )
+    init_reranking_tools(llm_client=llm_client)
+    set_llm_client(llm_client)
+
     yield
     await close_db()
 

@@ -11,6 +11,15 @@ retrieval:
   k: 5                         # Top-k chunks to retrieve
   rrf_k: 60                    # RRF constant (higher → more diversity)
 
+# Reranking (LLM-based document reranking)
+reranking:
+  enabled: false               # Enable LLM reranking (default: disabled)
+  mode: "llm"                  # "llm" for LLM-based, "score" for individual scoring
+  top_k_before: 20             # Number of candidates to rerank
+  top_k_after: 5               # Number of top results after reranking
+  min_score_threshold: 0.3     # Minimum score for score_and_rerank mode
+  timeout_ms: 10000             # Timeout for LLM reranking calls
+
 # Citations
 citations:
   max_citations: 10            # Maximum citations to return (was hard-coded 5)

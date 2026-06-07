@@ -103,6 +103,14 @@ class Settings(BaseSettings):
     retrieval_k: int = _static_config.get("retrieval", {}).get("k", 5)
     rrf_k: int = _static_config.get("retrieval", {}).get("rrf_k", 60)
 
+    # ----- Reranking (from settings.yaml) -----
+    reranking_enabled: bool = _static_config.get("reranking", {}).get("enabled", False)
+    reranking_mode: str = _static_config.get("reranking", {}).get("mode", "llm")
+    reranking_top_k_before: int = _static_config.get("reranking", {}).get("top_k_before", 20)
+    reranking_top_k_after: int = _static_config.get("reranking", {}).get("top_k_after", 5)
+    reranking_min_score_threshold: float = _static_config.get("reranking", {}).get("min_score_threshold", 0.3)
+    reranking_timeout_ms: int = _static_config.get("reranking", {}).get("timeout_ms", 10000)
+
     # ----- Citations (from settings.yaml) -----
     max_citations: int = _static_config.get("citations", {}).get("max_citations", 10)
     min_score_threshold: float = _static_config.get("citations", {}).get("min_score_threshold", 0.3)

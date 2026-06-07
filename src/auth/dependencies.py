@@ -1,17 +1,10 @@
 """Authentication dependencies for FastAPI routes."""
 
-import sys
-import uuid
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-from config.config import settings
 from src.auth.security import decode_token
 from src.database import get_session
 from src.database.models import User

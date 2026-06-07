@@ -1,12 +1,6 @@
 """Semantic text chunking with token-based sizing and overlap."""
 
-import sys
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import tiktoken
 

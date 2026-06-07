@@ -1,12 +1,7 @@
 """BM25 index manager for in-memory per-user indexes."""
 
-import sys
-from pathlib import Path
 from uuid import UUID
 from typing import Any
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.retrieval.bm25 import BM25Index
 

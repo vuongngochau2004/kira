@@ -1,11 +1,12 @@
 """Document processing ETL pipeline."""
 
-import sys
+import asyncio
+import logging
 import tempfile
 from pathlib import Path
 from uuid import UUID
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+logger = logging.getLogger(__name__)
 
 from src.indexing.file_store import download_file
 from src.indexing.qdrant_store import store_chunks
@@ -43,9 +44,7 @@ async def process_document(
     Returns:
         Status dict with success/error info
     """
-    import asyncio
-
-    print(f"\n[ETL] >>> Starting background pipeline for Document ID: {document_id}")
+    logger.info(">>> Starting background pipeline for Document ID: %s", document_id)
     try:
         result = await asyncio.to_thread(
             _process_sync,
@@ -60,9 +59,7 @@ async def process_document(
 
     except Exception as e:
         error_msg = f"{ERR_PROCESSING_FAILED}: {str(e)}"
-        import traceback
-        print(f"\n[ETL ERROR] Exception in process_document for {document_id}:")
-        traceback.print_exc()
+        logger.error("Exception in process_document for %s: %s", document_id, e, exc_info=True)
         from src.database.session import async_session_factory
         async with async_session_factory() as session:
             await update_document_status(
@@ -80,26 +77,28 @@ def _process_sync(
     storage_path: str,
 ) -> dict:
     """Synchronous document processing."""
-    import asyncio
-
     temp_file = None
     try:
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".tmp")
         temp_file.close() # Close immediately to free the file handle lock on Windows
 
-        print(f"[ETL] [Step 1/7] Downloading file from MinIO: {storage_path}...")
+        logger.info("[Step 1/7] Downloading file from MinIO: %s", storage_path)
         download_file(storage_path, temp_file.name)
         file_type = storage_path.rsplit(".", 1)[-1] if "." in storage_path else "txt"
-        print(f"[ETL] Download complete. File saved to temp path.")
+        logger.info("Download complete. File saved to temp path.")
 
-        print(f"[ETL] [Step 2/7] Extracting content (format: {file_type})...")
+        logger.info("[Step 2/7] Extracting content (format: %s)...", file_type)
         extraction_result = extract_content_sync(temp_file.name, file_type)
         if not extraction_result.success:
-            print(f"[ETL ERROR] Extraction failed: {extraction_result.error}")
+            logger.error("Extraction failed: %s", extraction_result.error)
             return {"success": False, "error": extraction_result.error or ERR_EXTRACTION_FAILED}
-        
+
         ext_method = extraction_result.metadata.get("extraction_method", "normal")
-        print(f"[ETL] Extraction complete. Method: {ext_method.upper()}, Raw length: {len(extraction_result.text)} characters.")
+        logger.info(
+            "Extraction complete. Method: %s, Raw length: %d characters.",
+            ext_method.upper(),
+            len(extraction_result.text)
+        )
 
         # Export OCR text for inspection if OCR was used
         if extraction_result.metadata.get("ocr_used", False):
@@ -108,7 +107,7 @@ def _process_sync(
                 output_dir = project_root / "data" / "output"
                 output_dir.mkdir(parents=True, exist_ok=True)
                 output_file = output_dir / f"{document_id}.txt"
-                
+
                 header_info = (
                     f"==================================================\n"
                     f"OCR EXPORT FOR INSPECTION\n"
@@ -118,35 +117,35 @@ def _process_sync(
                     f"OCR Pages: {extraction_result.metadata.get('ocr_pages')}\n"
                     f"==================================================\n\n"
                 )
-                
+
                 with open(output_file, "w", encoding="utf-8") as f:
                     f.write(header_info)
                     f.write(extraction_result.text)
-                
-                print(f"[ETL] OCR output successfully exported for inspection to: {output_file}")
-            except Exception as e:
-                print(f"[ETL WARNING] Failed to export OCR text: {e}")
 
-        print(f"[ETL] [Step 3/7] Cleaning document text...")
+                logger.info("OCR output successfully exported for inspection to: %s", output_file)
+            except Exception as e:
+                logger.warning("Failed to export OCR text: %s", e)
+
+        logger.info("[Step 3/7] Cleaning document text...")
         cleaned_text = clean_document(extraction_result.text)
         if not cleaned_text.strip():
-            print(f"[ETL ERROR] Document has no content after cleaning.")
+            logger.error("Document has no content after cleaning.")
             return {"success": False, "error": ERR_NO_CONTENT}
-        print(f"[ETL] Cleaning complete. Cleaned length: {len(cleaned_text)} characters.")
+        logger.info("Cleaning complete. Cleaned length: %d characters.", len(cleaned_text))
 
-        print(f"[ETL] [Step 4/7] Splitting text into chunks...")
+        logger.info("[Step 4/7] Splitting text into chunks...")
         chunks = chunk_document(text=cleaned_text, document_id=str(document_id))
         if not chunks:
-            print(f"[ETL ERROR] No chunks generated.")
+            logger.error("No chunks generated.")
             return {"success": False, "error": ERR_NO_CHUNKS}
-        print(f"[ETL] Chunking complete. Generated {len(chunks)} chunks.")
+        logger.info("Chunking complete. Generated %d chunks.", len(chunks))
 
-        print(f"[ETL] [Step 5/7] Generating embeddings via API model server...")
+        logger.info("[Step 5/7] Generating embeddings via API model server...")
         chunk_texts = [chunk.content for chunk in chunks]
         embeddings = embed(chunk_texts)
-        print(f"[ETL] Embedding generation complete. Generated {len(embeddings)} vectors.")
+        logger.info("Embedding generation complete. Generated %d vectors.", len(embeddings))
 
-        print(f"[ETL] [Step 6/7] Storing chunk vectors in Qdrant Vector DB...")
+        logger.info("[Step 6/7] Storing chunk vectors in Qdrant Vector DB...")
         chunk_data = _prepare_chunk_data(chunks)
         qdrant_ids = store_chunks(
             chunks=chunk_data,
@@ -155,7 +154,7 @@ def _process_sync(
             user_id=user_id,
         )
         _update_chunk_metadata(chunk_data, qdrant_ids)
-        print(f"[ETL] Storing in Qdrant Vector DB complete.")
+        logger.info("Storing in Qdrant Vector DB complete.")
 
         return {
             "success": True,
@@ -168,7 +167,7 @@ def _process_sync(
             try:
                 Path(temp_file.name).unlink()
             except Exception as e:
-                print(f"[ETL WARNING] Failed to delete temp file {temp_file.name}: {e}")
+                logger.warning("Failed to delete temp file %s: %s", temp_file.name, e)
 
 
 def _prepare_chunk_data(chunks: list) -> list[dict]:
@@ -193,8 +192,8 @@ def _update_chunk_metadata(chunk_data: list[dict], qdrant_ids: list) -> None:
 async def _update_document_status_result(document_id: UUID, result: dict) -> None:
     """Update document status based on processing result."""
     from src.database.session import async_session_factory
-    
-    print(f"[ETL] [Step 7/7] Saving chunks and updating final document status in PostgreSQL...")
+
+    logger.info("[Step 7/7] Saving chunks and updating final document status in PostgreSQL...")
     async with async_session_factory() as session:
         if result["success"]:
             # Save chunks to PostgreSQL document_chunks table
@@ -211,9 +210,9 @@ async def _update_document_status_result(document_id: UUID, result: dict) -> Non
                 chunk_count=result["chunk_count"],
                 db=session,
             )
-            print(f"[ETL] >>> SUCCESS: Document {document_id} fully processed and indexed successfully!")
+            logger.info(">>> SUCCESS: Document %s fully processed and indexed successfully!", document_id)
         else:
-            print(f"\n[ETL ERROR] Document processing failed for {document_id}: {result.get('error')}")
+            logger.error("Document processing failed for %s: %s", document_id, result.get('error'))
             await update_document_status(
                 document_id=document_id,
                 status=DOC_STATUS_FAILED,

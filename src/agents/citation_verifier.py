@@ -45,7 +45,14 @@ class CitationVerifier:
 
         Args:
             grounding_threshold: Minimum similarity score for verified status (0-1)
+
+        Raises:
+            ValueError: If grounding_threshold is not between 0 and 1
         """
+        if not 0.0 <= grounding_threshold <= 1.0:
+            raise ValueError(
+                f"grounding_threshold must be between 0.0 and 1.0, got {grounding_threshold}"
+            )
         self.grounding_threshold = grounding_threshold
 
     def verify(

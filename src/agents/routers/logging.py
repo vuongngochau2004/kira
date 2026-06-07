@@ -138,7 +138,7 @@ class RoutingLogger:
             return
 
         try:
-            self.logger.info(decision.to_json())
+            self.logger.debug(decision.to_json())
 
             # Also add to metrics collector
             try:

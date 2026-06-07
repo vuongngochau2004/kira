@@ -1,12 +1,9 @@
 """Document extraction using PyMuPDF with PaddleOCR fallback."""
 
-import sys
+import asyncio
 import logging
-from pathlib import Path
 from dataclasses import dataclass, field
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -447,6 +444,9 @@ async def extract_content(file_path: str, file_type: str) -> ExtractionResult:
 def extract_content_sync(file_path: str, file_type: str) -> ExtractionResult:
     """Synchronous wrapper for extract_content.
 
+    This function runs the async extract_content in a new event loop.
+    It's designed to be called from sync contexts (e.g., background tasks).
+
     Args:
         file_path: Path to the file
         file_type: File extension (e.g., "pdf", "docx")
@@ -454,25 +454,7 @@ def extract_content_sync(file_path: str, file_type: str) -> ExtractionResult:
     Returns:
         ExtractionResult with text, pages, metadata
     """
-    import asyncio
-
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # We're in an async context, use create_task
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(
-                    asyncio.run,
-                    extract_content(file_path, file_type)
-                )
-                return future.result()
-        else:
-            # No event loop, run directly
-            return asyncio.run(extract_content(file_path, file_type))
-    except RuntimeError:
-        # No event loop, create new one
-        return asyncio.run(extract_content(file_path, file_type))
+    return asyncio.run(extract_content(file_path, file_type))
 
 
 __all__ = [

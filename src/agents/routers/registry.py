@@ -111,7 +111,7 @@ class RouterRegistry:
         quick_router = await cls._quick_filter_router(query, user_id)
         if quick_router is not None:
             latency_ms = (time.perf_counter() - t0) * 1000
-            logger.info(f"Quick routed to: {quick_router.get_name()}")
+            logger.debug(f"Quick routed to: {quick_router.get_name()}")
 
             # Log routing decision
             try:
@@ -141,7 +141,7 @@ class RouterRegistry:
                     router = cls._routers.get(router_name)
 
                     if router is not None:
-                        logger.info(
+                        logger.debug(
                             f"Semantic routed to: {router_name} "
                             f"(score: {semantic_decision['score']:.2f})"
                         )
@@ -174,7 +174,7 @@ class RouterRegistry:
         if cls._classifier is None:
             cls._classifier = QueryClassifier()
 
-        logger.info("Using LLM classifier...")
+        logger.debug("Using LLM classifier...")
         classification = await cls._classifier.classify(query)
 
         # Stage 4: Intent-based Routing
@@ -274,7 +274,7 @@ class RouterRegistry:
 
         if quick_router:
             latency_ms = (time.perf_counter() - t0) * 1000
-            logger.info(f"Quick routed to: {quick_router.get_name()}")
+            logger.debug(f"Quick routed to: {quick_router.get_name()}")
 
             # Log routing decision
             try:
@@ -312,7 +312,7 @@ class RouterRegistry:
                     router = cls._routers.get(router_name)
 
                     if router is not None:
-                        logger.info(
+                        logger.debug(
                             f"Semantic routed to: {router_name} "
                             f"(score: {semantic_decision['score']:.2f})"
                         )
@@ -352,7 +352,7 @@ class RouterRegistry:
         if cls._classifier is None:
             cls._classifier = QueryClassifier()
 
-        logger.info("Using LLM classifier...")
+        logger.debug("Using LLM classifier...")
         classification = await cls._classifier.classify(query)
 
         # Stage 4: Intent-based Routing
@@ -436,6 +436,139 @@ class RouterRegistry:
                 },
             }
 
+    @classmethod
+    async def _try_fuzzy_match_filenames(
+        cls,
+        query: str,
+        user_id: str | UUID = "default",
+    ) -> BaseRouter | None:
+        """Try fuzzy matching of filename stems against normalized query.
+
+        Args:
+            query: User query
+            user_id: User ID
+
+        Returns:
+            RAGRouter if fuzzy match found, None otherwise
+        """
+        if not user_id or user_id == "default":
+            return None
+
+        try:
+            from uuid import UUID as uuid_class
+            from pathlib import Path
+
+            # Convert user_id to UUID if needed
+            if isinstance(user_id, str):
+                try:
+                    user_uuid = uuid_class(user_id)
+                except ValueError:
+                    return None
+            else:
+                user_uuid = user_id
+
+            if not user_uuid:
+                return None
+
+            from src.database.session import async_session_factory
+            from src.indexing.document_store import list_documents
+
+            async with async_session_factory() as session:
+                docs, count = await list_documents(user_id=user_uuid, db=session)
+
+                if count == 0:
+                    return None
+
+                # Fuzzy matching of filename stem against normalized query
+                norm_query = cls._normalize_text(query)
+                for doc in docs:
+                    if doc.status != "deleted" and doc.filename:
+                        stem = Path(doc.filename).stem
+                        norm_stem = cls._normalize_text(stem)
+                        if len(norm_stem) >= 3 and norm_stem in norm_query:
+                            logger.debug(f"Fuzzy file match found: {doc.filename} in query")
+                            return cls._routers.get("RAGRouter")
+
+        except Exception as e:
+            logger.error(f"Error in fuzzy filename matching: {e}", exc_info=True)
+
+        return None
+
+    @classmethod
+    async def _try_file_keywords_match(
+        cls,
+        query: str,
+        user_id: str | UUID = "default",
+    ) -> BaseRouter | None:
+        """Try matching file-related keywords in query.
+
+        Args:
+            query: User query
+            user_id: User ID (to check if user has documents)
+
+        Returns:
+            RAGRouter if file keywords found and user has docs, None otherwise
+        """
+        if not user_id or user_id == "default":
+            return None
+
+        try:
+            from uuid import UUID as uuid_class
+            from src.database.session import async_session_factory
+            from src.indexing.document_store import list_documents
+
+            # Convert user_id to UUID if needed
+            if isinstance(user_id, str):
+                try:
+                    user_uuid = uuid_class(user_id)
+                except ValueError:
+                    return None
+            else:
+                user_uuid = user_id
+
+            if not user_uuid:
+                return None
+
+            # Check if user has documents
+            async with async_session_factory() as session:
+                docs, count = await list_documents(user_id=user_uuid, db=session)
+
+                if count == 0:
+                    return None
+
+            # Check for file keywords in query
+            file_keywords = ["file", "tài liệu", "tập tin", "doc", "docx", "pdf", "txt", "đính kèm", "trích dẫn"]
+            query_lower = query.lower()
+            if any(kw in query_lower for kw in file_keywords):
+                logger.debug("File keyword match with active user documents")
+                return cls._routers.get("RAGRouter")
+
+        except Exception as e:
+            logger.error(f"Error in file keywords matching: {e}", exc_info=True)
+
+        return None
+
+    @classmethod
+    async def _score_routers_confidence(cls, query: str) -> BaseRouter | None:
+        """Score all routers by confidence and return best match.
+
+        Args:
+            query: User query
+
+        Returns:
+            Best matching router above threshold, or None
+        """
+        best_router: BaseRouter | None = None
+        best_score = 0.0
+
+        for router in cls._routers.values():
+            score = await router.can_handle(query)
+            if score > best_score and score >= cls.QUICK_THRESHOLD:
+                best_score = score
+                best_router = router
+
+        return best_router
+
     @staticmethod
     def _normalize_text(text: str) -> str:
         """Normalize text by removing accents, lowercasing and cleaning spaces."""
@@ -459,7 +592,12 @@ class RouterRegistry:
         query: str,
         user_id: str | UUID = "default",
     ) -> BaseRouter | None:
-        """Quick filter stage - find router with high confidence using DB matching and keywords.
+        """Quick filter stage - find router with high confidence using multiple strategies.
+
+        Strategy order (try each until match):
+        1. Fuzzy filename matching against user documents
+        2. File keyword matching
+        3. Confidence-based router scoring
 
         Args:
             query: User query
@@ -468,61 +606,16 @@ class RouterRegistry:
         Returns:
             Best matching router or None
         """
-        # 1. Option 4: Fuzzy File-Match and Active Document Keyword Matching
-        if user_id and user_id != "default":
-            try:
-                from uuid import UUID as uuid_class
-                if isinstance(user_id, str):
-                    try:
-                        user_uuid = uuid_class(user_id)
-                    except ValueError:
-                        user_uuid = None
-                else:
-                    user_uuid = user_id
+        # Strategy 1: Try fuzzy filename matching
+        if router := await cls._try_fuzzy_match_filenames(query, user_id):
+            return router
 
-                if user_uuid:
-                    from src.database.session import async_session_factory
-                    from src.indexing.document_store import list_documents
-                    
-                    async with async_session_factory() as session:
-                        docs, count = await list_documents(user_id=user_uuid, db=session)
-                        
-                        if count > 0:
-                            # Step A: Fuzzy matching of filename stem against normalized query
-                            norm_query = cls._normalize_text(query)
-                            for doc in docs:
-                                if doc.status != "deleted" and doc.filename:
-                                    from pathlib import Path
-                                    stem = Path(doc.filename).stem
-                                    norm_stem = cls._normalize_text(stem)
-                                    if len(norm_stem) >= 3 and norm_stem in norm_query:
-                                        logger.info(f"Fuzzy file match found: {doc.filename} in query. Routing to RAGRouter.")
-                                        rag_router = cls._routers.get("RAGRouter")
-                                        if rag_router:
-                                            return rag_router
+        # Strategy 2: Try file keyword matching
+        if router := await cls._try_file_keywords_match(query, user_id):
+            return router
 
-                            # Step B: General file keyword match if user has at least 1 document uploaded
-                            file_keywords = ["file", "tài liệu", "tập tin", "doc", "docx", "pdf", "txt", "đính kèm", "trích dẫn"]
-                            query_lower = query.lower()
-                            if any(kw in query_lower for kw in file_keywords):
-                                logger.info(f"File keyword match with active user documents. Routing to RAGRouter.")
-                                rag_router = cls._routers.get("RAGRouter")
-                                if rag_router:
-                                    return rag_router
-            except Exception as e:
-                logger.error(f"Error in quick filter fuzzy file matching: {e}", exc_info=True)
-
-        # 2. General Confidence-based Matching
-        best_router: BaseRouter | None = None
-        best_score = 0.0
-
-        for router in cls._routers.values():
-            score = await router.can_handle(query)
-            if score > best_score and score >= cls.QUICK_THRESHOLD:
-                best_score = score
-                best_router = router
-
-        return best_router
+        # Strategy 3: Fall back to confidence-based scoring
+        return await cls._score_routers_confidence(query)
 
     @classmethod
     async def _quick_filter(

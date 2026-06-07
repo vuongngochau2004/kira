@@ -1,12 +1,6 @@
 """Dense/vector retrieval using Qdrant semantic similarity."""
 
-import sys
-from pathlib import Path
-from typing import Any
 from uuid import UUID
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.indexing.qdrant_store import search_similar
 

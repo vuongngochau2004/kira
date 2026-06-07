@@ -1,5 +1,6 @@
 """Orchestrator agent for multi-stage query routing."""
 
+import logging
 import time
 from typing import Any, AsyncIterator
 from uuid import UUID
@@ -11,6 +12,8 @@ from src.agents.routers import (
     QueryClassifier,
 )
 from src.agents.rag_agent import AgenticRAG
+
+logger = logging.getLogger(__name__)
 
 
 class OrchestratorAgent:
@@ -77,12 +80,13 @@ class OrchestratorAgent:
                     threshold=settings.semantic_threshold
                 )
                 RouterRegistry.set_semantic_router(semantic_router)
-                import logging
-                logging.getLogger(__name__).info("Semantic router initialized successfully")
+                logger.info("Semantic router initialized successfully")
+            except ImportError as e:
+                # Semantic router module not available - non-fatal
+                logger.warning(f"Semantic router module not available: {e}")
             except Exception as e:
-                # Don't fail if semantic router can't be initialized
-                import logging
-                logging.getLogger(__name__).warning(f"Failed to initialize semantic router: {e}")
+                # Other initialization errors - non-fatal
+                logger.warning(f"Failed to initialize semantic router: {e}")
 
     async def query(
         self,

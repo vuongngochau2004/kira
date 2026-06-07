@@ -1,16 +1,9 @@
 """Retrieval tools for LangChain agent integration."""
 
 import json
-import sys
-from pathlib import Path
 from typing import Any
 
 from langchain_core.tools import tool
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-from config.config import settings
 
 # Global store/index references (to be set by application initialization)
 _qdrant_store: Any = None

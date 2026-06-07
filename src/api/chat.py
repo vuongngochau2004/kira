@@ -1,18 +1,15 @@
 """Chat API endpoints - WebSocket and SSE streaming."""
 
-import sys
-import uuid
 import asyncio
 import json
-from pathlib import Path
+import logging
+import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.database import get_session, soft_delete_conversation
 from src.indexing.document_store import (
@@ -80,6 +77,204 @@ async def _get_or_create_conversation_id(
         db=db,
     )
     return conv.id
+
+
+async def _load_conversation_history_if_exists(
+    conversation_id: uuid.UUID | None,
+    db: AsyncSession,
+) -> list[dict]:
+    """Load conversation history for context if conversation exists.
+
+    Args:
+        conversation_id: UUID of conversation or None
+        db: Database session
+
+    Returns:
+        List of message dicts with role and content
+    """
+    if not conversation_id:
+        return []
+
+    try:
+        messages = await get_conversation_messages(conversation_id, db=db)
+        return [
+            {
+                "role": msg.role,
+                "content": msg.content,
+            }
+            for msg in messages
+        ]
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to load conversation history: {e}")
+        return []
+
+
+def _process_stream_routing_chunk(chunk_data: dict) -> tuple[str, str]:
+    """Process routing chunk and update router name.
+
+    Args:
+        chunk_data: Routing chunk data dict
+
+    Returns:
+        Tuple of (formatted_router_name, sse_event)
+    """
+    router_name = chunk_data.get("router", "Agent")
+    if chunk_data.get("intent"):
+        router_name += f" ({chunk_data['intent']})"
+
+    sse_event = f"data: {json.dumps({'type': 'routing', 'data': chunk_data})}\n\n"
+    return router_name, sse_event
+
+
+def _process_stream_retrieval_chunk(chunk_data: dict) -> tuple[dict, str]:
+    """Process retrieval chunk and update retrieval stages.
+
+    Args:
+        chunk_data: Retrieval chunk data dict
+
+    Returns:
+        Tuple of (retrieval_stage_dict, sse_event)
+    """
+    retrieval_stage = {
+        "iteration": chunk_data.get("iteration", 1),
+        "strategy": chunk_data.get("strategy", "Hybrid"),
+        "docs_retrieved": chunk_data.get("docs_retrieved", 0),
+    }
+
+    sse_event = f"data: {json.dumps({'type': 'retrieval', 'data': chunk_data})}\n\n"
+    return retrieval_stage, sse_event
+
+
+def _process_stream_content_chunk(chunk_data: dict) -> tuple[str, str]:
+    """Process content chunk and extract text.
+
+    Args:
+        chunk_data: Content chunk data dict
+
+    Returns:
+        Tuple of (text_content, sse_event)
+    """
+    text = chunk_data.get("text", "")
+    sse_event = f"data: {json.dumps({'type': 'content', 'data': {'text': text}})}\n\n"
+    return text, sse_event
+
+
+def _process_stream_thinking_chunk(chunk_data: dict) -> tuple[str, str]:
+    """Process thinking chunk and extract reasoning text.
+
+    Args:
+        chunk_data: Thinking chunk data dict
+
+    Returns:
+        Tuple of (thinking_text, sse_event)
+    """
+    thinking_text = chunk_data.get("text", "")
+    sse_event = f"data: {json.dumps({'type': 'thinking', 'data': {'text': thinking_text}})}\n\n"
+    return thinking_text, sse_event
+
+
+async def _ensure_conversation_exists(
+    conversation_id: uuid.UUID | None,
+    user_id: uuid.UUID,
+    query: str,
+    db: AsyncSession,
+) -> uuid.UUID:
+    """Ensure conversation exists, create if needed.
+
+    Args:
+        conversation_id: Existing conversation UUID or None
+        user_id: User ID
+        query: Query string for title
+        db: Database session
+
+    Returns:
+        Conversation UUID (existing or newly created)
+    """
+    if conversation_id:
+        return conversation_id
+
+    conv = await create_conversation(
+        user_id=user_id,
+        title=query[:100],
+        db=db,
+    )
+    return conv.id
+
+
+def _build_thinking_metadata(
+    router_name: str | None,
+    retrieval_stages: list[dict],
+    thinking_content: list[str],
+) -> dict | None:
+    """Build thinking metadata from collected streaming data.
+
+    Args:
+        router_name: Name of router used
+        retrieval_stages: List of retrieval stage dicts
+        thinking_content: List of thinking text chunks
+
+    Returns:
+        Metadata dict or None if no metadata
+    """
+    thinking_metadata: dict = {}
+
+    if router_name:
+        thinking_metadata["router"] = router_name
+    if retrieval_stages:
+        thinking_metadata["retrieval"] = retrieval_stages
+    if thinking_content:
+        thinking_metadata["reasoning"] = "".join(thinking_content)
+
+    return thinking_metadata if thinking_metadata else None
+
+
+async def _save_streamed_messages(
+    conversation_id: uuid.UUID | None,
+    user_id: uuid.UUID,
+    query: str,
+    full_content: list[str],
+    citations: list,
+    thinking_metadata: dict | None,
+    db: AsyncSession,
+) -> uuid.UUID:
+    """Save user and assistant messages from streaming session.
+
+    Args:
+        conversation_id: Conversation UUID (may be None if new conversation)
+        user_id: User ID (for ensuring conversation exists)
+        query: Original user query
+        full_content: List of content chunks
+        citations: List of citation dicts
+        thinking_metadata: Thinking metadata or None
+        db: Database session
+
+    Returns:
+        Created message UUID
+    """
+    # Ensure conversation exists
+    conv_id = await _ensure_conversation_exists(
+        conversation_id, user_id, query, db
+    )
+
+    # Save user message
+    await create_message(
+        conversation_id=conv_id,
+        role="user",
+        content=query,
+        db=db,
+    )
+
+    # Save assistant message with thinking data
+    msg = await create_message(
+        conversation_id=conv_id,
+        role="assistant",
+        content="".join(full_content),
+        sources=citations,
+        thinking_data={"thinking": thinking_metadata} if thinking_metadata else None,
+        db=db,
+    )
+    return msg.id
 
 
 async def _save_messages(
@@ -170,38 +365,26 @@ async def _stream_generator_v2(
     - routing: Router selection info
     - retrieval: RAG retrieval status
     - content: Text chunks from LLM
+    - thinking: LLM reasoning chunks
     - metadata: Final metadata with citations
     - done: Completion signal
     """
     orchestrator = get_orchestrator()
 
     # Collect full content for saving to DB
-    full_content = []
-    citations = []
+    full_content: list[str] = []
+    citations: list = []
     conversation_id_to_save = conversation_id
 
     # Collect thinking data for metadata
-    router_name = None
-    retrieval_stages = []
-    thinking_content = []  # NEW: Collect LLM reasoning content
+    router_name: str | None = None
+    retrieval_stages: list[dict] = []
+    thinking_content: list[str] = []
 
     # Load conversation history if continuing conversation
-    conversation_history = []
-    if conversation_id:
-        try:
-            messages = await get_conversation_messages(conversation_id, db=db)
-            conversation_history = [
-                {
-                    "role": msg.role,
-                    "content": msg.content,
-                }
-                for msg in messages
-            ]
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Failed to load conversation history: {e}")
-            conversation_history = []
+    conversation_history = await _load_conversation_history_if_exists(
+        conversation_id, db
+    )
 
     try:
         async for chunk in orchestrator.query_stream(query, user_id, conversation_history):
@@ -209,88 +392,50 @@ async def _stream_generator_v2(
             chunk_data = chunk.get("data", {})
 
             if chunk_type == "routing":
-                # Store router name for metadata
-                router_name = chunk_data.get("router", "Agent")
-                if chunk_data.get("intent"):
-                    router_name += f" ({chunk_data['intent']})"
-                # Emit routing info
-                yield f"data: {json.dumps({'type': 'routing', 'data': chunk_data})}\n\n"
+                router_name, sse_event = _process_stream_routing_chunk(chunk_data)
+                yield sse_event
 
             elif chunk_type == "retrieval":
-                # Store retrieval stage for metadata
-                iteration = chunk_data.get("iteration", 1)
-                strategy = chunk_data.get("strategy", "Hybrid")
-                docs_count = chunk_data.get("docs_retrieved", 0)
-                retrieval_stages.append({
-                    "iteration": iteration,
-                    "strategy": strategy,
-                    "docs_retrieved": docs_count,
-                })
-                # Emit retrieval status
-                yield f"data: {json.dumps({'type': 'retrieval', 'data': chunk_data})}\n\n"
+                retrieval_stage, sse_event = _process_stream_retrieval_chunk(chunk_data)
+                retrieval_stages.append(retrieval_stage)
+                yield sse_event
 
             elif chunk_type == "content":
-                # Emit content chunk
-                text = chunk_data.get("text", "")
+                text, sse_event = _process_stream_content_chunk(chunk_data)
                 full_content.append(text)
-                yield f"data: {json.dumps({'type': 'content', 'data': {'text': text}})}\n\n"
+                yield sse_event
 
             elif chunk_type == "thinking":
-                # Collect LLM reasoning content for persistence
-                thinking_text = chunk_data.get("text", "")
+                thinking_text, sse_event = _process_stream_thinking_chunk(chunk_data)
                 thinking_content.append(thinking_text)
-                yield f"data: {json.dumps({'type': 'thinking', 'data': {'text': thinking_text}})}\n\n"
+                yield sse_event
 
             elif chunk_type == "metadata":
                 # Collect citations from metadata
                 if "citations" in chunk_data:
                     citations = chunk_data["citations"]
 
-                # Create conversation if needed
-                if not conversation_id_to_save:
-                    conv = await create_conversation(
-                        user_id=user_id,
-                        title=query[:100],
-                        db=db,
-                    )
-                    conversation_id_to_save = conv.id
-
-                # Build thinking metadata with actual content
-                thinking_metadata: dict = {}
-                if router_name:
-                    thinking_metadata["router"] = router_name
-                if retrieval_stages:
-                    thinking_metadata["retrieval"] = retrieval_stages
-                # NEW: Add actual LLM reasoning content
-                if thinking_content:
-                    thinking_metadata["reasoning"] = "".join(thinking_content)
-
-                # Only save thinking_data if we have actual metadata (not empty dict)
-                # Empty dict {} is falsy, but we want to be explicit about the check
-                should_save_thinking = thinking_metadata and len(thinking_metadata) > 0
-
-                # Save messages to DB
-                await create_message(
-                    conversation_id=conversation_id_to_save,
-                    role="user",
-                    content=query,
-                    db=db,
+                # Build thinking metadata
+                thinking_metadata = _build_thinking_metadata(
+                    router_name, retrieval_stages, thinking_content
                 )
 
-                msg = await create_message(
-                    conversation_id=conversation_id_to_save,
-                    role="assistant",
-                    content="".join(full_content),
-                    sources=citations,
-                    thinking_data={"thinking": thinking_metadata} if should_save_thinking else None,
-                    db=db,
+                # Save messages to DB
+                msg_id = await _save_streamed_messages(
+                    conversation_id_to_save,
+                    user_id,
+                    query,
+                    full_content,
+                    citations,
+                    thinking_metadata,
+                    db,
                 )
 
                 # Emit final metadata
                 yield f"data: {json.dumps({'type': 'metadata', 'data': {
                     **chunk_data,
                     'conversation_id': str(conversation_id_to_save),
-                    'message_id': str(msg.id),
+                    'message_id': str(msg_id),
                 }})}\n\n"
 
                 # Emit done signal

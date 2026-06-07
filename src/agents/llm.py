@@ -1,12 +1,15 @@
-"""LLM provider abstraction for kira-simple."""
+"""LLM provider abstraction for kira-simple.
 
-import sys
+Provides async interface to multiple LLM providers (GLM, Gemini, OpenAI-compatible)
+with streaming and non-streaming modes.
+"""
+
 import asyncio
+import json
 import logging
-from pathlib import Path
-from typing import AsyncIterator
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from collections.abc import AsyncIterator
+from enum import Enum
+from typing import Callable
 
 from config.config import settings
 
@@ -14,59 +17,119 @@ logger = logging.getLogger(__name__)
 DEFAULT_LLM_TIMEOUT = 60.0
 
 
+class LLMProvider(str, Enum):
+    """Supported LLM providers."""
+    GLM = "glm"
+    GEMINI = "gemini"
+    OPENAI_COMPATIBLE = "openai_compatible"
+
+
+class LLMError(Exception):
+    """Base exception for LLM-related errors."""
+    pass
+
+
+class LLMTimeoutError(LLMError):
+    """Raised when LLM request times out."""
+    pass
+
+
+class LLMStreamError(LLMError):
+    """Raised when LLM streaming fails."""
+    pass
+
+
+def _normalize_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Normalize and validate message format.
+
+    Args:
+        messages: List of message dicts with role and content
+
+    Returns:
+        Normalized messages list
+    """
+    return [
+        {"role": msg["role"], "content": msg["content"]}
+        for msg in messages
+        if msg.get("role") and msg.get("content")
+    ]
+
+
+def _extract_system_message(messages: list[dict[str, str]]) -> tuple[str | None, list[dict[str, str]]]:
+    """Extract system message from conversation messages.
+
+    Args:
+        messages: List of message dicts
+
+    Returns:
+        Tuple of (system_content, conversation_messages)
+    """
+    system_msg = next((m["content"] for m in messages if m["role"] == "system"), None)
+    conv_messages = [m for m in messages if m["role"] != "system"]
+    return system_msg, conv_messages
+
+
 async def chat_async(
-    messages: list[dict],
-    provider: str | None = None,
+    messages: list[dict[str, str]],
+    provider: LLMProvider | None = None,
     model: str | None = None,
     temperature: float = 0.7,
     max_tokens: int = 2048,
     timeout: float | None = None,
-    stream_callback = None,
-) -> dict:
+) -> dict[str, str]:
     """Send a chat request asynchronously (non-streaming).
 
     Args:
         messages: List of message dicts with role and content
-        provider: LLM provider (glm, gemini, openai)
-        model: Model name
-        temperature: Sampling temperature
+        provider: LLM provider (defaults to settings.llm_provider)
+        model: Model name (defaults to provider-specific default)
+        temperature: Sampling temperature (0.0 - 1.0)
         max_tokens: Max tokens to generate
-        timeout: Request timeout
-        stream_callback: Optional callback for streaming (DEPRECATED - use chat_async_stream)
+        timeout: Request timeout in seconds
 
     Returns:
-        Response dict with content, model, provider
+        Response dict with keys: content, model, provider
+
+    Raises:
+        LLMError: If LLM request fails
     """
-    provider = provider or settings.llm_provider
+    provider = provider or LLMProvider(settings.llm_provider)
     timeout = timeout if timeout is not None else DEFAULT_LLM_TIMEOUT
 
-    logger.debug(f"[LLM] provider={provider}, model={model or 'default'}, temp={temperature}")
+    messages = _normalize_messages(messages)
+
+    logger.debug(
+        f"[LLM] provider={provider.value}, model={model or 'default'}, "
+        f"temp={temperature}, messages={len(messages)}"
+    )
 
     try:
-        if provider == "glm":
+        if provider == LLMProvider.GLM:
             model = model or settings.glm_model
             return await _chat_glm_async(
-                messages, model, temperature, max_tokens, timeout, stream_callback
-            )
-        if provider == "gemini":
-            model = model or settings.gemini_model
-            return await asyncio.to_thread(
-                _chat_gemini_sync,
                 messages, model, temperature, max_tokens, timeout
             )
-
-        model = model or settings.bk_llm_model or "gpt-3.5-turbo"
-        return await _chat_openai_async(
-            messages, model, temperature, max_tokens, timeout, stream_callback
-        )
+        elif provider == LLMProvider.GEMINI:
+            model = model or settings.gemini_model
+            return await _chat_gemini_async(
+                messages, model, temperature, max_tokens, timeout
+            )
+        else:
+            model = model or settings.bk_llm_model or "gpt-3.5-turbo"
+            return await _chat_openai_async(
+                messages, model, temperature, max_tokens, timeout
+            )
+    except asyncio.TimeoutError as e:
+        logger.error(f"[LLM] Timeout after {timeout}s")
+        raise LLMTimeoutError(f"LLM request timed out after {timeout}s") from e
     except Exception as e:
-        logger.error(f"[LLM] Error: {type(e).__name__}: {e}")
-        raise
+        logger.error(f"[LLM] {type(e).__name__}: {e}", exc_info=True)
+        raise LLMError(f"LLM request failed: {e}") from e
 
 
 async def chat_async_stream(
-    messages: list[dict],
-    provider: str | None = None,
+    messages: list[dict[str, str]],
+    provider: LLMProvider | None = None,
     model: str | None = None,
     temperature: float = 0.7,
     max_tokens: int = 2048,
@@ -76,31 +139,36 @@ async def chat_async_stream(
 
     Args:
         messages: List of message dicts with role and content
-        provider: LLM provider (glm, gemini, openai)
-        model: Model name
-        temperature: Sampling temperature
+        provider: LLM provider (defaults to settings.llm_provider)
+        model: Model name (defaults to provider-specific default)
+        temperature: Sampling temperature (0.0 - 1.0)
         max_tokens: Max tokens to generate
-        timeout: Request timeout
+        timeout: Request timeout in seconds
 
     Yields:
         Text chunks as they arrive from LLM
 
     Raises:
-        Exception: If LLM provider fails
+        LLMStreamError: If streaming fails
     """
-    provider = provider or settings.llm_provider
+    provider = provider or LLMProvider(settings.llm_provider)
     timeout = timeout if timeout is not None else DEFAULT_LLM_TIMEOUT
 
-    logger.debug(f"[LLM STREAM] provider={provider}, model={model or 'default'}, temp={temperature}")
+    messages = _normalize_messages(messages)
+
+    logger.debug(
+        f"[LLM STREAM] provider={provider.value}, model={model or 'default'}, "
+        f"temp={temperature}, messages={len(messages)}"
+    )
 
     try:
-        if provider == "glm":
+        if provider == LLMProvider.GLM:
             model = model or settings.glm_model
             async for chunk in _chat_glm_stream(
                 messages, model, temperature, max_tokens, timeout
             ):
                 yield chunk
-        elif provider == "gemini":
+        elif provider == LLMProvider.GEMINI:
             model = model or settings.gemini_model
             async for chunk in _chat_gemini_stream(
                 messages, model, temperature, max_tokens, timeout
@@ -112,20 +180,33 @@ async def chat_async_stream(
                 messages, model, temperature, max_tokens, timeout
             ):
                 yield chunk
+    except asyncio.TimeoutError as e:
+        logger.error(f"[LLM STREAM] Timeout after {timeout}s")
+        raise LLMTimeoutError(f"LLM stream timed out after {timeout}s") from e
     except Exception as e:
-        logger.error(f"[LLM STREAM] Error: {type(e).__name__}: {e}")
-        raise
+        logger.error(f"[LLM STREAM] {type(e).__name__}: {e}", exc_info=True)
+        raise LLMStreamError(f"LLM streaming failed: {e}") from e
 
 
 async def _chat_glm_async(
-    messages: list[dict],
+    messages: list[dict[str, str]],
     model: str,
     temperature: float,
     max_tokens: int,
     timeout: float,
-    stream_callback = None,
-) -> dict:
-    """Async GLM (Anthropic-compatible) chat."""
+) -> dict[str, str]:
+    """Async GLM (Anthropic-compatible) chat.
+
+    Args:
+        messages: List of message dicts
+        model: Model name
+        temperature: Sampling temperature
+        max_tokens: Max tokens to generate
+        timeout: Request timeout
+
+    Returns:
+        Response dict with content, model, provider
+    """
     import anthropic
 
     client = anthropic.AsyncAnthropic(
@@ -134,47 +215,50 @@ async def _chat_glm_async(
         timeout=timeout,
     )
 
-    system_msg = next((m["content"] for m in messages if m["role"] == "system"), None)
-    conv_messages = [m for m in messages if m["role"] != "system"]
+    system_msg, conv_messages = _extract_system_message(messages)
 
-    if not stream_callback:
-        response = await client.messages.create(
-            model=model,
-            system=system_msg,
-            messages=conv_messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        content = response.content[0].text if response.content else ""
-        return {"content": content, "model": model, "provider": "glm"}
+    # Build kwargs dynamically to handle optional system parameter
+    # Type ignores: Anthropic SDK has strict types but our dict format works
+    kwargs: dict = {
+        "model": model,
+        "messages": conv_messages,  # type: ignore[arg-type]
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if system_msg:
+        kwargs["system"] = system_msg
 
-    full_content = []
-    async with client.messages.stream(
-        model=model,
-        system=system_msg,
-        messages=conv_messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    ) as stream:
-        async for text in stream.text_stream:
-            if text:
-                full_content.append(text)
-                try:
-                    stream_callback(text)
-                except Exception as cb_err:
-                    logger.error(f"[LLM] Callback error: {cb_err}")
+    response = await client.messages.create(**kwargs)
 
-    return {"content": "".join(full_content), "model": model, "provider": "glm"}
+    # Extract text from first text block in response
+    content = ""
+    for block in response.content:  # type: ignore[attr-defined]
+        if hasattr(block, "text"):
+            content = block.text
+            break
+
+    return {"content": content, "model": model, "provider": LLMProvider.GLM.value}
 
 
 async def _chat_glm_stream(
-    messages: list[dict],
+    messages: list[dict[str, str]],
     model: str,
     temperature: float,
     max_tokens: int,
     timeout: float,
 ) -> AsyncIterator[str]:
-    """Stream GLM (Anthropic-compatible) chat."""
+    """Stream GLM (Anthropic-compatible) chat.
+
+    Args:
+        messages: List of message dicts
+        model: Model name
+        temperature: Sampling temperature
+        max_tokens: Max tokens to generate
+        timeout: Request timeout
+
+    Yields:
+        Text chunks as they arrive
+    """
     import anthropic
 
     client = anthropic.AsyncAnthropic(
@@ -183,58 +267,57 @@ async def _chat_glm_stream(
         timeout=timeout,
     )
 
-    system_msg = next((m["content"] for m in messages if m["role"] == "system"), None)
-    conv_messages = [m for m in messages if m["role"] != "system"]
+    system_msg, conv_messages = _extract_system_message(messages)
 
-    chunk_count = 0
-    total_chars = 0
-    full_output = ""  # DEBUG: Collect full output
+    logger.debug(f"[GLM STREAM] Starting stream with model={model}")
 
-    logger.info(f"[GLM STREAM] Starting stream with model={model}")
+    # Build kwargs dynamically
+    # Type ignores: Anthropic SDK has strict types but our dict format works
+    kwargs: dict = {
+        "model": model,
+        "messages": conv_messages,  # type: ignore[arg-type]
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if system_msg:
+        kwargs["system"] = system_msg
 
-    async with client.messages.stream(
-        model=model,
-        system=system_msg,
-        messages=conv_messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    ) as stream:
+    async with client.messages.stream(**kwargs) as stream:
         async for text in stream.text_stream:
             if text:
-                chunk_count += 1
-                total_chars += len(text)
-                full_output += text
-                # DEBUG: Log first few chunks to see if LLM outputs thinking tags
-                if chunk_count <= 3:
-                    logger.info(f"[GLM STREAM] Chunk #{chunk_count}: {repr(text[:100])}")
-                logger.debug(f"[GLM STREAM] Chunk #{chunk_count}: {len(text)} chars, total: {total_chars}")
                 yield text
 
-    # DEBUG: Log if thinking tags were found
-    if "<thinking>" in full_output:
-        logger.info(f"[GLM STREAM] Found <thinking> tags in output!")
-    else:
-        logger.warning(f"[GLM STREAM] NO <thinking> tags found in output! LLM ignored system prompt instructions.")
-
-    logger.info(f"[GLM STREAM] Completed: {chunk_count} chunks, {total_chars} total chars")
+    logger.debug(f"[GLM STREAM] Completed")
 
 
-def _chat_gemini_sync(
-    messages: list[dict],
+async def _chat_gemini_async(
+    messages: list[dict[str, str]],
     model: str,
     temperature: float,
     max_tokens: int,
     timeout: float,
-) -> dict:
-    """Sync Gemini chat."""
+) -> dict[str, str]:
+    """Async Gemini chat (wraps sync SDK in thread pool).
+
+    Args:
+        messages: List of message dicts
+        model: Model name
+        temperature: Sampling temperature
+        max_tokens: Max tokens to generate
+        timeout: Request timeout
+
+    Returns:
+        Response dict with content, model, provider
+    """
     from google import genai
     from google.genai import types as genai_types
 
     client = genai.Client(api_key=settings.gemini_api_key)
-    system_msg = next((m["content"] for m in messages if m["role"] == "system"), None)
+    system_msg, conv_messages = _extract_system_message(messages)
 
+    # Build contents list with proper format
     contents = []
-    for msg in messages:
+    for msg in conv_messages:
         if msg["role"] == "user":
             contents.append(genai_types.Content(
                 role="user",
@@ -246,9 +329,11 @@ def _chat_gemini_sync(
                 parts=[genai_types.Part.from_text(text=msg["content"])]
             ))
 
-    response = client.models.generate_content(
+    # Run in thread pool since Gemini SDK is synchronous
+    response = await asyncio.to_thread(
+        client.models.generate_content,
         model=model,
-        contents=contents,
+        contents=contents,  # type: ignore[arg-type]
         config=genai_types.GenerateContentConfig(
             temperature=temperature,
             max_output_tokens=max_tokens,
@@ -257,25 +342,37 @@ def _chat_gemini_sync(
     )
 
     content = response.text or ""
-    return {"content": content, "model": model, "provider": "gemini"}
+    return {"content": content, "model": model, "provider": LLMProvider.GEMINI.value}
 
 
 async def _chat_gemini_stream(
-    messages: list[dict],
+    messages: list[dict[str, str]],
     model: str,
     temperature: float,
     max_tokens: int,
     timeout: float,
 ) -> AsyncIterator[str]:
-    """Stream Gemini chat."""
+    """Stream Gemini chat.
+
+    Args:
+        messages: List of message dicts
+        model: Model name
+        temperature: Sampling temperature
+        max_tokens: Max tokens to generate
+        timeout: Request timeout
+
+    Yields:
+        Text chunks as they arrive
+    """
     from google import genai
     from google.genai import types as genai_types
 
     client = genai.Client(api_key=settings.gemini_api_key)
-    system_msg = next((m["content"] for m in messages if m["role"] == "system"), None)
+    system_msg, conv_messages = _extract_system_message(messages)
 
+    # Build contents list
     contents = []
-    for msg in messages:
+    for msg in conv_messages:
         if msg["role"] == "user":
             contents.append(genai_types.Content(
                 role="user",
@@ -291,7 +388,7 @@ async def _chat_gemini_stream(
     def sync_generate():
         return client.models.generate_content_stream(
             model=model,
-            contents=contents,
+            contents=contents,  # type: ignore[arg-type]
             config=genai_types.GenerateContentConfig(
                 temperature=temperature,
                 max_output_tokens=max_tokens,
@@ -307,14 +404,28 @@ async def _chat_gemini_stream(
 
 
 async def _chat_openai_async(
-    messages: list[dict],
+    messages: list[dict[str, str]],
     model: str,
     temperature: float,
     max_tokens: int,
     timeout: float,
-    stream_callback = None,
-) -> dict:
-    """Async OpenAI-compatible chat."""
+) -> dict[str, str]:
+    """Async OpenAI-compatible chat (non-streaming).
+
+    Args:
+        messages: List of message dicts
+        model: Model name
+        temperature: Sampling temperature
+        max_tokens: Max tokens to generate
+        timeout: Request timeout
+
+    Returns:
+        Response dict with content, model, provider
+
+    Raises:
+        httpx.HTTPError: If HTTP request fails
+        KeyError: If response format is unexpected
+    """
     import httpx
 
     headers = {
@@ -327,52 +438,45 @@ async def _chat_openai_async(
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
-    if stream_callback:
-        payload["stream"] = True
 
     url = f"{settings.bk_llm_base_url}/chat/completions"
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        if not stream_callback:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
-            content = data["choices"][0]["message"]["content"]
-            return {"content": content, "model": model, "provider": "openai_compatible"}
+        resp = await client.post(url, json=payload, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
 
-        full_content = []
-        async with client.stream("POST", url, json=payload, headers=headers) as response:
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                if not line or not line.startswith("data: "):
-                    continue
-                data_str = line[6:].strip()
-                if data_str == "[DONE]":
-                    break
-                try:
-                    data = __import__("json").loads(data_str)
-                    delta = data["choices"][0].get("delta", {})
-                    if "content" in delta and delta["content"]:
-                        chunk = delta["content"]
-                        full_content.append(chunk)
-                        if asyncio.iscoroutinefunction(stream_callback):
-                            await stream_callback(chunk)
-                        else:
-                            stream_callback(chunk)
-                except Exception:
-                    pass
-
-        return {"content": "".join(full_content), "model": model, "provider": "openai_compatible"}
+    content = data["choices"][0]["message"]["content"]
+    return {
+        "content": content,
+        "model": model,
+        "provider": LLMProvider.OPENAI_COMPATIBLE.value
+    }
 
 
 async def _chat_openai_stream(
-    messages: list[dict],
+    messages: list[dict[str, str]],
     model: str,
     temperature: float,
     max_tokens: int,
     timeout: float,
 ) -> AsyncIterator[str]:
-    """Stream OpenAI-compatible chat."""
+    """Stream OpenAI-compatible chat.
+
+    Args:
+        messages: List of message dicts
+        model: Model name
+        temperature: Sampling temperature
+        max_tokens: Max tokens to generate
+        timeout: Request timeout
+
+    Yields:
+        Text chunks as they arrive
+
+    Raises:
+        httpx.HTTPError: If HTTP request fails
+        json.JSONDecodeError: If SSE data is invalid JSON
+    """
     import httpx
 
     headers = {
@@ -395,16 +499,134 @@ async def _chat_openai_stream(
             async for line in response.aiter_lines():
                 if not line or not line.startswith("data: "):
                     continue
+
                 data_str = line[6:].strip()
                 if data_str == "[DONE]":
                     break
+
                 try:
-                    data = __import__("json").loads(data_str)
+                    data = json.loads(data_str)
                     delta = data["choices"][0].get("delta", {})
                     if "content" in delta and delta["content"]:
                         yield delta["content"]
-                except Exception:
-                    pass
+                except (json.JSONDecodeError, KeyError, IndexError) as e:
+                    logger.debug(f"[OpenAI Stream] Failed to parse chunk: {e}")
+                    continue
 
 
-__all__ = ["chat_async", "chat_async_stream"]
+__all__ = [
+    "chat_async",
+    "chat_async_stream",
+    "LLMClient",
+    "LLMProvider",
+    "LLMError",
+    "LLMTimeoutError",
+    "LLMStreamError",
+]
+
+
+class LLMClient:
+    """Class-based interface for LLM calls with default parameters.
+
+    Useful for dependency injection, testing, and when you need multiple
+    LLM clients with different configurations.
+
+    Example:
+        ```python
+        client = LLMClient(provider=LLMProvider.GLM, model="glm-4.5")
+        response = await client.chat_async(messages)
+        ```
+    """
+
+    def __init__(
+        self,
+        provider: LLMProvider | None = None,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+        timeout: float | None = None,
+    ):
+        """Initialize LLM client with default parameters.
+
+        Args:
+            provider: LLM provider (defaults to settings.llm_provider)
+            model: Model name (defaults to provider-specific default)
+            temperature: Sampling temperature (0.0 - 1.0)
+            max_tokens: Max tokens to generate
+            timeout: Request timeout in seconds
+        """
+        self.provider = provider
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.timeout = timeout
+
+    async def chat_async(
+        self,
+        messages: list[dict[str, str]],
+        provider: LLMProvider | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        timeout: float | None = None,
+    ) -> dict[str, str]:
+        """Send a chat request asynchronously.
+
+        Args:
+            messages: List of message dicts with role and content
+            provider: Override default provider
+            model: Override default model
+            temperature: Override default temperature
+            max_tokens: Override default max_tokens
+            timeout: Override default timeout
+
+        Returns:
+            Response dict with content, model, provider
+
+        Raises:
+            LLMError: If LLM request fails
+        """
+        return await chat_async(
+            messages=messages,
+            provider=provider or self.provider,
+            model=model or self.model,
+            temperature=temperature if temperature is not None else self.temperature,
+            max_tokens=max_tokens if max_tokens is not None else self.max_tokens,
+            timeout=timeout if timeout is not None else self.timeout,
+        )
+
+    async def chat_async_stream(
+        self,
+        messages: list[dict[str, str]],
+        provider: LLMProvider | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        timeout: float | None = None,
+    ) -> AsyncIterator[str]:
+        """Stream chat response chunk by chunk.
+
+        Args:
+            messages: List of message dicts with role and content
+            provider: Override default provider
+            model: Override default model
+            temperature: Override default temperature
+            max_tokens: Override default max_tokens
+            timeout: Override default timeout
+
+        Yields:
+            Text chunks as they arrive from LLM
+
+        Raises:
+            LLMStreamError: If streaming fails
+        """
+        stream = chat_async_stream(
+            messages=messages,
+            provider=provider or self.provider,
+            model=model or self.model,
+            temperature=temperature if temperature is not None else self.temperature,
+            max_tokens=max_tokens if max_tokens is not None else self.max_tokens,
+            timeout=timeout if timeout is not None else self.timeout,
+        )
+        async for chunk in stream:
+            yield chunk

@@ -33,9 +33,10 @@ dependencies = [
     "langchain-core>=0.3",
     "websockets>=12.0",
     "python-magic>=0.4.27",
-    "sentence-transformers>=2.2.2",
-    "semantic-router>=0.1.0",
-    "torch",
+    # ML packages - install with: uv sync --extra ml
+    # "torch>=2.0.0",  # No macOS x86_64 wheels, install manually
+    # "sentence-transformers>=2.2.2",
+    # "semantic-router>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -43,9 +44,16 @@ dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
+    "aiosqlite>=0.19.0",
     "ruff>=0.2.0",
     "mypy>=1.8.0",
     "loguru>=0.7.0",
+]
+# Optional ML packages (require PyTorch - install separately for your platform)
+ml = [
+    "torch>=2.0.0",
+    "sentence-transformers>=2.2.2",
+    "semantic-router>=0.1.0",
 ]
 
 [build-system]
@@ -80,11 +88,13 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+pythonpath = ["src"]
 
-[[tool.uv.index]]
-name = "pytorch-cu124"
-url = "https://download.pytorch.org/whl/cu124"
-explicit = true
-
-[tool.uv.sources]
-torch = { index = "pytorch-cu124" }
+# Note: PyTorch with CUDA support can be configured per-platform
+# For Linux/Windows with CUDA, uncomment below:
+# [[tool.uv.index]]
+# name = "pytorch-cu124"
+# url = "https://download.pytorch.org/whl/cu124"
+# explicit = true
+# [tool.uv.sources]
+# torch = { index = "pytorch-cu124" }

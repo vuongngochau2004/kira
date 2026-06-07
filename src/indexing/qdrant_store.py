@@ -1,19 +1,13 @@
 """Qdrant vector storage wrapper."""
 
-import sys
-from pathlib import Path
-from typing import Any
+import uuid
 from uuid import UUID
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     PointStruct,
     VectorParams,
-    CreateCollection,
     Filter,
     FieldCondition,
     MatchValue,
@@ -79,7 +73,6 @@ def store_chunks(
     chunk_ids = []
 
     for chunk, embedding in zip(chunks, embeddings):
-        import uuid
         name = f"{document_id}_chunk_{chunk.get('index', len(chunk_ids))}"
         chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, name))
 
@@ -146,11 +139,11 @@ def search_similar(
         {
             "id": hit.id,
             "score": hit.score,
-            "text": hit.payload.get("text", ""),
-            "document_id": hit.payload.get("document_id"),
-            "user_id": hit.payload.get("user_id"),
-            "chunk_index": hit.payload.get("chunk_index"),
-            "page_number": hit.payload.get("page_number"),
+            "text": hit.payload.get("text", "") if hit.payload else "",
+            "document_id": hit.payload.get("document_id") if hit.payload else None,
+            "user_id": hit.payload.get("user_id") if hit.payload else None,
+            "chunk_index": hit.payload.get("chunk_index") if hit.payload else None,
+            "page_number": hit.payload.get("page_number") if hit.payload else None,
         }
         for hit in results
     ]

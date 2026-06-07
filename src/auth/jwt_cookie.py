@@ -1,14 +1,9 @@
 """JWT cookie utilities for httpOnly cookie authentication."""
 
-import sys
-from pathlib import Path
 from datetime import timedelta
 
 from fastapi import Response
 from config.config import settings
-
-# Add parent directory to path for config import
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str):

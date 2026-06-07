@@ -152,7 +152,7 @@ class ConversationalRouter(BaseRouter):
 
         try:
             content_chunk_count = 0
-            logger.info(f"[CONVERSATIONAL STREAM] Starting stream")
+            logger.debug(f"[CONVERSATIONAL STREAM] Starting stream")
 
             # Apply post-processing to separate thinking from content
             raw_stream = chat_async_stream(
@@ -179,7 +179,7 @@ class ConversationalRouter(BaseRouter):
                 elif chunk_type == "content":
                     yield {"type": "content", "data": {"text": chunk_text}}
 
-            logger.info(f"[CONVERSATIONAL STREAM] Completed: {content_chunk_count} chunks")
+            logger.debug(f"[CONVERSATIONAL STREAM] Completed: {content_chunk_count} chunks")
 
             yield {
                 "type": "metadata",

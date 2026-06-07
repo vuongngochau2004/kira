@@ -4,6 +4,29 @@ import json
 import re
 from typing import Any
 
+# =============================================================================
+# CONSTANTS
+# =============================================================================
+
+# Conversational query detection keywords
+CONVERSATIONAL_KEYWORDS = [
+    # Greetings
+    "hello", "hi", "hey", "chao", "xin chào", "bạn tên", "ten la gi",
+    # Small talk
+    "how are you", "bạn sao", "có khỏe không",
+    # Gratitude
+    "thanks", "cảm ơn", "thank you",
+    # Farewell
+    "goodbye", "tạm biệt", "bye",
+    # Meta questions about the bot
+    "bạn là ai", "you are", "bot làm được gì", "bạn làm gì",
+    # Weather/time (common small talk)
+    "nhiet độ", "weather", "thoi tiet",
+]
+
+# Maximum word count for very short conversational queries
+MAX_SHORT_QUERY_WORDS = 2
+
 
 def parse_json_response(content: str) -> dict[str, Any]:
     """Parse JSON from LLM response, handle markdown blocks.
@@ -57,23 +80,27 @@ def format_context(docs: list[Any]) -> str:
 def is_conversational_query(query: str) -> bool:
     """Check if query is conversational (not research-related).
 
+    Uses heuristic matching:
+    1. Very short queries (≤2 words) are likely greetings
+    2. Queries containing conversational keywords
+
+    Note: This is a simple heuristic. For production, consider using
+    semantic similarity or the QueryClassifier for better accuracy.
+
     Args:
         query: User query
 
     Returns:
         True if conversational, False if research query
     """
-    keywords = [
-        "hello", "hi", "hey", "chao", "xin chào", "bạn tên",
-        "ten la gi", "nhiet độ", "weather", "thoi tiet",
-        "how are you", "bạn sao", "có khỏe không", "thanks", "cảm ơn",
-        "goodbye", "tạm biệt", "bye"
-    ]
     query_lower = query.lower().strip()
-    # Very short queries (greetings)
-    if len(query_lower.split()) <= 2:
+
+    # Check for very short queries (likely greetings)
+    if len(query_lower.split()) <= MAX_SHORT_QUERY_WORDS:
         return True
-    return any(kw in query_lower for kw in keywords)
+
+    # Check for conversational keywords
+    return any(kw in query_lower for kw in CONVERSATIONAL_KEYWORDS)
 
 
 __all__ = ["parse_json_response", "format_context", "is_conversational_query"]

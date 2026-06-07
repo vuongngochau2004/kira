@@ -1,16 +1,30 @@
 """Agentic RAG with self-evaluation and iterative retrieval."""
 
-import sys
 import asyncio
 import logging
-from pathlib import Path
 from uuid import UUID
 from typing import Any, AsyncIterator
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-# Module-level logger for efficient logging
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# CONSTANTS
+# =============================================================================
+
+# Retrieval Configuration
+DEFAULT_MAX_ITERATIONS = 3
+DEFAULT_RETRIEVAL_K = 5
+
+# Query Rewriting Configuration
+MAX_HISTORY_MESSAGES = 3  # Maximum number of recent messages to use for context
+MAX_CONTEXT_CHARS = 8000  # Maximum character count for conversation context
+MAX_QUERY_REWRITE_LENGTH = 500  # Maximum length for rewritten query
+
+# Citation Configuration
+DEFAULT_MAX_CITATIONS = 10  # Default maximum citations to extract
+
+# Legal Terms for Hybrid Search
+SPECIFIC_TERMS = ["điều khoản", "khoản", "điều", "nghị định", "thông tư", "luật"]
 
 from src.agents.llm import chat_async, chat_async_stream
 from src.agents.llm_post_process import stream_with_thinking_separation
@@ -88,19 +102,15 @@ class AgenticRAG:
         if not conversation_history:
             return query
 
-        # Build context from conversation history with token budget
-        # Token budget for conversation context (~2000 tokens max, ~4 chars/token)
-        MAX_CONTEXT_CHARS = 8000
-
         # Limit history by character count
         # Iterate from newest to oldest (reversed), skip messages that would exceed budget
         # This allows including older smaller messages even if newest is too large
         total_chars = 0
         limited_history = []
-        for msg in reversed(conversation_history[-3:]):  # Max 3 messages
+        for msg in reversed(conversation_history[-MAX_HISTORY_MESSAGES:]):
             msg_content = msg.get("content", "")
             if total_chars + len(msg_content) > MAX_CONTEXT_CHARS:
-                continue  # Skip this message, try older ones
+                continue
             total_chars += len(msg_content)
             limited_history.insert(0, msg)
 
@@ -140,7 +150,7 @@ class AgenticRAG:
             )
             rewritten = response["content"].strip()
             # Return rewritten query if it's different and not too long
-            if rewritten and rewritten != query and len(rewritten) < 500:
+            if rewritten and rewritten != query and len(rewritten) < MAX_QUERY_REWRITE_LENGTH:
                 return rewritten
         except Exception as e:
             logger.warning(f"Query rewrite failed: {e}, using original query")
@@ -168,7 +178,7 @@ class AgenticRAG:
             Retrieved documents
         """
         if strategy == "hybrid" and bm25_index:
-            return hybrid_search(
+            return await hybrid_search(
                 query_embedding=query_embedding,
                 query_text=query,
                 user_id=str(user_id),
@@ -181,11 +191,65 @@ class AgenticRAG:
             k=self.retrieval_k,
         )
 
+    def _build_messages(
+        self,
+        query: str,
+        docs: list[dict] | None,
+        conversation_history: list[dict] | None = None,
+        system_prompt: str | None = None,
+    ) -> list[dict[str, str]]:
+        """Build message list for LLM call.
+
+        Args:
+            query: User question
+            docs: Retrieved documents (optional, for context)
+            conversation_history: Optional conversation history
+            system_prompt: System prompt (uses default if None)
+
+        Returns:
+            List of message dicts with role and content
+        """
+        # Use default system prompt if not provided
+        if system_prompt is None:
+            system_prompt = (
+                "Bạn là trợ lý AI tư vấn pháp luật Việt Nam.\n\n"
+                "Trước khi trả lời, hãy viết ra quá trình suy luận từng bước của bạn "
+                "(phân tích câu hỏi, chọn lọc thông tin từ ngữ cảnh, đối chiếu luật) và đặt trong thẻ <thinking>...</thinking>. "
+                "Sau đó đưa ra câu trả lời chính thức bên ngoài thẻ.\n\n"
+                "Ví dụ:\n"
+                "<thinking>\n"
+                "- Phân tích câu hỏi của người dùng...\n"
+                "- Đối chiếu với các tài liệu trong ngữ cảnh...\n"
+                "- Rút ra kết luận...\n"
+                "</thinking>\n"
+                "[Câu trả lời chính thức ở đây]\n\n"
+                "Yêu cầu:\n"
+                "1. Trả lời DỰA TRÊN ngữ cảnh\n"
+                "2. Trích dẫn nguồn (doc_id)\n"
+                "3. Nếu thiếu thông tin, nói rõ\n"
+                "4. Trả lời tiếng Việt\n"
+                "5. Sử dụng lịch sử trò chuyện (nếu có) để hiểu ngữ cảnh của câu hỏi hiện tại"
+            )
+
+        # Build user content with context
+        user_content = f"Câu hỏi: {query}\n"
+        if docs:
+            user_content += f"Ngữ cảnh:\n{format_context(docs)}\n\n"
+        user_content += "Trả lời:"
+
+        # Build messages list
+        messages = [{"role": "system", "content": system_prompt}]
+        if conversation_history:
+            messages.extend(conversation_history)
+        messages.append({"role": "user", "content": user_content})
+
+        return messages
+
     def evaluate_context(self, query: str, docs: list[dict]) -> bool:
         """Check if context is sufficient.
 
         Args:
-            query: User query
+            query: User query (currently unused, kept for interface consistency)
             docs: Retrieved documents
 
         Returns:
@@ -213,36 +277,7 @@ class AgenticRAG:
         Returns:
             Generated answer
         """
-        system_content = (
-            "Bạn là trợ lý AI tư vấn pháp luật Việt Nam.\n\n"
-            "Trước khi trả lời, hãy viết ra quá trình suy luận từng bước của bạn "
-            "(phân tích câu hỏi, chọn lọc thông tin từ ngữ cảnh, đối chiếu luật) và đặt trong thẻ <thinking>...</thinking>. "
-            "Sau đó đưa ra câu trả lời chính thức bên ngoài thẻ.\n\n"
-            "Ví dụ:\n"
-            "<thinking>\n"
-            "- Phân tích câu hỏi của người dùng...\n"
-            "- Đối chiếu với các tài liệu trong ngữ cảnh...\n"
-            "- Rút ra kết luận...\n"
-            "</thinking>\n"
-            "[Câu trả lời chính thức ở đây]\n\n"
-            "Yêu cầu:\n"
-            "1. Trả lời DỰA TRÊN ngữ cảnh\n"
-            "2. Trích dẫn nguồn (doc_id)\n"
-            "3. Nếu thiếu thông tin, nói rõ\n"
-            "4. Trả lời tiếng Việt\n"
-            "5. Sử dụng lịch sử trò chuyện (nếu có) để hiểu ngữ cảnh của câu hỏi hiện tại"
-        )
-        user_content = (
-            f"Câu hỏi: {query}\n"
-            f"Ngữ cảnh:\n{format_context(docs)}\n\n"
-            "Trả lời:"
-        )
-
-        # Build messages with conversation history
-        messages = [{"role": "system", "content": system_content}]
-        if conversation_history:
-            messages.extend(conversation_history)
-        messages.append({"role": "user", "content": user_content})
+        messages = self._build_messages(query, docs, conversation_history)
 
         response = await chat_async(
             messages=messages,
@@ -268,36 +303,7 @@ class AgenticRAG:
         Yields:
             Text chunks as they arrive from LLM
         """
-        system_content = (
-            "Bạn là trợ lý AI tư vấn pháp luật Việt Nam.\n\n"
-            "Trước khi trả lời, hãy viết ra quá trình suy luận từng bước của bạn "
-            "(phân tích câu hỏi, chọn lọc thông tin từ ngữ cảnh, đối chiếu luật) và đặt trong thẻ <thinking>...</thinking>. "
-            "Sau đó đưa ra câu trả lời chính thức bên ngoài thẻ.\n\n"
-            "Ví dụ:\n"
-            "<thinking>\n"
-            "- Phân tích câu hỏi của người dùng...\n"
-            "- Đối chiếu với các tài liệu trong ngữ cảnh...\n"
-            "- Rút ra kết luận...\n"
-            "</thinking>\n"
-            "[Câu trả lời chính thức ở đây]\n\n"
-            "Yêu cầu:\n"
-            "1. Trả lời DỰA TRÊN ngữ cảnh\n"
-            "2. Trích dẫn nguồn (doc_id)\n"
-            "3. Nếu thiếu thông tin, nói rõ\n"
-            "4. Trả lời tiếng Việt\n"
-            "5. Sử dụng lịch sử trò chuyện (nếu có) để hiểu ngữ cảnh của câu hỏi hiện tại"
-        )
-        user_content = (
-            f"Câu hỏi: {query}\n"
-            f"Ngữ cảnh:\n{format_context(docs)}\n\n"
-            "Trả lời:"
-        )
-
-        # Build messages with conversation history
-        messages = [{"role": "system", "content": system_content}]
-        if conversation_history:
-            messages.extend(conversation_history)
-        messages.append({"role": "user", "content": user_content})
+        messages = self._build_messages(query, docs, conversation_history)
 
         async for chunk in chat_async_stream(
             messages=messages,
@@ -398,7 +404,7 @@ class AgenticRAG:
 
                 # CHECK IF REGENERATE NEEDED
                 if self._should_regenerate(verification):
-                    logger.info("Citation verification failed, regenerating...")
+                    logger.debug("Citation verification failed, regenerating...")
                     answer = await self._regenerate_with_explicit_sources(
                         query, all_docs, verification, conversation_history
                     )
@@ -428,7 +434,7 @@ class AgenticRAG:
 
         # Check if regenerate needed
         if self._should_regenerate(verification):
-            logger.info("Citation verification failed on max iterations, regenerating...")
+            logger.debug("Citation verification failed on max iterations, regenerating...")
             answer = await self._regenerate_with_explicit_sources(
                 query, all_docs, verification, conversation_history
             )
@@ -509,7 +515,7 @@ class AgenticRAG:
                 content_chunk_count = 0
                 full_response = ""
 
-                logger.info(f"[RAG STREAM] Starting content stream (iteration {iteration + 1})")
+                logger.debug(f"[RAG STREAM] Starting content stream (iteration {iteration + 1})")
 
                 # Use citation-aware prompt for streaming
                 system_content = CITATION_AWARE_SYSTEM_PROMPT.format(
@@ -563,7 +569,7 @@ class AgenticRAG:
                 if not thinking_yielded:
                     logger.warning("[RAG STREAM] No thinking content was yielded - LLM may not be outputting <thinking> tags")
 
-                logger.info(f"[RAG STREAM] Completed content stream: {content_chunk_count} chunks")
+                logger.debug(f"[RAG STREAM] Completed content stream: {content_chunk_count} chunks")
 
                 # Verification pass after streaming completes
                 parsed = self.citation_parser.parse(full_response)
@@ -603,7 +609,7 @@ class AgenticRAG:
         content_chunk_count = 0
         full_response = ""
 
-        logger.info(f"[RAG STREAM] Max iterations reached, starting content stream")
+        logger.debug(f"[RAG STREAM] Max iterations reached, starting content stream")
 
         # Use citation-aware prompt
         system_content = CITATION_AWARE_SYSTEM_PROMPT.format(
@@ -630,7 +636,7 @@ class AgenticRAG:
                 "type": "content",
                 "data": {"text": chunk},
             }
-        logger.info(f"[RAG STREAM] Completed content stream: {content_chunk_count} chunks")
+        logger.debug(f"[RAG STREAM] Completed content stream: {content_chunk_count} chunks")
 
         # Verification pass
         parsed = self.citation_parser.parse(full_response)
@@ -694,12 +700,12 @@ class AgenticRAG:
         if max_citations is None:
             max_citations = settings.max_citations
         if max_citations <= 0:
-            max_citations = 10
+            max_citations = DEFAULT_MAX_CITATIONS
 
         snippet_length = settings.snippet_length
         citations = []
         doc_titles = doc_titles or {}
-        for index, doc in enumerate(docs[:max_citations]):  # Use configurable limit
+        for index, doc in enumerate(docs[:max_citations]):
             doc_id = doc.get("document_id")
             title = doc_titles.get(str(doc_id)) or doc.get("metadata", {}).get("title") or doc.get("title") or "Tài liệu không rõ"
             chunk_id = doc.get("chunk_id") or doc.get("id") or f"chunk-{index}"
@@ -716,11 +722,11 @@ class AgenticRAG:
                 "chunk_id": str(chunk_id),
                 "source": title,
                 "title": title,
-                "snippet": snippet,  # Preview text
+                "snippet": snippet,
                 "content": content,
-                "content_length": content_length,  # Full content size
-                "page_number": doc.get("page_number") or doc.get("metadata", {}).get("page_number"),  # Page tracking
-                "score": float(doc.get("score") or doc.get("rrf_score") or 0.0),  # Use 0.0 as fallback
+                "content_length": content_length,
+                "page_number": doc.get("page_number") or doc.get("metadata", {}).get("page_number"),
+                "score": float(doc.get("score") or doc.get("rrf_score") or 0.0),
                 "document_id": str(doc_id) if doc_id else None,
                 "chunk_index": doc.get("chunk_index"),
             })

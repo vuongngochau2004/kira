@@ -1,19 +1,19 @@
 """Document API endpoints - CRUD and processing."""
 
-import sys
-import uuid
 import asyncio
-from pathlib import Path
+import io
+import mimetypes
+import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, status, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.database import get_session
 from src.database.session import async_session_factory
-from src.indexing.file_store import upload_bytes
+from src.indexing.file_store import upload_bytes, download_bytes
+from src.indexing import qdrant_store
 from src.indexing.document_store import (
     create_document,
     get_document,
@@ -219,11 +219,95 @@ async def _cleanup_document_resources(user_id: uuid.UUID, document_id: str):
     bm25_manager = get_bm25_manager()
     bm25_manager.remove_document(str(user_id), document_id)
 
-    import src.indexing.qdrant_store as vector_store
     await asyncio.to_thread(
-        vector_store.delete_document,
+        qdrant_store.delete_document,
         uuid.UUID(document_id),
     )
+
+
+def _resolve_auth_token(
+    token_param: str | None,
+    request: Request,
+) -> str | None:
+    """Resolve authentication token from multiple sources.
+
+    Priority order:
+    1. Query parameter (token)
+    2. Cookie (access_token)
+    3. Authorization header (Bearer token)
+
+    Args:
+        token_param: Token from query parameter
+        request: FastAPI Request object
+
+    Returns:
+        Token string or None if not found
+    """
+    # 1. Check query parameter (explicit token param)
+    if token_param:
+        return token_param
+
+    # 2. Check cookie (primary strategy for frontend)
+    auth_token = request.cookies.get("access_token")
+    if auth_token:
+        return auth_token
+
+    # 3. Check Authorization header (fallback)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header.split(" ", 1)[1]
+
+    return None
+
+
+async def _authenticate_and_get_user(
+    auth_token: str,
+    db: AsyncSession,
+) -> User:
+    """Validate JWT token and fetch user from database.
+
+    Args:
+        auth_token: JWT token string
+        db: Database session
+
+    Returns:
+        User object
+
+    Raises:
+        HTTPException: If token is invalid or user not found
+    """
+    from src.auth.security import decode_token
+    from sqlalchemy import select
+    from src.database.models import User
+
+    try:
+        payload = decode_token(auth_token)
+        user_id = payload.get("sub")
+
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload",
+            )
+
+        result = await db.execute(
+            select(User).where(User.id == user_id).where(User.deleted_at.is_(None))
+        )
+        user = result.scalar_one_or_none()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {e}",
+        )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    return user
 
 
 @router.post("/{document_id}/process")
@@ -265,50 +349,30 @@ async def trigger_processing(
 @router.get("/{document_id}/download")
 async def download_document_file(
     document_id: str,
+    request: Request,
     token: str | None = None,
     db: AsyncSession = Depends(get_session),
 ):
-    """Stream the raw file from MinIO with inline disposition header."""
-    import mimetypes
-    import io
-    from fastapi.responses import StreamingResponse
+    """Stream the raw file from MinIO with inline disposition header.
 
-    # Resolve authenticated user (supports both standard headers and token query parameter)
-    auth_token = token
+    Supports multiple authentication methods:
+    - Query parameter: ?token=xxx
+    - Cookie: access_token=xxx
+    - Authorization header: Bearer xxx
+    """
+    # Step 1: Resolve authentication token from multiple sources
+    auth_token = _resolve_auth_token(token, request)
+
     if not auth_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
-    try:
-        from src.auth.security import decode_token
-        payload = decode_token(auth_token)
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload",
-            )
-        
-        from sqlalchemy import select
-        from src.database.models import User
-        result = await db.execute(
-            select(User).where(User.id == user_id).where(User.deleted_at.is_(None))
-        )
-        user = result.scalar_one_or_none()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {e}",
-        )
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
+    # Step 2: Validate token and get user
+    user = await _authenticate_and_get_user(auth_token, db)
 
-    # Fetch document metadata
+    # Step 3: Fetch document metadata
     doc = await get_document(
         document_id=uuid.UUID(document_id),
         user_id=user.id,
@@ -321,8 +385,7 @@ async def download_document_file(
             detail=ERR_DOC_NOT_FOUND,
         )
 
-    # Fetch file bytes from MinIO
-    from src.indexing.file_store import download_bytes
+    # Step 4: Fetch file bytes from MinIO
     try:
         file_bytes = await asyncio.to_thread(download_bytes, doc.storage_path)
     except Exception as e:
@@ -331,12 +394,12 @@ async def download_document_file(
             detail=f"Failed to retrieve file from storage: {e}",
         )
 
-    # Guess correct MIME type
+    # Step 5: Guess correct MIME type
     mime_type, _ = mimetypes.guess_type(doc.filename)
     if not mime_type:
         mime_type = "application/octet-stream"
 
-    # Streaming inline response
+    # Step 6: Build streaming inline response
     return StreamingResponse(
         io.BytesIO(file_bytes),
         media_type=mime_type,

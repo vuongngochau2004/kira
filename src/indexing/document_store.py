@@ -1,11 +1,8 @@
 """Postgres document storage operations."""
 
-import sys
-from datetime import datetime, UTC
+import logging
+from datetime import datetime
 from uuid import UUID
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,7 +105,6 @@ async def get_documents_batch(
     Returns:
         Dict mapping document_id (str) to filename
     """
-    import logging
     logger = logging.getLogger(__name__)
 
     if not document_ids:

@@ -1,15 +1,10 @@
 """Authentication API endpoints - register, login, refresh, me."""
 
-import sys
-from pathlib import Path
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.database import get_session
 from src.database.models import User

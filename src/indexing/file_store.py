@@ -1,12 +1,8 @@
 """MinIO file storage wrapper."""
 
-import sys
-from pathlib import Path
+import io
 from datetime import timedelta
-from typing import BinaryIO
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from pathlib import Path
 
 from minio import Minio
 
@@ -89,8 +85,6 @@ def upload_bytes(
     Returns:
         True if successful
     """
-    import io
-
     client = get_client()
     bucket = bucket_name or settings.minio_bucket
 
