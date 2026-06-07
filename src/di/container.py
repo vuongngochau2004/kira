@@ -9,17 +9,17 @@ from typing import Type, TypeVar, Any, Callable, Awaitable, Optional
 from dataclasses import dataclass
 from threading import Lock
 
-from src.protocols.container import (
+from src.abc.container import (
     Lifecycle,
-    ServiceDescriptor,
-    DependencyContainer
+    DependencyContainerABC
 )
+from src.protocols.container import ServiceDescriptor
 
 
 T = TypeVar("T")
 
 
-class ServiceContainer(DependencyContainer):
+class ServiceContainer(DependencyContainerABC):
     """
     Async-safe dependency injection container with protocol-based registration.
 

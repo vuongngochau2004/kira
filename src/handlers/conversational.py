@@ -11,7 +11,8 @@ from typing import Any, AsyncIterator
 from uuid import UUID
 
 from src.protocols.classification import ClassificationResult, Intent
-from src.protocols.handlers import QueryHandler, HandlerResult, HandlerConfig
+from src.protocols.handlers import HandlerResult, HandlerConfig
+from src.abc.handlers import QueryHandlerABC
 from src.agents.llm import chat_async, chat_async_stream
 from src.agents.llm_post_process import stream_with_thinking_separation
 from src.agents.prompts import (
@@ -23,7 +24,7 @@ from src.agents.prompts import (
 logger = logging.getLogger(__name__)
 
 
-class ConversationalHandler(QueryHandler):
+class ConversationalHandler(QueryHandlerABC):
     """
     Handler for conversational queries (greetings, casual chat).
 

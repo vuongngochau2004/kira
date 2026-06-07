@@ -7,14 +7,12 @@ Wraps any classification strategy with LRU cache for performance.
 from typing import Any
 from uuid import UUID
 
-from src.protocols.classification import (
-    ClassificationStrategy,
-    ClassificationResult
-)
+from src.abc.classification import ClassificationStrategyABC
+from src.protocols.classification import ClassificationResult
 from src.classification.cache.lru_cache import AsyncLRUCache, generate_cache_key
 
 
-class CachedStrategy(ClassificationStrategy):
+class CachedStrategy(ClassificationStrategyABC):
     """
     Cached wrapper for classification strategies.
 
@@ -34,7 +32,7 @@ class CachedStrategy(ClassificationStrategy):
 
     def __init__(
         self,
-        underlying: ClassificationStrategy,
+        underlying: ClassificationStrategyABC,
         cache_size: int = 1000,
         ttl: int = 3600
     ):

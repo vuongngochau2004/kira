@@ -9,12 +9,13 @@ from typing import Any, AsyncIterator
 from uuid import UUID
 
 from src.protocols.classification import ClassificationResult, Intent
-from src.protocols.handlers import QueryHandler, HandlerResult, HandlerConfig, Citation
+from src.protocols.handlers import HandlerResult, HandlerConfig, Citation
+from src.abc.handlers import QueryHandlerABC
 from src.agents.rag_agent import AgenticRAG
 from config.config import settings
 
 
-class RAGHandler(QueryHandler):
+class RAGHandler(QueryHandlerABC):
     """
     Handler for RAG (Retrieval-Augmented Generation) queries.
 

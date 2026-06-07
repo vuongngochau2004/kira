@@ -7,7 +7,7 @@ Registers and configures all services for the DI container.
 from typing import Optional
 
 from src.di.container import ServiceContainer
-from src.protocols.classification import ClassificationStrategy
+from src.abc.classification import ClassificationStrategyABC
 from src.protocols.handlers import QueryHandler
 
 
@@ -68,7 +68,7 @@ class ServiceRegistry:
                 thresholds={"keyword": 0.7, "cached": 0.6, "llm": 0.5}
             )
 
-            await container.register_singleton(ClassificationStrategy, classifier)
+            await container.register_singleton(ClassificationStrategyABC, classifier)
 
         except ImportError as e:
             # Fallback if classification module not available
@@ -104,9 +104,9 @@ class ServiceRegistry:
         """
         # Warm up classification strategy (likely to be used immediately)
         try:
-            await container.get(ClassificationStrategy)
+            await container.get(ClassificationStrategyABC)
         except Exception as e:
-            print(f"Warning: Failed to warm up ClassificationStrategy: {e}")
+            print(f"Warning: Failed to warm up ClassificationStrategyABC: {e}")
 
         # Warm up handlers
         try:

@@ -10,11 +10,12 @@ from uuid import UUID
 
 from src.agents.routers.base import BaseRouter
 from src.protocols.classification import ClassificationResult, Intent
-from src.protocols.handlers import QueryHandler, HandlerResult, HandlerConfig
+from src.protocols.handlers import HandlerResult, HandlerConfig
+from src.abc.handlers import QueryHandlerABC
 from src.agents.routers.classifier import QueryClassifier
 
 
-class RouterToHandlerAdapter(QueryHandler):
+class RouterToHandlerAdapter(QueryHandlerABC):
     """
     Adapts BaseRouter to QueryHandler protocol.
 
@@ -184,7 +185,7 @@ class RouterToHandlerAdapter(QueryHandler):
 
 class HandlerToRouterAdapter(BaseRouter):
     """
-    Adapts QueryHandler to BaseRouter protocol.
+    Adapts QueryHandlerABC to BaseRouter protocol.
 
     Wraps new QueryHandler implementations to work with old Router interface.
     Enables gradual migration from routers to handlers.
@@ -198,7 +199,7 @@ class HandlerToRouterAdapter(BaseRouter):
 
     def __init__(
         self,
-        handler: QueryHandler,
+        handler: QueryHandlerABC,
         classifier: QueryClassifier
     ):
         """

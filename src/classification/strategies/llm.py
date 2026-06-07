@@ -8,8 +8,8 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
+from src.abc.classification import ClassificationStrategyABC
 from src.protocols.classification import (
-    ClassificationStrategy,
     ClassificationResult,
     Intent
 )
@@ -46,7 +46,7 @@ Phân tích câu hỏi và chọn loại intent phù hợp nhất:
 ```"""
 
 
-class LLMStrategy(ClassificationStrategy):
+class LLMStrategy(ClassificationStrategyABC):
     """
     LLM-based classification strategy.
 
