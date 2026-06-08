@@ -199,9 +199,9 @@ export class StreamingStateBuilder {
     this.state.status = 'generating'
 
     if (data?.citations) {
-      this.state.sources = data.citations
+      this.state.sources = ensureFlatSources(data.citations) || []
     } else if (data?.sources) {
-      this.state.sources = data.sources
+      this.state.sources = ensureFlatSources(data.sources) || []
     }
   }
 
@@ -213,6 +213,43 @@ export class StreamingStateBuilder {
     this.state.status = 'error'
     this.state.error = data?.error ?? 'Unknown error'
   }
+}
+
+/**
+ * Normalizes/flattens raw sources (which might be in the grouped or flat format)
+ * into a flat list of SourceChunk/CitationSource items.
+ */
+export function ensureFlatSources(rawSources: any[] | undefined): any[] | undefined {
+  if (!rawSources) return undefined
+  if (rawSources.length === 0) return []
+
+  // Check if it is grouped structure (contains 'chunks')
+  const isGrouped = rawSources.some(s => s && s.hasOwnProperty('chunks'))
+  if (!isGrouped) return rawSources
+
+  return rawSources.flatMap((doc: any, docIdx: number) => {
+    const docTitle = doc.filename || doc.title || 'Tài liệu'
+    const docId = doc.document_id || `doc-${docIdx}`
+
+    return (doc.chunks || []).map((chunk: any, chunkIdx: number) => {
+      const id = chunk.chunk_id || chunk.id || `${docId}-chunk-${chunkIdx}`
+      return {
+        id,
+        chunk_id: id,
+        source: docTitle,
+        title: docTitle,
+        snippet: chunk.snippet || chunk.content || '',
+        content: chunk.content || chunk.snippet || '',
+        content_length: chunk.content ? chunk.content.length : (chunk.snippet ? chunk.snippet.length : 0),
+        page_number: chunk.page,
+        score: chunk.score,
+        grounding_score: chunk.grounding_score ?? chunk.score,
+        document_id: docId,
+        chunk_index: chunk.chunk_index ?? chunkIdx,
+        page: chunk.page
+      }
+    })
+  })
 }
 
 // ==================== Factory Function ====================

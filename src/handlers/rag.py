@@ -21,12 +21,29 @@ class RAGHandler(QueryHandlerBase):
     Receives pre-classified RAG queries and executes retrieval + generation.
     No classification logic (SRP compliance).
 
+    Features relevance-aware citation filtering to avoid showing citations
+    from documents that LLM has deemed irrelevant to the query.
+
     Example:
         >>> handler = RAGHandler()
         >>> result = await handler.handle("query", "user123", classification)
         >>> assert result.content
-        >>> assert result.citations
+        >>> # Citations only returned if LLM found relevant docs
+        >>> if result.metadata.get("has_relevant_docs"):
+        ...     assert result.citations
     """
+
+    # Rejection patterns to detect LLM responses indicating no relevant documents found
+    REJECTION_PATTERNS = [
+        "không tìm thấy",
+        "không có thông tin",
+        "tài liệu không đề cập",
+        "văn bản không quy định",
+        "không đề cập đến",
+        "không có quy định",
+        "dữ liệu không có",
+        "không tài liệu nào",
+    ]
 
     def __init__(
         self,
@@ -54,6 +71,28 @@ class RAGHandler(QueryHandlerBase):
             True if intent is RAG
         """
         return classification.intent == Intent.RAG
+
+    def _is_rejection_response(self, content: str) -> bool:
+        """
+        Detect if LLM response indicates no relevant documents were found.
+
+        This prevents showing citations from documents that the LLM has deemed
+        irrelevant to the user's query.
+
+        Args:
+            content: LLM-generated response content
+
+        Returns:
+            True if response indicates rejection (no relevant docs), False otherwise
+
+        Example:
+            >>> handler._is_rejection_response("Không tìm thấy tài liệu liên quan")
+            True
+            >>> handler._is_rejection_response("Dựa trên tài liệu, quy trình là...")
+            False
+        """
+        content_lower = content.lower()
+        return any(pattern in content_lower for pattern in self.REJECTION_PATTERNS)
 
     async def handle(
         self,
@@ -97,18 +136,38 @@ class RAGHandler(QueryHandlerBase):
                 conversation_history=conversation_history
             )
 
+            content = result.get("content", "")
+
+            # ✅ Relevance detection: Check if LLM found documents relevant
+            is_rejection = self._is_rejection_response(content)
+
             # Convert citations
-            citations = self._convert_citations(result.get("citations", []))
+            raw_citations = result.get("citations", [])
+            citations = self._convert_citations(raw_citations)
+
+            # ✅ Conditional citation return: Only return citations if LLM found relevant docs
+            # If LLM says "no relevant docs", don't show citations from irrelevant documents
+            final_citations = [] if is_rejection else citations
 
             return HandlerResult(
-                content=result.get("content", ""),
-                citations=citations,
+                content=content,
+                citations=final_citations,
                 metadata={
                     "handler": self.get_name(),
                     "docs_retrieved": result.get("total_docs", 0),
                     "latency_ms": (time.perf_counter() - t0) * 1000,
                     "classification": classification.to_dict(),
                     "retrieval_history": result.get("retrieval_history", []),
+                    # Observability: Track filtering decisions
+                    "relevance_filtering": {
+                        "enabled": True,
+                        "is_rejection": is_rejection,
+                        "retrieved_count": len(raw_citations),
+                        "returned_count": len(final_citations),
+                        "filtered_count": len(raw_citations) - len(final_citations),
+                        "rejection_reason": "no_relevant_docs" if is_rejection else None,
+                    },
+                    "has_relevant_docs": not is_rejection,
                 }
             )
 
@@ -120,6 +179,12 @@ class RAGHandler(QueryHandlerBase):
                     "handler": self.get_name(),
                     "error": str(e),
                     "latency_ms": (time.perf_counter() - t0) * 1000,
+                    "relevance_filtering": {
+                        "enabled": True,
+                        "error": True,
+                        "error_message": str(e),
+                    },
+                    "has_relevant_docs": False,
                 },
                 status="error",
                 error=str(e)
@@ -143,6 +208,10 @@ class RAGHandler(QueryHandlerBase):
 
         Yields:
             Dict chunks with type: "retrieval", "content", "metadata", "done"
+
+        Note:
+            Citations are filtered based on LLM relevance detection.
+            If LLM indicates no relevant documents, citation chunks are not yielded.
         """
         if classification.intent != Intent.RAG:
             yield {
@@ -166,12 +235,54 @@ class RAGHandler(QueryHandlerBase):
             )
 
         try:
+            # Track streaming chunks for relevance filtering
+            content_chunks = []
+            citation_chunks = []
+            has_rejection = False
+
             async for chunk in self.rag_agent.query_stream(
                 query,
                 user_id,
                 conversation_history=conversation_history
             ):
-                yield chunk
+                # Collect content chunks for relevance detection, but also yield immediately
+                if chunk.get("type") == "content":
+                    content_chunks.append(chunk)
+                    yield chunk  # ✅ Yield content immediately for real-time streaming
+                # Collect citation chunks for potential filtering
+                elif chunk.get("type") == "metadata" and "citations" in chunk.get("data", {}):
+                    citation_chunks.append(chunk)
+                else:
+                    # Pass through other chunks (retrieval, done, etc.)
+                    yield chunk
+
+            # ✅ After streaming, check relevance and decide on citations
+            full_content = "".join([
+                c.get("data", {}).get("text", "")
+                for c in content_chunks
+            ])
+            has_rejection = self._is_rejection_response(full_content)
+
+            # Only yield citation chunks if LLM found relevant documents
+            if not has_rejection:
+                for citation_chunk in citation_chunks:
+                    # Add observability to citation metadata
+                    if "data" in citation_chunk and isinstance(citation_chunk["data"], dict):
+                        citation_chunk["data"]["relevance_filtered"] = False
+                    yield citation_chunk
+            else:
+                # Log filtering decision
+                yield {
+                    "type": "metadata",
+                    "data": {
+                        "relevance_filtering": {
+                            "enabled": True,
+                            "is_rejection": True,
+                            "filtered_citation_count": len(citation_chunks),
+                            "rejection_reason": "no_relevant_docs",
+                        }
+                    },
+                }
 
         except Exception as e:
             yield {
@@ -181,6 +292,11 @@ class RAGHandler(QueryHandlerBase):
                     "error": str(e),
                     "handler": self.get_name(),
                     "latency_ms": (time.perf_counter() - t0) * 1000,
+                    "relevance_filtering": {
+                        "enabled": True,
+                        "error": True,
+                        "error_message": str(e),
+                    },
                 }
             }
 

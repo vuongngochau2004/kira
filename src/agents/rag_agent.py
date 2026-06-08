@@ -663,6 +663,9 @@ class AgenticRAG:
                 # Convert DocumentSource objects to dicts for JSON serialization
                 sources_data = [ds.model_dump() for ds in document_sources]
 
+                # Extract legacy flat citations list for backward compatibility
+                flat_citations = self._extract_citations(all_docs, titles)
+
                 # Emit final metadata with grouped structure and verification stats
                 yield {
                     "type": "metadata",
@@ -671,6 +674,7 @@ class AgenticRAG:
                         "iterations": iteration + 1,
                         "status": "success",
                         "sources": sources_data,
+                        "citations": flat_citations,
                         "citation_verification": self.citation_verifier.get_summary_stats(verification),
                         "metadata": {
                             "total_documents": len(document_sources),
@@ -740,6 +744,9 @@ class AgenticRAG:
         # Convert DocumentSource objects to dicts for JSON serialization
         sources_data = [ds.model_dump() for ds in document_sources]
 
+        # Extract legacy flat citations list for backward compatibility
+        flat_citations = self._extract_citations(all_docs, titles)
+
         yield {
             "type": "metadata",
             "data": {
@@ -747,6 +754,7 @@ class AgenticRAG:
                 "iterations": self.max_iterations,
                 "status": "max_iterations_reached",
                 "sources": sources_data,
+                "citations": flat_citations,
                 "citation_verification": self.citation_verifier.get_summary_stats(verification),
                 "metadata": {
                     "total_documents": len(document_sources),

@@ -11,7 +11,7 @@ import { StreamingText } from '@/components/streaming/StreamingText'
 import { CitationRichText } from '@/components/streaming/CitationRichText'
 import { CitationPanel, type CitationSource, type VerificationStats } from '@/components/streaming/CitationPanel'
 import { useSourcesStore } from '@/lib/stores/sources-store'
-import { KiraWelcome } from '@/components/common/KiraLogo'
+import { KIRAWelcome } from '@/components/common/KiraLogo'
 import type { ThinkingHierarchy as ThinkingHierarchyType } from '@/types/thinking'
 
 // ==================== Types ====================
@@ -404,7 +404,7 @@ export function SimpleChat({
                 welcomeExiting ? 'opacity-0' : 'opacity-100'
               )}
             >
-              <KiraWelcome className="min-h-full" variant="gradient" />
+              <KIRAWelcome className="min-h-full" variant="gradient" />
             </div>
           ) : (
             <>

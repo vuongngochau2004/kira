@@ -17,6 +17,7 @@ import type { ThinkingHierarchy } from '@/types/thinking'
 import {
   createStreamingStateBuilder,
   parseChunk,
+  ensureFlatSources,
   type MessageState as StreamingMessageState,
   type StreamingState,
   type SourceChunk,
@@ -291,7 +292,7 @@ export function useSimpleChat() {
               content: parsed.content || '',
               timestamp: new Date(msg.created_at),
               thinkingHierarchy: hierarchy,
-              sources: msg.sources || (msg.metadata as any)?.sources || undefined,
+              sources: ensureFlatSources(msg.sources || (msg.metadata as any)?.sources || undefined) as any,
               streamingState: 'complete' as const,
               isStreaming: false,
             }

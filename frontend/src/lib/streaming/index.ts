@@ -24,6 +24,7 @@ export {
 export {
   StreamingStateBuilder,
   createStreamingStateBuilder,
+  ensureFlatSources,
   type StreamingState,
   type MessageState,
   type RoutingInfo,

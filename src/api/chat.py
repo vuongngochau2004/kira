@@ -420,6 +420,8 @@ async def _stream_generator_v2(
                 # Collect citations from metadata
                 if "citations" in chunk_data:
                     citations = chunk_data["citations"]
+                elif "sources" in chunk_data:
+                    citations = chunk_data["sources"]
 
                 # Build thinking metadata
                 thinking_metadata = _build_thinking_metadata(

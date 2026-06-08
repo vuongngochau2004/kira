@@ -294,6 +294,10 @@ export const documentsAPI = {
     // No token needed - httpOnly cookies are sent automatically
     return `${API_BASE}/api/v1/documents/${id}/download`
   },
+
+  getChunks: async (id: string): Promise<Array<{ id: string; chunk_index: number; content: string; metadata?: any }>> => {
+    return fetchAPI<any[]>(`/api/v1/documents/${id}/chunks`)
+  },
 }
 
 /** Auth API (uses httpOnly cookies) */

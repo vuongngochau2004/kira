@@ -11,6 +11,7 @@ Senior Dev Notes:
 """
 
 import logging
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from uuid import UUID
@@ -23,6 +24,26 @@ from config.config import settings
 
 
 logger = logging.getLogger(__name__)
+
+
+def _compile_keyword_matcher(keywords: frozenset[str]) -> re.Pattern:
+    """Compile regex pattern for word boundary keyword matching.
+
+    Uses word boundaries (\\b) to avoid false positives from substring matches.
+    For Vietnamese text, this ensures "điều" matches "điều kiện" but not "hiện đại".
+
+    Args:
+        keywords: Frozenset of keywords to match
+
+    Returns:
+        Compiled regex pattern with word boundaries
+    """
+    # Sort by length (descending) to match longer multi-word keywords first
+    sorted_keywords = sorted(keywords, key=len, reverse=True)
+    # Escape special regex characters and join with OR
+    escaped = [re.escape(kw) for kw in sorted_keywords]
+    pattern = r'\b(?:' + '|'.join(escaped) + r')\b'
+    return re.compile(pattern, re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -93,6 +114,10 @@ class RAGRouter(BaseRouter):
         self._file_keywords: Final = self._config.file_keywords
         self._doc_keywords: Final = self._config.doc_keywords
 
+        # Pre-compile regex patterns for word boundary matching (avoid false positives)
+        self._file_matcher: Final = _compile_keyword_matcher(self._file_keywords)
+        self._doc_matcher: Final = _compile_keyword_matcher(self._doc_keywords)
+
         # Cache configuration for logging
         self._log_thresholds = {
             "doc_min_match": self._config.doc_indicator_min_match,
@@ -133,12 +158,12 @@ class RAGRouter(BaseRouter):
         This method uses LRU cache to avoid redundant analysis for
         repeated queries. Up to 256 unique queries are cached.
 
-        Uses substring matching to support multi-word keywords like
-        "tài liệu", "học phí", "nhập học", etc.
+        Uses word boundary matching (regex) to avoid false positives.
+        For example, "điều" matches "điều kiện" but not "hiện đại".
 
-        Performance: O(n*m) substring checks where n=keywords, m=1 query
-        - n ≈ 50 keywords
-        - m = 1 query (checked against each keyword)
+        Performance: O(n+m) where n=keywords (pre-compiled regex), m=query length
+        - n ≈ 50 keywords (compiled once at init)
+        - m = query length (single regex scan)
 
         Args:
             query: User query to analyze
@@ -149,14 +174,10 @@ class RAGRouter(BaseRouter):
         query_lower = query.lower()
         query_words = query_lower.split()
 
-        # Check for file/document indicators using substring matching
-        # This supports multi-word keywords like "tài liệu", "học phí"
-        has_file = any(keyword in query_lower for keyword in self._file_keywords)
-
-        doc_matches = sum(
-            1 for keyword in self._doc_keywords
-            if keyword in query_lower
-        )
+        # Check for file/document indicators using word boundary matching
+        # Pre-compiled regex patterns avoid false positives from substring matches
+        has_file = bool(self._file_matcher.search(query_lower))
+        doc_matches = len(self._doc_matcher.findall(query_lower))
 
         # Calculate confidence using config thresholds
         if has_file:

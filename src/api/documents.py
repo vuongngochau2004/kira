@@ -6,34 +6,43 @@ import mimetypes
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, status, Request
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import get_session
-from src.database.session import async_session_factory
-from src.indexing.file_store import upload_bytes, download_bytes
-from src.indexing import qdrant_store
-from src.indexing.document_store import (
-    create_document,
-    get_document,
-    list_documents,
-    delete_document,
-    update_document_status,
-)
-from src.ingestion.pipelines import process_document
-from src.ingestion.bm25_builder import get_bm25_manager
 from src.auth.dependencies import get_current_user
-from src.database.models import User
 from src.constants import (
     DEFAULT_LIMIT,
     DEFAULT_OFFSET,
-    DOC_STATUS_UPLOADING,
-    DOC_STATUS_PROCESSING,
     DOC_STATUS_COMPLETED,
     DOC_STATUS_FAILED,
+    DOC_STATUS_PROCESSING,
     ERR_DOC_NOT_FOUND,
 )
+from src.database import get_session
+from src.database.models import User
+from src.database.session import async_session_factory
+from src.indexing import qdrant_store
+from src.indexing.document_store import (
+    create_document,
+    delete_document,
+    get_document,
+    get_document_chunks,
+    list_documents,
+    update_document_status,
+)
+from src.indexing.file_store import download_bytes, upload_bytes
+from src.ingestion.bm25_builder import get_bm25_manager
+from src.ingestion.pipelines import process_document
 
 router = APIRouter()
 
@@ -276,8 +285,9 @@ async def _authenticate_and_get_user(
     Raises:
         HTTPException: If token is invalid or user not found
     """
-    from src.auth.security import decode_token
     from sqlalchemy import select
+
+    from src.auth.security import decode_token
     from src.database.models import User
 
     try:
@@ -299,7 +309,7 @@ async def _authenticate_and_get_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {e}",
-        )
+        ) from e
 
     if not user:
         raise HTTPException(
@@ -392,7 +402,7 @@ async def download_document_file(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve file from storage: {e}",
-        )
+        ) from e
 
     # Step 5: Guess correct MIME type
     mime_type, _ = mimetypes.guess_type(doc.filename)
@@ -408,4 +418,39 @@ async def download_document_file(
             "Access-Control-Expose-Headers": "Content-Disposition",
         },
     )
+
+
+@router.get("/{document_id}/chunks")
+async def get_document_chunks_endpoint(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
+    """Get all chunks of a document, verifying that the user owns the document."""
+    doc = await get_document(
+        document_id=uuid.UUID(document_id),
+        user_id=current_user.id,
+        db=db,
+    )
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERR_DOC_NOT_FOUND,
+        )
+
+    chunks = await get_document_chunks(
+        document_id=uuid.UUID(document_id),
+        db=db,
+    )
+
+    return [
+        {
+            "id": str(chunk.id),
+            "chunk_index": chunk.chunk_index,
+            "content": chunk.content,
+            "metadata": chunk.meta_data,
+        }
+        for chunk in chunks
+    ]
+
 

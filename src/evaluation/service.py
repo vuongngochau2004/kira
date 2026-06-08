@@ -25,8 +25,31 @@ from config.config import settings
 logger = logging.getLogger(__name__)
 
 
+# Constants for cache key generation
+CACHE_HASH_PREFIX_LENGTH = 8  # 64 bits (sufficient for collision avoidance)
+MAX_CONTEXTS_IN_PROMPT = 5  # Maximum contexts to include in evaluation prompt
+CONTEXT_SNIPPET_LENGTH = 500  # Truncate contexts for token efficiency
+ANSWER_SNIPPET_LENGTH = 1000  # Truncate answers for token efficiency
+QUERY_SNIPPET_LENGTH = 100  # Truncate queries for cache key
+
+
 class EvaluationError(Exception):
     """Base exception for evaluation errors."""
+    pass
+
+
+class EvaluationTimeoutError(EvaluationError):
+    """Raised when LLM evaluation times out."""
+    pass
+
+
+class EvaluationParseError(EvaluationError):
+    """Raised when LLM response cannot be parsed."""
+    pass
+
+
+class LLMProviderError(EvaluationError):
+    """Raised when LLM provider call fails."""
     pass
 
 
@@ -79,13 +102,34 @@ class RAGASEvaluationService:
                     contexts=request.contexts,
                 )
                 results.append(result)
-            except Exception as e:
-                logger.error(f"[RAGAS EVAL] Failed to evaluate {metric.value}: {e}")
+            except EvaluationTimeoutError as e:
+                # Expected timeout errors - log and continue with error result
+                logger.warning(f"[RAGAS EVAL] Timeout evaluating {metric.value}: {e}")
                 results.append(EvaluationResult(
                     metric=metric,
                     score=0.0,
-                    error=str(e),
+                    error=f"Evaluation timeout: {e}",
                 ))
+            except EvaluationParseError as e:
+                # Parse errors - LLM returned unparseable response
+                logger.warning(f"[RAGAS EVAL] Parse error for {metric.value}: {e}")
+                results.append(EvaluationResult(
+                    metric=metric,
+                    score=0.0,
+                    error=f"Parse error: {e}",
+                ))
+            except LLMProviderError as e:
+                # LLM provider errors - these are usually transient
+                logger.error(f"[RAGAS EVAL] LLM provider error for {metric.value}: {e}")
+                results.append(EvaluationResult(
+                    metric=metric,
+                    score=0.0,
+                    error=f"LLM error: {e}",
+                ))
+            except Exception as e:
+                # Unexpected errors - should not happen in production
+                logger.exception(f"[RAGAS EVAL] Unexpected error evaluating {metric.value}")
+                raise EvaluationError(f"Unexpected error in {metric.value}: {e}") from e
 
         duration = time.time() - start_time
         overall_score = self._calculate_overall_score(results)
@@ -184,6 +228,11 @@ class RAGASEvaluationService:
 
         Returns:
             EvaluationResult with score and reasoning
+
+        Raises:
+            EvaluationTimeoutError: If LLM call times out
+            EvaluationParseError: If LLM response cannot be parsed
+            LLMProviderError: If LLM provider call fails
         """
         # Check cache
         cache_key = self._get_cache_key(metric, query, answer, contexts)
@@ -202,20 +251,28 @@ class RAGASEvaluationService:
             {"role": "user", "content": user_prompt},
         ]
 
-        provider = LLMProvider(settings.ragas_llm_provider or settings.llm_provider)
-        response = await chat_async(
-            messages=messages,
-            provider=provider,
-            model=settings.glm_model if provider == LLMProvider.GLM else None,
-            temperature=0.1,  # Low temperature for consistent evaluation
-            max_tokens=512,
-            timeout=self.timeout_seconds,
-        )
+        try:
+            provider = LLMProvider(settings.ragas_llm_provider or settings.llm_provider)
+            response = await chat_async(
+                messages=messages,
+                provider=provider,
+                model=settings.glm_model if provider == LLMProvider.GLM else None,
+                temperature=0.1,  # Low temperature for consistent evaluation
+                max_tokens=512,
+                timeout=self.timeout_seconds,
+            )
+        except asyncio.TimeoutError as e:
+            raise EvaluationTimeoutError(f"LLM call timed out after {self.timeout_seconds}s") from e
+        except Exception as e:
+            raise LLMProviderError(f"LLM provider call failed: {e}") from e
 
         # Parse score from response
-        score, reasoning = self._parse_evaluation_response(
-            response["content"], metric
-        )
+        try:
+            score, reasoning = self._parse_evaluation_response(
+                response["content"], metric
+            )
+        except Exception as e:
+            raise EvaluationParseError(f"Failed to parse LLM response: {e}") from e
 
         result = EvaluationResult(
             metric=metric,
@@ -239,8 +296,8 @@ class RAGASEvaluationService:
         """Get evaluation prompts for metric (Vietnamese localized)."""
 
         contexts_text = "\n\n".join([
-            f"[Context {i+1}]: {ctx[:500]}"  # Truncate for token efficiency
-            for i, ctx in enumerate(contexts[:5])  # Max 5 contexts
+            f"[Context {i+1}]: {ctx[:CONTEXT_SNIPPET_LENGTH]}"  # Truncate for token efficiency
+            for i, ctx in enumerate(contexts[:MAX_CONTEXTS_IN_PROMPT])  # Max N contexts
         ])
 
         if metric == EvaluationMetric.FAITHFULNESS:
@@ -259,7 +316,7 @@ QUAN TRỌNG: Chấm điểm KHÁT KHE - bất kỳ thông tin không có trong 
             user_prompt = f"""Câu hỏi: {query}
 
 Câu trả lời cần đánh giá:
-{answer[:1000]}
+{answer[:ANSWER_SNIPPET_LENGTH]}
 
 Ngữ cảnh:
 {contexts_text}
@@ -284,7 +341,7 @@ Tiêu chí đánh giá:
             user_prompt = f"""Câu hỏi: {query}
 
 Câu trả lời cần đánh giá:
-{answer[:1000]}
+{answer[:ANSWER_SNIPPET_LENGTH]}
 
 Trả về ĐÚNG định dạng JSON này:
 {{
@@ -372,12 +429,17 @@ Trả về ĐÚNG định dạng JSON này:
         answer: str,
         contexts: list[str],
     ) -> str:
-        """Generate cache key for evaluation."""
+        """Generate cache key for evaluation.
+
+        Uses MD5 hash of contexts (truncated) and query/answer snippets
+        to create a unique cache key. 64-bit prefix provides sufficient
+        collision avoidance for cache usage.
+        """
         contexts_hash = hashlib.md5(
             "\n".join(contexts).encode()
-        ).hexdigest()[:8]
+        ).hexdigest()[:CACHE_HASH_PREFIX_LENGTH]
 
-        key_string = f"{metric.value}:{query[:100]}:{answer[:100]}:{contexts_hash}"
+        key_string = f"{metric.value}:{query[:QUERY_SNIPPET_LENGTH]}:{answer[:QUERY_SNIPPET_LENGTH]}:{contexts_hash}"
         return hashlib.md5(key_string.encode()).hexdigest()
 
     def _calculate_overall_score(self, results: list[EvaluationResult]) -> float:
@@ -440,4 +502,7 @@ __all__ = [
     "RAGASEvaluationService",
     "get_evaluation_service",
     "EvaluationError",
+    "EvaluationTimeoutError",
+    "EvaluationParseError",
+    "LLMProviderError",
 ]

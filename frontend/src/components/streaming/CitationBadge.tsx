@@ -117,39 +117,7 @@ export function parseContentWithCitations(
 ): Array<string | React.ReactElement> {
   if (!content) return []
 
-  const parts: Array<string | React.ReactElement> = []
-  let lastIndex = 0
-  const regex = /\[source:([^\]]+)\]/g
-  let match
-
-  while ((match = regex.exec(content)) !== null) {
-    // Add text before citation
-    if (match.index > lastIndex) {
-      parts.push(content.slice(lastIndex, match.index))
-    }
-
-    // Find citation data
-    const chunkId = match[1]
-    const citation = citations.find(c => c.chunk_id === chunkId)
-
-    // Add CitationBadge component
-    parts.push(
-      <CitationBadge
-        key={`citation-${match.index}-${chunkId}`}
-        chunkId={chunkId}
-        verified={citation !== undefined}
-        groundingScore={citation?.grounding_score}
-        onClick={() => onCitationClick?.(chunkId, citation)}
-      />
-    )
-
-    lastIndex = regex.lastIndex
-  }
-
-  // Add remaining text
-  if (lastIndex < content.length) {
-    parts.push(content.slice(lastIndex))
-  }
-
-  return parts
+  // Clean up inline [source:...] citations along with any leading spaces as requested by user
+  const cleanedContent = content.replace(/\s*\[source:[^\]]+\]/g, '')
+  return [cleanedContent]
 }

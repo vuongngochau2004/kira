@@ -1,6 +1,6 @@
 const en = {
   common: {
-    appName: "K.I.R.A",
+    appName: "KIRA",
     tagline: "Knowledge & Intelligent Robotic Assistant",
     documents: "Documents",
     chat: "Chat",

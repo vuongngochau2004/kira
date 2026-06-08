@@ -10,6 +10,8 @@ export interface SourceChunk {
   score: number
   document_id?: string
   chunk_index?: number
+  title?: string
+  type?: 'pdf' | 'docx' | 'web'
 }
 
 interface SourceCitationProps {
@@ -23,7 +25,7 @@ export function SourceCitation({ sources, onClick, className }: SourceCitationPr
 
   // Group by document
   const byDocument = sources.reduce((acc, source) => {
-    const docId = source.document_id || 'unknown'
+    const docId = source.document_id || source.title || 'unknown'
     if (!acc[docId]) {
       acc[docId] = []
     }
@@ -46,7 +48,7 @@ export function SourceCitation({ sources, onClick, className }: SourceCitationPr
       title={`${sources.length} chunks from ${documentCount} documents`}
     >
       <BookOpen className="w-3.5 h-3.5" />
-      <span>📚 {sources.length} nguồn</span>
+      <span>📚 {documentCount} nguồn</span>
       {avgScore > 0.8 && (
         <span className="text-green-600 dark:text-green-400">•</span>
       )}
