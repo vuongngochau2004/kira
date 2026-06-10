@@ -1,0 +1,83 @@
+graph TD
+  subgraph SERVING[serving]
+    api["api"]
+  end
+  subgraph AGENT_TOOLS[agent_tools]
+    classification["classification"]
+    tools["tools"]
+    handlers["handlers"]
+    agents["agents"]
+    graphs["graphs"]
+  end
+  subgraph RETRIEVAL[retrieval]
+    retrieval_tools["retrieval_tools"]
+    retrieval_agent["retrieval_agent"]
+    retrieval["retrieval"]
+    retrieval_agent_4["retrieval_agent_4"]
+    indexing["indexing"]
+  end
+  subgraph INGESTION[ingestion]
+    ingestion_tools["ingestion_tools"]
+    ingestion["ingestion"]
+  end
+  subgraph ABSTRACTIONS[abstractions]
+    di["di"]
+    interfaces["interfaces"]
+  end
+  subgraph STORAGE[storage]
+    root["root"]
+    [""]
+    session["session"]
+    config["config"]
+    llm["llm"]
+  end
+  root --> 
+  root --> llm
+  root --> session
+  root --> hybrid
+  root --> config
+  root --> retrieval_tools
+  root --> reranking_tools
+  root --> ingestion_tools
+  root --> qdrant_store
+  root --> embedding
+  classification --> strategies_keyword
+  classification --> strategies_cached
+  classification --> strategies_llm
+  classification --> strategies_composite
+  database --> config
+  database --> session
+  database --> models
+  database --> query
+  models --> evaluation
+  models --> auth
+  models --> documents
+  ingestion --> chunker
+  ingestion --> 
+  ingestion --> session
+  ingestion --> bm25_builder
+  ingestion --> bm25
+  ingestion --> cleaner
+  ingestion --> config
+  ingestion --> qdrant_store
+  ingestion --> pipelines
+  ingestion --> document_store
+  ingestion --> file_store
+  ingestion --> extractor
+  ingestion --> paddleocr_client
+  ingestion --> embedding
+  tools --> llm
+  tools --> 
+  tools --> llm_generation_tools
+  tools --> chunker
+  tools --> hybrid
+  tools --> extractor
+  tools --> cleaner
+  tools --> config
+  tools --> tool_registry
+  tools --> retrieval_tools
+  tools --> ingestion_tools
+  tools --> quality_tools
+  tools --> reranking_tools
+  tools --> qdrant_store
+  tools --> embedding

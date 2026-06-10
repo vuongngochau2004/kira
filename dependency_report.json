@@ -1,0 +1,1287 @@
+{
+  "graph": {
+    "nodes": [
+      {
+        "id": "root",
+        "files": 2,
+        "in_degree": 0,
+        "out_degree": 10
+      },
+      {
+        "id": "",
+        "files": 0,
+        "in_degree": 7,
+        "out_degree": 0
+      },
+      {
+        "id": "session",
+        "files": 0,
+        "in_degree": 6,
+        "out_degree": 0
+      },
+      {
+        "id": "config",
+        "files": 0,
+        "in_degree": 13,
+        "out_degree": 0
+      },
+      {
+        "id": "llm",
+        "files": 0,
+        "in_degree": 7,
+        "out_degree": 0
+      },
+      {
+        "id": "qdrant_store",
+        "files": 0,
+        "in_degree": 5,
+        "out_degree": 0
+      },
+      {
+        "id": "embedding",
+        "files": 0,
+        "in_degree": 4,
+        "out_degree": 0
+      },
+      {
+        "id": "hybrid",
+        "files": 0,
+        "in_degree": 4,
+        "out_degree": 0
+      },
+      {
+        "id": "retrieval_tools",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "ingestion_tools",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "reranking_tools",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "classification",
+        "files": 1,
+        "in_degree": 7,
+        "out_degree": 4
+      },
+      {
+        "id": "strategies.keyword",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "strategies.composite",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "strategies.cached",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "strategies.llm",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "database",
+        "files": 4,
+        "in_degree": 0,
+        "out_degree": 4
+      },
+      {
+        "id": "models",
+        "files": 7,
+        "in_degree": 4,
+        "out_degree": 3
+      },
+      {
+        "id": "query",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "ingestion",
+        "files": 8,
+        "in_degree": 0,
+        "out_degree": 14
+      },
+      {
+        "id": "pipelines",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "cleaner",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "extractor",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "chunker",
+        "files": 0,
+        "in_degree": 3,
+        "out_degree": 0
+      },
+      {
+        "id": "bm25_builder",
+        "files": 0,
+        "in_degree": 3,
+        "out_degree": 0
+      },
+      {
+        "id": "paddleocr_client",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "file_store",
+        "files": 0,
+        "in_degree": 3,
+        "out_degree": 0
+      },
+      {
+        "id": "document_store",
+        "files": 0,
+        "in_degree": 4,
+        "out_degree": 0
+      },
+      {
+        "id": "bm25",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "tools",
+        "files": 7,
+        "in_degree": 0,
+        "out_degree": 15
+      },
+      {
+        "id": "quality_tools",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "llm_generation_tools",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "tool_registry",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "di",
+        "files": 4,
+        "in_degree": 0,
+        "out_degree": 12
+      },
+      {
+        "id": "rag",
+        "files": 0,
+        "in_degree": 3,
+        "out_degree": 0
+      },
+      {
+        "id": "conversational",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "handlers",
+        "files": 3,
+        "in_degree": 5,
+        "out_degree": 9
+      },
+      {
+        "id": "container",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "feature_flags",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "registry",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "auth",
+        "files": 5,
+        "in_degree": 2,
+        "out_degree": 5
+      },
+      {
+        "id": "security",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "dependencies",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "agents",
+        "files": 12,
+        "in_degree": 0,
+        "out_degree": 26
+      },
+      {
+        "id": "agentic_rag_state",
+        "files": 0,
+        "in_degree": 3,
+        "out_degree": 0
+      },
+      {
+        "id": "citation_parser",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "utils",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "llm_post_process",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "responses",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "prompts",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "citation_verifier",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "dense",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "orchestrator_agent",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "rag_agent",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "retrieval_agent",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "quality_agent",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "agent_utils",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "generation_agent",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "llm_post_processor",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "evaluation",
+        "files": 5,
+        "in_degree": 3,
+        "out_degree": 6
+      },
+      {
+        "id": "documents",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "retrieval",
+        "files": 4,
+        "in_degree": 2,
+        "out_degree": 5
+      },
+      {
+        "id": "api",
+        "files": 6,
+        "in_degree": 0,
+        "out_degree": 17
+      },
+      {
+        "id": "jwt_cookie",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "routing_metrics",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "service",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "dataset",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "orchestrator",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "dashboard_config",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "framework",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "graphs",
+        "files": 2,
+        "in_degree": 0,
+        "out_degree": 3
+      },
+      {
+        "id": "generation_agent_4",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "retrieval_agent_4",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "indexing",
+        "files": 4,
+        "in_degree": 0,
+        "out_degree": 7
+      },
+      {
+        "id": "monitoring",
+        "files": 5,
+        "in_degree": 0,
+        "out_degree": 2
+      },
+      {
+        "id": "interfaces",
+        "files": 5,
+        "in_degree": 0,
+        "out_degree": 4
+      },
+      {
+        "id": "classification.cache",
+        "files": 2,
+        "in_degree": 0,
+        "out_degree": 1
+      },
+      {
+        "id": "classification.strategies",
+        "files": 5,
+        "in_degree": 0,
+        "out_degree": 5
+      },
+      {
+        "id": "cache.lru_cache",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "handlers.agentic_rag",
+        "files": 3,
+        "in_degree": 0,
+        "out_degree": 8
+      },
+      {
+        "id": "agentic_rag_graph",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "chat",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      }
+    ],
+    "edges": [
+      {
+        "from": "root",
+        "to": ""
+      },
+      {
+        "from": "root",
+        "to": "llm"
+      },
+      {
+        "from": "root",
+        "to": "session"
+      },
+      {
+        "from": "root",
+        "to": "hybrid"
+      },
+      {
+        "from": "root",
+        "to": "config"
+      },
+      {
+        "from": "root",
+        "to": "retrieval_tools"
+      },
+      {
+        "from": "root",
+        "to": "reranking_tools"
+      },
+      {
+        "from": "root",
+        "to": "ingestion_tools"
+      },
+      {
+        "from": "root",
+        "to": "qdrant_store"
+      },
+      {
+        "from": "root",
+        "to": "embedding"
+      },
+      {
+        "from": "classification",
+        "to": "strategies.keyword"
+      },
+      {
+        "from": "classification",
+        "to": "strategies.cached"
+      },
+      {
+        "from": "classification",
+        "to": "strategies.llm"
+      },
+      {
+        "from": "classification",
+        "to": "strategies.composite"
+      },
+      {
+        "from": "database",
+        "to": "config"
+      },
+      {
+        "from": "database",
+        "to": "session"
+      },
+      {
+        "from": "database",
+        "to": "models"
+      },
+      {
+        "from": "database",
+        "to": "query"
+      },
+      {
+        "from": "models",
+        "to": "evaluation"
+      },
+      {
+        "from": "models",
+        "to": "auth"
+      },
+      {
+        "from": "models",
+        "to": "documents"
+      },
+      {
+        "from": "ingestion",
+        "to": "chunker"
+      },
+      {
+        "from": "ingestion",
+        "to": ""
+      },
+      {
+        "from": "ingestion",
+        "to": "session"
+      },
+      {
+        "from": "ingestion",
+        "to": "bm25_builder"
+      },
+      {
+        "from": "ingestion",
+        "to": "bm25"
+      },
+      {
+        "from": "ingestion",
+        "to": "cleaner"
+      },
+      {
+        "from": "ingestion",
+        "to": "config"
+      },
+      {
+        "from": "ingestion",
+        "to": "qdrant_store"
+      },
+      {
+        "from": "ingestion",
+        "to": "pipelines"
+      },
+      {
+        "from": "ingestion",
+        "to": "document_store"
+      },
+      {
+        "from": "ingestion",
+        "to": "file_store"
+      },
+      {
+        "from": "ingestion",
+        "to": "extractor"
+      },
+      {
+        "from": "ingestion",
+        "to": "paddleocr_client"
+      },
+      {
+        "from": "ingestion",
+        "to": "embedding"
+      },
+      {
+        "from": "tools",
+        "to": "llm"
+      },
+      {
+        "from": "tools",
+        "to": ""
+      },
+      {
+        "from": "tools",
+        "to": "llm_generation_tools"
+      },
+      {
+        "from": "tools",
+        "to": "chunker"
+      },
+      {
+        "from": "tools",
+        "to": "hybrid"
+      },
+      {
+        "from": "tools",
+        "to": "extractor"
+      },
+      {
+        "from": "tools",
+        "to": "cleaner"
+      },
+      {
+        "from": "tools",
+        "to": "config"
+      },
+      {
+        "from": "tools",
+        "to": "tool_registry"
+      },
+      {
+        "from": "tools",
+        "to": "retrieval_tools"
+      },
+      {
+        "from": "tools",
+        "to": "ingestion_tools"
+      },
+      {
+        "from": "tools",
+        "to": "quality_tools"
+      },
+      {
+        "from": "tools",
+        "to": "reranking_tools"
+      },
+      {
+        "from": "tools",
+        "to": "qdrant_store"
+      },
+      {
+        "from": "tools",
+        "to": "embedding"
+      },
+      {
+        "from": "di",
+        "to": "strategies.keyword"
+      },
+      {
+        "from": "di",
+        "to": "container"
+      },
+      {
+        "from": "di",
+        "to": "feature_flags"
+      },
+      {
+        "from": "di",
+        "to": "registry"
+      },
+      {
+        "from": "di",
+        "to": "strategies.llm"
+      },
+      {
+        "from": "di",
+        "to": "rag"
+      },
+      {
+        "from": "di",
+        "to": "strategies.cached"
+      },
+      {
+        "from": "di",
+        "to": "config"
+      },
+      {
+        "from": "di",
+        "to": "handlers"
+      },
+      {
+        "from": "di",
+        "to": "conversational"
+      },
+      {
+        "from": "di",
+        "to": "classification"
+      },
+      {
+        "from": "di",
+        "to": "strategies.composite"
+      },
+      {
+        "from": "handlers",
+        "to": "llm"
+      },
+      {
+        "from": "handlers",
+        "to": "rag_agent"
+      },
+      {
+        "from": "handlers",
+        "to": "rag"
+      },
+      {
+        "from": "handlers",
+        "to": "config"
+      },
+      {
+        "from": "handlers",
+        "to": "handlers"
+      },
+      {
+        "from": "handlers",
+        "to": "conversational"
+      },
+      {
+        "from": "handlers",
+        "to": "classification"
+      },
+      {
+        "from": "handlers",
+        "to": "llm_post_process"
+      },
+      {
+        "from": "handlers",
+        "to": "prompts"
+      },
+      {
+        "from": "auth",
+        "to": ""
+      },
+      {
+        "from": "auth",
+        "to": "security"
+      },
+      {
+        "from": "auth",
+        "to": "config"
+      },
+      {
+        "from": "auth",
+        "to": "models"
+      },
+      {
+        "from": "auth",
+        "to": "dependencies"
+      },
+      {
+        "from": "agents",
+        "to": ""
+      },
+      {
+        "from": "agents",
+        "to": "rag_agent"
+      },
+      {
+        "from": "agents",
+        "to": "dense"
+      },
+      {
+        "from": "agents",
+        "to": "quality_agent"
+      },
+      {
+        "from": "agents",
+        "to": "embedding"
+      },
+      {
+        "from": "agents",
+        "to": "session"
+      },
+      {
+        "from": "agents",
+        "to": "llm_post_processor"
+      },
+      {
+        "from": "agents",
+        "to": "bm25_builder"
+      },
+      {
+        "from": "agents",
+        "to": "citation_parser"
+      },
+      {
+        "from": "agents",
+        "to": "utils"
+      },
+      {
+        "from": "agents",
+        "to": "agentic_rag_state"
+      },
+      {
+        "from": "agents",
+        "to": "orchestrator_agent"
+      },
+      {
+        "from": "agents",
+        "to": "document_store"
+      },
+      {
+        "from": "agents",
+        "to": "generation_agent"
+      },
+      {
+        "from": "agents",
+        "to": "llm"
+      },
+      {
+        "from": "agents",
+        "to": "responses"
+      },
+      {
+        "from": "agents",
+        "to": "hybrid"
+      },
+      {
+        "from": "agents",
+        "to": "llm_post_process"
+      },
+      {
+        "from": "agents",
+        "to": "chunker"
+      },
+      {
+        "from": "agents",
+        "to": "citation_verifier"
+      },
+      {
+        "from": "agents",
+        "to": "agent_utils"
+      },
+      {
+        "from": "agents",
+        "to": "config"
+      },
+      {
+        "from": "agents",
+        "to": "handlers"
+      },
+      {
+        "from": "agents",
+        "to": "retrieval_agent"
+      },
+      {
+        "from": "agents",
+        "to": "prompts"
+      },
+      {
+        "from": "agents",
+        "to": "classification"
+      },
+      {
+        "from": "evaluation",
+        "to": "llm"
+      },
+      {
+        "from": "evaluation",
+        "to": "service"
+      },
+      {
+        "from": "evaluation",
+        "to": "dashboard_config"
+      },
+      {
+        "from": "evaluation",
+        "to": "config"
+      },
+      {
+        "from": "evaluation",
+        "to": "framework"
+      },
+      {
+        "from": "evaluation",
+        "to": "evaluation"
+      },
+      {
+        "from": "retrieval",
+        "to": "dense"
+      },
+      {
+        "from": "retrieval",
+        "to": "bm25"
+      },
+      {
+        "from": "retrieval",
+        "to": "hybrid"
+      },
+      {
+        "from": "retrieval",
+        "to": "config"
+      },
+      {
+        "from": "retrieval",
+        "to": "qdrant_store"
+      },
+      {
+        "from": "api",
+        "to": ""
+      },
+      {
+        "from": "api",
+        "to": "jwt_cookie"
+      },
+      {
+        "from": "api",
+        "to": "routing_metrics"
+      },
+      {
+        "from": "api",
+        "to": "session"
+      },
+      {
+        "from": "api",
+        "to": "security"
+      },
+      {
+        "from": "api",
+        "to": "service"
+      },
+      {
+        "from": "api",
+        "to": "orchestrator"
+      },
+      {
+        "from": "api",
+        "to": "bm25_builder"
+      },
+      {
+        "from": "api",
+        "to": "config"
+      },
+      {
+        "from": "api",
+        "to": "dataset"
+      },
+      {
+        "from": "api",
+        "to": "auth"
+      },
+      {
+        "from": "api",
+        "to": "models"
+      },
+      {
+        "from": "api",
+        "to": "pipelines"
+      },
+      {
+        "from": "api",
+        "to": "document_store"
+      },
+      {
+        "from": "api",
+        "to": "file_store"
+      },
+      {
+        "from": "api",
+        "to": "evaluation"
+      },
+      {
+        "from": "api",
+        "to": "dependencies"
+      },
+      {
+        "from": "graphs",
+        "to": "generation_agent_4"
+      },
+      {
+        "from": "graphs",
+        "to": "agentic_rag_state"
+      },
+      {
+        "from": "graphs",
+        "to": "retrieval_agent_4"
+      },
+      {
+        "from": "indexing",
+        "to": ""
+      },
+      {
+        "from": "indexing",
+        "to": "session"
+      },
+      {
+        "from": "indexing",
+        "to": "config"
+      },
+      {
+        "from": "indexing",
+        "to": "models"
+      },
+      {
+        "from": "indexing",
+        "to": "document_store"
+      },
+      {
+        "from": "indexing",
+        "to": "file_store"
+      },
+      {
+        "from": "indexing",
+        "to": "qdrant_store"
+      },
+      {
+        "from": "monitoring",
+        "to": "config"
+      },
+      {
+        "from": "monitoring",
+        "to": "routing_metrics"
+      },
+      {
+        "from": "interfaces",
+        "to": "handlers"
+      },
+      {
+        "from": "interfaces",
+        "to": "retrieval"
+      },
+      {
+        "from": "interfaces",
+        "to": "container"
+      },
+      {
+        "from": "interfaces",
+        "to": "classification"
+      },
+      {
+        "from": "classification.cache",
+        "to": "classification"
+      },
+      {
+        "from": "classification.strategies",
+        "to": "llm"
+      },
+      {
+        "from": "classification.strategies",
+        "to": "cache.lru_cache"
+      },
+      {
+        "from": "classification.strategies",
+        "to": "agent_utils"
+      },
+      {
+        "from": "classification.strategies",
+        "to": "retrieval"
+      },
+      {
+        "from": "classification.strategies",
+        "to": "classification"
+      },
+      {
+        "from": "handlers.agentic_rag",
+        "to": "llm"
+      },
+      {
+        "from": "handlers.agentic_rag",
+        "to": "feature_flags"
+      },
+      {
+        "from": "handlers.agentic_rag",
+        "to": "agentic_rag_graph"
+      },
+      {
+        "from": "handlers.agentic_rag",
+        "to": "rag"
+      },
+      {
+        "from": "handlers.agentic_rag",
+        "to": "agentic_rag_state"
+      },
+      {
+        "from": "handlers.agentic_rag",
+        "to": "handlers"
+      },
+      {
+        "from": "handlers.agentic_rag",
+        "to": "classification"
+      },
+      {
+        "from": "handlers.agentic_rag",
+        "to": "chat"
+      }
+    ]
+  },
+  "critical_nodes": [
+    {
+      "module": "config",
+      "dependents": 13,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "",
+      "dependents": 7,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "llm",
+      "dependents": 7,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "classification",
+      "dependents": 7,
+      "dependencies": 4,
+      "files": [
+        "src/classification/__init__.py"
+      ]
+    },
+    {
+      "module": "session",
+      "dependents": 6,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "qdrant_store",
+      "dependents": 5,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "handlers",
+      "dependents": 5,
+      "dependencies": 9,
+      "files": [
+        "src/handlers/__init__.py",
+        "src/handlers/rag.py",
+        "src/handlers/conversational.py"
+      ]
+    },
+    {
+      "module": "embedding",
+      "dependents": 4,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "hybrid",
+      "dependents": 4,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "models",
+      "dependents": 4,
+      "dependencies": 3,
+      "files": [
+        "src/models/auth.py",
+        "src/models/responses.py",
+        "src/models/documents.py",
+        "src/models/evaluation.py",
+        "src/models/__init__.py",
+        "src/models/chat.py",
+        "src/models/agentic_rag_state.py"
+      ]
+    },
+    {
+      "module": "document_store",
+      "dependents": 4,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "chunker",
+      "dependents": 3,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "bm25_builder",
+      "dependents": 3,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "file_store",
+      "dependents": 3,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "rag",
+      "dependents": 3,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "agentic_rag_state",
+      "dependents": 3,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "evaluation",
+      "dependents": 3,
+      "dependencies": 6,
+      "files": [
+        "src/evaluation/service.py",
+        "src/evaluation/framework.py",
+        "src/evaluation/__init__.py",
+        "src/evaluation/ci-cd-integration.py",
+        "src/evaluation/dataset.py"
+      ]
+    },
+    {
+      "module": "retrieval_tools",
+      "dependents": 2,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "ingestion_tools",
+      "dependents": 2,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "reranking_tools",
+      "dependents": 2,
+      "dependencies": 0,
+      "files": []
+    }
+  ],
+  "summary": {
+    "total_modules": 82,
+    "total_files": 96,
+    "total_edges": 160
+  }
+}

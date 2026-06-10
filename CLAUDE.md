@@ -870,4 +870,113 @@ Old routers remain functional via `RouterAdapter` in `src/handlers/adapters/`. G
 
 ---
 
+## Modular Monolith Migration (2026)
+
+### Current Status: Phase 0 Complete ✅
+
+**Branch**: `feat/modular-monolith-migration`  
+**Documentation**: 
+- [Migration Progress Tracker](docs/modular-monolith-migration-progress.md)
+- [Phase 0 Quick Reference](docs/phase0-quick-reference.md)
+
+### Phase 0 Achievements (2026-06-11)
+
+**Completed**:
+- ✅ Created 5 validation scripts for architecture analysis
+- ✅ Generated dependency graph: **82 modules**, **96 Python files**
+- ✅ Set up CI workflow for automated validation
+- ✅ Verified: **0 circular dependencies**, **0 layer violations**
+- ✅ Documented current architecture state
+
+**Architecture State**:
+```
+Module Distribution:
+- Serving Layer (src/api/): 8 modules
+- Agent/Tools Layer (src/): 12 modules
+- Retrieval Layer (src/): 15 modules
+- Ingestion Layer (src/): 10 modules
+- Infrastructure (src/): 17 modules
+- Interfaces (src/): 6 modules
+- Other modules: 14 modules
+```
+
+### Migration Roadmap
+
+```mermaid
+gantt
+    title Modular Monolith Migration Timeline
+    dateFormat  YYYY-MM-DD
+    section Phase 0
+    Pre-Migration Preparation    :done, p0, 2026-06-11, 2d
+    section Phase 1
+    Module Identification         :active, p1, 2026-06-13, 5d
+    section Phase 2
+    Interface Definition          :p2, after p1, 7d
+    section Phase 3
+    Dependency Injection          :p3, after p2, 10d
+    section Phase 4
+    Module Implementation         :p4, after p3, 14d
+    section Phase 5
+    Testing & Validation         :p5, after p4, 7d
+```
+
+### Validation Infrastructure
+
+**Scripts Available** (`scripts/`):
+- `validate_architecture.py` - Layer boundary validation
+- `analyze-dependencies-for-modular-monolith.py` - Dependency graph generation
+- `visualize-dependencies-with-mermaid.py` - Mermaid diagram visualization
+- `create-architecture-baseline.py` - Baseline snapshot creation
+
+**CI Workflow**: `.github/workflows/validate-modular-monolith-architecture.yml`
+
+### Quick Commands
+
+```bash
+# Run all validations
+python scripts/validate_architecture.py && \
+python scripts/analyze-dependencies-for-modular-monolith.py && \
+python scripts/visualize-dependencies-with-mermaid.py
+
+# View reports
+cat dependency_report.json | jq '.'                    # Dependency graph
+open dependency_visualization.html                      # Visualization
+cat architecture_baseline.json | jq '.'                  # Baseline metrics
+```
+
+### Next Steps (Phase 1: Module Identification)
+
+**Objectives**:
+1. Identify candidate modules (15-20 target modules)
+2. Define module boundaries based on dependency analysis
+3. Create module taxonomy and categorization
+4. Document module interfaces
+
+**Preparation**:
+- Review dependency_report.json for high-coupling areas
+- Identify leaf modules (low out_degree) for early extraction
+- Define core modules (high in_degree) for late extraction
+- Establish module size limits (max files per module)
+
+### Migration Progress
+
+- **Phase 0**: Pre-Migration Preparation ✅ Complete
+- **Phase 1**: Module Identification 🔄 Planning
+- **Phase 2**: Interface Definition ⏳ Pending
+- **Phase 3**: Dependency Injection ⏳ Pending
+- **Phase 4**: Module Implementation ⏳ Pending
+- **Phase 5**: Testing & Validation ⏳ Pending
+
+**Estimated Total Duration**: ~45 days (6-7 weeks)
+
+### References
+
+- **System Architecture**: [docs/system-architecture.md](docs/system-architecture.md)
+- **Code Standards**: [docs/code-standards.md](docs/code-standards.md)
+- **Phase 0 Reports**: See [docs/phase0-quick-reference.md](docs/phase0-quick-reference.md)
+
+---
+
+*Last Updated: 2026-06-11*  
+*Migration Branch: feat/modular-monolith-migration*  
 *This document is maintained alongside the codebase. Update when architecture or patterns change.*

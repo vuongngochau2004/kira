@@ -2,7 +2,7 @@
 
 ## Tổng quan Architecture
 
-K.I.R.A Simplified theo **4-layer architecture pattern** với tách biệt rõ ràng giữa các lớp, và đã được refactor theo **SOLID principles** với protocol-based design:
+K.I.R.A Simplified theo **4-layer architecture pattern** với tách biệt rõ ràng giữa các lớp, và đã được refactor theo **SOLID principles** với ABC-based design (Protocol migration hoàn thành 2025-06-07):
 
 ```mermaid
 graph TB
@@ -107,15 +107,15 @@ graph TB
 
 ## Các thành phần chính
 
-### 1. SOLID Protocol-Based Architecture (Refactor mới)
+### 1. SOLID ABC-Based Architecture (Refactor hoàn thành 2025-06-07)
 
 ```mermaid
 graph TB
-    subgraph Protocols["Protocol Layer (src/protocols/)"]
-        ClassProtocol[ClassificationStrategy<br/>Protocol]
-        HandlerProtocol[QueryHandler<br/>Protocol]
-        RetrieverProtocol[Retriever<br/>Protocol]
-        ContainerProtocol[DependencyContainer<br/>Protocol]
+    subgraph Interfaces["ABC Layer (src/interfaces/)"]
+        ClassABC[ClassificationStrategyBase<br/>ABC]
+        HandlerABC[QueryHandlerBase<br/>ABC]
+        RetrieverABC[RetrieverBase<br/>ABC]
+        ContainerABC[DependencyContainerBase<br/>ABC]
     end
 
     subgraph Classification["Classification Layer (src/classification/)"]
@@ -137,34 +137,35 @@ graph TB
         FeatureFlags[FeatureFlagManager<br/>Percentage Rollout]
     end
 
-    Protocols --> Classification
-    Protocols --> Handlers
-    Protocols --> DI
+    Interfaces --> Classification
+    Interfaces --> Handlers
+    Interfaces --> DI
 
     Composite --> Keyword
     Composite --> Cached
     Cached --> LLMClass
 
-    RAGHandler --> RetrieverProtocol
-    Adapter --> HandlerProtocol
+    RAGHandler --> RetrieverABC
+    Adapter --> HandlerABC
 
-    Container --> ContainerProtocol
+    Container --> ContainerABC
     Registry --> Container
     FeatureFlags --> Container
 
-    style Protocols fill:#e1f5fe
+    style Interfaces fill:#e1f5fe
     style Classification fill:#c8e6c9
     style Handlers fill:#ffecb3
     style DI fill:#f3e5f5
 ```
 
-**Protocol Benefits**:
-- **DIP**: High-level modules depend on protocols, not concretions
+**ABC Benefits**:
+- **DIP**: High-level modules depend on ABC abstractions, not concretions
 - **OCP**: Open for extension (new implementations), closed for modification
 - **SRP**: Single responsibility - handlers execute, classifiers classify
-- **Testability**: Protocol-based mocking in tests
+- **Testability**: ABC-based mocking with compile-time verification
+- **Performance**: <1% overhead compared to Protocol-based design (migration 2025-06-07)
 
-### 2. Multi-Agent Routing (Legacy → Protocol Migration)
+### 2. Multi-Agent Routing (Legacy → ABC Migration)
 
 ```mermaid
 flowchart TD
@@ -317,3 +318,76 @@ The system is gradually migrating from router-based to protocol-based architectu
 **Backward Compatibility**: `RouterAdapter` in `src/handlers/adapters/` allows old routers to work with new protocol-based system.
 
 See [CLAUDE.md](../CLAUDE.md) for detailed migration guide.
+
+---
+
+## Modular Monolith Migration (2026)
+
+### Phase 0: Pre-Migration Preparation ✅ COMPLETE
+
+**Status**: Phase 0 completed 2026-06-11  
+**Branch**: `feat/modular-monolith-migration`  
+**Documentation**: [Migration Progress Tracker](modular-monolith-migration-progress.md) | [Phase 0 Quick Reference](phase0-quick-reference.md)
+
+**Achievements**:
+- ✅ Created 5 validation scripts for architecture analysis
+- ✅ Generated dependency graph (82 modules, 96 files)
+- ✅ Set up CI workflow for automated validation
+- ✅ Documented current architecture state
+- ✅ Verified: 0 circular dependencies, 0 layer violations
+
+**Current Architecture State**:
+```
+Total Modules: 82
+Python Files: 96
+Circular Dependencies: 0
+Layer Violations: 0
+
+Module Distribution:
+- Serving Layer (src/api/): 8 modules
+- Agent/Tools Layer (src/): 12 modules
+- Retrieval Layer (src/): 15 modules
+- Ingestion Layer (src/): 10 modules
+- Infrastructure (src/): 17 modules
+- Interfaces (src/): 6 modules
+- Other modules: 14 modules
+```
+
+**Migration Roadmap**:
+```mermaid
+gantt
+    title Modular Monolith Migration Timeline
+    dateFormat  YYYY-MM-DD
+    section Phase 0
+    Pre-Migration Preparation    :done, p0, 2026-06-11, 2d
+    section Phase 1
+    Module Identification         :active, p1, 2026-06-13, 5d
+    section Phase 2
+    Interface Definition          :p2, after p1, 7d
+    section Phase 3
+    Dependency Injection          :p3, after p2, 10d
+    section Phase 4
+    Module Implementation         :p4, after p3, 14d
+    section Phase 5
+    Testing & Validation         :p5, after p4, 7d
+```
+
+**Validation Infrastructure**:
+- **Architecture Validation**: `scripts/validate_architecture.py`
+- **Dependency Analysis**: `scripts/analyze-dependencies-for-modular-monolith.py`
+- **Visualization**: `scripts/visualize-dependencies-with-mermaid.py`
+- **Baseline Creation**: `scripts/create-architecture-baseline.py`
+- **CI Workflow**: `.github/workflows/validate-modular-monolith-architecture.yml`
+
+**Next Steps (Phase 1)**:
+- Identify candidate modules (15-20 target modules)
+- Define module boundaries based on dependency analysis
+- Create module taxonomy and categorization
+- Document module interfaces
+
+**Migration Status**: Phase 0 Complete ✅ → Phase 1 Planning
+
+---
+
+*Last Updated: 2026-06-11*  
+*For detailed migration progress, see [docs/modular-monolith-migration-progress.md](modular-monolith-migration-progress.md)*
