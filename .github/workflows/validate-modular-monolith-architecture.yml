@@ -1,0 +1,54 @@
+name: Architecture Validation
+
+on:
+  push:
+    branches: [feat/modular-monolith-migration]
+  pull_request:
+    branches: [feat/modular-monolith-migration]
+
+jobs:
+  validate-architecture:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install UV
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+
+      - name: Create reports directory
+        run: |
+          mkdir -p reports/phase0/{dependencies,tests,baselines}
+
+      - name: Run architecture validation
+        run: |
+          python scripts/validate_architecture.py
+
+      - name: Run dependency analysis
+        run: |
+          python scripts/analyze-dependencies-for-modular-monolith.py
+
+      - name: Check for circular dependencies
+        run: |
+          python -c "import sys; exec(open('scripts/validate_architecture.py').read()); sys.exit(0 if validate_no_circular_dependencies() else 1)"
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-reports
+          path: |
+            reports/phase0/
+            dependency_report.json
+            dependency-graph.mmd
