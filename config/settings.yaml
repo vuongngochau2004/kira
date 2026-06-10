@@ -10,10 +10,13 @@ embedding:
 retrieval:
   k: 5                         # Top-k chunks to retrieve
   rrf_k: 60                    # RRF constant (higher → more diversity)
+  min_score_threshold: 0.65    # Minimum similarity score for results (0.0-1.0)
+                               # Results below this threshold are filtered out
+                               # Helps prevent irrelevant documents from being retrieved
 
 # Reranking (LLM-based document reranking)
 reranking:
-  enabled: false               # Enable LLM reranking (default: disabled)
+  enabled: true                # ✅ Enable LLM reranking for improved precision
   mode: "llm"                  # "llm" for LLM-based, "score" for individual scoring
   top_k_before: 20             # Number of candidates to rerank
   top_k_after: 5               # Number of top results after reranking

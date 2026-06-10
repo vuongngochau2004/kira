@@ -138,10 +138,13 @@ class RAGHandler(QueryHandlerBase):
 
             content = result.get("content", "")
 
-            # ✅ Relevance detection: Check if LLM found documents relevant
-            is_rejection = self._is_rejection_response(content)
+            # ✅ Relevance detection: Check BOTH AgenticRAG metadata AND content analysis
+            # Priority: Use rejection_detected from AgenticRAG if available, fallback to content analysis
+            rag_rejection = result.get("rejection_detected", False)
+            content_rejection = self._is_rejection_response(content)
+            is_rejection = rag_rejection or content_rejection
 
-            # Convert citations
+            # Convert citations (AgenticRAG should already return empty if rejection)
             raw_citations = result.get("citations", [])
             citations = self._convert_citations(raw_citations)
 
@@ -158,14 +161,16 @@ class RAGHandler(QueryHandlerBase):
                     "latency_ms": (time.perf_counter() - t0) * 1000,
                     "classification": classification.to_dict(),
                     "retrieval_history": result.get("retrieval_history", []),
-                    # Observability: Track filtering decisions
+                    # Observability: Track filtering decisions from BOTH layers
                     "relevance_filtering": {
                         "enabled": True,
                         "is_rejection": is_rejection,
+                        "rag_rejection": rag_rejection,
+                        "content_rejection": content_rejection,
                         "retrieved_count": len(raw_citations),
                         "returned_count": len(final_citations),
                         "filtered_count": len(raw_citations) - len(final_citations),
-                        "rejection_reason": "no_relevant_docs" if is_rejection else None,
+                        "rejection_reason": result.get("rejection_reason") or ("no_relevant_docs" if is_rejection else None),
                     },
                     "has_relevant_docs": not is_rejection,
                 }
@@ -261,7 +266,18 @@ class RAGHandler(QueryHandlerBase):
                 c.get("data", {}).get("text", "")
                 for c in content_chunks
             ])
-            has_rejection = self._is_rejection_response(full_content)
+
+            # Check rejection from BOTH content analysis and AgenticRAG metadata (if available)
+            content_rejection = self._is_rejection_response(full_content)
+
+            # Try to get rejection metadata from citation chunks (AgenticRAG might have sent it)
+            rag_rejection = False
+            for chunk in citation_chunks:
+                if chunk.get("type") == "metadata" and chunk.get("data", {}).get("rejection_detected"):
+                    rag_rejection = True
+                    break
+
+            has_rejection = rag_rejection or content_rejection
 
             # Only yield citation chunks if LLM found relevant documents
             if not has_rejection:
@@ -271,13 +287,15 @@ class RAGHandler(QueryHandlerBase):
                         citation_chunk["data"]["relevance_filtered"] = False
                     yield citation_chunk
             else:
-                # Log filtering decision
+                # Log filtering decision with detailed observability
                 yield {
                     "type": "metadata",
                     "data": {
                         "relevance_filtering": {
                             "enabled": True,
                             "is_rejection": True,
+                            "rag_rejection": rag_rejection,
+                            "content_rejection": content_rejection,
                             "filtered_citation_count": len(citation_chunks),
                             "rejection_reason": "no_relevant_docs",
                         }

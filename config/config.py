@@ -102,6 +102,7 @@ class Settings(BaseSettings):
     # ----- Retrieval (from settings.yaml) -----
     retrieval_k: int = _static_config.get("retrieval", {}).get("k", 5)
     rrf_k: int = _static_config.get("retrieval", {}).get("rrf_k", 60)
+    retrieval_min_score_threshold: float = _static_config.get("retrieval", {}).get("min_score_threshold", 0.65)
 
     # ----- Reranking (from settings.yaml) -----
     reranking_enabled: bool = _static_config.get("reranking", {}).get("enabled", False)

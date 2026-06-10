@@ -1,9 +1,12 @@
 """Qdrant vector storage wrapper."""
 
+import logging
 import uuid
 from uuid import UUID
 
 from qdrant_client import QdrantClient
+
+logger = logging.getLogger(__name__)
 from qdrant_client.models import (
     Distance,
     PointStruct,
@@ -102,6 +105,7 @@ def search_similar(
     query_embedding: list[float],
     user_id: UUID | str | None = None,
     limit: int = 5,
+    min_score: float = 0.65,
 ) -> list[dict]:
     """Search for similar chunks using vector similarity.
 
@@ -109,9 +113,10 @@ def search_similar(
         query_embedding: Query vector
         user_id: Optional user ID filter
         limit: Maximum number of results
+        min_score: Minimum similarity score threshold (0.0-1.0)
 
     Returns:
-        List of matching chunks with scores
+        List of matching chunks with scores (filtered by min_score)
     """
     client = get_client()
     ensure_collection()
@@ -135,7 +140,9 @@ def search_similar(
         query_filter=query_filter,
     ).points
 
-    return [
+    # ✅ Filter results by minimum score threshold
+    # This prevents irrelevant documents from being retrieved
+    filtered_results = [
         {
             "id": hit.id,
             "score": hit.score,
@@ -146,7 +153,22 @@ def search_similar(
             "page_number": hit.payload.get("page_number") if hit.payload else None,
         }
         for hit in results
+        if hit.score >= min_score
     ]
+
+    # ✅ Log retrieval quality metrics for debugging
+    if results:
+        scores = [hit.score for hit in results]
+        logger.debug(
+            f"Qdrant retrieval: {len(filtered_results)}/{len(results)} results "
+            f"passed score threshold (min={min_score:.2f}). "
+            f"Score range: {min(scores):.3f} - {max(scores):.3f}, "
+            f"avg: {sum(scores)/len(scores):.3f}"
+        )
+    else:
+        logger.warning(f"Qdrant retrieval returned 0 results for user_id={user_id}")
+
+    return filtered_results
 
 
 def delete_document(document_id: UUID | str) -> None:

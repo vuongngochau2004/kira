@@ -330,7 +330,8 @@ class RAGRouter(BaseRouter):
     def _format_success_result(self, result: dict) -> dict:
         """Format successful RAG result with consistent structure.
 
-        Ensures backward-compatible fields are present.
+        Ensures backward-compatible fields are present and filters citations
+        when rejection is detected (no relevant documents found).
 
         Args:
             result: Raw RAG agent result
@@ -342,11 +343,24 @@ class RAGRouter(BaseRouter):
         result.setdefault("sources", [])
         result.setdefault("metadata", {})
 
+        # ✅ Filter citations when rejection detected
+        # If LLM says "no relevant docs", don't show citations even if retrieved
+        rejection_detected = result.get("rejection_detected", False)
+        if rejection_detected:
+            result["citations"] = []
+            result["sources"] = []
+            logger.info(
+                f"[RAGRouter] Rejection detected - filtering citations. "
+                f"Reason: {result.get('rejection_reasoning', 'N/A')[:100]}"
+            )
+
         # Add router metadata
         result["metadata"].update({
             "router": self.get_name(),
             "agent": "rag",
             "chunks_found": result.get("total_docs", 0),
+            "rejection_detected": rejection_detected,  # ✅ Forward rejection flag
+            "rejection_reasoning": result.get("rejection_reasoning"),
         })
 
         return result

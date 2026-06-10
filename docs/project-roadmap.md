@@ -67,6 +67,9 @@ Known technical debts:
 - [ ] Remove legacy router code after migration validation
 - [ ] Add ABC compliance tests to CI/CD
 
-## Changelog
+## Liên kết
 
-Xem [project-changelog.md](./project-changelog.md) để xem chi tiết changes.
+- [Kiến trúc Hệ thống](./system-architecture.md) - Architecture chi tiết
+- [Tiêu chuẩn Code](./code-standards.md) - Code conventions
+- [Hướng dẫn Thiết kế](./design-guidelines.md) - Design principles
+- [Hướng dẫn Deployment](./deployment-guide.md) - Deployment guide

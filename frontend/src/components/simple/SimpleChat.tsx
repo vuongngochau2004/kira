@@ -45,6 +45,8 @@ export interface Message {
   citation_verification?: VerificationStats
   use_new_citation_format?: boolean  // Use [source:chunk_id] format
   isOptimistic?: boolean  // NEW: Mark optimistic messages for UI indication
+  rejection_detected?: boolean  // ✅ NEW: Explicit backend rejection signal
+  rejection_reasoning?: string  // ✅ NEW: LLM's explanation for rejection (Vietnamese)
 }
 
 interface SimpleChatProps {
@@ -163,7 +165,7 @@ const MessageRow = memo((
       )}
 
       {/* Source Citation */}
-      {message.role === 'assistant' && message.sources && message.sources.length > 0 && !message.use_new_citation_format && (
+      {message.role === 'assistant' && message.sources && message.sources.length > 0 && !message.use_new_citation_format && !message.rejection_detected && (
         <div className="mt-2">
           <SourceCitation
             sources={message.sources}
@@ -176,7 +178,7 @@ const MessageRow = memo((
       )}
 
       {/* Citation Button - New format */}
-      {message.role === 'assistant' && message.use_new_citation_format && message.sources && message.sources.length > 0 && (
+      {message.role === 'assistant' && message.use_new_citation_format && message.sources && message.sources.length > 0 && !message.rejection_detected && (
         <div className="mt-2">
           <button
             onClick={() => {
@@ -192,6 +194,14 @@ const MessageRow = memo((
               </span>
             )}
           </button>
+        </div>
+      )}
+
+      {/* ✅ Rejection Indicator - NEW */}
+      {message.role === 'assistant' && message.rejection_detected && (
+        <div className="mt-2 text-xs text-muted-foreground italic flex items-center gap-1.5">
+          <span>ℹ️</span>
+          <span>{message.rejection_reasoning || "Không tìm thấy thông tin trong tài liệu"}</span>
         </div>
       )}
     </div>

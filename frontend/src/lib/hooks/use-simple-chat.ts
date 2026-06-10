@@ -203,6 +203,8 @@ export function useSimpleChat() {
               sources: state.sources.length > 0 ? [...state.sources] : undefined,
               streamingState: state.status,
               isStreaming: state.status !== 'complete',
+              rejection_detected: state.rejection_detected,
+              rejection_reasoning: state.rejection_reasoning,
             }
           : msg
       )

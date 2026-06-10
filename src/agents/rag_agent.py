@@ -26,9 +26,15 @@ DEFAULT_MAX_CITATIONS = 10  # Default maximum citations to extract
 # Legal Terms for Hybrid Search
 SPECIFIC_TERMS = ["điều khoản", "khoản", "điều", "nghị định", "thông tư", "luật"]
 
-from src.agents.llm import chat_async, chat_async_stream
+from src.agents.llm import chat_async, chat_async_stream, chat_async_with_tools
 from src.agents.llm_post_process import stream_with_thinking_separation
-from src.agents.prompts import ANSWER_GENERATOR_PROMPT, CITATION_AWARE_SYSTEM_PROMPT, format_context_with_citations
+from src.agents.prompts import (
+    ANSWER_GENERATOR_PROMPT,
+    CITATION_AWARE_SYSTEM_PROMPT,
+    format_context_with_citations,
+    RAG_STRUCTURED_OUTPUT_PROMPT,  # NEW
+    RAG_ANSWER_TOOL,  # NEW
+)
 from src.agents.utils import format_context
 from src.agents.citation_parser import CitationParser
 from src.agents.citation_verifier import CitationVerifier
@@ -39,7 +45,7 @@ from src.ingestion.chunker import count_tokens
 from src.ingestion.bm25_builder import get_bm25_manager
 from src.models.responses import DocumentSource, SourceChunk, SourceMetadata, GroupedDocumentResponse
 from config.config import settings
-from src.constants import MAX_CONTEXT_TOKENS, MIN_CONTEXT_LENGTH
+from src.constants import MAX_CONTEXT_TOKENS, MIN_CONTEXT_LENGTH, MIN_RETRIEVAL_SCORE, MIN_RETRIEVAL_DOCS
 
 DEFAULT_MAX_ITERATIONS = 3
 DEFAULT_RETRIEVAL_K = 5
@@ -247,20 +253,80 @@ class AgenticRAG:
         return messages
 
     def evaluate_context(self, query: str, docs: list[dict]) -> bool:
-        """Check if context is sufficient.
+        """Check if context is sufficient AND relevant.
 
         Args:
             query: User query (currently unused, kept for interface consistency)
             docs: Retrieved documents
 
         Returns:
-            True if sufficient, False otherwise
+            True if sufficient AND relevant, False otherwise
         """
         if not docs:
             return False
 
+        # ✅ Check minimum document count
+        if len(docs) < MIN_RETRIEVAL_DOCS:
+            logger.debug(f"Context insufficient: only {len(docs)} docs (min={MIN_RETRIEVAL_DOCS})")
+            return False
+
+        # ✅ Check context length
         context = format_context(docs)
-        return len(context) >= MIN_CONTEXT_LENGTH
+        if len(context) < MIN_CONTEXT_LENGTH:
+            logger.debug(f"Context insufficient: length={len(context)} (min={MIN_CONTEXT_LENGTH})")
+            return False
+
+        # ✅ Check average retrieval score for relevance
+        scores = [
+            doc.get("score", doc.get("rrf_score", 0))
+            for doc in docs
+            if doc.get("score") is not None or doc.get("rrf_score") is not None
+        ]
+        if scores:
+            avg_score = sum(scores) / len(scores)
+            if avg_score < MIN_RETRIEVAL_SCORE:
+                logger.debug(
+                    f"Context insufficient: avg_score={avg_score:.3f} (min={MIN_RETRIEVAL_SCORE}), "
+                    f"score_range=[{min(scores):.3f}, {max(scores):.3f}]"
+                )
+                return False
+
+        return True
+
+    def _is_rejection_response(self, content: str) -> bool:
+        """Detect if LLM response indicates no relevant documents were found.
+
+        This prevents returning irrelevant citations when LLM says it couldn't find information.
+
+        Args:
+            content: LLM-generated response content
+
+        Returns:
+            True if response indicates rejection (no relevant docs), False otherwise
+
+        Example:
+            >>> self._is_rejection_response("Không tìm thấy tài liệu liên quan")
+            True
+            >>> self._is_rejection_response("Dựa trên tài liệu, quy trình là...")
+            False
+        """
+        # Rejection patterns from RAGHandler (consistent across handlers)
+        REJECTION_PATTERNS = [
+            "không tìm thấy",
+            "không có thông tin",
+            "tài liệu không đề cập",
+            "văn bản không quy định",
+            "không đề cập đến",
+            "không có quy định",
+            "dữ liệu không có",
+            "không tài liệu nào",
+            "không có đề cập",
+            "tài liệu không chứa",
+            "không cung cấp thông tin",
+        ]
+
+        content_lower = content.lower()
+        return any(pattern in content_lower for pattern in REJECTION_PATTERNS)
 
     async def generate_answer(
         self,
@@ -394,12 +460,65 @@ class AgenticRAG:
             })
 
             if sufficient:
-                # GENERATION PASS 1: G-Cite with enhanced prompt
-                answer = await self._generate_with_citation_aware_prompt(
+                # GENERATION PASS: Use structured output for rejection detection
+                structured_result = await self._generate_with_structured_output(
                     query, all_docs, conversation_history
                 )
 
-                # VERIFICATION PASS
+                # ✅ Extract structured fields
+                answer = structured_result.get("content", "")
+                is_rejection = structured_result.get("rejection_detected", False)
+                rejection_reasoning = structured_result.get("rejection_reasoning", "")
+                rejection_confidence = structured_result.get("rejection_confidence", 0.0)
+
+                # ✅ Log structured output results
+                logger.info(
+                    f"[RAG Query] Structured output: rejection={is_rejection}, "
+                    f"confidence={rejection_confidence:.2f}, reasoning={rejection_reasoning[:100]}"
+                )
+
+                if is_rejection:
+                    logger.warning(
+                        f"Iteration {iteration + 1}: LLM detected no relevant documents. "
+                        f"Reasoning: '{rejection_reasoning[:100]}...'"
+                    )
+                    # ✅ If rejection and more iterations available, try different strategy
+                    if iteration < self.max_iterations - 1:
+                        logger.info(f"Continuing to iteration {iteration + 2} with strategy switch...")
+                        retrieval_history[-1]["rejection_detected"] = True
+                        retrieval_history[-1]["rejection_reason"] = "llm_no_relevant_docs"
+                        retrieval_history[-1]["rejection_reasoning"] = rejection_reasoning
+                        strategy = self._switch_strategy(strategy, bm25_index)
+                        continue  # Continue to next iteration
+                    else:
+                        # Last iteration: return rejection response
+                        logger.warning("Max iterations reached with rejection. Returning no-relevant-docs response.")
+                        retrieval_history[-1]["rejection_detected"] = True
+                        retrieval_history[-1]["rejection_reason"] = "llm_no_relevant_docs_final"
+                        retrieval_history[-1]["rejection_reasoning"] = rejection_reasoning
+                        return {
+                            "content": answer,
+                            "citations": [],  # ✅ Empty citations on rejection
+                            "sources": [],  # ✅ Empty sources on rejection
+                            "metadata": {
+                                "total_documents": 0,
+                                "total_chunks": 0,
+                                "top_document": "",
+                                "rejection": True,
+                                "reason": "no_relevant_docs_found",
+                                "rejection_reasoning": rejection_reasoning,
+                                "rejection_confidence": rejection_confidence,
+                            },
+                            "retrieval_history": retrieval_history,
+                            "total_docs": len(all_docs),
+                            "iterations": iteration + 1,
+                            "status": "no_relevant_docs",
+                            "rejection_detected": True,  # ✅ Explicit flag
+                            "structured_output": True,  # ✅ Flag indicating new format
+                        }
+
+                # VERIFICATION PASS (only if not rejection)
+                # Parse citations from answer for verification
                 parsed = self.citation_parser.parse(answer)
                 verification = self.citation_verifier.verify(parsed, all_docs, answer)
 
@@ -426,9 +545,13 @@ class AgenticRAG:
                 )
 
                 # Build grouped response
+                # ✅ IMPORTANT: Check if rejection detected BEFORE building sources
+                # If LLM says "no relevant docs", don't include sources even if we retrieved docs
+                should_include_sources = not is_rejection  # ← Key logic fix!
+
                 response = GroupedDocumentResponse(
                     content=answer,
-                    sources=document_sources,
+                    sources=document_sources if should_include_sources else [],
                     metadata=source_metadata
                 )
 
@@ -437,20 +560,56 @@ class AgenticRAG:
                 response_dict["retrieval_history"] = retrieval_history
                 response_dict["total_docs"] = len(all_docs)
                 response_dict["iterations"] = iteration + 1
-                response_dict["status"] = "success"
+                response_dict["status"] = "no_relevant_docs" if is_rejection else "success"
                 response_dict["citation_verification"] = self.citation_verifier.get_summary_stats(verification)
 
-                # Add legacy citations (flat list)
-                response_dict["citations"] = response.get_legacy_citations()
+                # ✅ Only include citations if NOT rejection
+                response_dict["citations"] = response.get_legacy_citations() if should_include_sources else []
+
+                # ✅ Add rejection metadata for observability
+                response_dict["rejection_detected"] = is_rejection
+                response_dict["rejection_reason"] = "llm_no_relevant_docs" if is_rejection else None
 
                 return response_dict
 
             strategy = self._switch_strategy(strategy, bm25_index)
 
         # Max iterations reached - same flow with available docs
-        answer = await self._generate_with_citation_aware_prompt(
+        structured_result = await self._generate_with_structured_output(
             query, all_docs, conversation_history
         )
+
+        # ✅ Extract structured fields
+        answer = structured_result.get("content", "")
+        is_rejection = structured_result.get("rejection_detected", False)
+        rejection_reasoning = structured_result.get("rejection_reasoning", "")
+
+        # ✅ Check for rejection response on max iterations
+        if is_rejection:
+            logger.warning("Max iterations reached AND LLM detected no relevant documents.")
+            retrieval_history[-1]["rejection_detected"] = True
+            retrieval_history[-1]["rejection_reason"] = "llm_no_relevant_docs_max_iterations"
+            retrieval_history[-1]["rejection_reasoning"] = rejection_reasoning
+            # Return with empty sources/citations
+            return {
+                "content": answer,
+                "citations": [],
+                "sources": [],
+                "metadata": {
+                    "total_documents": 0,
+                    "total_chunks": 0,
+                    "top_document": "",
+                    "rejection": True,
+                    "reason": "no_relevant_docs_found",
+                    "rejection_reasoning": rejection_reasoning,
+                },
+                "retrieval_history": retrieval_history,
+                "total_docs": len(all_docs),
+                "iterations": self.max_iterations,
+                "status": "no_relevant_docs",
+                "rejection_detected": True,
+                "rejection_reason": "llm_no_relevant_docs_max_iterations"
+            }
 
         # Verification pass
         parsed = self.citation_parser.parse(answer)
@@ -666,7 +825,35 @@ class AgenticRAG:
                 # Extract legacy flat citations list for backward compatibility
                 flat_citations = self._extract_citations(all_docs, titles)
 
-                # Emit final metadata with grouped structure and verification stats
+                # ✅ Check for rejection before yielding metadata with citations
+                is_rejection = self._is_rejection_response(full_response)
+
+                if is_rejection:
+                    # Yield rejection metadata WITHOUT citations/sources
+                    logger.warning(
+                        f"[RAG STREAM] Rejection detected in streaming mode - "
+                        f"filtering citations. Response: {full_response[:100]}..."
+                    )
+                    yield {
+                        "type": "metadata",
+                        "data": {
+                            "total_docs": 0,
+                            "iterations": iteration + 1,
+                            "status": "no_relevant_docs",
+                            "sources": [],  # ✅ Empty on rejection
+                            "citations": [],  # ✅ Empty on rejection
+                            "rejection_detected": True,  # ✅ Explicit flag
+                            "rejection_reasoning": "Không tìm thấy thông tin trong tài liệu",
+                            "metadata": {
+                                "total_documents": 0,
+                                "total_chunks": 0,
+                                "top_document": ""
+                            }
+                        },
+                    }
+                    return
+
+                # Yield success metadata with citations (only if NOT rejection)
                 yield {
                     "type": "metadata",
                     "data": {
@@ -676,6 +863,7 @@ class AgenticRAG:
                         "sources": sources_data,
                         "citations": flat_citations,
                         "citation_verification": self.citation_verifier.get_summary_stats(verification),
+                        "rejection_detected": False,  # ✅ Explicit flag
                         "metadata": {
                             "total_documents": len(document_sources),
                             "total_chunks": sum(ds.total_chunks_used for ds in document_sources),
@@ -979,6 +1167,126 @@ class AgenticRAG:
             "iterations": self.max_iterations,
             "status": "max_iterations_reached",
         }
+
+    async def _generate_with_structured_output(
+        self,
+        query: str,
+        docs: list[dict],
+        conversation_history: list[dict] | None = None
+    ) -> dict[str, Any]:
+        """Generate answer with structured output (rejection detection).
+
+        This method uses Anthropic's tool use capability to force the LLM to return
+        a structured response with explicit rejection detection. This eliminates the
+        need for fragile pattern matching on rejection responses.
+
+        Args:
+            query: User question
+            docs: Retrieved documents
+            conversation_history: Optional conversation history
+
+        Returns:
+            Dict with keys:
+            - content: Answer text from LLM
+            - citations: List of citations (empty if rejection)
+            - rejection_detected: True if LLM says no relevant docs
+            - rejection_confidence: Confidence score for rejection (0-1)
+            - rejection_reasoning: LLM's explanation (Vietnamese)
+            - structured_output: True (flag indicating new format)
+
+        Example:
+            >>> result = await rag._generate_with_structured_output("query?", docs)
+            >>> if result["rejection_detected"]:
+            ...     assert result["citations"] == []
+        """
+        # Format context with citations
+        context_with_citations = format_context_with_citations(docs)
+
+        # Build messages
+        system_content = RAG_STRUCTURED_OUTPUT_PROMPT.format(
+            query=query,
+            context=context_with_citations
+        )
+
+        user_content = f"Câu hỏi: {query}\n\nNgữ cảnh đã được cung cấp trong system prompt."
+
+        messages = [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": user_content}
+        ]
+
+        # Add conversation history if provided
+        if conversation_history:
+            # Insert history before the current user message
+            messages = [{"role": "system", "content": system_content}]
+            messages.extend(conversation_history[-MAX_HISTORY_MESSAGES:])
+            messages.append({"role": "user", "content": user_content})
+
+        try:
+            # ✅ Call LLM with tool use for structured output
+            response = await chat_async_with_tools(
+                messages=messages,
+                tools=[RAG_ANSWER_TOOL],
+                temperature=0.3,  # Lower temp for consistent structured output
+                max_tokens=2048,
+            )
+
+            # ✅ Parse tool use results
+            tool_results = response.get("tool_results", [])
+
+            if not tool_results:
+                logger.error(
+                    "[RAG Structured Output] LLM did not return tool_use. "
+                    f"Response: {response.get('content', 'No content')}"
+                )
+                return {
+                    "content": "Có lỗi xảy ra khi tạo câu trả lời.",
+                    "citations": [],
+                    "rejection_detected": True,
+                    "rejection_confidence": 1.0,
+                    "rejection_reasoning": "LLM không trả về structured output",
+                    "structured_output": False
+                }
+
+            # Extract first tool result
+            tool_result = tool_results[0]
+            tool_input = tool_result.get("tool_input", {})
+
+            # ✅ Extract structured fields
+            has_answer = tool_input.get("has_answer", False)
+            answer_text = tool_input.get("response", "")
+            should_show_sources = tool_input.get("should_show_sources", False)
+            confidence = tool_input.get("confidence", 0.0)
+            reasoning = tool_input.get("reasoning", "")
+
+            # ✅ Log for observability
+            logger.info(
+                f"[RAG Structured Output] has_answer={has_answer}, "
+                f"confidence={confidence:.2f}, should_show_sources={should_show_sources}, "
+                f"reasoning={reasoning[:100]}..."
+            )
+
+            # ✅ Return with explicit rejection signal
+            return {
+                "content": answer_text,
+                "citations": docs if should_show_sources else [],
+                "rejection_detected": not has_answer,
+                "rejection_confidence": 1.0 - confidence,
+                "rejection_reasoning": reasoning,
+                "structured_output": True  # Flag to indicate new format
+            }
+
+        except Exception as e:
+            logger.error(f"[RAG Structured Output] Error: {e}", exc_info=True)
+            # Fallback to rejection on error
+            return {
+                "content": "Có lỗi xảy ra khi tạo câu trả lời.",
+                "citations": [],
+                "rejection_detected": True,
+                "rejection_confidence": 1.0,
+                "rejection_reasoning": f"Lỗi hệ thống: {str(e)}",
+                "structured_output": False
+            }
 
     async def _generate_with_citation_aware_prompt(
         self,

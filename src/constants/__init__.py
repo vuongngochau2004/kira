@@ -65,6 +65,8 @@ STREAM_CHUNK_SIZE = 10
 # RAG
 MAX_CONTEXT_TOKENS = 4096
 MIN_CONTEXT_LENGTH = 200
+MIN_RETRIEVAL_SCORE = 0.70  # Minimum average score for context to be considered relevant
+MIN_RETRIEVAL_DOCS = 1  # Minimum documents needed for sufficient context
 
 # =============================================================================
 # ERROR MESSAGES - User-facing text (ready for i18n)
@@ -145,6 +147,8 @@ __all__ = [
     "STREAM_CHUNK_SIZE",
     "MAX_CONTEXT_TOKENS",
     "MIN_CONTEXT_LENGTH",
+    "MIN_RETRIEVAL_SCORE",
+    "MIN_RETRIEVAL_DOCS",
     # Error Messages
     "ERR_DOC_NOT_FOUND",
     "ERR_CONVERSATION_NOT_FOUND",

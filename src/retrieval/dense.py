@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from src.indexing.qdrant_store import search_similar
+from config.config import settings
 
 
 def dense_search(
@@ -24,6 +25,7 @@ def dense_search(
         query_embedding=query_embedding,
         user_id=user_id,
         limit=k,
+        min_score=settings.retrieval_min_score_threshold,
     )
 
     # Standardize structure: ensure all fields present

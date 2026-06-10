@@ -42,10 +42,10 @@
 
 ## Liên kết nhanh
 
-- [Kiến trúc Hệ thống](./system-architecture.md)
-- [Tiêu chuẩn Code](./code-standards.md)
-- [Lộ trình Phát triển](./development-roadmap.md)
-- [ABC Migration Guide](./abc-migration-guide.md) - Protocol to ABC migration guide
-- [Baseline Metrics](./baseline-metrics.md) - Performance benchmarks after SOLID refactor
-- [ABC Migration Summary](./abc-migration-summary.md) - Migration summary and timeline
-- [CLAUDE.md](../CLAUDE.md) - Development guidelines chi tiết
+- [Kiến trúc Hệ thống](./system-architecture.md) - Architecture chi tiết với diagrams
+- [Tiêu chuẩn Code](./code-standards.md) - Quy tắc đặt tên, tổ chức file, conventions
+- [Tóm tắt Codebase](./codebase-summary.md) - Tổng quan modules, data flows, integration points
+- [Hướng dẫn Thiết kế](./design-guidelines.md) - System design principles, patterns, UI/UX guidelines
+- [Hướng dẫn Deployment](./deployment-guide.md) - Local setup, production deployment, monitoring
+- [Lộ trình Phát triển](./project-roadmap.md) - Milestones, technical debt, changelog
+- [CLAUDE.md](../CLAUDE.md) - Development guidelines chi tiết cho AI assistants

@@ -9,7 +9,7 @@ import json
 import logging
 from collections.abc import AsyncIterator
 from enum import Enum
-from typing import Callable
+from typing import Any, Callable
 
 from config.config import settings
 
@@ -514,9 +514,134 @@ async def _chat_openai_stream(
                     continue
 
 
+async def chat_async_with_tools(
+    messages: list[dict[str, str]],
+    tools: list[dict] | None = None,
+    provider: LLMProvider | None = None,
+    model: str | None = None,
+    temperature: float = 0.7,
+    max_tokens: int = 2048,
+    timeout: float | None = None,
+) -> dict[str, any]:
+    """Send chat request with tool use support (GLM/Anthropic-compatible only).
+
+    This function enables structured output by leveraging Anthropic's tool use capability.
+    The LLM is forced to return responses using the provided tool schema.
+
+    Args:
+        messages: List of message dicts with role and content
+        tools: Tool definitions for function calling (Anthropic format)
+        provider: LLM provider (must be GLM for tool use support)
+        model: Model name (defaults to provider-specific default)
+        temperature: Sampling temperature (0.0 - 1.0)
+        max_tokens: Max tokens to generate
+        timeout: Request timeout in seconds
+
+    Returns:
+        Response dict with keys:
+        - content: Full response content (including tool_use blocks)
+        - tool_results: List of parsed tool use results
+        - model: Model name used
+        - provider: Provider name
+
+    Raises:
+        LLMError: If provider doesn't support tool use or request fails
+        ValueError: If tools parameter is empty
+
+    Example:
+        >>> tools = [{
+        ...     "name": "answer_query",
+        ...     "input_schema": {"type": "object", "properties": {...}}
+        ... }]
+        >>> response = await chat_async_with_tools(messages, tools)
+        >>> tool_result = response["tool_results"][0]
+        >>> has_answer = tool_result["tool_input"]["has_answer"]
+    """
+    provider = provider or LLMProvider(settings.llm_provider)
+    timeout = timeout if timeout is not None else DEFAULT_LLM_TIMEOUT
+
+    if not tools or len(tools) == 0:
+        raise ValueError("tools parameter must be non-empty list")
+
+    # Tool use only supported for GLM (Anthropic-compatible)
+    if provider != LLMProvider.GLM:
+        raise LLMError(
+            f"Tool use only supported for GLM (Anthropic-compatible) provider. "
+            f"Got: {provider.value}"
+        )
+
+    messages = _normalize_messages(messages)
+
+    logger.debug(
+        f"[LLM TOOLS] provider={provider.value}, model={model or 'default'}, "
+        f"temp={temperature}, tools={len(tools)}, messages={len(messages)}"
+    )
+
+    try:
+        import anthropic
+
+        client = anthropic.AsyncAnthropic(
+            api_key=settings.glm_api_key,
+            base_url=settings.glm_api_url,
+            timeout=timeout,
+        )
+
+        system_msg, conv_messages = _extract_system_message(messages)
+
+        # Build kwargs dynamically
+        kwargs: dict = {
+            "model": model or settings.glm_model,
+            "messages": conv_messages,  # type: ignore[arg-type]
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "tools": tools,  # ✅ Add tools here for structured output
+        }
+        if system_msg:
+            kwargs["system"] = system_msg
+
+        response = await client.messages.create(**kwargs)
+
+        # ✅ Parse tool_use blocks from response
+        tool_results = []
+        for block in response.content:  # type: ignore[attr-defined]
+            if hasattr(block, "type") and block.type == "tool_use":
+                tool_results.append({
+                    "tool_name": block.name,
+                    "tool_input": block.input,
+                    "tool_id": block.id
+                })
+
+        if not tool_results:
+            logger.warning(
+                f"[LLM TOOLS] No tool_use blocks found in response. "
+                f"Response type: {type(response.content)}"
+            )
+
+        logger.debug(
+            f"[LLM TOOLS] Completed. Tool results: {len(tool_results)}, "
+            f"Tools used: {[r['tool_name'] for r in tool_results]}"
+        )
+
+        return {
+            "content": response.content,  # Full content for reference
+            "tool_results": tool_results,  # ✅ Structured data here
+            "model": model or settings.glm_model,
+            "provider": provider.value,
+            "stop_reason": getattr(response, "stop_reason", None)
+        }
+
+    except asyncio.TimeoutError as e:
+        logger.error(f"[LLM TOOLS] Timeout after {timeout}s")
+        raise LLMTimeoutError(f"LLM tool use request timed out after {timeout}s") from e
+    except Exception as e:
+        logger.error(f"[LLM TOOLS] {type(e).__name__}: {e}", exc_info=True)
+        raise LLMError(f"LLM tool use request failed: {e}") from e
+
+
 __all__ = [
     "chat_async",
     "chat_async_stream",
+    "chat_async_with_tools",  # NEW
     "LLMClient",
     "LLMProvider",
     "LLMError",

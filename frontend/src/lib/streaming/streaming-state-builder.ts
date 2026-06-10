@@ -52,6 +52,10 @@ export interface MessageState {
   error: string | null
   /** Timestamp of last update */
   timestamp: number
+  /** ✅ NEW: Rejection detection from backend */
+  rejection_detected?: boolean
+  /** ✅ NEW: LLM's reasoning for rejection (Vietnamese) */
+  rejection_reasoning?: string
 }
 
 // ==================== Constants ====================
@@ -65,6 +69,8 @@ const INITIAL_STATE: MessageState = {
   sources: [],
   error: null,
   timestamp: Date.now(),
+  rejection_detected: undefined,
+  rejection_reasoning: undefined,
 }
 
 // ==================== StreamingStateBuilder ====================
@@ -125,6 +131,8 @@ export class StreamingStateBuilder {
       sources: [...this.state.sources],
       error: this.state.error,
       timestamp: this.state.timestamp,
+      rejection_detected: this.state.rejection_detected,
+      rejection_reasoning: this.state.rejection_reasoning,
     }
   }
 
@@ -202,6 +210,17 @@ export class StreamingStateBuilder {
       this.state.sources = ensureFlatSources(data.citations) || []
     } else if (data?.sources) {
       this.state.sources = ensureFlatSources(data.sources) || []
+    }
+
+    // ✅ Handle rejection detection from backend
+    if (data?.rejection_detected !== undefined) {
+      this.state.rejection_detected = data.rejection_detected
+    }
+    if (data?.rejection_reasoning) {
+      this.state.rejection_reasoning = data.rejection_reasoning
+    }
+    if (data?.rejection_reason) {
+      this.state.rejection_reasoning = data.rejection_reason
     }
   }
 

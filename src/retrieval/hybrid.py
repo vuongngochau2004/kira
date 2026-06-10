@@ -122,16 +122,27 @@ async def hybrid_search(
 
     bm25_results = _get_bm25_results(bm25_index, query_text, k)
 
+    # ✅ Log retrieval composition for debugging
+    logger.debug(
+        f"Hybrid search composition: dense={len(dense_results)}, "
+        f"bm25={len(bm25_results)}, k={k}"
+    )
+
     if not bm25_results:
         fused = dense_results[:k]
+        logger.debug("Using dense-only retrieval (BM25 unavailable)")
     else:
         dense_formatted = _format_dense_results(dense_results)
         fused = reciprocal_rank_fusion([dense_formatted, bm25_results], k=rrf_k)
         fused = fused[:k]
+        logger.debug(f"RRF fusion completed: {len(fused)} results")
 
     # Apply LLM reranking if enabled
     if enable_rerank and _llm_client is not None:
         fused = await _apply_llm_reranking(query_text, fused, k)
+        logger.debug(f"LLM reranking applied: {len(fused)} final results")
+    else:
+        logger.debug(f"LLM reranking {'disabled' if not enable_rerank else 'skipped (no LLM client)'}")
 
     return fused
 

@@ -682,6 +682,94 @@ def get_rag_template() -> Template:
 
 
 # ============================================================================
+# STRUCTURED OUTPUT FOR REJECTION DETECTION
+# ============================================================================
+
+RAG_STRUCTURED_OUTPUT_PROMPT = """You are K.I.R.A (Knowledge & Intelligent Robotic Assistant), an AI assistant for Đại học Bách Khoa Đà Nẵng (ĐHBKĐN).
+
+## Task
+
+Answer the user's question based on retrieved documents. You MUST use the provided tool to return your answer in structured format.
+
+## Critical Rules
+
+1. Use the `answer_query` tool for your response
+2. Set `has_answer=false` if documents don't contain the answer
+3. Set `should_show_sources=false` if `has_answer=false`
+4. Set `confidence` based on how well documents answer the question
+5. Provide reasoning in Vietnamese for debugging
+
+## User Question
+
+{query}
+
+## Retrieved Documents
+
+{context}
+
+## Answer Guidelines
+
+If documents contain the answer:
+- Set `has_answer=true`
+- Provide clear, structured answer in `response` field
+- Set `should_show_sources=true`
+- Confidence should be 0.7-1.0
+- Use proper citations with [source:chunk_id] format
+
+If documents DON'T contain the answer:
+- Set `has_answer=false`
+- Explain why in `response` field (Vietnamese)
+- Set `should_show_sources=false`
+- Confidence should be 0.0-0.3
+- Be honest: "Tôi không tìm thấy thông tin về..."
+
+## Response Format
+
+Your answer should be well-structured in Vietnamese:
+- Use headings (##, ###) for main sections
+- Use bullet points for lists
+- Include specific details from documents
+- Cite sources properly
+
+Use the answer_query tool now.
+"""
+
+# Tool definition for Anthropic/Claude API with structured output
+RAG_ANSWER_TOOL = {
+    "name": "answer_query",
+    "description": "Return structured answer to user query with rejection detection",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "has_answer": {
+                "type": "boolean",
+                "description": "True if documents contain the answer, False otherwise"
+            },
+            "response": {
+                "type": "string",
+                "description": "Your answer in Vietnamese (structured format with headings, bullet points, and citations)"
+            },
+            "should_show_sources": {
+                "type": "boolean",
+                "description": "True if sources should be displayed to user, False if rejection"
+            },
+            "confidence": {
+                "type": "number",
+                "description": "Confidence score (0.0-1.0) based on how well documents answer the question",
+                "minimum": 0.0,
+                "maximum": 1.0
+            },
+            "reasoning": {
+                "type": "string",
+                "description": "Brief explanation in Vietnamese of your decision (why you can/cannot answer)"
+            }
+        },
+        "required": ["has_answer", "response", "should_show_sources", "confidence", "reasoning"]
+    }
+}
+
+
+# ============================================================================
 # EXPORTS
 # ============================================================================
 
@@ -692,6 +780,10 @@ __all__ = [
 
     # Answer Generation
     "ANSWER_GENERATOR_PROMPT",
+
+    # Structured Output (NEW)
+    "RAG_STRUCTURED_OUTPUT_PROMPT",
+    "RAG_ANSWER_TOOL",
 
     # Conversational
     "CONVERSATIONAL_SYSTEM_PROMPT",
