@@ -1,11 +1,7 @@
-"""DEPRECATED: Use src.shared.infrastructure.monitoring instead.
+"""Monitoring module exports.
 
-This module is kept for backward compatibility during the modular monolith
-migration. All imports should be updated to use the new path:
-
-    from src.shared.infrastructure.monitoring import ...
-
-This shim will be removed in a future version once all consumers are migrated.
+Provides routing metrics, agentic metrics, dashboard configuration,
+and LangSmith tracing for observability.
 """
 
 from src.shared.infrastructure.monitoring.routing_metrics import (

@@ -1,11 +1,7 @@
-"""DEPRECATED: Use src.shared.infrastructure.auth instead.
+"""Authentication module exports.
 
-This module is kept for backward compatibility during the modular monolith
-migration. All imports should be updated to use the new path:
-
-    from src.shared.infrastructure.auth import ...
-
-This shim will be removed in a future version once all consumers are migrated.
+Provides JWT token management, password hashing, CSRF protection,
+and FastAPI route dependencies for authentication.
 """
 
 from src.shared.infrastructure.auth.security import (
