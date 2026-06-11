@@ -11,7 +11,7 @@ import pytest
 from abc import ABC
 from typing import Any
 
-from interfaces.retrieval import (
+from src.shared.kernel.interfaces.retrieval import (
     RetrieverBase,
     DenseRetrieverBase,
     BM25RetrieverBase,

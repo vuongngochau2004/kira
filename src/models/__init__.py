@@ -1,13 +1,13 @@
 """Models module exports."""
 
-from models.auth import (
+from src.models.auth import (
     UserRegisterRequest,
     UserLoginRequest,
     TokenResponse,
     UserResponse,
     UserWithTokenResponse,
 )
-from models.documents import (
+from src.models.documents import (
     DocumentCreate,
     DocumentResponse,
     DocumentListResponse,
@@ -18,7 +18,7 @@ from models.documents import (
     MessageCreate,
     MessageResponse,
 )
-from models.evaluation import (
+from src.models.evaluation import (
     EvaluationMetric,
     EvaluationRequest,
     EvaluationResponse,

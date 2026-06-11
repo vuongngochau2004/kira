@@ -2,7 +2,7 @@
 
 import pytest
 from httpx import AsyncClient
-from models.evaluation import EvaluationRequest, EvaluationMetric
+from src.models.evaluation import EvaluationRequest, EvaluationMetric
 
 
 @pytest.mark.asyncio
@@ -61,7 +61,7 @@ async def test_golden_dataset_crud(authenticated_client: AsyncClient):
     """Test golden dataset CRUD operations."""
     # Create dataset
     create_response = await authenticated_client.post(
-        "/api/v1/evaluation/datasets",
+        "/api/v1/evaluation/evaluate/datasets",
         json={
             "dataset_id": "test-dataset",
             "name": "Test Dataset",
@@ -77,7 +77,7 @@ async def test_golden_dataset_crud(authenticated_client: AsyncClient):
     assert create_response.status_code == 201
 
     # List datasets
-    list_response = await authenticated_client.get("/api/v1/evaluation/datasets")
+    list_response = await authenticated_client.get("/api/v1/evaluation/evaluate/datasets")
     assert list_response.status_code == 200
     datasets = list_response.json()
     assert len(datasets) > 0
@@ -86,7 +86,7 @@ async def test_golden_dataset_crud(authenticated_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_clear_cache_endpoint(authenticated_client: AsyncClient):
     """Test /api/v1/evaluation/cache endpoint."""
-    response = await authenticated_client.delete("/api/v1/evaluation/cache")
+    response = await authenticated_client.delete("/api/v1/evaluation/evaluate/cache")
     assert response.status_code == 200
     data = response.json()
     assert "cleared_entries" in data
@@ -114,7 +114,7 @@ async def test_real_time_evaluation_in_chat(authenticated_client: AsyncClient):
 async def test_evaluate_dataset_endpoint(authenticated_client: AsyncClient):
     """Test evaluating a golden dataset."""
     # First, check if example dataset exists
-    list_response = await authenticated_client.get("/api/v1/evaluation/datasets")
+    list_response = await authenticated_client.get("/api/v1/evaluation/evaluate/datasets")
     assert list_response.status_code == 200
     datasets = list_response.json()
 
@@ -122,7 +122,7 @@ async def test_evaluate_dataset_endpoint(authenticated_client: AsyncClient):
         # Try to evaluate first dataset
         dataset_id = datasets[0]["dataset_id"]
         response = await authenticated_client.get(
-            f"/api/v1/evaluation/datasets/{dataset_id}/evaluate"
+            f"/api/v1/evaluation/evaluate/datasets/{dataset_id}/evaluate"
         )
 
         # Note: This will return 503 if RAGAS evaluation is disabled

@@ -118,8 +118,8 @@ def dense_retrieve(
     Returns:
         JSON string of retrieved documents with content and metadata
     """
-    from indexing.qdrant_store import search_similar
-    from ingestion.embedding import embed_single
+    from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
+    from src.ingestion.embedding import embed_single
 
     # Generate query embedding
     query_embedding = embed_single(query)
@@ -197,9 +197,9 @@ def hybrid_retrieve(
     Raises:
         RuntimeError: If BM25 index is not available (falls back to dense only)
     """
-    from indexing.qdrant_store import search_similar
-    from ingestion.embedding import embed_single
-    from retrieval.hybrid import reciprocal_rank_fusion
+    from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
+    from src.ingestion.embedding import embed_single
+    from src.modules.retrieval.domain.services.hybrid_search import reciprocal_rank_fusion
 
     # Generate query embedding
     query_embedding = embed_single(query)
@@ -404,9 +404,9 @@ async def hybrid_retrieve_with_expansion(
     """
     try:
         import asyncio
-        from indexing.qdrant_store import search_similar
-        from ingestion.embedding import embed_single
-        from retrieval.hybrid import reciprocal_rank_fusion
+        from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
+        from src.ingestion.embedding import embed_single
+        from src.modules.retrieval.domain.services.hybrid_search import reciprocal_rank_fusion
 
         # Step 1: Query expansion (if enabled)
         queries_to_search = [query]
@@ -570,7 +570,7 @@ async def retrieve_with_rerank(
         reranking_applied = False
 
         if enable_reranking and len(initial_docs) > rerank_top_k:
-            from tools.reranking_tools import score_and_rerank
+            from src.tools.reranking_tools import score_and_rerank
 
             docs_json = json.dumps(initial_docs, ensure_ascii=False)
             rerank_result = score_and_rerank.invoke({

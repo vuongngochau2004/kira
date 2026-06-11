@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError
-from config.config import settings
+from src.config.config import settings
 
 
 # ===== Password Hashing =====

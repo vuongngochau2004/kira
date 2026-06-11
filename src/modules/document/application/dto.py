@@ -1,0 +1,133 @@
+"""Data Transfer Objects for Document module."""
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+
+@dataclass(frozen=True)
+class UploadDocumentRequest:
+    """Request DTO for document upload."""
+
+    file_name: str
+    file_path: str
+    user_id: UUID | str
+    file_type: str
+
+
+@dataclass(frozen=True)
+class DeleteDocumentRequest:
+    """Request DTO for document deletion."""
+
+    document_id: UUID
+    user_id: UUID | str
+
+
+@dataclass(frozen=True)
+class ProcessDocumentRequest:
+    """Request DTO for document processing."""
+
+    document_id: UUID
+    user_id: UUID | str
+    storage_path: str
+    timeout_seconds: int = 600
+
+
+@dataclass(frozen=True)
+class DocumentUploadResult:
+    """Result DTO for document upload."""
+
+    document_id: UUID
+    status: str
+    message: str
+    storage_path: str | None = None
+    metadata: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API responses."""
+        return {
+            "document_id": str(self.document_id),
+            "status": self.status,
+            "message": self.message,
+            "storage_path": self.storage_path,
+            "metadata": self.metadata,
+        }
+
+
+@dataclass(frozen=True)
+class DocumentDeleteResult:
+    """Result DTO for document deletion."""
+
+    document_id: UUID
+    success: bool
+    message: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API responses."""
+        return {
+            "document_id": str(self.document_id),
+            "success": self.success,
+            "message": self.message,
+        }
+
+
+@dataclass(frozen=True)
+class DocumentProcessResult:
+    """Result DTO for document processing."""
+
+    document_id: UUID
+    success: bool
+    chunk_count: int | None = None
+    error: str | None = None
+    metadata: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API responses."""
+        return {
+            "document_id": str(self.document_id),
+            "success": self.success,
+            "chunk_count": self.chunk_count,
+            "error": self.error,
+            "metadata": self.metadata,
+        }
+
+
+@dataclass(frozen=True)
+class DocumentMetadata:
+    """Document metadata value object."""
+
+    filename: str
+    file_type: str
+    user_id: UUID | str
+    created_at: datetime
+    status: str = "pending"
+    chunk_count: int = 0
+    error_message: str | None = None
+    extraction_method: str | None = None
+    ocr_used: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "filename": self.filename,
+            "file_type": self.file_type,
+            "user_id": str(self.user_id) if isinstance(self.user_id, UUID) else self.user_id,
+            "created_at": self.created_at.isoformat(),
+            "status": self.status,
+            "chunk_count": self.chunk_count,
+            "error_message": self.error_message,
+            "extraction_method": self.extraction_method,
+            "ocr_used": self.ocr_used,
+        }
+
+
+__all__ = [
+    "UploadDocumentRequest",
+    "DeleteDocumentRequest",
+    "ProcessDocumentRequest",
+    "DocumentUploadResult",
+    "DocumentDeleteResult",
+    "DocumentProcessResult",
+    "DocumentMetadata",
+]

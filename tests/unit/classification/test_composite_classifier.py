@@ -4,8 +4,8 @@ Tests for CompositeClassifier.
 
 import pytest
 
-from classification.strategies.composite import CompositeClassifier
-from interfaces.classification import Intent, ClassificationResult
+from src.modules.classification.domain.strategies.composite import CompositeClassifier
+from src.shared.kernel.interfaces.classification import Intent, ClassificationResult
 
 
 class HighConfidenceStrategy:

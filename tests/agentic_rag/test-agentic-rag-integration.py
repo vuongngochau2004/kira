@@ -30,7 +30,7 @@ from handlers.agentic_rag.feature_flags import (
     AgenticRAGFeatureFlags,
     create_agentic_rag_feature_flags
 )
-from interfaces.classification import ClassificationResult, Intent
+from src.shared.kernel.interfaces.classification import ClassificationResult, Intent
 
 
 # ============================================================================

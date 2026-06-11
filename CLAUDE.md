@@ -4,557 +4,406 @@
 
 **K.I.R.A Simplified** is a production-ready RAG (Retrieval-Augmented Generation) system with multi-stage query routing, hybrid retrieval, and intelligent OCR fallback. This document provides context for AI assistants working on this codebase.
 
-## System Architecture
+## Current Architecture
 
-### Overall System Architecture
+### System Overview
+
+The system follows a **Pragmatic Hexagonal Architecture (Ports & Adapters)** combined with a **Modular Monolith** pattern:
 
 ```mermaid
 graph TB
-    subgraph Clients["Client Layer"]
-        WebUI[Web UI<br/>Next.js 16]
-        APIKey[API Client]
-    end
-
-    subgraph Serving["Serving Layer (src/api/)"]
+    subgraph Serving["SERVING Layer (src/server/)"]
         FastAPI[FastAPI Server]
         AuthJWT[JWT Auth Middleware]
-        SSE[SSE Streaming]
-        
-        AuthEP[Auth Endpoints]
-        DocEP[Document Endpoints]
-        ChatEP[Chat Endpoints]
+        Endpoints[API Routers: Auth, Chat, Doc, Eval, Metrics]
     end
 
-    subgraph AgentLayer["Agent/Tools Layer (src/agents/)"]
-        Orchestrator[OrchestratorAgent]
-        RouterRegistry[RouterRegistry]
-        QueryClassifier[QueryClassifier]
-        
-        subgraph Routers["Routers"]
-            RAGRouter[RAGRouter]
-            ConvRouter[ConversationalRouter]
+    subgraph Core["APPLICATION CORE (src/modules/)"]
+        subgraph ChatModule["modules/chat/"]
+            ConversationalHandler[ConversationalHandler]
+            RAGHandler[RAGHandler]
+        end
+
+        subgraph RAGModule["modules/rag/"]
+            Orchestrator[OrchestratorAgent]
+            RetrievalAgent[RetrievalAgent]
+            GenerationAgent[GenerationAgent]
+            QualityAgent[QualityAgent]
+            LangGraph[LangGraph Pipeline]
         end
         
-        AgenticRAG[AgenticRAG Agent]
-        LLMClient[LLM Client]
+        subgraph ClassifyModule["modules/classification/"]
+            Classifier[CompositeClassifier]
+            Strategies[Keyword/Cache/LLM]
+        end
+
+        subgraph DocModule["modules/document/"]
+            Pipeline[Ingestion Pipeline]
+            Extractor[Text Extraction]
+        end
+
+        subgraph RetrievalModule["modules/retrieval/"]
+            HybridRetrieval[Hybrid Search / RRF]
+        end
+
+        subgraph EvalModule["modules/evaluation/"]
+            RagasService[RAGAS Evaluation]
+        end
     end
 
-    subgraph Tools["Tools Layer (src/tools/)"]
-        RetrievalTools[retrieval_tools.py]
-        IngestionTools[ingestion_tools.py]
+    subgraph Ports["PORTS (src/shared/ports/)"]
+        LLMPort[LLMPort]
+        VectorStorePort[VectorStorePort]
+        EmbeddingPort[EmbeddingPort]
+        StoragePort[StoragePort]
+        OCRPort[OCRPort]
     end
 
-    subgraph Retrieval["Retrieval Layer"]
-        DenseRetrieval[dense.py<br/>Vector Search]
-        BM25Retrieval[bm25.py<br/>Keyword Search]
-        HybridRetrieval[hybrid.py<br/>RRF Fusion]
+    subgraph Adapters["ADAPTERS (src/shared/adapters/)"]
+        GLMAdapter[GLMAdapter]
+        QdrantAdapter[QdrantAdapter]
+        EmbeddingAPIAdapter[EmbeddingAPIAdapter]
+        MinIOAdapter[MinIOAdapter]
+        PaddleOCRAdapter[PaddleOCRAdapter]
     end
 
-    subgraph Indexing["Indexing Layer"]
-        QdrantStore[qdrant_store.py]
-        DocStore[document_store.py]
-        FileStore[file_store.py]
+    subgraph Infra["SHARED INFRASTRUCTURE (src/shared/)"]
+        subgraph Database["Persistence & Shared Domain"]
+            PG[(PostgreSQL)]
+            SharedEntities[User, Doc, Citation VO]
+        end
+        subgraph Kernel["Kernel & DI"]
+            DI[ServiceContainer & Registry]
+        end
     end
 
-    subgraph Ingestion["Ingestion Layer"]
-        Extractor[extractor.py<br/>OCR Fallback]
-        PaddleOCR[paddleocr_client.py]
-        Cleaner[cleaner.py]
-        Chunker[chunker.py]
-        Embedding[embedding.py]
-        BM25Builder[bm25_builder.py]
-        Pipelines[pipelines.py]
-    end
-
-    subgraph Storage["External Storage"]
-        QdrantDB[(Qdrant<br/>Vector DB)]
-        PGDB[(PostgreSQL<br/>Metadata)]
-        MinIO[(MinIO<br/>Files)]
-        LLMService[(LLM API<br/>GLM/Claude/GPT)]
-        EmbedAPI[(Embedding API<br/>Vietnamese)]
-    end
-
-    WebUI --> FastAPI
-    APIKey --> FastAPI
-    FastAPI --> AuthJWT
-    AuthJWT --> AuthEP
-    AuthJWT --> DocEP
-    AuthJWT --> ChatEP
-    
-    ChatEP --> SSE
-    SSE --> Orchestrator
-    
-    Orchestrator --> RouterRegistry
-    RouterRegistry --> QueryClassifier
-    RouterRegistry --> Routers
-    Routers --> AgenticRAG
-    AgenticRAG --> LLMClient
-    LLMClient --> LLMService
-    
-    RAGRouter --> RetrievalTools
-    RetrievalTools --> DenseRetrieval
-    RetrievalTools --> BM25Retrieval
-    DenseRetrieval --> HybridRetrieval
-    BM25Retrieval --> HybridRetrieval
-    
-    HybridRetrieval --> QdrantStore
-    QdrantStore --> QdrantDB
-    HybridRetrieval --> DocStore
-    DocStore --> PGDB
-    
-    DocEP --> IngestionTools
-    IngestionTools --> Pipelines
-    Pipelines --> Extractor
-    Extractor --> PaddleOCR
-    Pipelines --> Cleaner
-    Pipelines --> Chunker
-    Pipelines --> Embedding
-    Pipelines --> BM25Builder
-    Pipelines --> QdrantStore
-    
-    Embedding --> EmbedAPI
-    Chunker --> BM25Builder
-    
-    FileStore --> MinIO
-    Extractor --> FileStore
-    
-    style WebUI fill:#e1f5fe
-    style AgentLayer fill:#f3e5f5
-    style Retrieval fill:#fce4ec
-    style Ingestion fill:#e0f2f1
+    Serving --> Core
+    Core --> Ports
+    Ports <|.. Adapters
+    Adapters --> Serving
+    Core -.->|uses DI from| Kernel
+    Core -.->|uses DB models from| Database
 ```
 
-### Multi-Agent Routing Architecture
+### Architecture Principles
 
-```mermaid
-flowchart TD
-    subgraph Stage1["Stage 1: Quick Filter"]
-        QueryInput[User Query + User ID]
-        
-        FileMatch{Fuzzy File<br/>Matching}
-        FileMatch -->|Filename Found| RAGPath1
-        FileMatch -->|No Match| KeywordCheck{File Keywords?}
-        
-        KeywordCheck -->|Has Keywords| RAGPath1
-        KeywordCheck -->|No Keywords| RouterCheck{Router<br/>Confidence}
-        
-        RouterCheck -->|> 80%| DirectPath[Direct Route]
-        RouterCheck -->|< 80%| Stage2
-    end
-
-    subgraph Stage2["Stage 2: LLM Classification"]
-        Classify[QueryClassifier<br/>LLM-Based]
-        Intent{Intent<br/>Detection}
-        
-        Intent -->|RAG Intent| RAGPath2
-        Intent -->|Chat Intent| ConvPath
-        Intent -->|Uncertain| DefaultPath[Default RAG]
-        
-        Intent -->|Low Confidence| DefaultPath
-    end
-
-    subgraph Stage3["Stage 3: Router Dispatch"]
-        RAGPath1[RAGRouter]
-        RAGPath2[RAGRouter]
-        DirectPath[RAGRouter]
-        ConvPath[ConversationalRouter]
-        DefaultPath[RAGRouter]
-        
-        RAGPath1 --> RAGExecution
-        RAGPath2 --> RAGExecution
-        DirectPath --> RAGExecution
-        DefaultPath --> RAGExecution
-        ConvPath --> ConvExecution
-    end
-
-    subgraph RAGExecution["RAG Execution"]
-        Retrieval[Hybrid Retrieval<br/>Dense + BM25]
-        ContextBuild[Context Building]
-        LLMGen[LLM Generation<br/>with Citations]
-        Retrieval --> ContextBuild
-        ContextBuild --> LLMGen
-    end
-
-    subgraph ConvExecution["Conversational Execution"]
-        DirectLLM[Direct LLM Chat<br/>No Retrieval]
-    end
-
-    LLMGen --> Response
-    DirectLLM --> Response
-    
-    subgraph Response["Streaming Response"]
-        StreamRouter[Routing Chunk]
-        StreamRetrieval[Retrieval Chunk]
-        StreamContent[Content Chunks]
-        StreamMeta[Metadata Chunk]
-        StreamDone[Done Signal]
-    end
-
-    QueryInput --> FileMatch
-    RAGPath1 --> RAGExecution
-
-    style Stage1 fill:#c8e6c9
-    style Stage2 fill:#fff9c4
-    style Stage3 fill:#bbdefb
-    style RAGExecution fill:#f8bbd0
-    style ConvExecution fill:#e1bee7
-    style Response fill:#b2dfdb
-```
-
-### Data Flow: Query Processing
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant UI as Frontend
-    participant API as FastAPI
-    participant Orch as Orchestrator
-    participant Classifier as QueryClassifier
-    participant RAG as RAGRouter
-    participant Retrieval as Retrieval Layer
-    participant LLM as LLM Service
-
-    User->>UI: Send Query
-    UI->>API: POST /chat/stream
-    API->>Orch: query_stream(query, user_id)
-    
-    Orch->>Orch: Quick Filter Check
-    alt Quick Match Found
-        Orch->>RAG: Direct Dispatch
-    else No Quick Match
-        Orch->>Classifier: classify(query)
-        Classifier-->>Orch: Intent + Confidence
-        Orch->>RAG: Route by Intent
-    end
-    
-    RAG->>Retrieval: hybrid_search(query, user_id)
-    Retrieval-->>RAG: Ranked Documents
-    
-    RAG->>LLM: Generate Response
-    loop Streaming
-        LLM-->>RAG: Content Chunk
-        RAG-->>Orch: Chunk Data
-        Orch-->>API: SSE Event
-        API-->>UI: data: {...}
-        UI-->>User: Display Chunk
-    end
-    
-    LLM-->>RAG: Final Metadata
-    RAG-->>Orch: Citations + Sources
-    Orch-->>API: Final SSE
-    API-->>UI: Done Signal
-```
-
-### Data Flow: Document Ingestion
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant API as FastAPI
-    participant MinIO as MinIO Storage
-    participant Pipeline as Ingestion Pipeline
-    participant Extractor as Extractor
-    participant OCR as PaddleOCR
-    participant Embed as Embedding API
-    participant Qdrant as Qdrant
-    participant PG as PostgreSQL
-    participant BM25 as BM25 Index
-
-    User->>API: Upload File
-    API->>MinIO: Store File
-    API-->>User: Document Created
-    
-    API->>Pipeline: Process Document (Background)
-    
-    Pipeline->>Extractor: extract_content(file_path)
-    
-    Extractor->>Extractor: PyMuPDF Native Text
-    Extractor->>Extractor: Quality Check
-    
-    alt Low Quality Text
-        Extractor->>OCR: OCR Image Bytes
-        OCR-->>Extractor: OCR Text
-        Extractor->>Extractor: 2D Layout Sort
-    end
-    
-    Extractor-->>Pipeline: Extracted Text
-    
-    Pipeline->>Pipeline: Clean Text
-    Pipeline->>Pipeline: Chunk Document
-    
-    par Parallel Processing
-        Pipeline->>Embed: embed(chunks)
-        Embed-->>Pipeline: Vectors
-        Pipeline->>Qdrant: Store Vectors
-    and
-        Pipeline->>BM25: Index Chunks
-    and
-        Pipeline->>PG: Update Metadata
-    end
-    
-    Pipeline-->>API: Processing Complete
-```
-
-## Architecture Principles
-
-### 4-Layer Architecture
-
-The project follows a strict 4-layer architecture pattern with SOLID-compliant refactor:
-
-1. **SERVING Layer** (`src/api/`)
-   - FastAPI endpoints, authentication, request/response handling
-   - SSE streaming for real-time responses
-   - No business logic - only HTTP concerns
-
-2. **AGENT/TOOLS Layer** (`src/agents/`, `src/tools/`)
-   - Multi-stage routing: Quick Filter → LLM Classification → Router Dispatch
-   - LangChain tools for agent integration
-   - RAG and Conversational routers
-   - **ABC-based architecture**: All interfaces use Abstract Base Classes (2025-06-07 migration)
-
-3. **RETRIEVAL Layer** (`src/retrieval/`, `src/indexing/`)
-   - Dense (Qdrant) + BM25 (keyword) search
-   - RRF fusion for hybrid results
-   - Per-user BM25 indexes
-
-4. **INGESTION Layer** (`src/ingestion/`)
-   - Extract → Clean → Chunk → Embed → Index pipeline
-   - PaddleOCR fallback for low-quality PDFs
-   - Per-user document processing
-
-### SOLID Architecture Refactor
-
-The system has been refactored to follow SOLID principles with new packages:
-
-#### **src/interfaces/** - Abstract Base Classes (DIP, OCP) ✅ Migration Complete (2025-06-07)
-- **ClassificationStrategyBase**: ABC for query classification
-- **QueryHandlerBase**: ABC for query execution
-- **RetrieverBase**: ABC for document retrieval
-- **DependencyContainerBase**: ABC for DI container
-- **Lifecycle**: Service lifecycle management (SINGLETON, TRANSIENT, SCOPED)
-
-**Migration Note**: Protocol-based design successfully migrated to ABC-based design on 2025-06-07. All 10 protocols converted to ABCs with <1% performance overhead. See `docs/abc-migration-summary.md` for details.
-
-#### **src/classification/** - Query Intent Detection (Strategy Pattern)
-```
-Classification Chain (fastest → slowest):
-1. KeywordStrategy   → Fuzzy file matching (<5ms)
-2. CachedStrategy    → LRU cache wrapper (<10ms)
-3. LLMStrategy       → LLM classifier (~800ms)
-
-CompositeClassifier chains strategies with fallback:
-- Try each strategy in order
-- Stop at first high-confidence result (>0.8)
-- Fall back to next strategy if low confidence
-```
-
-#### **src/handlers/** - Query Execution (SRP Compliance)
-- **RAGHandler**: Document retrieval + LLM generation with citations
-- **ConversationalHandler**: Direct LLM chat without retrieval
-- **adapters/router_adapter.py**: Adapts old routers to new handler protocol
-
-#### **src/di/** - Dependency Injection (DIP Compliance)
-- **ServiceContainer**: Protocol-based DI container with lifecycle management
-- **ServiceRegistry**: Centralized service registration
-- **FeatureFlagManager**: Percentage-based feature rollouts
-
-### Key Design Patterns
-
-- **Per-User Isolation**: BM25 indexes, document filtering, and conversations are scoped to `user_id`
-- **Async-First**: All I/O operations use async/await patterns
-- **LangChain Tools**: Retrieval and ingestion operations use `@tool` decorators
-- **SSE Streaming**: Chat responses stream structured chunks (routing, retrieval, content, metadata)
-- **Soft Delete**: Conversations use soft delete pattern (`deleted_at` timestamp)
-- **Strategy Pattern**: Pluggable classification strategies
-- **ABC-Based Design**: High-level modules depend on ABC abstractions, not concretions (DIP) ✅ Complete
-- **Adapter Pattern**: Backward compatibility with legacy router implementations
-
-## Code Organization
-
-### File Naming Conventions
-
-- Use **kebab-case** for long, descriptive filenames
-- Examples: `paddleocr_client.py`, `document_store.py`, `conversation_router.py`
-- This makes files self-documenting for LLM tools (Grep, Glob, Search)
+1. **Modular Monolith**: Core business functionality is organized into bounded context directories inside `src/modules/`. Modules communicate via clean application interfaces or the shared kernel.
+2. **Ports & Adapters (Hexagonal)**: All external systems (LLM providers, databases, storage engines, OCR engines) are defined as abstract contracts (**Ports**) in `src/shared/ports/`. Concretions (**Adapters**) in `src/shared/adapters/` implement these ports, allowing simple mocking and hot-swapping.
+3. **Dependency Injection**: A global `ServiceRegistry` compiles and registers adapters into the `ServiceContainer` on server initialization, decoupling composition from execution.
+4. **SOLID Principles**: Focused on dependency inversion (depending on Port ABCs rather than adapters), single responsibility (separate handlers, agents, and strategies), and open-closed extension.
 
 ### Module Structure
 
 ```
 src/
-├── api/              # HTTP endpoints only
-├── agents/           # Routing and LLM logic
-│   └── routers/      # Router implementations (legacy - being migrated)
-├── tools/            # LangChain tools
-├── interfaces/       # Interface/ABC abstractions (SOLID layer) ✅ Complete
-│   ├── classification.py  # ClassificationStrategyBase, Intent, ClassificationResult
-│   ├── handlers.py        # QueryHandlerBase, HandlerResult, Citation
-│   ├── retrieval.py       # RetrieverBase, Document ABCs
-│   └── container.py       # DependencyContainerBase, Lifecycle
-├── classification/   # Query intent detection (Strategy pattern)
-│   ├── strategies/        # Classification implementations
-│   │   ├── keyword.py     # Fast keyword-based classifier (<5ms)
-│   │   ├── cached.py      # LRU cache wrapper
-│   │   ├── llm.py         # LLM-based classifier (~800ms)
-│   │   └── composite.py   # CompositeClassifier with fallback chain
-│   └── cache/             # LRU cache implementation
-├── handlers/         # Query execution handlers (SRP compliance)
-│   ├── rag.py              # RAGHandler: retrieval + LLM generation
-│   ├── conversational.py   # ConversationalHandler: direct LLM chat
-│   └── adapters/           # Adapter pattern for backward compatibility
-│       └── router_adapter.py  # Adapts old routers to new handlers
-├── di/               # Dependency injection (DIP compliance)
-│   ├── container.py        # ServiceContainer with lifecycle management
-│   ├── registry.py         # ServiceRegistry for service registration
-│   └── feature_flags.py    # FeatureFlagManager with percentage rollout
-├── retrieval/        # Search algorithms
-├── indexing/         # Database/Vector DB clients
-├── ingestion/        # ETL pipeline
-├── auth/             # JWT authentication
-├── database/         # SQLAlchemy models
-├── models/           # Pydantic schemas
-├── constants/        # Application constants
-└── main.py           # FastAPI entry point
+├── server/                    # SERVING Layer
+│   ├── main.py                # FastAPI app & initialization
+│   └── api/                   # API routers (v1) & middlewares
+│
+├── modules/                   # APPLICATION CORE (Modular Monolith Contexts)
+│   ├── chat/                  # Chat Context: conversational/RAG handlers, usecases, prompts
+│   ├── rag/                   # RAG Context: agent orchestrators, langgraph workflows, prompts, state
+│   ├── classification/        # Classification Context: CompositeClassifier & routing strategies
+│   ├── document/              # Document Context: ETL ingestion pipelines, chunkers, upload usecases
+│   ├── retrieval/             # Retrieval Context: hybrid search, retrievers (dense, BM25)
+│   └── evaluation/            # Evaluation Context: RAGAS services, golden datasets
+│
+├── shared/                    # EXTERNAL & CROSS-CUTTING Layer
+│   ├── ports/                 # Hexagonal Ports (LLMPort, VectorStorePort, EmbeddingPort, etc.)
+│   ├── adapters/              # Concrete Adapters (GLMAdapter, QdrantAdapter, MinIOAdapter, etc.)
+│   ├── infrastructure/        # Shared infra clients (auth, monitoring/metrics, persistence/database, llm)
+│   ├── domain/                # Shared domain entities & value objects (User, Document, Citation VO)
+│   └── kernel/                # Shared kernel DI container, feature flags, base interfaces
+│
+├── models/                    # Shared Pydantic request/response schemas
+└── constants/, config/        # Global constants and settings validation
 ```
 
-## Key Features Implementation
+## Development Standards
 
-### Multi-Stage Query Routing (Legacy → Migration Path)
+### PEP 8 Compliance
 
-**Current Location**: `src/agents/routers/registry.py` (being migrated)
+All Python code **MUST** follow [PEP 8](https://peps.python.org/pep-0008/) style guide.
 
-**New Architecture**:
-- Classification moved to `src/classification/` with Strategy pattern (ABC-based)
-- Handlers moved to `src/handlers/` with QueryHandlerBase
-- Use CompositeClassifier (ABC-based) for fallback chain
+#### Indentation & Spacing
+- Use **4 spaces** per indentation level (NO tabs)
+- Maximum line length: **100 characters** (soft), **120 characters** (hard)
+- **2 blank lines** between top-level definitions
+- **1 blank line** between methods in classes
 
-**Migration Path**: See "Router-to-Handler Migration Guide" below
+#### Imports
+```python
+# ✅ CORRECT - Grouped by type with blank lines
+import os
+import sys
 
-### Classification with Strategy Pattern
+from typing import Optional, List
 
-Located in `src/classification/strategies/composite.py`:
+from fastapi import Depends
+from langchain.tools import tool
+
+from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
+from src.shared.kernel.interfaces.classification import Intent
+
+# ❌ WRONG
+import os, sys
+from src.handlers import *
+from .module import SomeClass  # Use absolute imports
+```
+
+#### Naming Conventions
+```python
+# ✅ CORRECT
+class DocumentProcessor:         # CapWords for classes
+    MAX_CHUNK_SIZE = 1000         # UPPER_SNAKE_CASE for constants
+    
+    def __init__(self, config: dict):
+        self._config = config      # Leading underscore for private
+    
+    def process_document(self, doc_id: str) -> dict:  # snake_case for methods
+        """Process document and return metadata."""
+        return self._internal_process(doc_id)
+    
+    def _internal_process(self, doc_id: str) -> dict:  # Private method
+        pass
+
+# ❌ WRONG
+class documentProcessor:          # Wrong class naming
+    max_chunk_size = 1000          # Wrong constant naming
+```
+
+#### Type Hints (Required)
+```python
+# ✅ CORRECT - Python 3.10+
+from typing import AsyncIterator
+
+async def handle_stream(
+    query: str,
+    user_id: str | UUID,
+    classification: ClassificationResult,
+    context: dict | None = None
+) -> AsyncIterator[dict]:
+    """Stream response chunks."""
+    yield {"type": "content", "data": {"text": "Response..."}}
+```
+
+#### Docstrings (Google Style)
+```python
+# ✅ CORRECT
+def classify_query(query: str, user_id: str) -> ClassificationResult:
+    """
+    Classify a user query into intent categories.
+    
+    Args:
+        query: The user's search query
+        user_id: Unique identifier for the user
+    
+    Returns:
+        ClassificationResult containing intent and confidence score
+    
+    Raises:
+        ValueError: If query is empty or user_id is invalid
+    """
+    if not query:
+        raise ValueError("Query cannot be empty")
+    return ClassificationResult(intent=Intent.RAG, confidence=0.95)
+```
+
+#### Class Structure Order
+1. Class docstring
+2. Class attributes (constants)
+3. `__init__` method
+4. Public instance methods
+5. Private methods (starting with `_`)
+6. Dunder methods (`__str__`, `__repr__`, etc.)
 
 ```python
-from src.classification.strategies.composite import CompositeClassifier
-from src.classification.strategies.keyword import KeywordStrategy
-from src.classification.strategies.cached import CachedStrategy
-from src.classification.strategies.llm import LLMStrategy
-
-# Build classification chain (fast → slow)
-classifier = CompositeClassifier([
-    KeywordStrategy(),      # <5ms: keyword detection
-    CachedStrategy(LLMStrategy())  # ~800ms: LLM with cache
-])
-
-# Classify query
-result = await classifier.classify("hỏi về contract.pdf", "user123")
+# ✅ CORRECT
+class QueryHandler:
+    """
+    Base class for query handlers.
+    
+    Provides common functionality for all handler implementations.
+    """
+    
+    MAX_RETRIES = 3
+    DEFAULT_TIMEOUT = 30.0
+    
+    def __init__(self, config: HandlerConfig):
+        """Initialize handler with configuration."""
+        self.config = config
+    
+    async def handle(self, query: str) -> HandlerResult:
+        """Handle query and return result."""
+        pass
+    
+    def _validate_query(self, query: str) -> bool:
+        """Private validation method."""
+        return len(query.strip()) > 0
 ```
 
-**Classification Flow**:
-1. **KeywordStrategy**: Fast keyword matching, fuzzy filename search
-2. **CachedStrategy**: LRU cache of recent LLM classifications
-3. **LLMStrategy**: Fallback to LLM-based classification
+#### Async/Await
+```python
+# ✅ CORRECT
+async def process_document(doc_id: str) -> dict:
+    """Process document asynchronously."""
+    doc = await db.get_document(doc_id)
+    chunks = await chunker.chunk(doc.content)
+    return {"doc_id": doc_id, "chunks": len(chunks)}
 
-**Intent Types**:
-- `RAG`: Document retrieval required
-- `CONVERSATIONAL`: Direct chat without retrieval
-- `DRAFTING`: Content creation (future)
-- `SEMANTIC`: Semantic routing (future)
+# ❌ WRONG
+async def process_document(doc_id: str) -> dict:
+    doc = db.get_document(doc_id)  # Missing await!
+    return {"doc_id": doc_id}
+```
 
-### Handler Execution Pattern
+#### Linting Tools
+```bash
+# Install
+pip install black isort flake8 pylint mypy
 
-Located in `src/handlers/`:
+# Format
+black src/
+isort src/
+
+# Lint
+flake8 src/ --max-line-length=120
+mypy src/ --strict
+```
+
+### File Naming Conventions
+
+- Use **snake_case** for Python files: `document_store.py`, `paddleocr_client.py`
+- This makes files self-documenting for LLM tools (Grep, Glob, Search)
+- **DO NOT** use camelCase for Python files
+
+### When Adding New Features
+
+#### New Handler? Add to `src/modules/chat/infrastructure/handlers/` (or create a new module in `src/modules/`)
+```python
+from src.shared.kernel.interfaces.handlers import QueryHandlerBase, HandlerResult
+from src.shared.kernel.interfaces.classification import ClassificationResult
+
+class MyHandler(QueryHandlerBase):
+    """My custom handler implementation."""
+    
+    async def handle(
+        self,
+        query: str,
+        user_id: str | UUID,
+        classification: ClassificationResult,
+        context: dict | None = None
+    ) -> HandlerResult:
+        # Execute query logic (NO classification logic here!)
+        return HandlerResult(content="Response...", metadata={})
+```
+
+#### New Classification Strategy? Add to `src/modules/classification/domain/strategies/`
+```python
+from src.shared.kernel.interfaces.classification import ClassificationStrategyBase
+
+class MyStrategy(ClassificationStrategyBase):
+    """My custom classification strategy."""
+    
+    async def classify(self, query: str, user_id: str | UUID) -> ClassificationResult:
+        # Return classification result
+        return ClassificationResult(intent=Intent.RAG, confidence=0.95)
+```
+
+#### New Tool? Add to `src/tools/`
+```python
+from langchain.tools import tool
+
+@tool
+async def my_tool(input: str) -> str:
+    """
+    Tool description for LangChain.
+    
+    Args:
+        input: Input parameter description
+    
+    Returns:
+        Output description
+    """
+    return "Result"
+```
+
+#### New Endpoint? Add to `src/server/api/v1/`
+```python
+from fastapi import APIRouter, Depends
+from src.shared.infrastructure.auth.dependencies import get_current_user
+
+router = APIRouter()
+
+@router.post("/my-endpoint")
+async def my_endpoint(
+    data: MySchema,
+    current_user: User = Depends(get_current_user)
+):
+    """Endpoint description."""
+    return {"result": "success"}
+```
+
+### Testing
+
+- Tests located in `tests/`
+- Use pytest with async support
+- Test with real database (docker-compose services)
+- Mock external API calls (LLM, embedding, OCR)
+
+### Error Handling
 
 ```python
-from src.handlers.rag import RAGHandler
-from src.handlers.conversational import ConversationalHandler
+# ✅ CORRECT - Specific exceptions with context
+try:
+    result = await api_call(data)
+except (ConnectionError, TimeoutError) as e:
+    logger.error(f"API call failed: {e}")
+    raise QueryProcessingError(f"Unable to process query: {e}") from e
+finally:
+    await close_connection()
 
-# Handlers receive pre-classified queries
-rag_handler = RAGHandler(retriever, llm_client, config)
-result = await rag_handler.handle(
-    query="hỏi về contract.pdf",
-    user_id="user123",
-    classification=classification_result  # Pre-classified
-)
-
-# Streaming support
-async for chunk in rag_handler.handle_stream(query, user_id, classification):
-    if chunk["type"] == "content":
-        print(chunk["data"]["text"])
+# ❌ WRONG - Bare except
+try:
+    result = await api_call(data)
+except:
+    pass
 ```
 
-**Handler Responsibilities**:
-- Execute domain-specific logic (RAG, conversational, etc.)
-- NO classification logic (SRP compliance)
-- Support both sync and streaming responses
-- Return HandlerResult with citations and metadata
+## API Reference
 
-### Dependency Injection with ServiceContainer
+### SSE Streaming Format
 
-Located in `src/di/container.py`:
+```json
+// Routing decision
+{"type": "routing", "data": {"router": "RAGRouter", "intent": "rag", "confidence": 0.95}}
 
-```python
-from src.di.container import ServiceContainer
-from src.interfaces.classification import ClassificationStrategyBase
-from src.interfaces.handlers import QueryHandlerBase
+// Retrieval progress
+{"type": "retrieval", "data": {"iteration": 1, "strategy": "hybrid", "docs_retrieved": 5}}
 
-container = ServiceContainer()
+// Content chunks
+{"type": "content", "data": {"text": "Response chunk..."}}
 
-# Register services with lifecycle
-await container.register_singleton(ClassificationStrategyBase, CompositeClassifier(...))
-await container.register_singleton(QueryHandlerBase, RAGHandler(...))
+// Final metadata
+{"type": "metadata", "data": {"status": "success", "citations": [...], "conversation_id": "..."}}
 
-# Resolve dependencies
-classifier = await container.get(ClassificationStrategyBase)
-handler = await container.get(QueryHandlerBase)
+// Done signal
+{"type": "done"}
 ```
 
-**Lifecycle Types**:
-- **SINGLETON**: One instance for app lifetime (classifiers, handlers)
-- **TRANSIENT**: New instance each time (rarely used)
-- **SCOPED**: One instance per scope (e.g., per request)
+### Standard Response Format
 
-### Intelligent OCR Fallback
-
-Located in `src/ingestion/extractor.py`:
-
-- **Low-quality detection**: Checks for excessive single-char words, low Vietnamese diacritics ratio
-- **Hybrid extraction**: PyMuPDF native text → PaddleOCR for scanned pages
-- **2D layout sorting**: OCR lines sorted in reading order (top-to-bottom, left-to-right)
-
-### Per-User BM25 Index
-
-Located in `src/ingestion/bm25_builder.py`:
-
-- In-memory BM25 index per user
-- Bulk add/remove operations
-- Query with user-scoped search
-
-### Hybrid Retrieval with RRF
-
-Located in `src/retrieval/hybrid.py`:
-
-- Parallel dense (Qdrant) and BM25 retrieval
-- Reciprocal Rank Fusion (RRF) for result merging
-- Configurable `k` parameter for RRF scoring
+```json
+{
+  "content": "Answer text...",
+  "citations": [{"filename": "doc.pdf", "page": 1, "text": "..."}],
+  "conversation_id": "uuid",
+  "message_id": "uuid",
+  "metadata": {"router": "RAGRouter", "agent": "rag", "latency_ms": 1234}
+}
+```
 
 ## Environment Configuration
-
-### Configuration Hierarchy
-
-1. **Static config** (`config/settings.yaml`):
-   - Chunking parameters (size, overlap)
-   - Retrieval parameters (k, rrf_k)
-   - Qdrant collection settings
-
-2. **Environment variables** (`.env`):
-   - Database credentials
-   - API keys (LLM, embedding)
-   - OCR service URL
-   - CORS origins
-
-3. **Settings class** (`config/config.py`):
-   - Pydantic-based validation
-   - Fail-fast for production with default secrets
 
 ### Required Environment Variables
 
@@ -581,100 +430,32 @@ OCR_ENABLED=true
 OCR_BASE_URL=http://paddleocr-service:8868
 ```
 
-## API Response Patterns
+### Configuration Priority
 
-### SSE Streaming Format
-
-Chat streaming (`POST /api/v1/chat/stream`) yields structured chunks:
-
-```json
-// Routing decision
-{"type": "routing", "data": {"router": "RAGRouter", "intent": "rag", "confidence": 0.95}}
-
-// Retrieval progress
-{"type": "retrieval", "data": {"iteration": 1, "strategy": "hybrid", "docs_retrieved": 5}}
-
-// Content chunks
-{"type": "content", "data": {"text": "Response chunk..."}}
-
-// Final metadata
-{"type": "metadata", "data": {"status": "success", "citations": [...], "conversation_id": "..."}}
-
-// Done signal
-{"type": "done"}
-```
-
-### Standard Response Format
-
-Non-streaming responses follow this structure:
-
-```json
-{
-  "content": "Answer text...",
-  "citations": [{"filename": "doc.pdf", "page": 1, "text": "..."}],
-  "conversation_id": "uuid",
-  "message_id": "uuid",
-  "metadata": {"router": "RAGRouter", "agent": "rag", "latency_ms": 1234}
-}
-```
-
-## Development Guidelines
-
-### When Adding New Features
-
-1. **New Router?** Add to `src/agents/routers/`:
-   - Inherit from `BaseRouter`
-   - Implement `can_handle()`, `handle()`, `handle_stream()`
-   - Register in `RouterRegistry`
-
-2. **New Tool?** Add to `src/tools/`:
-   - Use `@tool` decorator from LangChain
-   - Include docstring for tool description
-   - Export from `__init__.py`
-
-3. **New Endpoint?** Add to `src/api/`:
-   - Use FastAPI router pattern
-   - Add JWT auth via `Depends(get_current_user)`
-   - Use async/await for I/O
-
-4. **Database Change?** Update:
-   - `src/database/models.py` (SQLAlchemy model)
-   - `src/models/*.py` (Pydantic schemas)
-   - Create Alembic migration
-
-### Error Handling
-
-- Use `src/constants/` for error messages
-- Return structured errors in API responses
-- Log errors with appropriate level
-- Use soft delete for data that shouldn't be permanently removed
-
-### Testing
-
-- Tests located in `tests/`
-- Use pytest with async support
-- Test with real database (docker-compose services)
-- Mock external API calls (LLM, embedding, OCR)
+1. **Static config** (`config/settings.yaml`) - Chunking, retrieval parameters
+2. **Environment variables** (`.env`) - Secrets, API keys, URLs
+3. **Settings class** (`config/config.py`) - Pydantic validation
 
 ## Common Tasks
 
 ### Adding a New LLM Provider
 
 1. Add configuration to `config/config.py`
-2. Create client in `src/agents/llm.py`
-3. Update `LLM_PROVIDER` in `.env`
-
-### Adding a New Router
-
-1. Create file in `src/agents/routers/`
-2. Implement `BaseRouter` interface
-3. Register in `orchestrator.py`
+2. Create adapter in `src/shared/adapters/llm/` and implement `LLMPort`
+3. Wire the new adapter in the ServiceRegistry (`src/shared/kernel/di/registry.py`)
+4. Update `LLM_PROVIDER` in `.env`
 
 ### Modifying Retrieval Strategy
 
 1. Update `config/settings.yaml` for parameters
-2. Modify retrieval logic in `src/retrieval/`
+2. Modify retrieval logic in `src/modules/retrieval/`
 3. Test with different query types
+
+### Database Migration
+
+1. Update `src/shared/infrastructure/persistence/database/models.py` (SQLAlchemy model)
+2. Update `src/models/*.py` (Pydantic schemas)
+3. Create Alembic migration
 
 ## Vietnamese Language Support
 
@@ -683,18 +464,18 @@ The system is optimized for Vietnamese:
 - **Embeddings**: BAAI/bge-m3 or Vietnamese-embedding-v2
 - **OCR**: PaddleOCR with Vietnamese language model
 - **LLM**: GLM-4.5 (Zhipu AI) with strong Vietnamese support
-- **Text Cleaning**: Preserves Vietnamese diacritics during normalization
+- **Text Cleaning**: Preserves Vietnamese diacritics
 
 ## Frontend Notes
 
-The frontend is a **separate Next.js 16 application**:
+Separate Next.js 16 application:
 
 - Located in `frontend/`
 - Uses shadcn/ui components
 - Zustand for state management
 - TanStack Query for API calls
 - i18n support (Vietnamese/English)
-- **Port**: 3001 (different from default 3000)
+- **Port**: 3001
 
 ## Deployment
 
@@ -710,7 +491,7 @@ All infrastructure runs in Docker Compose:
 
 - Set `APP_ENV=production`
 - Use strong `JWT_SECRET_KEY`
-- Configure CORS origins properly
+- Configure CORS origins
 - Enable `AUTH_ENABLED=true`
 - Set up PaddleOCR service (if using OCR)
 - Configure external LLM and embedding APIs
@@ -719,264 +500,25 @@ All infrastructure runs in Docker Compose:
 
 ### Common Issues
 
-1. **BM25 index empty**: Check BM25 builder initialization, ensure documents processed
+1. **BM25 index empty**: Check BM25 builder initialization
 2. **OCR not working**: Verify `OCR_BASE_URL` and service health
-3. **No retrieval results**: Check Qdrant collection, verify embeddings generated
+3. **No retrieval results**: Check Qdrant collection, verify embeddings
 4. **Auth errors**: Verify JWT token, check `AUTH_ENABLED` setting
 
 ### Debug Mode
 
 Set `DEBUG=true` in `.env` for detailed logging.
 
-## Router-to-Handler Migration Guide
-
-### Overview
-
-The system is migrating from router-based architecture (`src/agents/routers/`) to handler-based architecture (`src/handlers/`) with ABC-based design (✅ Migration Complete: 2025-06-07). This improves:
-
-- **SRP Compliance**: Handlers execute, classifiers classify (separation of concerns)
-- **DIP Compliance**: High-level modules depend on ABC abstractions, not concretions
-- **Testability**: ABC-based design enables easy mocking with compile-time verification
-- **Extensibility**: New handlers can be added without modifying existing code
-
-### Migration Steps
-
-#### Step 1: Create Handler Implementation
-
-```python
-# src/handlers/my_handler.py
-from src.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig
-from src.interfaces.classification import ClassificationResult
-from typing import AsyncIterator
-from uuid import UUID
-
-class MyHandler(QueryHandlerBase):  # Inherit from ABC
-    def __init__(self, config: HandlerConfig):
-        self.config = config
-
-    async def handle(
-        self,
-        query: str,
-        user_id: str | UUID,
-        classification: ClassificationResult,
-        context: dict | None = None
-    ) -> HandlerResult:
-        # Execute query logic (NO classification logic here!)
-        return HandlerResult(
-            content="Response...",
-            metadata={"handler": "MyHandler"}
-        )
-
-    async def handle_stream(
-        self,
-        query: str,
-        user_id: str | UUID,
-        classification: ClassificationResult,
-        context: dict | None = None
-    ) -> AsyncIterator[dict]:
-        # Yield streaming chunks
-        yield {"type": "content", "data": {"text": "Response..."}}
-        yield {"type": "done"}
-
-    def can_handle(self, classification: ClassificationResult) -> bool:
-        # Check if handler can handle this intent
-        return classification.is_rag_intent()
-
-    def get_config(self) -> HandlerConfig:
-        return self.config
-
-    def get_name(self) -> str:
-        return "MyHandler"
-```
-
-#### Step 2: Use Router Adapter (Backward Compatibility)
-
-For existing routers, use the adapter pattern:
-
-```python
-# src/handlers/adapters/router_adapter.py
-from src.agents.routers.rag_router import RAGRouter
-from src.interfaces.handlers import QueryHandlerBase
-
-class RAGRouterAdapter(QueryHandlerBase):  # Inherit from ABC
-    def __init__(self, router: RAGRouter):
-        self.router = router
-
-    async def handle(self, query, user_id, classification, context=None):
-        # Convert old router output to HandlerResult
-        result = await self.router.handle(query, user_id)
-        return HandlerResult(
-            content=result.content,
-            citations=result.citations,
-            metadata=result.metadata
-        )
-    
-    async def handle_stream(self, query, user_id, classification, context=None):
-        # Implement streaming
-        async for chunk in self.router.handle_stream(query, user_id):
-            yield chunk
-    
-    def can_handle(self, classification):
-        return classification.intent == Intent.RAG
-    
-    def get_config(self):
-        return HandlerConfig()
-    
-    def get_name(self):
-        return "RAGRouterAdapter"
-```
-
-#### Step 3: Update Orchestrator
-
-```python
-# OLD (router-based)
-router = RouterRegistry.get_router(query, user_id)
-result = await router.handle(query, user_id)
-
-# NEW (ABC-based handler)
-classifier = CompositeClassifier([...])  # ABC-based strategies
-classification = await classifier.classify(query, user_id)
-
-handler = await container.get(QueryHandlerBase)  # Resolve ABC handler
-result = await handler.handle(query, user_id, classification)
-```
-
-### Comparison: Old vs New
-
-| Aspect | Old Router Pattern | New Handler Pattern (ABC) |
-|--------|-------------------|---------------------|
-| Classification | Mixed in router logic | Separate classification layer (ABC-based) |
-| Interface | `BaseRouter` | `QueryHandlerBase` (compile-time verified) |
-| Dispatch | RouterRegistry | Handler selection via classification |
-| Testing | Hard to mock | ABC-based mocking with type safety |
-| Extensibility | Modify registry | Add new handler, register in DI |
-
-### Legacy Support
-
-Old routers remain functional via `RouterAdapter` in `src/handlers/adapters/`. Gradual migration recommended:
-
-1. New features → Use new handler pattern
-2. Existing features → Migrate when touched
-3. Critical paths → Keep old pattern until validated
-
 ## Resources
 
-- **Architecture**: 4-layer pattern + SOLID refactor
+- **Architecture**: 4-layer pattern + SOLID principles
 - **Hybrid Retrieval**: RRF (Reciprocal Rank Fusion) algorithm
 - **OCR**: PaddleOCR HTTP API
 - **Vector DB**: Qdrant documentation
 - **Frontend**: Next.js 16 + shadcn/ui
-- **SOLID Principles**: SRP, DIP, OCP, LSP, ISP
+- **PEP 8**: [Official Style Guide](https://peps.python.org/pep-0008/)
 
 ---
 
-## Modular Monolith Migration (2026)
-
-### Current Status: Phase 0 Complete ✅
-
-**Branch**: `feat/modular-monolith-migration`  
-**Documentation**: 
-- [Migration Progress Tracker](docs/modular-monolith-migration-progress.md)
-- [Phase 0 Quick Reference](docs/phase0-quick-reference.md)
-
-### Phase 0 Achievements (2026-06-11)
-
-**Completed**:
-- ✅ Created 5 validation scripts for architecture analysis
-- ✅ Generated dependency graph: **82 modules**, **96 Python files**
-- ✅ Set up CI workflow for automated validation
-- ✅ Verified: **0 circular dependencies**, **0 layer violations**
-- ✅ Documented current architecture state
-
-**Architecture State**:
-```
-Module Distribution:
-- Serving Layer (src/api/): 8 modules
-- Agent/Tools Layer (src/): 12 modules
-- Retrieval Layer (src/): 15 modules
-- Ingestion Layer (src/): 10 modules
-- Infrastructure (src/): 17 modules
-- Interfaces (src/): 6 modules
-- Other modules: 14 modules
-```
-
-### Migration Roadmap
-
-```mermaid
-gantt
-    title Modular Monolith Migration Timeline
-    dateFormat  YYYY-MM-DD
-    section Phase 0
-    Pre-Migration Preparation    :done, p0, 2026-06-11, 2d
-    section Phase 1
-    Module Identification         :active, p1, 2026-06-13, 5d
-    section Phase 2
-    Interface Definition          :p2, after p1, 7d
-    section Phase 3
-    Dependency Injection          :p3, after p2, 10d
-    section Phase 4
-    Module Implementation         :p4, after p3, 14d
-    section Phase 5
-    Testing & Validation         :p5, after p4, 7d
-```
-
-### Validation Infrastructure
-
-**Scripts Available** (`scripts/`):
-- `validate_architecture.py` - Layer boundary validation
-- `analyze-dependencies-for-modular-monolith.py` - Dependency graph generation
-- `visualize-dependencies-with-mermaid.py` - Mermaid diagram visualization
-- `create-architecture-baseline.py` - Baseline snapshot creation
-
-**CI Workflow**: `.github/workflows/validate-modular-monolith-architecture.yml`
-
-### Quick Commands
-
-```bash
-# Run all validations
-python scripts/validate_architecture.py && \
-python scripts/analyze-dependencies-for-modular-monolith.py && \
-python scripts/visualize-dependencies-with-mermaid.py
-
-# View reports
-cat dependency_report.json | jq '.'                    # Dependency graph
-open dependency_visualization.html                      # Visualization
-cat architecture_baseline.json | jq '.'                  # Baseline metrics
-```
-
-### Next Steps (Phase 1: Module Identification)
-
-**Objectives**:
-1. Identify candidate modules (15-20 target modules)
-2. Define module boundaries based on dependency analysis
-3. Create module taxonomy and categorization
-4. Document module interfaces
-
-**Preparation**:
-- Review dependency_report.json for high-coupling areas
-- Identify leaf modules (low out_degree) for early extraction
-- Define core modules (high in_degree) for late extraction
-- Establish module size limits (max files per module)
-
-### Migration Progress
-
-- **Phase 0**: Pre-Migration Preparation ✅ Complete
-- **Phase 1**: Module Identification 🔄 Planning
-- **Phase 2**: Interface Definition ⏳ Pending
-- **Phase 3**: Dependency Injection ⏳ Pending
-- **Phase 4**: Module Implementation ⏳ Pending
-- **Phase 5**: Testing & Validation ⏳ Pending
-
-**Estimated Total Duration**: ~45 days (6-7 weeks)
-
-### References
-
-- **System Architecture**: [docs/system-architecture.md](docs/system-architecture.md)
-- **Code Standards**: [docs/code-standards.md](docs/code-standards.md)
-- **Phase 0 Reports**: See [docs/phase0-quick-reference.md](docs/phase0-quick-reference.md)
-
----
-
-*Last Updated: 2026-06-11*  
-*Migration Branch: feat/modular-monolith-migration*  
+*Last Updated: 2026-06-11*
 *This document is maintained alongside the codebase. Update when architecture or patterns change.*

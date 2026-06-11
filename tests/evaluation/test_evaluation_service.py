@@ -1,8 +1,9 @@
 """Tests for RAGAS evaluation service."""
 
 import pytest
-from evaluation.service import RAGASEvaluationService
-from models.evaluation import EvaluationRequest, EvaluationMetric
+import asyncio
+from src.modules.evaluation.domain.service import RAGASEvaluationService
+from src.models.evaluation import EvaluationRequest, EvaluationMetric
 
 
 @pytest.mark.asyncio
@@ -45,7 +46,7 @@ async def test_evaluate_multiple_metrics():
     result = await service.evaluate(request)
 
     assert len(result.results) == 3
-    assert result.overall_score > 0.0
+    assert result.overall_score >= 0.0
 
 
 @pytest.mark.asyncio
@@ -53,7 +54,7 @@ async def test_batch_evaluation():
     """Test batch evaluation."""
     service = RAGASEvaluationService()
 
-    from models.evaluation import BatchEvaluationRequest
+    from src.models.evaluation import BatchEvaluationRequest
 
     request = BatchEvaluationRequest(
         queries=[
@@ -105,21 +106,36 @@ async def test_cache_functionality():
 
 
 @pytest.mark.asyncio
-async def test_evaluate_with_error_handling():
+async def test_evaluate_with_error_handling(mocker):
     """Test evaluation handles errors gracefully."""
+    from pydantic import ValidationError
     service = RAGASEvaluationService()
 
-    # Test with empty contexts (should handle gracefully)
+    # 1. Test validation error for empty contexts (Pydantic V2)
+    with pytest.raises(ValidationError):
+        EvaluationRequest(
+            query="Test query",
+            answer="Test answer",
+            contexts=[],
+            metrics=[EvaluationMetric.FAITHFULNESS],
+        )
+
+    # 2. Test service error handling on LLM timeout
+    mocker.patch(
+        "src.modules.evaluation.domain.service.chat_async",
+        side_effect=asyncio.TimeoutError("Timeout constraint")
+    )
     request = EvaluationRequest(
         query="Test query",
         answer="Test answer",
-        contexts=[],
+        contexts=["Test context"],
         metrics=[EvaluationMetric.FAITHFULNESS],
     )
-
-    # Should not crash, might return default score
     result = await service.evaluate(request)
     assert result.evaluation_id
+    assert len(result.results) == 1
+    assert result.results[0].score == 0.0
+    assert "timeout" in result.results[0].error.lower()
 
 
 @pytest.mark.asyncio

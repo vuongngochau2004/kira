@@ -31,45 +31,7 @@ __all__ = [
 # DATA MODELS (formerly in src.protocols.handlers)
 # ============================================================================
 
-@dataclass(frozen=True)
-class Citation:
-    """
-    Citation for sourced information.
-
-    Attributes:
-        filename: Source document filename
-        page: Page number (if applicable)
-        text: Excerpt from the source
-        url: URL to the source (if applicable)
-        confidence: Confidence score for the citation
-        metadata: Additional metadata
-
-    Example:
-        >>> citation = Citation(
-        ...     filename="contract.pdf",
-        ...     page=1,
-        ...     text="The agreement term is 12 months...",
-        ...     confidence=0.95
-        ... )
-    """
-
-    filename: str
-    text: str
-    page: int | None = None
-    url: str | None = None
-    confidence: float = 1.0
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for serialization."""
-        return {
-            "filename": self.filename,
-            "page": self.page,
-            "text": self.text,
-            "url": self.url,
-            "confidence": self.confidence,
-            "metadata": self.metadata,
-        }
+from src.shared.domain.value_objects.citation import Citation
 
 
 @dataclass(frozen=True)

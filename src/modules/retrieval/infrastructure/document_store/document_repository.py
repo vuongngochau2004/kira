@@ -1,0 +1,537 @@
+"""Postgres document storage operations."""
+
+import logging
+from datetime import datetime
+from uuid import UUID
+from typing import Any
+
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func
+
+
+logger = logging.getLogger(__name__)
+
+
+async def _get_session(db: AsyncSession | None) -> AsyncSession:
+    """Get database session, create new one if not provided."""
+    if db is None:
+        from src.shared.infrastructure.persistence.database.session import async_session_factory
+        return async_session_factory()
+    return db
+
+
+async def create_document(
+    user_id: UUID,
+    filename: str,
+    file_type: str,
+    file_size: int,
+    storage_path: str,
+    db: AsyncSession | None = None,
+) -> Any:
+    """Create a new document record.
+
+    Args:
+        user_id: User ID
+        filename: Document filename
+        file_type: File extension/type
+        file_size: File size in bytes
+        storage_path: Storage path (MinIO)
+        db: Optional database session
+
+    Returns:
+        Document model instance
+    """
+    from src.shared.infrastructure.persistence.database.models import Document
+
+    session = await _get_session(db)
+    doc = Document(
+        user_id=user_id,
+        filename=filename,
+        file_type=file_type,
+        file_size=file_size,
+        storage_path=storage_path,
+        status="uploading",
+    )
+    session.add(doc)
+    await session.commit()
+    await session.refresh(doc)
+    return doc
+
+
+async def update_document_status(
+    document_id: UUID,
+    status: str,
+    error_message: str | None = None,
+    chunk_count: int = 0,
+    db: AsyncSession | None = None,
+) -> Any | None:
+    """Update document processing status.
+
+    Args:
+        document_id: Document ID
+        status: New status (processing, completed, failed)
+        error_message: Optional error message
+        chunk_count: Number of chunks created
+        db: Optional database session
+
+    Returns:
+        Updated document or None
+    """
+    from src.shared.infrastructure.persistence.database.models import Document
+
+    session = await _get_session(db)
+    values = {"status": status, "updated_at": datetime.utcnow()}
+
+    if error_message is not None:
+        values["error_message"] = error_message
+    if chunk_count > 0:
+        values["chunk_count"] = chunk_count
+
+    result = await session.execute(
+        update(Document)
+        .where(Document.id == document_id)
+        .where(Document.deleted_at.is_(None))
+        .values(**values)
+        .returning(Document)
+    )
+    await session.commit()
+    return result.scalar_one_or_none()
+
+
+async def get_document(
+    document_id: UUID,
+    user_id: UUID | None = None,
+    db: AsyncSession | None = None,
+) -> Any | None:
+    """Get a document by ID.
+
+    Args:
+        document_id: Document ID
+        user_id: Optional user ID filter
+        db: Optional database session
+
+    Returns:
+        Document or None
+    """
+    from src.shared.infrastructure.persistence.database.models import Document
+
+    session = await _get_session(db)
+    query = select(Document).where(
+        Document.id == document_id,
+        Document.deleted_at.is_(None),
+    )
+
+    if user_id is not None:
+        query = query.where(Document.user_id == user_id)
+
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_documents_batch(
+    document_ids: list[UUID | str],
+    user_id: UUID | None = None,
+    db: AsyncSession | None = None,
+) -> dict[str, str]:
+    """Batch fetch documents by IDs, returning {document_id: filename} mapping.
+
+    Args:
+        document_ids: List of document IDs to fetch
+        user_id: Optional user ID filter
+        db: Optional database session
+
+    Returns:
+        Dict mapping document_id (str) to filename
+    """
+    from src.shared.infrastructure.persistence.database.models import Document
+
+    if not document_ids:
+        return {}
+
+    try:
+        session = await _get_session(db)
+
+        # Convert string IDs to UUID for query
+        uuid_ids = []
+        for doc_id in document_ids:
+            if isinstance(doc_id, UUID):
+                uuid_ids.append(doc_id)
+            else:
+                try:
+                    uuid_id = UUID(doc_id)
+                    uuid_ids.append(uuid_id)
+                except ValueError:
+                    continue  # Skip invalid UUIDs
+
+        if not uuid_ids:
+            return {}
+
+        # Single batch query with WHERE IN clause
+        query = select(Document).where(
+            Document.id.in_(uuid_ids),
+            Document.deleted_at.is_(None),
+        )
+
+        if user_id is not None:
+            query = query.where(Document.user_id == user_id)
+
+        result = await session.execute(query)
+        documents = result.scalars().all()
+
+        # Return {document_id: filename} mapping
+        return {str(doc.id): doc.filename for doc in documents}
+
+    except Exception as e:
+        logger.error(f"Batch document query failed: {e}")
+        return {}
+
+
+async def list_documents(
+    user_id: UUID,
+    status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    db: AsyncSession | None = None,
+) -> tuple[list[Any], int]:
+    """List user's documents.
+
+    Args:
+        user_id: User ID
+        status: Optional status filter
+        limit: Max results
+        offset: Pagination offset
+        db: Optional database session
+
+    Returns:
+        Tuple of (documents list, total count)
+    """
+    from src.shared.infrastructure.persistence.database.models import Document
+
+    session = await _get_session(db)
+
+    count_query = select(func.count()).select_from(Document).where(
+        Document.user_id == user_id,
+        Document.deleted_at.is_(None),
+    )
+    if status is not None:
+        count_query = count_query.where(Document.status == status)
+
+    total_result = await session.execute(count_query)
+    total = total_result.scalar_one()
+
+    query = (
+        select(Document)
+        .where(Document.user_id == user_id, Document.deleted_at.is_(None))
+        .order_by(Document.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+
+    if status is not None:
+        query = query.where(Document.status == status)
+
+    result = await session.execute(query)
+    documents = result.scalars().all()
+
+    return list(documents), total
+
+
+async def delete_document(
+    document_id: UUID,
+    user_id: UUID,
+    db: AsyncSession | None = None,
+) -> bool:
+    """Soft delete a document.
+
+    Args:
+        document_id: Document ID
+        user_id: User ID
+        db: Optional database session
+
+    Returns:
+        True if deleted, False otherwise
+    """
+    from src.shared.infrastructure.persistence.database.models import Document
+
+    session = await _get_session(db)
+    result = await session.execute(
+        update(Document)
+        .where(Document.id == document_id)
+        .where(Document.user_id == user_id)
+        .where(Document.deleted_at.is_(None))
+        .values(deleted_at=datetime.utcnow())
+        .returning(Document)
+    )
+    await session.commit()
+    return result.scalar_one_or_none() is not None
+
+
+async def create_chunks(
+    document_id: UUID,
+    chunks: list[dict],
+    db: AsyncSession | None = None,
+) -> list[Any]:
+    """Create document chunks.
+
+    Args:
+        document_id: Document ID
+        chunks: List of chunk data
+        db: Optional database session
+
+    Returns:
+        List of created chunk models
+    """
+    from src.shared.infrastructure.persistence.database.models import DocumentChunk
+
+    session = await _get_session(db)
+    chunk_models = []
+
+    for chunk_data in chunks:
+        chunk = DocumentChunk(
+            document_id=document_id,
+            chunk_index=chunk_data["index"],
+            content=chunk_data["content"],
+            token_count=chunk_data.get("token_count", 0),
+            metadata=chunk_data.get("metadata", {}),
+            embedding_model=chunk_data.get("embedding_model", ""),
+        )
+        chunk_models.append(chunk)
+        session.add(chunk)
+
+    await session.commit()
+
+    return chunk_models
+
+
+async def get_document_chunks(
+    document_id: UUID,
+    db: AsyncSession | None = None,
+) -> list[Any]:
+    """Get all chunks for a document.
+
+    Args:
+        document_id: Document ID
+        db: Optional database session
+
+    Returns:
+        List of chunks
+    """
+    from src.shared.infrastructure.persistence.database.models import DocumentChunk
+
+    session = await _get_session(db)
+    result = await session.execute(
+        select(DocumentChunk)
+        .where(DocumentChunk.document_id == document_id)
+        .order_by(DocumentChunk.chunk_index)
+    )
+    return list(result.scalars().all())
+
+
+async def create_conversation(
+    user_id: UUID,
+    title: str,
+    db: AsyncSession | None = None,
+) -> Any:
+    """Create a new conversation.
+
+    Args:
+        user_id: User ID
+        title: Conversation title
+        db: Optional database session
+
+    Returns:
+        Conversation model
+    """
+    from src.shared.infrastructure.persistence.database.models import Conversation
+
+    session = await _get_session(db)
+    conv = Conversation(
+        user_id=user_id,
+        title=title,
+        message_count=0,
+    )
+    session.add(conv)
+    await session.commit()
+    await session.refresh(conv)
+    return conv
+
+
+async def create_message(
+    conversation_id: UUID,
+    role: str,
+    content: str,
+    sources: list | None = None,
+    token_count: int | None = None,
+    thinking_data: dict | None = None,
+    db: AsyncSession | None = None,
+) -> Any:
+    """Create a new message with validated thinking_data.
+
+    Args:
+        conversation_id: Conversation ID
+        role: Message role (user/assistant)
+        content: Message content
+        sources: Optional source citations
+        token_count: Optional token count
+        thinking_data: Optional thinking metadata
+        db: Optional database session
+
+    Returns:
+        Message model
+    """
+    from src.shared.infrastructure.persistence.database.models import Message, Conversation
+
+    session = await _get_session(db)
+
+    # Validate thinking_data structure to prevent malformed JSON
+    validated_thinking = {}
+    if thinking_data and isinstance(thinking_data, dict):
+        try:
+            # Only allow expected keys in thinking_data
+            allowed_keys = {"steps", "iterations", "router", "agent", "latency_ms", "thinking", "retrieval"}
+            validated_thinking = {
+                k: v for k, v in thinking_data.items()
+                if k in allowed_keys and isinstance(v, (str, int, float, list, dict, bool))
+            }
+        except (TypeError, AttributeError):
+            validated_thinking = {}
+
+    msg = Message(
+        conversation_id=conversation_id,
+        role=role,
+        content=content,
+        sources=sources or [],
+        token_count=token_count,
+        thinking_data=validated_thinking,
+    )
+    session.add(msg)
+
+    await session.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation_id)
+        .values(
+            message_count=Conversation.message_count + 1,
+            last_message_at=datetime.utcnow(),
+        )
+    )
+
+    await session.commit()
+    await session.refresh(msg)
+    return msg
+
+
+async def get_conversation_messages(
+    conversation_id: UUID,
+    db: AsyncSession | None = None,
+) -> list[Any]:
+    """Get all messages in a conversation.
+
+    Args:
+        conversation_id: Conversation ID
+        db: Optional database session
+
+    Returns:
+        List of messages
+    """
+    from src.shared.infrastructure.persistence.database.models import Message
+
+    session = await _get_session(db)
+    result = await session.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at)
+    )
+    return list(result.scalars().all())
+
+
+async def list_conversations(
+    user_id: UUID,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession | None = None,
+) -> tuple[list[Any], int]:
+    """List user's conversations.
+
+    Args:
+        user_id: User ID
+        limit: Max results
+        offset: Pagination offset
+        db: Optional database session
+
+    Returns:
+        Tuple of (conversations list, total count)
+    """
+    from src.shared.infrastructure.persistence.database.models import Conversation
+
+    session = await _get_session(db)
+
+    count_query = select(func.count()).select_from(Conversation).where(
+        Conversation.user_id == user_id,
+        Conversation.deleted_at.is_(None),
+    )
+
+    total_result = await session.execute(count_query)
+    total = total_result.scalar_one()
+
+    result = await session.execute(
+        select(Conversation)
+        .where(
+            Conversation.user_id == user_id,
+            Conversation.deleted_at.is_(None),
+        )
+        .order_by(
+            Conversation.last_message_at.desc().nulls_last(),
+            Conversation.created_at.desc(),
+        )
+        .limit(limit)
+        .offset(offset)
+    )
+
+    conversations = result.scalars().all()
+    return list(conversations), total
+
+
+async def get_conversation(
+    conversation_id: UUID,
+    user_id: UUID,
+    db: AsyncSession | None = None,
+) -> Any | None:
+    """Get a conversation by ID.
+
+    Args:
+        conversation_id: Conversation ID
+        user_id: User ID
+        db: Optional database session
+
+    Returns:
+        Conversation or None
+    """
+    from src.shared.infrastructure.persistence.database.models import Conversation
+
+    session = await _get_session(db)
+    result = await session.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == user_id,
+            Conversation.deleted_at.is_(None),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+__all__ = [
+    "create_document",
+    "update_document_status",
+    "get_document",
+    "get_documents_batch",
+    "list_documents",
+    "delete_document",
+    "create_chunks",
+    "get_document_chunks",
+    "create_conversation",
+    "create_message",
+    "get_conversation_messages",
+    "list_conversations",
+    "get_conversation",
+]

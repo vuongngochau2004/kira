@@ -4,7 +4,7 @@ Tests for FeatureFlagManager.
 
 import pytest
 
-from di.feature_flags import (
+from src.shared.kernel.di import (
     FeatureFlag,
     FeatureFlagManager,
     get_feature_flag_manager,

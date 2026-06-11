@@ -7,7 +7,7 @@ Validates protocol compliance and ClassificationResult behavior.
 import pytest
 from uuid import uuid4
 
-from interfaces.classification import (
+from src.shared.kernel.interfaces.classification import (
     ClassificationStrategyBase,
     ClassificationResult,
     Intent,
@@ -83,10 +83,10 @@ async def test_classification_result_creation():
 @pytest.mark.asyncio
 async def test_classification_result_validation():
     """Test ClassificationResult validation."""
-    with pytest.raises(ValueError, match="Confidence must be between 0.0 and 1.0"):
+    with pytest.raises(ValueError, match="ClassificationResult.confidence must be between 0.0 and 1.0"):
         ClassificationResult(intent=Intent.RAG, confidence=1.5)
 
-    with pytest.raises(ValueError, match="Confidence must be between 0.0 and 1.0"):
+    with pytest.raises(ValueError, match="ClassificationResult.confidence must be between 0.0 and 1.0"):
         ClassificationResult(intent=Intent.RAG, confidence=-0.1)
 
 

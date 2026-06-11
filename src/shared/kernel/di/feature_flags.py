@@ -204,7 +204,7 @@ def get_feature_flag_manager() -> FeatureFlagManager:
         >>> is_enabled = manager.is_enabled(FeatureFlag.USE_NEW_HANDLERS)
     """
     try:
-        from config.config import settings
+        from src.config.config import settings
         config = getattr(settings, "feature_flags", {})
     except Exception:
         # Fallback if settings not available

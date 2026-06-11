@@ -3,7 +3,7 @@
 from datetime import timedelta
 
 from fastapi import Response
-from config.config import settings
+from src.config.config import settings
 
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str):

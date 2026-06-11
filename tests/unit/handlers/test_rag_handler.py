@@ -1,12 +1,14 @@
 """
-Tests for RAGHandler.
+Tests for RAGHandler using LangGraph pipeline.
 """
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
-from handlers.rag import RAGHandler
-from interfaces.classification import ClassificationResult, Intent
+from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
+from src.shared.kernel.interfaces.classification import ClassificationResult, Intent
+from src.modules.rag.domain.state.rag_state import Citation
 
 
 @pytest.mark.asyncio
@@ -46,18 +48,20 @@ async def test_rag_handler_handle_with_wrong_intent():
 @pytest.mark.asyncio
 async def test_rag_handler_handle_success():
     """Test RAGHandler successful execution."""
-    # Mock RAG agent
-    mock_rag_agent = AsyncMock()
-    mock_rag_agent.query = AsyncMock(return_value={
-        "content": "Test response",
-        "citations": [
-            {"filename": "test.pdf", "text": "Test citation", "page": 1}
+    # Mock LangGraph pipeline
+    mock_pipeline = AsyncMock()
+    mock_pipeline.run = AsyncMock(return_value={
+        "final_response": "Test response",
+        "final_citations": [
+            {"filename": "test.pdf", "page_number": 1, "text": "Test citation", "score": 0.85}
         ],
-        "total_docs": 5,
-        "retrieval_history": []
+        "generation_metadata": {"model": "glm-4.5"},
+        "agent_results": [{"agent_name": "RetrievalAgent", "status": "success"}],
+        "total_execution_time_ms": 150.0
     })
 
-    handler = RAGHandler(rag_agent=mock_rag_agent)
+    handler = RAGHandler()
+    handler.pipeline = mock_pipeline
     classification = ClassificationResult(intent=Intent.RAG, confidence=0.9)
 
     result = await handler.handle("test query", "user123", classification)
@@ -66,24 +70,30 @@ async def test_rag_handler_handle_success():
     assert result.content == "Test response"
     assert len(result.citations) == 1
     assert result.citations[0].filename == "test.pdf"
-    assert result.metadata["handler"] == "RAGHandler"
-    assert result.metadata["docs_retrieved"] == 5
+    assert result.citations[0].page == 1
+    assert result.citations[0].confidence == 0.85
+    assert result.metadata["langgraph"] is True
+    assert result.metadata["total_execution_time_ms"] == 150.0
+    assert result.metadata["agent_results"][0]["agent_name"] == "RetrievalAgent"
 
 
 @pytest.mark.asyncio
 async def test_rag_handler_handle_with_context():
-    """Test RAGHandler with conversation history context."""
-    mock_rag_agent = AsyncMock()
-    mock_rag_agent.query = AsyncMock(return_value={
-        "content": "Response with context",
-        "citations": [],
-        "total_docs": 0,
+    """Test RAGHandler with conversation context."""
+    mock_pipeline = AsyncMock()
+    mock_pipeline.run = AsyncMock(return_value={
+        "final_response": "Response with context",
+        "final_citations": [],
+        "generation_metadata": {},
+        "agent_results": [],
+        "total_execution_time_ms": 100.0
     })
 
-    handler = RAGHandler(rag_agent=mock_rag_agent)
+    handler = RAGHandler()
+    handler.pipeline = mock_pipeline
     classification = ClassificationResult(intent=Intent.RAG, confidence=0.9)
 
-    context = {"conversation_history": [{"role": "user", "content": "Previous query"}]}
+    context = {"conversation_id": uuid4()}
     result = await handler.handle("new query", "user123", classification, context)
 
     assert result.is_success()
@@ -93,43 +103,88 @@ async def test_rag_handler_handle_with_context():
 @pytest.mark.asyncio
 async def test_rag_handler_handle_error():
     """Test RAGHandler error handling."""
-    # Mock RAG agent that raises exception
-    mock_rag_agent = AsyncMock()
-    mock_rag_agent.query = AsyncMock(side_effect=Exception("RAG error"))
+    mock_pipeline = AsyncMock()
+    mock_pipeline.run = AsyncMock(side_effect=Exception("LangGraph pipeline failed"))
 
-    handler = RAGHandler(rag_agent=mock_rag_agent)
+    handler = RAGHandler()
+    handler.pipeline = mock_pipeline
     classification = ClassificationResult(intent=Intent.RAG, confidence=0.9)
 
     result = await handler.handle("test query", "user123", classification)
 
     assert result.is_error()
-    assert "RAG error" in result.error
-    assert result.metadata["handler"] == "RAGHandler"
+    assert "LangGraph pipeline failed" in result.error
+    assert result.metadata["langgraph"] is True
 
 
 @pytest.mark.asyncio
 async def test_rag_handler_stream():
     """Test RAGHandler streaming."""
     # Mock streaming response
-    async def mock_stream(query, user_id, conversation_history=None, **kwargs):
-        yield {"type": "retrieval", "data": {"iteration": 1, "docs_retrieved": 5}}
-        yield {"type": "content", "data": {"text": "Response chunk"}}
-        yield {"type": "metadata", "data": {"status": "success"}}
+    async def mock_stream(query, user_id, conversation_id=None):
+        yield {
+            "mode": "updates",
+            "chunk": {"orchestrator": {"routing_decision": "retrieval"}},
+        }
+        yield {
+            "mode": "updates",
+            "chunk": {
+                "retrieval": {
+                    "retrieval_agent_output": {
+                        "reranked_docs": [{"content": "doc"}],
+                        "refined_queries": ["test query"],
+                    }
+                }
+            },
+        }
+        yield {
+            "mode": "updates",
+            "chunk": {
+                "generation": {
+                    "generated_response": "Mock response",
+                    "final_citations": [],
+                }
+            },
+        }
+        yield {
+            "mode": "updates",
+            "chunk": {
+                "quality": {
+                    "final_response": "Mock response",
+                    "final_citations": [],
+                    "quality_agent_output": {"quality_score": 0.9},
+                }
+            },
+        }
 
-    mock_rag_agent = AsyncMock()
-    mock_rag_agent.query_stream = mock_stream
+    mock_pipeline = AsyncMock()
+    mock_pipeline.run_stream = mock_stream
 
-    handler = RAGHandler(rag_agent=mock_rag_agent)
+    handler = RAGHandler()
+    handler.pipeline = mock_pipeline
     classification = ClassificationResult(intent=Intent.RAG, confidence=0.9)
 
     chunks = []
     async for chunk in handler.handle_stream("test query", "user123", classification):
         chunks.append(chunk)
 
-    assert len(chunks) == 3
-    assert chunks[0]["type"] == "retrieval"
-    assert chunks[1]["type"] == "content"
-    assert chunks[2]["type"] == "metadata"
+    # chunks:
+    # 0: routing chunk
+    # 1-4: LangGraph node status updates
+    # 5: generation content snapshot
+    # 6: metadata chunk
+    # 7: done chunk
+    assert len(chunks) == 8
+    assert chunks[0]["type"] == "routing"
+    assert chunks[0]["data"]["router"] == "LangGraphRAGPipeline"
+    assert chunks[1]["type"] == "status"
+    assert chunks[1]["data"]["stage"] == "orchestrator"
+    assert chunks[3]["type"] == "status"
+    assert chunks[3]["data"]["stage"] == "generation"
+    assert chunks[4]["type"] == "content"
+    assert chunks[4]["data"]["text"] == "Mock response"
+    assert chunks[6]["type"] == "metadata"
+    assert chunks[7]["type"] == "done"
 
 
 @pytest.mark.asyncio
@@ -150,30 +205,39 @@ async def test_rag_handler_stream_with_wrong_intent():
 @pytest.mark.asyncio
 async def test_rag_handler_stream_error():
     """Test RAGHandler streaming error handling."""
-    mock_rag_agent = AsyncMock()
+    mock_pipeline = AsyncMock()
 
-    async def mock_stream():
-        yield {"type": "content", "data": {"text": "Chunk"}}
+    async def mock_stream(query, user_id, conversation_id=None):
+        yield {
+            "mode": "updates",
+            "chunk": {"orchestrator": {"routing_decision": "retrieval"}},
+        }
         raise Exception("Stream error")
 
-    mock_rag_agent.query_stream = mock_stream
+    mock_pipeline.run_stream = mock_stream
 
-    handler = RAGHandler(rag_agent=mock_rag_agent)
+    handler = RAGHandler()
+    handler.pipeline = mock_pipeline
     classification = ClassificationResult(intent=Intent.RAG, confidence=0.9)
 
     chunks = []
     async for chunk in handler.handle_stream("query", "user123", classification):
         chunks.append(chunk)
 
-    # Should get content chunk then error metadata
-    assert len(chunks) >= 1
-    assert any(c.get("type") == "metadata" and c.get("data", {}).get("status") == "error" for c in chunks)
+    # Should get routing chunk, then node execution, then error, then done
+    assert len(chunks) == 4
+    assert chunks[0]["type"] == "routing"
+    assert chunks[1]["type"] == "status"
+    assert chunks[1]["data"]["stage"] == "orchestrator"
+    assert chunks[2]["type"] == "error"
+    assert chunks[2]["data"]["error"] == "Stream error"
+    assert chunks[3]["type"] == "done"
 
 
 @pytest.mark.asyncio
 async def test_rag_handler_custom_config():
     """Test RAGHandler with custom config."""
-    from interfaces.handlers import HandlerConfig
+    from src.shared.kernel.interfaces.handlers import HandlerConfig
 
     config = HandlerConfig(max_retrieved_docs=10, max_tokens=4000)
     handler = RAGHandler(config=config)
@@ -185,17 +249,23 @@ async def test_rag_handler_custom_config():
 @pytest.mark.asyncio
 async def test_rag_handler_citation_conversion():
     """Test citation format conversion."""
-    mock_rag_agent = AsyncMock()
-    mock_rag_agent.query = AsyncMock(return_value={
-        "content": "Response",
-        "citations": [
-            {"filename": "doc1.pdf", "text": "Citation 1", "page": 1, "confidence": 0.9},
-            {"filename": "doc2.pdf", "text": "Citation 2", "page": 2, "confidence": 0.8},
+    # Test converting both dict-based citations and Citation object-based citations
+    citation_obj = Citation(filename="doc2.pdf", page_number=2, text="Citation 2", score=0.8)
+
+    mock_pipeline = AsyncMock()
+    mock_pipeline.run = AsyncMock(return_value={
+        "final_response": "Response",
+        "final_citations": [
+            {"filename": "doc1.pdf", "page_number": 1, "text": "Citation 1", "score": 0.9},
+            citation_obj
         ],
-        "total_docs": 2,
+        "generation_metadata": {},
+        "agent_results": [],
+        "total_execution_time_ms": 50.0
     })
 
-    handler = RAGHandler(rag_agent=mock_rag_agent)
+    handler = RAGHandler()
+    handler.pipeline = mock_pipeline
     classification = ClassificationResult(intent=Intent.RAG, confidence=0.9)
 
     result = await handler.handle("query", "user123", classification)
@@ -203,4 +273,5 @@ async def test_rag_handler_citation_conversion():
     assert len(result.citations) == 2
     assert result.citations[0].filename == "doc1.pdf"
     assert result.citations[0].confidence == 0.9
-    assert result.citations[1].page == 2
+    assert result.citations[1].filename == "doc2.pdf"
+    assert result.citations[1].confidence == 0.8

@@ -30,14 +30,14 @@ help: ## Show this help message
 
 dev: ## Start both backend and frontend (requires tmux)
 	@echo "$(BLUE)Starting K.I.R.A Simplified...$(NC)"
-	@tmux new-session -d -s kira -n backend "cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.main"
+	@tmux new-session -d -s kira -n backend "cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.server.main"
 	@tmux new-window -t kira:1 -n frontend "cd $(FRONTEND_DIR) && npm run dev"
 	@tmux attach-session -t kira
 	@echo "$(GREEN)Both services started in tmux session 'kira'$(NC)"
 
 dev-backend: ## Start backend only
 	@echo "$(BLUE)Starting backend on port $(BACKEND_PORT)...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.main
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.server.main
 
 dev-frontend: ## Start frontend only
 	@echo "$(BLUE)Starting frontend on port $(FRONTEND_PORT)...$(NC)"

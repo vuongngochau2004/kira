@@ -1,0 +1,472 @@
+"""Document extraction using PyMuPDF with PaddleOCR fallback.
+
+Migrated from src/ingestion/extractor.py
+"""
+
+import asyncio
+import logging
+from dataclasses import dataclass, field
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ExtractionResult:
+    """Result from text extraction."""
+    text: str = ""
+    pages: int = 0
+    metadata: dict = field(default_factory=dict)
+    success: bool = True
+    error: str | None = None
+    page_texts: list[tuple[int, str]] = field(default_factory=list)  # (page_num, text) for page tracking
+
+
+SUPPORTED_TYPES = {
+    "pdf", "docx", "pptx", "xlsx", "html", "md", "txt",
+}
+
+OCR_TYPES = {"png", "jpg", "jpeg", "tiff", "bmp", "gif", "webp"}
+
+
+def _is_low_quality_text(text: str, lang: str = "vi") -> bool:
+    """Detect if the extracted text layer is low-quality, corrupt, or garbage.
+
+    Args:
+        text: Extracted text content
+        lang: Language for specific diacritics check (default: vi)
+
+    Returns:
+        True if the text is low-quality or corrupt, False otherwise
+    """
+    if not text or not text.strip():
+        return True
+
+    cleaned_text = text.strip()
+    # If the text is extremely short, treat as no text
+    if len(cleaned_text) < 10:
+        return True
+
+    # 1. Ratio of single-character words (indicates a broken layout/characters split by spaces)
+    words = cleaned_text.split()
+    if len(words) > 5:
+        single_char_words = [w for w in words if len(w) == 1 and w.isalpha()]
+        if len(single_char_words) / len(words) > 0.40:
+            logger.warning("Low quality text detected: excessive single-character words (spacing issue)")
+            return True
+
+    # 2. Vietnamese-specific diacritics check
+    if lang == "vi":
+        # Common Vietnamese accented vowels and character Đ/đ
+        vi_chars = set("áàảãạâấầẩẫậăắằẳẵặéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđĐ")
+        vi_char_count = sum(1 for c in cleaned_text if c in vi_chars)
+        total_letters = sum(1 for c in cleaned_text if c.isalpha())
+
+        if total_letters > 20:
+            vi_ratio = vi_char_count / total_letters
+            # A normal Vietnamese text usually has at least 5% to 15% accented characters.
+            # If it's less than 1.5%, it's highly likely a broken or English-only fallback text layer
+            if vi_ratio < 0.015:
+                logger.warning(
+                    "Low quality text detected: very low Vietnamese diacritics ratio (%.2f%%)",
+                    vi_ratio * 100
+                )
+                return True
+
+    return False
+
+
+async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> ExtractionResult:
+    """Extract text from PDF using PyMuPDF with OCR fallback for scanned pages.
+
+    Args:
+        file_path: Path to PDF file
+        use_ocr_fallback: Enable OCR for pages with no extractable text
+
+    Returns:
+        ExtractionResult with text and metadata
+    """
+    logger.info("Extracting PDF using PyMuPDF (native text): %s", file_path)
+    try:
+        import fitz
+        from src.modules.document.infrastructure.ocr.ocr_client import get_ocr_client
+        from src.config.config import settings
+
+        doc = fitz.open(file_path)
+        num_pages = len(doc)
+        text_parts = []
+        page_texts = []  # Track (page_num, text) for citation page tracking
+        pages_needing_ocr = []
+        ocr_lang = settings.ocr_lang
+
+        # First pass: extract text with PyMuPDF
+        for page_num, page in enumerate(doc):
+            page_text = page.get_text()
+            # If the page has text and it is of acceptable quality, keep it.
+            # Otherwise, route the page to OCR.
+            if page_text.strip() and not _is_low_quality_text(page_text, lang=ocr_lang):
+                text_parts.append(page_text)
+                page_texts.append((page_num, page_text))  # Track page number
+            else:
+                # Mark page for OCR - use placeholder
+                text_parts.append("")  # Placeholder for OCR result
+                pages_needing_ocr.append(page_num)
+
+        # If all pages have text or OCR disabled, return early
+        if not pages_needing_ocr or not use_ocr_fallback:
+            doc.close()
+            full_text = "\n\n".join([t for t in text_parts if t])
+            return ExtractionResult(
+                text=full_text,
+                pages=num_pages,
+                page_texts=page_texts,  # Include page tracking
+                metadata={
+                    "extractor": "pymupdf",
+                    "engine": "fitz",
+                    "ocr_used": False,
+                    "extraction_method": "normal",
+                },
+                success=bool(full_text.strip()),
+            )
+
+        # Second pass: OCR for pages without text
+        ocr_client = get_ocr_client()
+        async with ocr_client:
+            for page_num in pages_needing_ocr:
+                page = doc[page_num]
+
+                # Convert page to image
+                mat = fitz.Matrix(3.0, 3.0)  # 3x zoom for better OCR
+                pix = page.get_pixmap(matrix=mat)
+                img_bytes = pix.tobytes("png")
+
+                # Perform OCR
+                ocr_result = await ocr_client.ocr_image_bytes(img_bytes)
+
+                if ocr_result.success and ocr_result.text.strip():
+                    # Update placeholder with OCR text
+                    text_parts[page_num] = ocr_result.text
+                    page_texts.append((page_num, ocr_result.text))  # Track OCR pages too
+
+        doc.close()
+
+        full_text = "\n\n".join([t for t in text_parts if t])
+
+        return ExtractionResult(
+            text=full_text,
+            pages=num_pages,
+            page_texts=page_texts,  # Include page tracking
+            metadata={
+                "extractor": "pymupdf-ocr-hybrid",
+                "engine": "fitz",
+                "ocr_used": True,
+                "ocr_pages": len(pages_needing_ocr),
+                "extraction_method": "ocr",
+            },
+            success=bool(full_text.strip()),
+        )
+
+    except Exception as e:
+        logger.error("PyMuPDF extraction failed for %s: %s", file_path, e)
+        return ExtractionResult(
+            success=False,
+            error=f"PDF extraction failed: {e}",
+        )
+
+
+def extract_docx(file_path: str) -> ExtractionResult:
+    """Extract text from DOCX using python-docx.
+
+    Args:
+        file_path: Path to DOCX file
+
+    Returns:
+        ExtractionResult with text and metadata
+    """
+    logger.info("Extracting DOCX using python-docx: %s", file_path)
+    try:
+        from docx import Document
+
+        doc = Document(file_path)
+        text_parts = []
+
+        for paragraph in doc.paragraphs:
+            if paragraph.text.strip():
+                text_parts.append(paragraph.text)
+
+        full_text = "\n".join(text_parts)
+
+        return ExtractionResult(
+            text=full_text,
+            pages=1,
+            metadata={"extractor": "python-docx", "extraction_method": "normal", "ocr_used": False},
+            success=bool(full_text.strip()),
+        )
+    except Exception as e:
+        logger.error("DOCX extraction failed for %s: %s", file_path, e)
+        return ExtractionResult(
+            success=False,
+            error=f"DOCX extraction failed: {e}",
+        )
+
+
+def extract_pptx(file_path: str) -> ExtractionResult:
+    """Extract text from PPTX using python-pptx.
+
+    Args:
+        file_path: Path to PPTX file
+
+    Returns:
+        ExtractionResult with text and metadata
+    """
+    logger.info("Extracting PPTX using python-pptx: %s", file_path)
+    try:
+        from pptx import Presentation
+
+        prs = Presentation(file_path)
+        text_parts = []
+
+        for slide in prs.slides:
+            slide_text = []
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text.strip():
+                    slide_text.append(shape.text)
+            if slide_text:
+                text_parts.append("\n".join(slide_text))
+
+        full_text = "\n\n".join(text_parts)
+
+        return ExtractionResult(
+            text=full_text,
+            pages=len(prs.slides),
+            metadata={"extractor": "python-pptx", "extraction_method": "normal", "ocr_used": False},
+            success=bool(full_text.strip()),
+        )
+    except Exception as e:
+        logger.error("PPTX extraction failed for %s: %s", file_path, e)
+        return ExtractionResult(
+            success=False,
+            error=f"PPTX extraction failed: {e}",
+        )
+
+
+def extract_text_file(file_path: str) -> ExtractionResult:
+    """Extract text from plain text or markdown file.
+
+    Args:
+        file_path: Path to text file
+
+    Returns:
+        ExtractionResult with text and metadata
+    """
+    logger.info("Extracting text file: %s", file_path)
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            text = f.read()
+
+        return ExtractionResult(
+            text=text,
+            pages=1,
+            metadata={"extractor": "native", "extraction_method": "normal", "ocr_used": False},
+            success=bool(text.strip()),
+        )
+    except UnicodeDecodeError:
+        # Try with different encoding
+        logger.warning("UTF-8 decoding failed for %s, falling back to latin-1", file_path)
+        try:
+            with open(file_path, "r", encoding="latin-1") as f:
+                text = f.read()
+            return ExtractionResult(
+                text=text,
+                pages=1,
+                metadata={"extractor": "native", "encoding": "latin-1", "extraction_method": "normal", "ocr_used": False},
+                success=True,
+            )
+        except Exception as e:
+            logger.error("Text file extraction failed for %s with latin-1: %s", file_path, e)
+            return ExtractionResult(
+                success=False,
+                error=f"Text extraction failed: {e}",
+            )
+    except Exception as e:
+        logger.error("Text file extraction failed for %s: %s", file_path, e)
+        return ExtractionResult(
+            success=False,
+            error=f"Text extraction failed: {e}",
+        )
+
+
+async def extract_image_ocr(file_path: str) -> ExtractionResult:
+    """Extract text from image using PaddleOCR service.
+
+    Args:
+        file_path: Path to image file
+
+    Returns:
+        ExtractionResult with text and metadata
+    """
+    try:
+        from src.modules.document.infrastructure.ocr.ocr_client import get_ocr_client
+
+        ocr_client = get_ocr_client()
+        async with ocr_client:
+            result = await ocr_client.ocr_file(file_path)
+
+        if result.success:
+            return ExtractionResult(
+                text=result.text,
+                pages=1,
+                metadata={
+                    "extractor": "paddleocr",
+                    "confidence": result.confidence,
+                },
+                success=True,
+            )
+        else:
+            # Fallback to Docling if PaddleOCR fails
+            return await _extract_image_docling(file_path)
+
+    except Exception as e:
+        # Fallback to Docling on any error
+        return await _extract_image_docling(file_path, error=str(e))
+
+
+
+
+async def _extract_image_docling(file_path: str, error: str | None = None) -> ExtractionResult:
+    """Fallback image extraction using Docling.
+
+    Args:
+        file_path: Path to image file
+        error: Original error that triggered fallback
+
+    Returns:
+        ExtractionResult with text and metadata
+    """
+    logger.info("Extracting image using Docling OCR: %s", file_path)
+    try:
+        from docling.document_converter import DocumentConverter
+
+        converter = DocumentConverter()
+        result = converter.convert(file_path)
+
+        text = result.document.export_to_markdown()
+
+        return ExtractionResult(
+            text=text,
+            pages=1,
+            metadata={"extractor": "docling-ocr", "fallback_from": "paddleocr"},
+            success=bool(text.strip()),
+        )
+    except Exception as e:
+        fallback_err = str(e)
+        return ExtractionResult(
+            success=False,
+            error=f"Image OCR failed (PaddleOCR: {error}, Docling: {fallback_err})",
+        )
+
+
+async def extract_content(file_path: str, file_type: str) -> ExtractionResult:
+    """Extract text from file using appropriate extractor.
+
+    Args:
+        file_path: Path to the file
+        file_type: File extension (e.g., "pdf", "docx")
+
+    Returns:
+        ExtractionResult with text, pages, metadata
+    """
+    from pathlib import Path
+
+    if not Path(file_path).exists():
+        return ExtractionResult(
+            success=False,
+            error=f"File not found: {file_path}",
+        )
+
+    file_type = file_type.lower().strip().lstrip(".")
+
+    if file_type not in SUPPORTED_TYPES and file_type not in OCR_TYPES:
+        return ExtractionResult(
+            success=False,
+            error=f"Unsupported file type: {file_type}",
+        )
+
+    if file_type == "pdf":
+        method_name = "PDF (native/OCR hybrid)"
+    elif file_type in OCR_TYPES:
+        method_name = "OCR image"
+    else:
+        method_name = "normal (text-based)"
+
+    print(f"[Extractor] Starting {method_name} extraction for file: {file_path} (format: {file_type})")
+    logger.info("Starting %s extraction for file: %s (format: %s)", method_name, file_path, file_type)
+
+    try:
+        if file_type == "pdf":
+            result = await extract_pdf(file_path)
+        elif file_type == "docx":
+            result = extract_docx(file_path)
+        elif file_type == "pptx":
+            result = extract_pptx(file_path)
+        elif file_type in {"txt", "md"}:
+            result = extract_text_file(file_path)
+        elif file_type in OCR_TYPES:
+            result = await extract_image_ocr(file_path)
+        else:
+            result = ExtractionResult(
+                success=False,
+                error=f"Format {file_type} not yet supported",
+            )
+
+        if result.success:
+            if "extraction_method" not in result.metadata:
+                is_ocr_result = result.metadata.get("ocr_used", False)
+                result.metadata["extraction_method"] = "ocr" if is_ocr_result else "normal"
+            if "ocr_used" not in result.metadata:
+                result.metadata["ocr_used"] = result.metadata.get("ocr_used", False)
+
+            ext_method = result.metadata["extraction_method"].upper()
+            print(f"[Extractor] Extraction successful. Method: {ext_method}, Pages: {result.pages}")
+            logger.info("Extraction successful. Method: %s, Pages: %d", result.metadata['extraction_method'], result.pages)
+        else:
+            print(f"[Extractor ERROR] Extraction failed: {result.error}")
+            logger.error("Extraction failed: %s", result.error)
+
+        return result
+
+    except Exception as e:
+        logger.error("Extraction failed for %s: %s", file_path, e)
+        return ExtractionResult(
+            success=False,
+            error=f"Extraction failed: {e}",
+        )
+
+
+def extract_content_sync(file_path: str, file_type: str) -> ExtractionResult:
+    """Synchronous wrapper for extract_content.
+
+    This function runs the async extract_content in a new event loop.
+    It's designed to be called from sync contexts (e.g., background tasks).
+
+    Args:
+        file_path: Path to the file
+        file_type: File extension (e.g., "pdf", "docx")
+
+    Returns:
+        ExtractionResult with text, pages, metadata
+    """
+    return asyncio.run(extract_content(file_path, file_type))
+
+
+__all__ = [
+    "ExtractionResult",
+    "extract_content",
+    "extract_content_sync",
+    "extract_pdf",
+    "extract_docx",
+    "extract_pptx",
+    "extract_text_file",
+    "extract_image_ocr",
+    "_extract_image_docling",
+]

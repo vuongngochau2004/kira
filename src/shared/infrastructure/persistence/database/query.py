@@ -1,6 +1,7 @@
 """Common query patterns to avoid N+1 issues."""
 
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import select, func
@@ -11,16 +12,18 @@ from src.shared.infrastructure.persistence.database.models import (
     Document,
     DocumentChunk,
     Conversation,
-    Message,
 )
 
 
-async def get_user_by_email(email: str, include_deleted: bool = False) -> Optional[User]:
+async def get_user_by_email(
+    email: str, db_session, include_deleted: bool = False
+) -> Optional[User]:
     """Get user by email (with or without soft delete filter)."""
     query = select(User).where(User.email == email)
     if not include_deleted:
         query = query.where(User.deleted_at.is_(None))
-    return await query
+    result = await db_session.execute(query)
+    return result.scalar_one_or_none()
 
 
 async def get_document_with_chunks(
@@ -141,8 +144,7 @@ async def soft_delete_document(doc_id: uuid.UUID, db_session) -> bool:
     result = await db_session.execute(query)
     doc = result.scalar_one_or_none()
     if doc:
-        from datetime import datetime
-        doc.deleted_at = datetime.utcnow()
+        doc.deleted_at = datetime.now(timezone.utc)
         await db_session.commit()
         return True
     return False
@@ -158,8 +160,7 @@ async def soft_delete_conversation(conv_id: uuid.UUID, db_session) -> bool:
     result = await db_session.execute(query)
     conv = result.scalar_one_or_none()
     if conv:
-        from datetime import datetime
-        conv.deleted_at = datetime.utcnow()
+        conv.deleted_at = datetime.now(timezone.utc)
         await db_session.commit()
         return True
     return False

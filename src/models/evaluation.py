@@ -128,7 +128,7 @@ class GoldenDataset(BaseModel):
     name: str
     description: str | None = None
     samples: list[GoldenDatasetSample]
-    created_at: datetime
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime | None = None
 
 

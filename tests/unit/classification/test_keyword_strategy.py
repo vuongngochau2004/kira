@@ -4,9 +4,9 @@ Tests for KeywordStrategy.
 
 import pytest
 
-from classification.strategies.keyword import KeywordStrategy
-from interfaces.classification import Intent
-from interfaces.retrieval import Document
+from src.modules.classification.domain.strategies.keyword import KeywordStrategy
+from src.shared.kernel.interfaces.classification import Intent
+from src.shared.kernel.interfaces.retrieval import Document
 
 
 @pytest.mark.asyncio

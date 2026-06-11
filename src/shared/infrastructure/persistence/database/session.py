@@ -5,7 +5,7 @@ from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-from config.config import settings
+from src.config.config import settings
 
 DEFAULT_POOL_SIZE = 20
 DEFAULT_MAX_OVERFLOW = 40

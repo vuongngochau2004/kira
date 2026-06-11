@@ -25,7 +25,7 @@ from enum import Enum
 from typing import Any, Optional, Union
 from uuid import uuid4
 
-from config.config import settings
+from src.config.config import settings
 
 logger = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ This package contains reusable pytest fixtures for testing protocols,
 ABC implementations, and other components.
 """
 
-from tests.fixtures.abc_fixtures import (
+from tests.fixtures.interface_fixtures import (
     abc_implementation,
     protocol_vs_abc,
     create_abc_mock,

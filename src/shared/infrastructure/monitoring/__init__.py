@@ -34,8 +34,11 @@ from src.shared.infrastructure.monitoring.langsmith_tracing import (
     TraceContext,
     get_langsmith_tracer,
 )
+from src.shared.infrastructure.monitoring.logger import setup_logging
 
 __all__ = [
+    # Logger
+    "setup_logging",
     # Routing metrics
     "RoutingMethod",
     "RoutingMetrics",

@@ -5,13 +5,20 @@ Moved from src/di/ to src/shared/kernel/di/ as part of modular monolith migratio
 """
 
 from src.shared.kernel.di.container import ServiceContainer
-from src.shared.kernel.di.feature_flags import FeatureFlag, FeatureFlagManager
+from src.shared.kernel.di.feature_flags import (
+    FeatureFlag,
+    FeatureFlagManager,
+    get_feature_flag_manager,
+    reset_feature_flag_manager
+)
 from src.shared.kernel.di.registry import ServiceRegistry, get_container
 
 __all__ = [
     "ServiceContainer",
     "FeatureFlag",
     "FeatureFlagManager",
+    "get_feature_flag_manager",
+    "reset_feature_flag_manager",
     "ServiceRegistry",
     "get_container",
 ]

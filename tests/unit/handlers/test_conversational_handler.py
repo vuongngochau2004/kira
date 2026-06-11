@@ -5,8 +5,8 @@ Tests for ConversationalHandler.
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from handlers.conversational import ConversationalHandler
-from interfaces.classification import ClassificationResult, Intent
+from src.modules.chat.infrastructure.handlers.conversational import ConversationalHandler
+from src.shared.kernel.interfaces.classification import ClassificationResult, Intent
 
 
 @pytest.mark.asyncio
@@ -44,7 +44,7 @@ async def test_conversational_handler_handle_with_wrong_intent():
 
 
 @pytest.mark.asyncio
-@patch("src.handlers.conversational.chat_async")
+@patch("src.modules.chat.infrastructure.handlers.conversational.chat_async")
 async def test_conversational_handler_handle_success(mock_chat_async):
     """Test ConversationalHandler successful execution."""
     mock_chat_async.return_value = {"content": "Hello! How can I help you?"}
@@ -61,7 +61,7 @@ async def test_conversational_handler_handle_success(mock_chat_async):
 
 
 @pytest.mark.asyncio
-@patch("src.handlers.conversational.chat_async")
+@patch("src.modules.chat.infrastructure.handlers.conversational.chat_async")
 async def test_conversational_handler_handle_with_context(mock_chat_async):
     """Test ConversationalHandler with conversation history."""
     mock_chat_async.return_value = {"content": "Nice to meet you again!"}
@@ -77,7 +77,7 @@ async def test_conversational_handler_handle_with_context(mock_chat_async):
 
 
 @pytest.mark.asyncio
-@patch("src.handlers.conversational.chat_async")
+@patch("src.modules.chat.infrastructure.handlers.conversational.chat_async")
 async def test_conversational_handler_handle_error(mock_chat_async):
     """Test ConversationalHandler error handling."""
     mock_chat_async.side_effect = Exception("LLM error")
@@ -93,8 +93,8 @@ async def test_conversational_handler_handle_error(mock_chat_async):
 
 
 @pytest.mark.asyncio
-@patch("src.handlers.conversational.chat_async_stream")
-@patch("src.handlers.conversational.stream_with_thinking_separation")
+@patch("src.modules.chat.infrastructure.handlers.conversational.chat_async_stream")
+@patch("src.modules.chat.infrastructure.handlers.conversational.stream_with_thinking_separation")
 async def test_conversational_handler_stream(mock_thinking, mock_chat_stream):
     """Test ConversationalHandler streaming."""
     # Mock streaming response
@@ -133,10 +133,10 @@ async def test_conversational_handler_stream_with_wrong_intent():
 
 
 @pytest.mark.asyncio
-@patch("src.handlers.conversational.chat_async")
+@patch("src.modules.chat.infrastructure.handlers.conversational.chat_async")
 async def test_conversational_handler_custom_config(mock_chat_async):
     """Test ConversationalHandler with custom config."""
-    from interfaces.handlers import HandlerConfig
+    from src.shared.kernel.interfaces.handlers import HandlerConfig
 
     mock_chat_async.return_value = {"content": "Response"}
 
@@ -154,7 +154,7 @@ async def test_conversational_handler_custom_config(mock_chat_async):
 
 
 @pytest.mark.asyncio
-@patch("src.handlers.conversational.chat_async")
+@patch("src.modules.chat.infrastructure.handlers.conversational.chat_async")
 async def test_conversational_handler_retries(mock_chat_async):
     """Test ConversationalHandler retry logic."""
     # Fail first attempt, succeed second
@@ -174,7 +174,7 @@ async def test_conversational_handler_retries(mock_chat_async):
 
 
 @pytest.mark.asyncio
-@patch("src.handlers.conversational.chat_async")
+@patch("src.modules.chat.infrastructure.handlers.conversational.chat_async")
 async def test_conversational_handler_max_retries_exceeded(mock_chat_async):
     """Test ConversationalHandler when max retries exceeded."""
     mock_chat_async.side_effect = Exception("Always fails")

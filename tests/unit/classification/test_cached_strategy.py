@@ -4,9 +4,9 @@ Tests for CachedStrategy.
 
 import pytest
 
-from classification.strategies.cached import CachedStrategy
-from interfaces.classification import Intent, ClassificationResult
-from classification.cache.lru_cache import AsyncLRUCache
+from src.modules.classification.domain.strategies.cached import CachedStrategy
+from src.shared.kernel.interfaces.classification import Intent, ClassificationResult
+from src.modules.classification.domain.cache.lru_cache import AsyncLRUCache
 
 
 class MockClassificationStrategy:

@@ -1,16 +1,36 @@
-"""Citation value object.
+"""Citation Value Object — Source reference in RAG responses.
 
-Re-exports Citation from the shared kernel interfaces where it is
-primarily defined, providing a convenient domain-level import path.
-
-Primary definition: src.shared.kernel.interfaces.handlers.Citation
-Domain import path: src.shared.domain.value_objects.citation.Citation
-
-Citations represent source references in RAG responses, including
-the document filename, page number, relevant text, and confidence score.
+An immutable record of a retrieved document chunk used as a citation.
 """
+from dataclasses import dataclass, field
+from typing import Any
 
-# Re-export from kernel interfaces (single source of truth)
-from src.shared.kernel.interfaces.handlers import Citation
+
+@dataclass(frozen=True)
+class Citation:
+    """Value Object: immutable citation from a retrieved document."""
+
+    filename: str
+    text: str
+    page: int | None = None
+    url: str | None = None
+    confidence: float = 1.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def is_high_confidence(self, threshold: float = 0.8) -> bool:
+        """Check if citation has confidence >= threshold."""
+        return self.confidence >= threshold
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "filename": self.filename,
+            "page": self.page,
+            "text": self.text,
+            "url": self.url,
+            "confidence": self.confidence,
+            "metadata": self.metadata,
+        }
+
 
 __all__ = ["Citation"]
