@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-06-11T00:55:09.211663",
-  "git_commit": "4de4eddfa952b478ea6ba305b2c901ab6ed97f0c",
+  "timestamp": "2026-06-11T07:30:59.717962",
+  "git_commit": "56c469d6b1b4058ab694487104e7ed86d2ef1848",
   "git_branch": "feat/modular-monolith-migration",
   "phase": "phase0-pre-migration",
   "metrics": {
-    "total_python_files": 96,
+    "total_python_files": 111,
     "total_test_files": 14,
-    "total_lines": 25767
+    "total_lines": 28276
   },
   "modules": {
     "classification": {
@@ -27,7 +27,7 @@
     },
     "di": {
       "files": 4,
-      "lines": 745
+      "lines": 749
     },
     "auth": {
       "files": 5,
@@ -40,6 +40,10 @@
     "agents": {
       "files": 12,
       "lines": 6055
+    },
+    "shared": {
+      "files": 15,
+      "lines": 2499
     },
     "models": {
       "files": 7,
@@ -75,7 +79,7 @@
     },
     "interfaces": {
       "files": 5,
-      "lines": 1503
+      "lines": 1509
     }
   },
   "compliance": {

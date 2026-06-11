@@ -1,8 +1,8 @@
 """Retrieval module exports."""
 
-from src.retrieval.dense import dense_search
-from src.retrieval.bm25 import BM25Index, _tokenize, _normalize
-from src.retrieval.hybrid import reciprocal_rank_fusion, hybrid_search
+from retrieval.dense import dense_search
+from retrieval.bm25 import BM25Index, _tokenize, _normalize
+from retrieval.hybrid import reciprocal_rank_fusion, hybrid_search
 
 __all__ = [
     "dense_search",

@@ -7,7 +7,7 @@ This module provides:
 - Cost optimization insights
 
 Usage:
-    from src.monitoring.routing_metrics import RoutingMetricsCollector
+    from monitoring.routing_metrics import RoutingMetricsCollector
 
     collector = RoutingMetricsCollector()
     metrics = collector.get_metrics_summary()

@@ -9,8 +9,8 @@ Handlers receive pre-classified queries and execute domain-specific logic.
 No classification logic should be in handlers (SRP compliance).
 """
 
-from src.handlers.rag import RAGHandler
-from src.handlers.conversational import ConversationalHandler
+from handlers.rag import RAGHandler
+from handlers.conversational import ConversationalHandler
 
 __all__ = [
     "RAGHandler",

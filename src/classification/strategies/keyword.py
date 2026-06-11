@@ -8,8 +8,8 @@ import re
 from typing import Any
 from uuid import UUID
 
-from src.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
-from src.interfaces.retrieval import Document
+from src.shared.kernel.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
+from src.shared.kernel.interfaces.retrieval import Document
 
 
 class KeywordStrategy(ClassificationStrategyBase):

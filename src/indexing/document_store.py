@@ -8,14 +8,14 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func
 
-from src.database.models import Document, DocumentChunk, Conversation, Message
-from src.database import get_session
+from database.models import Document, DocumentChunk, Conversation, Message
+from database import get_session
 
 
 async def _get_session(db: AsyncSession | None) -> AsyncSession:
     """Get database session, create new one if not provided."""
     if db is None:
-        from src.database.session import async_session_factory
+        from database.session import async_session_factory
         return async_session_factory()
     return db
 

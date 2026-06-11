@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from uuid import UUID
 
 # Import from unified interfaces module
-from src.interfaces.classification import ClassificationResult
+from src.shared.kernel.interfaces.classification import ClassificationResult
 
 
 __all__ = [
@@ -189,7 +189,7 @@ class QueryHandlerBase(ABC):
     No classification logic should be in handlers (SRP compliance).
 
     Example:
-        >>> from src.interfaces.handlers import QueryHandlerBase
+        >>> from src.shared.kernel.interfaces.handlers import QueryHandlerBase
         >>>
         >>> class MyHandler(QueryHandlerBase):
         ...     def __init__(self, config: HandlerConfig):

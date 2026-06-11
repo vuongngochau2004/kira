@@ -11,8 +11,8 @@ from collections import defaultdict
 from typing import Any
 
 from config.config import settings
-from src.retrieval.dense import dense_search
-from src.retrieval.bm25 import BM25Index
+from retrieval.dense import dense_search
+from retrieval.bm25 import BM25Index
 
 logger = logging.getLogger(__name__)
 

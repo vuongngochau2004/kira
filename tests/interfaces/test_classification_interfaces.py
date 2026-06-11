@@ -7,7 +7,7 @@ Validates protocol compliance and ClassificationResult behavior.
 import pytest
 from uuid import uuid4
 
-from src.interfaces.classification import (
+from interfaces.classification import (
     ClassificationStrategyBase,
     ClassificationResult,
     Intent,

@@ -6,18 +6,18 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import get_session
-from src.models.evaluation import (
+from database import get_session
+from models.evaluation import (
     EvaluationRequest,
     EvaluationResponse,
     BatchEvaluationRequest,
     BatchEvaluationResponse,
     GoldenDataset,
 )
-from src.evaluation.service import get_evaluation_service, RAGASEvaluationService
-from src.evaluation.dataset import get_dataset_manager
-from src.auth.dependencies import get_current_user
-from src.database.models import User
+from evaluation.service import get_evaluation_service, RAGASEvaluationService
+from evaluation.dataset import get_dataset_manager
+from auth.dependencies import get_current_user
+from database.models import User
 from config.config import settings
 
 router = APIRouter()

@@ -5,8 +5,8 @@ Tests for RAGHandler.
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from src.handlers.rag import RAGHandler
-from src.interfaces.classification import ClassificationResult, Intent
+from handlers.rag import RAGHandler
+from interfaces.classification import ClassificationResult, Intent
 
 
 @pytest.mark.asyncio
@@ -173,7 +173,7 @@ async def test_rag_handler_stream_error():
 @pytest.mark.asyncio
 async def test_rag_handler_custom_config():
     """Test RAGHandler with custom config."""
-    from src.interfaces.handlers import HandlerConfig
+    from interfaces.handlers import HandlerConfig
 
     config = HandlerConfig(max_retrieved_docs=10, max_tokens=4000)
     handler = RAGHandler(config=config)

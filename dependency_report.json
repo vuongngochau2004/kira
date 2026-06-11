@@ -8,9 +8,15 @@
         "out_degree": 10
       },
       {
-        "id": "",
+        "id": "retrieval_tools",
         "files": 0,
-        "in_degree": 7,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "reranking_tools",
+        "files": 0,
+        "in_degree": 2,
         "out_degree": 0
       },
       {
@@ -20,9 +26,27 @@
         "out_degree": 0
       },
       {
-        "id": "config",
+        "id": "hybrid",
         "files": 0,
-        "in_degree": 13,
+        "in_degree": 4,
+        "out_degree": 0
+      },
+      {
+        "id": "ingestion_tools",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "embedding",
+        "files": 0,
+        "in_degree": 4,
+        "out_degree": 0
+      },
+      {
+        "id": "",
+        "files": 0,
+        "in_degree": 7,
         "out_degree": 0
       },
       {
@@ -38,63 +62,39 @@
         "out_degree": 0
       },
       {
-        "id": "embedding",
+        "id": "config",
         "files": 0,
-        "in_degree": 4,
-        "out_degree": 0
-      },
-      {
-        "id": "hybrid",
-        "files": 0,
-        "in_degree": 4,
-        "out_degree": 0
-      },
-      {
-        "id": "retrieval_tools",
-        "files": 0,
-        "in_degree": 2,
-        "out_degree": 0
-      },
-      {
-        "id": "ingestion_tools",
-        "files": 0,
-        "in_degree": 2,
-        "out_degree": 0
-      },
-      {
-        "id": "reranking_tools",
-        "files": 0,
-        "in_degree": 2,
+        "in_degree": 14,
         "out_degree": 0
       },
       {
         "id": "classification",
         "files": 1,
-        "in_degree": 7,
+        "in_degree": 0,
         "out_degree": 4
-      },
-      {
-        "id": "strategies.keyword",
-        "files": 0,
-        "in_degree": 2,
-        "out_degree": 0
       },
       {
         "id": "strategies.composite",
         "files": 0,
-        "in_degree": 2,
-        "out_degree": 0
-      },
-      {
-        "id": "strategies.cached",
-        "files": 0,
-        "in_degree": 2,
+        "in_degree": 3,
         "out_degree": 0
       },
       {
         "id": "strategies.llm",
         "files": 0,
-        "in_degree": 2,
+        "in_degree": 3,
+        "out_degree": 0
+      },
+      {
+        "id": "strategies.cached",
+        "files": 0,
+        "in_degree": 3,
+        "out_degree": 0
+      },
+      {
+        "id": "strategies.keyword",
+        "files": 0,
+        "in_degree": 3,
         "out_degree": 0
       },
       {
@@ -122,9 +122,21 @@
         "out_degree": 14
       },
       {
+        "id": "chunker",
+        "files": 0,
+        "in_degree": 3,
+        "out_degree": 0
+      },
+      {
         "id": "pipelines",
         "files": 0,
         "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "bm25_builder",
+        "files": 0,
+        "in_degree": 3,
         "out_degree": 0
       },
       {
@@ -140,33 +152,21 @@
         "out_degree": 0
       },
       {
-        "id": "chunker",
-        "files": 0,
-        "in_degree": 3,
-        "out_degree": 0
-      },
-      {
-        "id": "bm25_builder",
-        "files": 0,
-        "in_degree": 3,
-        "out_degree": 0
-      },
-      {
         "id": "paddleocr_client",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
       },
       {
-        "id": "file_store",
-        "files": 0,
-        "in_degree": 3,
-        "out_degree": 0
-      },
-      {
         "id": "document_store",
         "files": 0,
         "in_degree": 4,
+        "out_degree": 0
+      },
+      {
+        "id": "file_store",
+        "files": 0,
+        "in_degree": 3,
         "out_degree": 0
       },
       {
@@ -203,42 +203,18 @@
         "id": "di",
         "files": 4,
         "in_degree": 0,
-        "out_degree": 12
+        "out_degree": 7
       },
       {
         "id": "rag",
         "files": 0,
-        "in_degree": 3,
+        "in_degree": 4,
         "out_degree": 0
       },
       {
         "id": "conversational",
         "files": 0,
-        "in_degree": 2,
-        "out_degree": 0
-      },
-      {
-        "id": "handlers",
-        "files": 3,
-        "in_degree": 5,
-        "out_degree": 9
-      },
-      {
-        "id": "container",
-        "files": 0,
-        "in_degree": 2,
-        "out_degree": 0
-      },
-      {
-        "id": "feature_flags",
-        "files": 0,
-        "in_degree": 2,
-        "out_degree": 0
-      },
-      {
-        "id": "registry",
-        "files": 0,
-        "in_degree": 1,
+        "in_degree": 3,
         "out_degree": 0
       },
       {
@@ -248,13 +224,13 @@
         "out_degree": 5
       },
       {
-        "id": "security",
+        "id": "dependencies",
         "files": 0,
         "in_degree": 2,
         "out_degree": 0
       },
       {
-        "id": "dependencies",
+        "id": "security",
         "files": 0,
         "in_degree": 2,
         "out_degree": 0
@@ -263,12 +239,24 @@
         "id": "agents",
         "files": 12,
         "in_degree": 0,
-        "out_degree": 26
+        "out_degree": 24
       },
       {
         "id": "agentic_rag_state",
         "files": 0,
         "in_degree": 3,
+        "out_degree": 0
+      },
+      {
+        "id": "prompts",
+        "files": 0,
+        "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "utils",
+        "files": 0,
+        "in_degree": 1,
         "out_degree": 0
       },
       {
@@ -278,7 +266,13 @@
         "out_degree": 0
       },
       {
-        "id": "utils",
+        "id": "citation_verifier",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
+        "id": "responses",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
@@ -290,27 +284,15 @@
         "out_degree": 0
       },
       {
-        "id": "responses",
-        "files": 0,
-        "in_degree": 1,
-        "out_degree": 0
-      },
-      {
-        "id": "prompts",
-        "files": 0,
-        "in_degree": 2,
-        "out_degree": 0
-      },
-      {
-        "id": "citation_verifier",
-        "files": 0,
-        "in_degree": 1,
-        "out_degree": 0
-      },
-      {
         "id": "dense",
         "files": 0,
         "in_degree": 2,
+        "out_degree": 0
+      },
+      {
+        "id": "quality_agent",
+        "files": 0,
+        "in_degree": 1,
         "out_degree": 0
       },
       {
@@ -326,13 +308,19 @@
         "out_degree": 0
       },
       {
+        "id": "llm_post_processor",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
         "id": "retrieval_agent",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
       },
       {
-        "id": "quality_agent",
+        "id": "generation_agent",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
@@ -344,13 +332,7 @@
         "out_degree": 0
       },
       {
-        "id": "generation_agent",
-        "files": 0,
-        "in_degree": 1,
-        "out_degree": 0
-      },
-      {
-        "id": "llm_post_processor",
+        "id": "documents",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
@@ -362,15 +344,9 @@
         "out_degree": 6
       },
       {
-        "id": "documents",
-        "files": 0,
-        "in_degree": 1,
-        "out_degree": 0
-      },
-      {
         "id": "retrieval",
         "files": 4,
-        "in_degree": 2,
+        "in_degree": 0,
         "out_degree": 5
       },
       {
@@ -392,25 +368,19 @@
         "out_degree": 0
       },
       {
-        "id": "service",
-        "files": 0,
-        "in_degree": 2,
-        "out_degree": 0
-      },
-      {
         "id": "dataset",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
       },
       {
-        "id": "orchestrator",
+        "id": "service",
         "files": 0,
-        "in_degree": 1,
+        "in_degree": 2,
         "out_degree": 0
       },
       {
-        "id": "dashboard_config",
+        "id": "orchestrator",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
@@ -422,19 +392,25 @@
         "out_degree": 0
       },
       {
+        "id": "dashboard_config",
+        "files": 0,
+        "in_degree": 1,
+        "out_degree": 0
+      },
+      {
         "id": "graphs",
         "files": 2,
         "in_degree": 0,
         "out_degree": 3
       },
       {
-        "id": "generation_agent_4",
+        "id": "retrieval_agent_4",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
       },
       {
-        "id": "retrieval_agent_4",
+        "id": "generation_agent_4",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
@@ -452,22 +428,16 @@
         "out_degree": 2
       },
       {
-        "id": "interfaces",
-        "files": 5,
+        "id": "handlers",
+        "files": 3,
         "in_degree": 0,
-        "out_degree": 4
-      },
-      {
-        "id": "classification.cache",
-        "files": 2,
-        "in_degree": 0,
-        "out_degree": 1
+        "out_degree": 7
       },
       {
         "id": "classification.strategies",
         "files": 5,
         "in_degree": 0,
-        "out_degree": 5
+        "out_degree": 3
       },
       {
         "id": "cache.lru_cache",
@@ -476,19 +446,25 @@
         "out_degree": 0
       },
       {
+        "id": "shared.kernel.di",
+        "files": 4,
+        "in_degree": 0,
+        "out_degree": 7
+      },
+      {
         "id": "handlers.agentic_rag",
         "files": 3,
         "in_degree": 0,
-        "out_degree": 8
+        "out_degree": 5
       },
       {
-        "id": "agentic_rag_graph",
+        "id": "chat",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
       },
       {
-        "id": "chat",
+        "id": "agentic_rag_graph",
         "files": 0,
         "in_degree": 1,
         "out_degree": 0
@@ -501,7 +477,11 @@
       },
       {
         "from": "root",
-        "to": "llm"
+        "to": "config"
+      },
+      {
+        "from": "root",
+        "to": "ingestion_tools"
       },
       {
         "from": "root",
@@ -509,23 +489,19 @@
       },
       {
         "from": "root",
-        "to": "hybrid"
-      },
-      {
-        "from": "root",
-        "to": "config"
-      },
-      {
-        "from": "root",
         "to": "retrieval_tools"
       },
       {
         "from": "root",
-        "to": "reranking_tools"
+        "to": "llm"
       },
       {
         "from": "root",
-        "to": "ingestion_tools"
+        "to": "hybrid"
+      },
+      {
+        "from": "root",
+        "to": "reranking_tools"
       },
       {
         "from": "root",
@@ -537,11 +513,7 @@
       },
       {
         "from": "classification",
-        "to": "strategies.keyword"
-      },
-      {
-        "from": "classification",
-        "to": "strategies.cached"
+        "to": "strategies.composite"
       },
       {
         "from": "classification",
@@ -549,7 +521,15 @@
       },
       {
         "from": "classification",
-        "to": "strategies.composite"
+        "to": "strategies.keyword"
+      },
+      {
+        "from": "classification",
+        "to": "strategies.cached"
+      },
+      {
+        "from": "database",
+        "to": "query"
       },
       {
         "from": "database",
@@ -562,10 +542,6 @@
       {
         "from": "database",
         "to": "models"
-      },
-      {
-        "from": "database",
-        "to": "query"
       },
       {
         "from": "models",
@@ -573,59 +549,15 @@
       },
       {
         "from": "models",
-        "to": "auth"
-      },
-      {
-        "from": "models",
         "to": "documents"
       },
       {
-        "from": "ingestion",
-        "to": "chunker"
+        "from": "models",
+        "to": "auth"
       },
       {
         "from": "ingestion",
         "to": ""
-      },
-      {
-        "from": "ingestion",
-        "to": "session"
-      },
-      {
-        "from": "ingestion",
-        "to": "bm25_builder"
-      },
-      {
-        "from": "ingestion",
-        "to": "bm25"
-      },
-      {
-        "from": "ingestion",
-        "to": "cleaner"
-      },
-      {
-        "from": "ingestion",
-        "to": "config"
-      },
-      {
-        "from": "ingestion",
-        "to": "qdrant_store"
-      },
-      {
-        "from": "ingestion",
-        "to": "pipelines"
-      },
-      {
-        "from": "ingestion",
-        "to": "document_store"
-      },
-      {
-        "from": "ingestion",
-        "to": "file_store"
-      },
-      {
-        "from": "ingestion",
-        "to": "extractor"
       },
       {
         "from": "ingestion",
@@ -633,39 +565,55 @@
       },
       {
         "from": "ingestion",
+        "to": "config"
+      },
+      {
+        "from": "ingestion",
+        "to": "bm25"
+      },
+      {
+        "from": "ingestion",
+        "to": "document_store"
+      },
+      {
+        "from": "ingestion",
+        "to": "session"
+      },
+      {
+        "from": "ingestion",
+        "to": "bm25_builder"
+      },
+      {
+        "from": "ingestion",
+        "to": "cleaner"
+      },
+      {
+        "from": "ingestion",
+        "to": "chunker"
+      },
+      {
+        "from": "ingestion",
+        "to": "extractor"
+      },
+      {
+        "from": "ingestion",
+        "to": "file_store"
+      },
+      {
+        "from": "ingestion",
+        "to": "pipelines"
+      },
+      {
+        "from": "ingestion",
+        "to": "qdrant_store"
+      },
+      {
+        "from": "ingestion",
         "to": "embedding"
       },
       {
         "from": "tools",
-        "to": "llm"
-      },
-      {
-        "from": "tools",
         "to": ""
-      },
-      {
-        "from": "tools",
-        "to": "llm_generation_tools"
-      },
-      {
-        "from": "tools",
-        "to": "chunker"
-      },
-      {
-        "from": "tools",
-        "to": "hybrid"
-      },
-      {
-        "from": "tools",
-        "to": "extractor"
-      },
-      {
-        "from": "tools",
-        "to": "cleaner"
-      },
-      {
-        "from": "tools",
-        "to": "config"
       },
       {
         "from": "tools",
@@ -673,7 +621,11 @@
       },
       {
         "from": "tools",
-        "to": "retrieval_tools"
+        "to": "qdrant_store"
+      },
+      {
+        "from": "tools",
+        "to": "config"
       },
       {
         "from": "tools",
@@ -681,7 +633,31 @@
       },
       {
         "from": "tools",
+        "to": "llm_generation_tools"
+      },
+      {
+        "from": "tools",
+        "to": "retrieval_tools"
+      },
+      {
+        "from": "tools",
+        "to": "cleaner"
+      },
+      {
+        "from": "tools",
+        "to": "chunker"
+      },
+      {
+        "from": "tools",
+        "to": "extractor"
+      },
+      {
+        "from": "tools",
         "to": "quality_tools"
+      },
+      {
+        "from": "tools",
+        "to": "hybrid"
       },
       {
         "from": "tools",
@@ -689,27 +665,15 @@
       },
       {
         "from": "tools",
-        "to": "qdrant_store"
-      },
-      {
-        "from": "tools",
         "to": "embedding"
       },
       {
-        "from": "di",
-        "to": "strategies.keyword"
+        "from": "tools",
+        "to": "llm"
       },
       {
         "from": "di",
-        "to": "container"
-      },
-      {
-        "from": "di",
-        "to": "feature_flags"
-      },
-      {
-        "from": "di",
-        "to": "registry"
+        "to": "strategies.composite"
       },
       {
         "from": "di",
@@ -717,71 +681,31 @@
       },
       {
         "from": "di",
+        "to": "config"
+      },
+      {
+        "from": "di",
+        "to": "strategies.keyword"
+      },
+      {
+        "from": "di",
         "to": "rag"
+      },
+      {
+        "from": "di",
+        "to": "conversational"
       },
       {
         "from": "di",
         "to": "strategies.cached"
       },
       {
-        "from": "di",
-        "to": "config"
-      },
-      {
-        "from": "di",
-        "to": "handlers"
-      },
-      {
-        "from": "di",
-        "to": "conversational"
-      },
-      {
-        "from": "di",
-        "to": "classification"
-      },
-      {
-        "from": "di",
-        "to": "strategies.composite"
-      },
-      {
-        "from": "handlers",
-        "to": "llm"
-      },
-      {
-        "from": "handlers",
-        "to": "rag_agent"
-      },
-      {
-        "from": "handlers",
-        "to": "rag"
-      },
-      {
-        "from": "handlers",
-        "to": "config"
-      },
-      {
-        "from": "handlers",
-        "to": "handlers"
-      },
-      {
-        "from": "handlers",
-        "to": "conversational"
-      },
-      {
-        "from": "handlers",
-        "to": "classification"
-      },
-      {
-        "from": "handlers",
-        "to": "llm_post_process"
-      },
-      {
-        "from": "handlers",
-        "to": "prompts"
+        "from": "auth",
+        "to": ""
       },
       {
         "from": "auth",
-        "to": ""
+        "to": "config"
       },
       {
         "from": "auth",
@@ -789,15 +713,11 @@
       },
       {
         "from": "auth",
-        "to": "config"
+        "to": "dependencies"
       },
       {
         "from": "auth",
         "to": "models"
-      },
-      {
-        "from": "auth",
-        "to": "dependencies"
       },
       {
         "from": "agents",
@@ -805,19 +725,7 @@
       },
       {
         "from": "agents",
-        "to": "rag_agent"
-      },
-      {
-        "from": "agents",
-        "to": "dense"
-      },
-      {
-        "from": "agents",
-        "to": "quality_agent"
-      },
-      {
-        "from": "agents",
-        "to": "embedding"
+        "to": "citation_verifier"
       },
       {
         "from": "agents",
@@ -825,19 +733,23 @@
       },
       {
         "from": "agents",
+        "to": "agent_utils"
+      },
+      {
+        "from": "agents",
         "to": "llm_post_processor"
       },
       {
         "from": "agents",
-        "to": "bm25_builder"
+        "to": "prompts"
       },
       {
         "from": "agents",
-        "to": "citation_parser"
+        "to": "rag_agent"
       },
       {
         "from": "agents",
-        "to": "utils"
+        "to": "chunker"
       },
       {
         "from": "agents",
@@ -845,11 +757,55 @@
       },
       {
         "from": "agents",
-        "to": "orchestrator_agent"
+        "to": "llm_post_process"
+      },
+      {
+        "from": "agents",
+        "to": "config"
       },
       {
         "from": "agents",
         "to": "document_store"
+      },
+      {
+        "from": "agents",
+        "to": "dense"
+      },
+      {
+        "from": "agents",
+        "to": "bm25_builder"
+      },
+      {
+        "from": "agents",
+        "to": "orchestrator_agent"
+      },
+      {
+        "from": "agents",
+        "to": "hybrid"
+      },
+      {
+        "from": "agents",
+        "to": "embedding"
+      },
+      {
+        "from": "agents",
+        "to": "citation_parser"
+      },
+      {
+        "from": "agents",
+        "to": "quality_agent"
+      },
+      {
+        "from": "agents",
+        "to": "utils"
+      },
+      {
+        "from": "agents",
+        "to": "responses"
+      },
+      {
+        "from": "agents",
+        "to": "retrieval_agent"
       },
       {
         "from": "agents",
@@ -860,56 +816,8 @@
         "to": "llm"
       },
       {
-        "from": "agents",
-        "to": "responses"
-      },
-      {
-        "from": "agents",
-        "to": "hybrid"
-      },
-      {
-        "from": "agents",
-        "to": "llm_post_process"
-      },
-      {
-        "from": "agents",
-        "to": "chunker"
-      },
-      {
-        "from": "agents",
-        "to": "citation_verifier"
-      },
-      {
-        "from": "agents",
-        "to": "agent_utils"
-      },
-      {
-        "from": "agents",
+        "from": "evaluation",
         "to": "config"
-      },
-      {
-        "from": "agents",
-        "to": "handlers"
-      },
-      {
-        "from": "agents",
-        "to": "retrieval_agent"
-      },
-      {
-        "from": "agents",
-        "to": "prompts"
-      },
-      {
-        "from": "agents",
-        "to": "classification"
-      },
-      {
-        "from": "evaluation",
-        "to": "llm"
-      },
-      {
-        "from": "evaluation",
-        "to": "service"
       },
       {
         "from": "evaluation",
@@ -917,7 +825,7 @@
       },
       {
         "from": "evaluation",
-        "to": "config"
+        "to": "service"
       },
       {
         "from": "evaluation",
@@ -928,8 +836,12 @@
         "to": "evaluation"
       },
       {
+        "from": "evaluation",
+        "to": "llm"
+      },
+      {
         "from": "retrieval",
-        "to": "dense"
+        "to": "config"
       },
       {
         "from": "retrieval",
@@ -937,11 +849,11 @@
       },
       {
         "from": "retrieval",
-        "to": "hybrid"
+        "to": "dense"
       },
       {
         "from": "retrieval",
-        "to": "config"
+        "to": "hybrid"
       },
       {
         "from": "retrieval",
@@ -953,15 +865,7 @@
       },
       {
         "from": "api",
-        "to": "jwt_cookie"
-      },
-      {
-        "from": "api",
-        "to": "routing_metrics"
-      },
-      {
-        "from": "api",
-        "to": "session"
+        "to": "config"
       },
       {
         "from": "api",
@@ -969,19 +873,11 @@
       },
       {
         "from": "api",
+        "to": "document_store"
+      },
+      {
+        "from": "api",
         "to": "service"
-      },
-      {
-        "from": "api",
-        "to": "orchestrator"
-      },
-      {
-        "from": "api",
-        "to": "bm25_builder"
-      },
-      {
-        "from": "api",
-        "to": "config"
       },
       {
         "from": "api",
@@ -989,19 +885,19 @@
       },
       {
         "from": "api",
-        "to": "auth"
+        "to": "session"
       },
       {
         "from": "api",
-        "to": "models"
+        "to": "bm25_builder"
       },
       {
         "from": "api",
-        "to": "pipelines"
+        "to": "orchestrator"
       },
       {
         "from": "api",
-        "to": "document_store"
+        "to": "routing_metrics"
       },
       {
         "from": "api",
@@ -1009,11 +905,27 @@
       },
       {
         "from": "api",
+        "to": "dependencies"
+      },
+      {
+        "from": "api",
+        "to": "auth"
+      },
+      {
+        "from": "api",
         "to": "evaluation"
       },
       {
         "from": "api",
-        "to": "dependencies"
+        "to": "pipelines"
+      },
+      {
+        "from": "api",
+        "to": "jwt_cookie"
+      },
+      {
+        "from": "api",
+        "to": "models"
       },
       {
         "from": "graphs",
@@ -1029,19 +941,15 @@
       },
       {
         "from": "indexing",
+        "to": "qdrant_store"
+      },
+      {
+        "from": "indexing",
         "to": ""
       },
       {
         "from": "indexing",
-        "to": "session"
-      },
-      {
-        "from": "indexing",
         "to": "config"
-      },
-      {
-        "from": "indexing",
-        "to": "models"
       },
       {
         "from": "indexing",
@@ -1049,47 +957,51 @@
       },
       {
         "from": "indexing",
+        "to": "session"
+      },
+      {
+        "from": "indexing",
         "to": "file_store"
       },
       {
         "from": "indexing",
-        "to": "qdrant_store"
-      },
-      {
-        "from": "monitoring",
-        "to": "config"
+        "to": "models"
       },
       {
         "from": "monitoring",
         "to": "routing_metrics"
       },
       {
-        "from": "interfaces",
-        "to": "handlers"
+        "from": "monitoring",
+        "to": "config"
       },
       {
-        "from": "interfaces",
-        "to": "retrieval"
+        "from": "handlers",
+        "to": "config"
       },
       {
-        "from": "interfaces",
-        "to": "container"
+        "from": "handlers",
+        "to": "rag_agent"
       },
       {
-        "from": "interfaces",
-        "to": "classification"
+        "from": "handlers",
+        "to": "llm_post_process"
       },
       {
-        "from": "classification.cache",
-        "to": "classification"
+        "from": "handlers",
+        "to": "rag"
       },
       {
-        "from": "classification.strategies",
+        "from": "handlers",
+        "to": "conversational"
+      },
+      {
+        "from": "handlers",
+        "to": "prompts"
+      },
+      {
+        "from": "handlers",
         "to": "llm"
-      },
-      {
-        "from": "classification.strategies",
-        "to": "cache.lru_cache"
       },
       {
         "from": "classification.strategies",
@@ -1097,19 +1009,43 @@
       },
       {
         "from": "classification.strategies",
-        "to": "retrieval"
+        "to": "cache.lru_cache"
       },
       {
         "from": "classification.strategies",
-        "to": "classification"
-      },
-      {
-        "from": "handlers.agentic_rag",
         "to": "llm"
       },
       {
+        "from": "shared.kernel.di",
+        "to": "strategies.composite"
+      },
+      {
+        "from": "shared.kernel.di",
+        "to": "strategies.llm"
+      },
+      {
+        "from": "shared.kernel.di",
+        "to": "config"
+      },
+      {
+        "from": "shared.kernel.di",
+        "to": "strategies.keyword"
+      },
+      {
+        "from": "shared.kernel.di",
+        "to": "rag"
+      },
+      {
+        "from": "shared.kernel.di",
+        "to": "conversational"
+      },
+      {
+        "from": "shared.kernel.di",
+        "to": "strategies.cached"
+      },
+      {
         "from": "handlers.agentic_rag",
-        "to": "feature_flags"
+        "to": "chat"
       },
       {
         "from": "handlers.agentic_rag",
@@ -1125,22 +1061,14 @@
       },
       {
         "from": "handlers.agentic_rag",
-        "to": "handlers"
-      },
-      {
-        "from": "handlers.agentic_rag",
-        "to": "classification"
-      },
-      {
-        "from": "handlers.agentic_rag",
-        "to": "chat"
+        "to": "llm"
       }
     ]
   },
   "critical_nodes": [
     {
       "module": "config",
-      "dependents": 13,
+      "dependents": 14,
       "dependencies": 0,
       "files": []
     },
@@ -1157,14 +1085,6 @@
       "files": []
     },
     {
-      "module": "classification",
-      "dependents": 7,
-      "dependencies": 4,
-      "files": [
-        "src/classification/__init__.py"
-      ]
-    },
-    {
       "module": "session",
       "dependents": 6,
       "dependencies": 0,
@@ -1177,23 +1097,13 @@
       "files": []
     },
     {
-      "module": "handlers",
-      "dependents": 5,
-      "dependencies": 9,
-      "files": [
-        "src/handlers/__init__.py",
-        "src/handlers/rag.py",
-        "src/handlers/conversational.py"
-      ]
-    },
-    {
-      "module": "embedding",
+      "module": "hybrid",
       "dependents": 4,
       "dependencies": 0,
       "files": []
     },
     {
-      "module": "hybrid",
+      "module": "embedding",
       "dependents": 4,
       "dependencies": 0,
       "files": []
@@ -1219,6 +1129,36 @@
       "files": []
     },
     {
+      "module": "rag",
+      "dependents": 4,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "strategies.composite",
+      "dependents": 3,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "strategies.llm",
+      "dependents": 3,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "strategies.cached",
+      "dependents": 3,
+      "dependencies": 0,
+      "files": []
+    },
+    {
+      "module": "strategies.keyword",
+      "dependents": 3,
+      "dependencies": 0,
+      "files": []
+    },
+    {
       "module": "chunker",
       "dependents": 3,
       "dependencies": 0,
@@ -1237,7 +1177,7 @@
       "files": []
     },
     {
-      "module": "rag",
+      "module": "conversational",
       "dependents": 3,
       "dependencies": 0,
       "files": []
@@ -1259,29 +1199,11 @@
         "src/evaluation/ci-cd-integration.py",
         "src/evaluation/dataset.py"
       ]
-    },
-    {
-      "module": "retrieval_tools",
-      "dependents": 2,
-      "dependencies": 0,
-      "files": []
-    },
-    {
-      "module": "ingestion_tools",
-      "dependents": 2,
-      "dependencies": 0,
-      "files": []
-    },
-    {
-      "module": "reranking_tools",
-      "dependents": 2,
-      "dependencies": 0,
-      "files": []
     }
   ],
   "summary": {
-    "total_modules": 82,
-    "total_files": 96,
-    "total_edges": 160
+    "total_modules": 78,
+    "total_files": 111,
+    "total_edges": 148
   }
 }

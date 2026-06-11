@@ -13,7 +13,7 @@ This module now contains BOTH ABC interfaces AND data models (Lifecycle, Service
 Previously, data models were in src.protocols.container - now unified in ABC-only architecture.
 
 Example:
-    >>> from src.interfaces.container import ScopeManagerBase
+    >>> from src.shared.kernel.interfaces.container import ScopeManagerBase
     >>>
     >>> class RequestScopeManager(ScopeManagerBase):
     ...     def __init__(self):

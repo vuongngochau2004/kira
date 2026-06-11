@@ -5,9 +5,9 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from src.auth.security import decode_token
-from src.database import get_session
-from src.database.models import User
+from auth.security import decode_token
+from database import get_session
+from database.models import User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

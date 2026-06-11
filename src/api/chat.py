@@ -11,19 +11,19 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from src.database import get_session, soft_delete_conversation
-from src.indexing.document_store import (
+from database import get_session, soft_delete_conversation
+from indexing.document_store import (
     create_conversation,
     get_conversation,
     list_conversations,
     create_message,
     get_conversation_messages,
 )
-from src.agents.orchestrator import create_orchestrator
-from src.auth.dependencies import get_current_user
-from src.database.models import User
-from src.models import ConversationCreate
-from src.constants import (
+from agents.orchestrator import create_orchestrator
+from auth.dependencies import get_current_user
+from database.models import User
+from models import ConversationCreate
+from constants import (
     DEFAULT_TEMPERATURE,
     DEFAULT_MAX_TOKENS,
     DEFAULT_CONVERSATION_LIMIT,
@@ -455,8 +455,8 @@ async def _stream_generator_v2(
                         contexts = [c.get("content", "") for c in citations if c.get("content")]
 
                         if contexts:
-                            from src.evaluation.service import get_evaluation_service
-                            from src.models.evaluation import EvaluationRequest, EvaluationMetric
+                            from evaluation.service import get_evaluation_service
+                            from models.evaluation import EvaluationRequest, EvaluationMetric
 
                             # Map metric names to enum
                             metrics = evaluation_metrics or ["faithfulness", "answer_relevancy"]
@@ -507,7 +507,7 @@ async def _stream_generator_legacy(
     db: AsyncSession,
 ):
     """Legacy generator for backward compatibility (fake streaming)."""
-    from src.constants import STREAM_CHUNK_SIZE
+    from constants import STREAM_CHUNK_SIZE
 
     orchestrator = get_orchestrator()
     response = await orchestrator.query(

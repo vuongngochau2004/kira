@@ -5,8 +5,8 @@ Tests for ConversationalHandler.
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from src.handlers.conversational import ConversationalHandler
-from src.interfaces.classification import ClassificationResult, Intent
+from handlers.conversational import ConversationalHandler
+from interfaces.classification import ClassificationResult, Intent
 
 
 @pytest.mark.asyncio
@@ -136,7 +136,7 @@ async def test_conversational_handler_stream_with_wrong_intent():
 @patch("src.handlers.conversational.chat_async")
 async def test_conversational_handler_custom_config(mock_chat_async):
     """Test ConversationalHandler with custom config."""
-    from src.interfaces.handlers import HandlerConfig
+    from interfaces.handlers import HandlerConfig
 
     mock_chat_async.return_value = {"content": "Response"}
 

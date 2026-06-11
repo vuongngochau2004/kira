@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from src.models.evaluation import GoldenDataset, GoldenDatasetSample
+from models.evaluation import GoldenDataset, GoldenDatasetSample
 
 logger = logging.getLogger(__name__)
 

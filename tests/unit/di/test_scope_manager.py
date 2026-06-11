@@ -4,8 +4,8 @@ Tests for ScopeManagerBase.
 
 import pytest
 
-from src.interfaces.container import ScopeManagerBase
-from src.interfaces.container import DependencyContainer
+from interfaces.container import ScopeManagerBase
+from interfaces.container import DependencyContainer
 
 
 class MockScopeManager(ScopeManagerBase):
@@ -93,7 +93,7 @@ async def test_dispose_scope():
 @pytest.mark.asyncio
 async def test_get_scoped_service():
     """Test getting scoped service."""
-    from src.di.container import ServiceContainer
+    from di.container import ServiceContainer
 
     manager = MockScopeManager()
     container = ServiceContainer()
@@ -114,7 +114,7 @@ async def test_get_scoped_service():
 @pytest.mark.asyncio
 async def test_scoped_service_cached_within_scope():
     """Test that scoped service is cached within same scope."""
-    from src.di.container import ServiceContainer
+    from di.container import ServiceContainer
 
     manager = MockScopeManager()
     container = ServiceContainer()
@@ -136,7 +136,7 @@ async def test_scoped_service_cached_within_scope():
 @pytest.mark.asyncio
 async def test_get_scoped_service_from_nonexistent_scope():
     """Test getting service from non-existent scope raises error."""
-    from src.di.container import ServiceContainer
+    from di.container import ServiceContainer
 
     manager = MockScopeManager()
     container = ServiceContainer()
@@ -160,7 +160,7 @@ async def test_dispose_nonexistent_scope():
 @pytest.mark.asyncio
 async def test_multiple_scopes():
     """Test managing multiple independent scopes."""
-    from src.di.container import ServiceContainer
+    from di.container import ServiceContainer
 
     manager = MockScopeManager()
     container = ServiceContainer()
@@ -205,7 +205,7 @@ async def test_interface_enforces_all_methods():
 @pytest.mark.asyncio
 async def test_interface_has_abstractmethod_decorators():
     """Test that interface methods are properly marked as abstract."""
-    from src.interfaces.container import ScopeManagerBase
+    from interfaces.container import ScopeManagerBase
 
     # Check that methods are abstract
     assert hasattr(ScopeManagerBase.create_scope, '__isabstractmethod__')

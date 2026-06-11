@@ -3,7 +3,7 @@
 from uuid import UUID
 from typing import Any
 
-from src.retrieval.bm25 import BM25Index
+from retrieval.bm25 import BM25Index
 
 
 class BM25IndexManager:

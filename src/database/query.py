@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
-from src.database.models import User, Document, DocumentChunk, Conversation, Message
+from database.models import User, Document, DocumentChunk, Conversation, Message
 
 
 async def get_user_by_email(email: str, include_deleted: bool = False) -> Optional[User]:

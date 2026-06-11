@@ -8,14 +8,14 @@ import pytest
 from uuid import uuid4
 from abc import ABC
 
-from src.interfaces.handlers import (
+from interfaces.handlers import (
     QueryHandlerBase,
     HandlerResult,
     HandlerConfig,
     Citation,
 )
-from src.interfaces.retrieval import Document, RetrieverBase
-from src.interfaces.classification import ClassificationResult, Intent
+from interfaces.retrieval import Document, RetrieverBase
+from interfaces.classification import ClassificationResult, Intent
 
 
 # ============================================================================

@@ -1,6 +1,6 @@
 """RAGAS evaluation package."""
 
-from src.evaluation.service import (
+from evaluation.service import (
     RAGASEvaluationService,
     get_evaluation_service,
     EvaluationError,

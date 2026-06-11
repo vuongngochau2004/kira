@@ -1,27 +1,30 @@
 """
-Interfaces package.
+Interfaces package - Backward compatibility shim.
 
-This package contains interface definitions using Abstract Base Classes (ABC)
-for stricter interface enforcement and compile-time type checking.
+DEPRECATED: This package is deprecated. Use src.shared.kernel.interfaces instead.
+All interfaces have been moved to src.shared.kernel.interfaces as part of
+the modular monolith migration (Phase 1).
 
-All interfaces use "Base" suffix following Python community conventions.
+This module re-exports all interfaces from the new location for backward compatibility.
+New code should import directly from src.shared.kernel.interfaces.
 """
 
-from src.interfaces.classification import (
+# Re-export all interfaces from new location for backward compatibility
+from src.shared.kernel.interfaces.classification import (
     ClassificationCacheBase,
     ClassificationStrategyBase,
     Intent,
     ClassificationResult
 )
-from src.interfaces.container import (
+from src.shared.kernel.interfaces.container import (
     DependencyContainerBase,
     ServiceRegistryBase,
     ScopeManagerBase,
     Lifecycle,
     ServiceDescriptor
 )
-from src.interfaces.handlers import QueryHandlerBase
-from src.interfaces.retrieval import (
+from src.shared.kernel.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig, Citation
+from src.shared.kernel.interfaces.retrieval import (
     RetrieverBase,
     DenseRetrieverBase,
     BM25RetrieverBase,
@@ -45,6 +48,9 @@ __all__ = [
 
     # Handler interfaces
     "QueryHandlerBase",
+    "HandlerResult",
+    "HandlerConfig",
+    "Citation",
 
     # Retrieval interfaces
     "RetrieverBase",

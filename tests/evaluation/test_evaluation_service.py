@@ -1,8 +1,8 @@
 """Tests for RAGAS evaluation service."""
 
 import pytest
-from src.evaluation.service import RAGASEvaluationService
-from src.models.evaluation import EvaluationRequest, EvaluationMetric
+from evaluation.service import RAGASEvaluationService
+from models.evaluation import EvaluationRequest, EvaluationMetric
 
 
 @pytest.mark.asyncio
@@ -53,7 +53,7 @@ async def test_batch_evaluation():
     """Test batch evaluation."""
     service = RAGASEvaluationService()
 
-    from src.models.evaluation import BatchEvaluationRequest
+    from models.evaluation import BatchEvaluationRequest
 
     request = BatchEvaluationRequest(
         queries=[

@@ -4,8 +4,8 @@ Tests for ServiceContainer.
 
 import pytest
 
-from src.di.container import ServiceContainer
-from src.interfaces.container import Lifecycle
+from di.container import ServiceContainer
+from interfaces.container import Lifecycle
 
 
 class MockService:

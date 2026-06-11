@@ -8,9 +8,9 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
-from src.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
-from src.agents.llm import chat_async
-from src.agents.utils import parse_json_response
+from src.shared.kernel.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
+from agents.llm import chat_async
+from agents.agent_utils import parse_json_response
 
 
 # Routing classifier prompt

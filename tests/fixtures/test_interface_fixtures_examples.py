@@ -8,8 +8,8 @@ Protocol to ABC migration testing.
 import pytest
 from uuid import uuid4
 
-from src.interfaces.classification import Intent, ClassificationResult
-from src.interfaces.handlers import Citation, HandlerConfig
+from interfaces.classification import Intent, ClassificationResult
+from interfaces.handlers import Citation, HandlerConfig
 
 from tests.fixtures.abc_fixtures import (
     ClassificationStrategyBase,

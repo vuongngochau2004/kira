@@ -8,15 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from config.config import settings
-from src.database.session import init_db, close_db
-from src.indexing.qdrant_store import ensure_collection, get_client
-from src.tools.retrieval_tools import init_retrieval_tools
-from src.tools.ingestion_tools import init_ingestion_tools
-from src.tools.reranking_tools import init_reranking_tools
-from src.ingestion.embedding import preload_model
-from src.agents.llm import LLMClient
-from src.retrieval.hybrid import set_llm_client
-from src.api import auth, documents, chat, metrics, evaluation
+from database.session import init_db, close_db
+from indexing.qdrant_store import ensure_collection, get_client
+from tools.retrieval_tools import init_retrieval_tools
+from tools.ingestion_tools import init_ingestion_tools
+from tools.reranking_tools import init_reranking_tools
+from ingestion.embedding import preload_model
+from agents.llm import LLMClient
+from retrieval.hybrid import set_llm_client
+from api import auth, documents, chat, metrics, evaluation
 
 
 @asynccontextmanager

@@ -8,7 +8,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from src.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
+from src.shared.kernel.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
 
 
 logger = logging.getLogger(__name__)
@@ -27,9 +27,9 @@ class CompositeClassifier(ClassificationStrategyBase):
         default_intent: Default intent if all strategies fail
 
     Example:
-        >>> from src.classification.strategies.keyword import KeywordStrategy
-        >>> from src.classification.strategies.llm import LLMStrategy
-        >>> from src.classification.strategies.cached import CachedStrategy
+        >>> from classification.strategies.keyword import KeywordStrategy
+        >>> from classification.strategies.llm import LLMStrategy
+        >>> from classification.strategies.cached import CachedStrategy
         >>>
         >>> classifier = CompositeClassifier([
         ...     KeywordStrategy(),
@@ -268,7 +268,7 @@ class CompositeClassifier(ClassificationStrategyBase):
             True if strategy was removed, False if not found
 
         Example:
-            >>> from src.classification.strategies.keyword import KeywordStrategy
+            >>> from classification.strategies.keyword import KeywordStrategy
             >>> classifier.remove_strategy(KeywordStrategy)
             True
         """

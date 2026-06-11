@@ -10,11 +10,11 @@ import logging
 from typing import Any, AsyncIterator
 from uuid import UUID
 
-from src.interfaces.classification import ClassificationResult, Intent
-from src.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig
-from src.agents.llm import chat_async, chat_async_stream
-from src.agents.llm_post_process import stream_with_thinking_separation
-from src.agents.prompts import (
+from src.shared.kernel.interfaces.classification import ClassificationResult, Intent
+from src.shared.kernel.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig
+from agents.llm import chat_async, chat_async_stream
+from agents.llm_post_process import stream_with_thinking_separation
+from agents.prompts import (
     CONVERSATIONAL_SYSTEM_PROMPT,
     CONVERSATIONAL_USER_PROMPT,
 )

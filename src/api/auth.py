@@ -6,17 +6,17 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from src.database import get_session
-from src.database.models import User
-from src.auth.security import (
+from database import get_session
+from database.models import User
+from auth.security import (
     hash_password,
     verify_password,
     create_token_pair,
     decode_token,
 )
-from src.auth.dependencies import get_current_user
-from src.auth.jwt_cookie import set_auth_cookies, clear_auth_cookies
-from src.models.auth import (
+from auth.dependencies import get_current_user
+from auth.jwt_cookie import set_auth_cookies, clear_auth_cookies
+from models.auth import (
     UserRegisterRequest,
     UserLoginRequest,
     TokenResponse,

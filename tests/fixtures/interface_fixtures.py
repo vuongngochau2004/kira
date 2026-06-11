@@ -28,18 +28,18 @@ import asyncio
 from functools import wraps
 import time
 
-from src.interfaces.classification import (
+from interfaces.classification import (
     ClassificationStrategy,
     ClassificationResult,
     Intent,
 )
-from src.interfaces.handlers import (
+from interfaces.handlers import (
     QueryHandler,
     HandlerResult,
     Citation,
     HandlerConfig,
 )
-from src.interfaces.container import (
+from interfaces.container import (
     DependencyContainer,
     ServiceDescriptor,
     Lifecycle,

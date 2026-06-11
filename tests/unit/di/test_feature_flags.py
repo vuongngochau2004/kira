@@ -4,7 +4,7 @@ Tests for FeatureFlagManager.
 
 import pytest
 
-from src.di.feature_flags import (
+from di.feature_flags import (
     FeatureFlag,
     FeatureFlagManager,
     get_feature_flag_manager,

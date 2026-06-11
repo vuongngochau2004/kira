@@ -10,7 +10,7 @@ Classification Chain (fastest to slowest):
 3. LLMStrategy - Fallback to LLM classifier (~800ms)
 
 Usage:
-    >>> from src.classification.strategies.composite import CompositeClassifier
+    >>> from classification.strategies.composite import CompositeClassifier
     >>> classifier = CompositeClassifier([
     ...     KeywordStrategy(),
     ...     CachedStrategy(LLMStrategy())
@@ -18,10 +18,10 @@ Usage:
     >>> result = await classifier.classify("hỏi về contract.pdf", "user123")
 """
 
-from src.classification.strategies.composite import CompositeClassifier
-from src.classification.strategies.keyword import KeywordStrategy
-from src.classification.strategies.llm import LLMStrategy
-from src.classification.strategies.cached import CachedStrategy
+from classification.strategies.composite import CompositeClassifier
+from classification.strategies.keyword import KeywordStrategy
+from classification.strategies.llm import LLMStrategy
+from classification.strategies.cached import CachedStrategy
 
 __all__ = [
     "CompositeClassifier",

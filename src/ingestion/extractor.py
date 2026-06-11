@@ -86,7 +86,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
     logger.info("Extracting PDF using PyMuPDF (native text): %s", file_path)
     try:
         import fitz
-        from src.ingestion.paddleocr_client import get_ocr_client
+        from ingestion.paddleocr_client import get_ocr_client
         from config.config import settings
 
         doc = fitz.open(file_path)
@@ -303,7 +303,7 @@ async def extract_image_ocr(file_path: str) -> ExtractionResult:
         ExtractionResult with text and metadata
     """
     try:
-        from src.ingestion.paddleocr_client import get_ocr_client
+        from ingestion.paddleocr_client import get_ocr_client
 
         ocr_client = get_ocr_client()
         async with ocr_client:

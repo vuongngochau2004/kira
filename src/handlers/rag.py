@@ -8,9 +8,9 @@ import time
 from typing import Any, AsyncIterator
 from uuid import UUID
 
-from src.interfaces.classification import ClassificationResult, Intent
-from src.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig, Citation
-from src.agents.rag_agent import AgenticRAG
+from src.shared.kernel.interfaces.classification import ClassificationResult, Intent
+from src.shared.kernel.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig, Citation
+from agents.rag_agent import AgenticRAG
 from config.config import settings
 
 

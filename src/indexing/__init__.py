@@ -1,6 +1,6 @@
 """Indexing module exports."""
 
-from src.indexing.qdrant_store import (
+from indexing.qdrant_store import (
     get_client as get_qdrant_client,
     ensure_collection,
     store_chunks,
@@ -8,7 +8,7 @@ from src.indexing.qdrant_store import (
     delete_document as delete_from_qdrant,
     close as close_qdrant,
 )
-from src.indexing.file_store import (
+from indexing.file_store import (
     get_client as get_minio_client,
     upload_file,
     upload_bytes,
@@ -19,7 +19,7 @@ from src.indexing.file_store import (
     file_exists,
     close as close_minio,
 )
-from src.indexing.document_store import (
+from indexing.document_store import (
     create_document,
     update_document_status,
     get_document,

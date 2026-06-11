@@ -8,7 +8,7 @@ This module now contains BOTH ABC interfaces AND data models (Intent, Classifica
 Previously, data models were in src.protocols.classification - now unified in ABC-only architecture.
 
 Example:
-    >>> from src.interfaces.classification import ClassificationCacheBase, ClassificationStrategyBase
+    >>> from src.shared.kernel.interfaces.classification import ClassificationCacheBase, ClassificationStrategyBase
     >>>
     >>> class MyCache(ClassificationCacheBase):
     ...     async def get(self, key: str) -> ClassificationResult | None:

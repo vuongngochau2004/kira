@@ -8,14 +8,14 @@ from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
-from src.indexing.file_store import download_file
-from src.indexing.qdrant_store import store_chunks
-from src.indexing.document_store import update_document_status
-from src.ingestion.extractor import extract_content_sync
-from src.ingestion.cleaner import clean_document
-from src.ingestion.chunker import chunk_document
-from src.ingestion.embedding import embed
-from src.constants import (
+from indexing.file_store import download_file
+from indexing.qdrant_store import store_chunks
+from indexing.document_store import update_document_status
+from ingestion.extractor import extract_content_sync
+from ingestion.cleaner import clean_document
+from ingestion.chunker import chunk_document
+from ingestion.embedding import embed
+from constants import (
     DOC_STATUS_COMPLETED,
     DOC_STATUS_FAILED,
     ERR_NO_CONTENT,
@@ -60,7 +60,7 @@ async def process_document(
     except Exception as e:
         error_msg = f"{ERR_PROCESSING_FAILED}: {str(e)}"
         logger.error("Exception in process_document for %s: %s", document_id, e, exc_info=True)
-        from src.database.session import async_session_factory
+        from database.session import async_session_factory
         async with async_session_factory() as session:
             await update_document_status(
                 document_id=document_id,
@@ -191,13 +191,13 @@ def _update_chunk_metadata(chunk_data: list[dict], qdrant_ids: list) -> None:
 
 async def _update_document_status_result(document_id: UUID, result: dict) -> None:
     """Update document status based on processing result."""
-    from src.database.session import async_session_factory
+    from database.session import async_session_factory
 
     logger.info("[Step 7/7] Saving chunks and updating final document status in PostgreSQL...")
     async with async_session_factory() as session:
         if result["success"]:
             # Save chunks to PostgreSQL document_chunks table
-            from src.indexing.document_store import create_chunks
+            from indexing.document_store import create_chunks
             await create_chunks(
                 document_id=document_id,
                 chunks=result["chunks"],

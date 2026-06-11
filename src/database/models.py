@@ -8,7 +8,7 @@ from sqlalchemy import BigInteger, ForeignKey, String, Text, text, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database.session import Base
+from database.session import Base
 
 
 class UserRole(str, Enum):

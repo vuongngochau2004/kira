@@ -1,8 +1,8 @@
 """Database layer exports."""
 
-from src.database.session import Base, engine, get_session, init_db, close_db
-from src.database.models import User, Document, DocumentChunk, Conversation, Message
-from src.database.query import (
+from database.session import Base, engine, get_session, init_db, close_db
+from database.models import User, Document, DocumentChunk, Conversation, Message
+from database.query import (
     get_user_by_email,
     get_document_with_chunks,
     get_conversation_with_messages,

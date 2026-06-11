@@ -10,7 +10,7 @@ Retrieval Strategies:
 - HybridRetrieverBase: Combined dense + BM25 with RRF fusion
 
 Example:
-    >>> from src.interfaces.retrieval import RetrieverBase, Document
+    >>> from src.shared.kernel.interfaces.retrieval import RetrieverBase, Document
     >>>
     >>> class MyRetriever(RetrieverBase):
     ...     async def retrieve(self, query: str, user_id: str, top_k: int = 5) -> list[Document]:

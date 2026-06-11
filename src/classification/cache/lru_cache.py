@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any, TypeVar, Generic
 from uuid import UUID
 
-from src.interfaces.classification import ClassificationResult, ClassificationCacheBase
+from src.shared.kernel.interfaces.classification import ClassificationResult, ClassificationCacheBase
 
 
 T = TypeVar("T")

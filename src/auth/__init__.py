@@ -1,6 +1,6 @@
 """Authentication module exports."""
 
-from src.auth.security import (
+from auth.security import (
     hash_password,
     verify_password,
     create_access_token,
@@ -8,7 +8,7 @@ from src.auth.security import (
     decode_token,
     create_token_pair,
 )
-from src.auth.dependencies import (
+from auth.dependencies import (
     get_current_user,
     get_current_active_user,
     require_auth,

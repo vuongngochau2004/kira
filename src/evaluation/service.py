@@ -11,8 +11,8 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
 
-from src.agents.llm import LLMProvider, chat_async
-from src.models.evaluation import (
+from agents.llm import LLMProvider, chat_async
+from models.evaluation import (
     EvaluationRequest,
     EvaluationResponse,
     EvaluationResult,

@@ -19,8 +19,8 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth.dependencies import get_current_user
-from src.constants import (
+from auth.dependencies import get_current_user
+from constants import (
     DEFAULT_LIMIT,
     DEFAULT_OFFSET,
     DOC_STATUS_COMPLETED,
@@ -28,11 +28,11 @@ from src.constants import (
     DOC_STATUS_PROCESSING,
     ERR_DOC_NOT_FOUND,
 )
-from src.database import get_session
-from src.database.models import User
-from src.database.session import async_session_factory
-from src.indexing import qdrant_store
-from src.indexing.document_store import (
+from database import get_session
+from database.models import User
+from database.session import async_session_factory
+from indexing import qdrant_store
+from indexing.document_store import (
     create_document,
     delete_document,
     get_document,
@@ -40,9 +40,9 @@ from src.indexing.document_store import (
     list_documents,
     update_document_status,
 )
-from src.indexing.file_store import download_bytes, upload_bytes
-from src.ingestion.bm25_builder import get_bm25_manager
-from src.ingestion.pipelines import process_document
+from indexing.file_store import download_bytes, upload_bytes
+from ingestion.bm25_builder import get_bm25_manager
+from ingestion.pipelines import process_document
 
 router = APIRouter()
 
@@ -287,8 +287,8 @@ async def _authenticate_and_get_user(
     """
     from sqlalchemy import select
 
-    from src.auth.security import decode_token
-    from src.database.models import User
+    from auth.security import decode_token
+    from database.models import User
 
     try:
         payload = decode_token(auth_token)

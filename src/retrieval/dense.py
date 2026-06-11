@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from src.indexing.qdrant_store import search_similar
+from indexing.qdrant_store import search_similar
 from config.config import settings
 
 

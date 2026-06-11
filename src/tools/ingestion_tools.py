@@ -75,7 +75,7 @@ def extract_text_tool(
     Returns:
         JSON string with success status and extracted text
     """
-    from src.ingestion.extractor import extract_content_sync
+    from ingestion.extractor import extract_content_sync
 
     try:
         result = extract_content_sync(file_path, file_type)
@@ -114,7 +114,7 @@ def clean_text_tool(
     Returns:
         JSON string with cleaned text
     """
-    from src.ingestion.cleaner import clean_document
+    from ingestion.cleaner import clean_document
 
     try:
         cleaned = clean_document(text)
@@ -151,7 +151,7 @@ def chunk_text_tool(
     Returns:
         JSON string with list of chunks
     """
-    from src.ingestion.chunker import chunk_document
+    from ingestion.chunker import chunk_document
 
     try:
         chunks = chunk_document(
@@ -196,7 +196,7 @@ def embed_chunks_tool(
     Returns:
         JSON string with embeddings
     """
-    from src.ingestion.embedding import embed
+    from ingestion.embedding import embed
 
     try:
         chunk_texts = [chunk.get("content", "") for chunk in chunks]

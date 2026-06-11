@@ -2,7 +2,7 @@
 
 import pytest
 from httpx import AsyncClient
-from src.models.evaluation import EvaluationRequest, EvaluationMetric
+from models.evaluation import EvaluationRequest, EvaluationMetric
 
 
 @pytest.mark.asyncio
