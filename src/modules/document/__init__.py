@@ -16,54 +16,26 @@ Architecture:
 
 from src.modules.document.application.upload import UploadDocument
 from src.modules.document.application.delete import DeleteDocument
-from src.modules.document.application.process import ProcessDocument
-from src.modules.document.application.query import (
-    DownloadDocument,
-    GetDocument,
-    GetDocumentChunks,
-    ListDocuments,
-)
 from src.modules.document.application.dto import (
     UploadDocumentRequest,
     DeleteDocumentRequest,
     ProcessDocumentRequest,
-    ListDocumentsRequest,
-    GetDocumentRequest,
-    DownloadDocumentRequest,
-    GetDocumentChunksRequest,
     DocumentUploadResult,
     DocumentDeleteResult,
     DocumentProcessResult,
-    DocumentListResult,
-    DocumentGetResult,
-    DocumentDownloadResult,
-    DocumentChunksResult,
     DocumentMetadata,
 )
 
 __all__ = [
-    # Application services
+    # Use Cases
     "UploadDocument",
     "DeleteDocument",
-    "ProcessDocument",
-    "ListDocuments",
-    "GetDocument",
-    "DownloadDocument",
-    "GetDocumentChunks",
     # DTOs
     "UploadDocumentRequest",
     "DeleteDocumentRequest",
     "ProcessDocumentRequest",
-    "ListDocumentsRequest",
-    "GetDocumentRequest",
-    "DownloadDocumentRequest",
-    "GetDocumentChunksRequest",
     "DocumentUploadResult",
     "DocumentDeleteResult",
     "DocumentProcessResult",
-    "DocumentListResult",
-    "DocumentGetResult",
-    "DocumentDownloadResult",
-    "DocumentChunksResult",
     "DocumentMetadata",
 ]
