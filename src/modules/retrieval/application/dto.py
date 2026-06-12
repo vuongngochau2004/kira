@@ -5,7 +5,6 @@ Defines request/response DTOs for search operations.
 
 from pydantic import BaseModel, Field
 from typing import Any
-from uuid import UUID
 
 
 class SearchRequest(BaseModel):

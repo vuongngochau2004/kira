@@ -4,7 +4,6 @@ Keyword-based classification strategy.
 Fast classification using fuzzy file matching and keyword detection.
 """
 
-import re
 from typing import Any
 from uuid import UUID
 

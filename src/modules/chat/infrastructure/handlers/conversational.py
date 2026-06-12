@@ -3,7 +3,7 @@ Conversational handler - Infrastructure layer adapter for direct LLM chat.
 
 Migrated from src/handlers/conversational.py to modules/chat/infrastructure/handlers/.
 Handles conversational queries with pre-classified CONVERSATIONAL intent.
-No retrieval, just direct LLM chat with thinking separation.
+No retrieval, just direct LLM chat.
 
 Delegates message building to ConversationService (domain layer),
 keeping this handler focused on LLM orchestration.
@@ -20,7 +20,6 @@ from src.modules.chat.domain.services import ConversationService, ConversationCo
 
 # Import from infrastructure and shared modules
 from src.shared.infrastructure.llm.client import chat_async, chat_async_stream
-from src.shared.utils.postprocess import stream_with_thinking_separation
 # Import from chat domain prompts
 from src.modules.chat.domain.prompts.conversational import CONVERSATIONAL_SYSTEM_PROMPT, CONVERSATIONAL_USER_PROMPT
 
@@ -204,33 +203,25 @@ class ConversationalHandler(QueryHandlerBase):
             content_chunk_count = 0
             logger.debug("[CONVERSATIONAL STREAM] Starting stream")
 
-            # Apply post-processing to separate thinking from content
             raw_stream = chat_async_stream(
                 messages=messages,
                 temperature=self.config.temperature,
                 max_tokens=self.config.max_tokens,
             )
 
-            async for processed_chunk in stream_with_thinking_separation(raw_stream):
-                chunk_type = processed_chunk.get("type")
-                chunk_text = processed_chunk.get("text", "")
-
+            async for chunk_text in raw_stream:
                 if not chunk_text:
                     continue
 
                 content_chunk_count += 1
                 if content_chunk_count <= 3 or content_chunk_count % 10 == 0:
                     logger.debug(
-                        f"[CONVERSATIONAL STREAM] {chunk_type.upper()} "
+                        f"[CONVERSATIONAL STREAM] CONTENT "
                         f"chunk #{content_chunk_count}: {len(chunk_text)} chars"
                     )
 
-                # Yield thinking chunks (for UI display in thinking block)
-                if chunk_type == "thinking":
-                    yield {"type": "thinking", "data": {"text": chunk_text}}
                 # Yield content chunks (actual answer)
-                elif chunk_type == "content":
-                    yield {"type": "content", "data": {"text": chunk_text}}
+                yield {"type": "content", "data": {"text": chunk_text}}
 
             latency_ms = (time.perf_counter() - t0) * 1000
             logger.info(

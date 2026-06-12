@@ -34,17 +34,17 @@ async def create_message(
     db: AsyncSession,
     sources: list | None = None,
     token_count: int | None = None,
-    thinking_data: dict | None = None,
+    metadata: dict | None = None,
 ) -> Any:
     """Create a message and update conversation counters."""
     from src.shared.infrastructure.persistence.database.models import Conversation, Message
 
-    validated_thinking = {}
-    if thinking_data and isinstance(thinking_data, dict):
-        allowed_keys = {"steps", "iterations", "router", "agent", "latency_ms", "thinking", "retrieval"}
-        validated_thinking = {
+    validated_metadata = {}
+    if metadata and isinstance(metadata, dict):
+        allowed_keys = {"steps", "iterations", "router", "agent", "latency_ms", "retrieval", "rejection_detected", "rejection_reasoning"}
+        validated_metadata = {
             key: value
-            for key, value in thinking_data.items()
+            for key, value in metadata.items()
             if key in allowed_keys and isinstance(value, (str, int, float, list, dict, bool))
         }
 
@@ -54,7 +54,7 @@ async def create_message(
         content=content,
         sources=sources or [],
         token_count=token_count,
-        thinking_data=validated_thinking,
+        meta_data=validated_metadata,
     )
     db.add(msg)
 

@@ -3,8 +3,7 @@
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
 import { Send, Loader2, X, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ThinkingHierarchy } from '@/components/thinking'
-import { ThinkingBlock } from '@/components/streaming/ThinkingBlock'
+
 import { SourceCitation } from '@/components/streaming/SourceCitation'
 import { SourcePanel } from '@/components/streaming/SourcePanel'
 import { StreamingText } from '@/components/streaming/StreamingText'
@@ -12,16 +11,9 @@ import { CitationRichText } from '@/components/streaming/CitationRichText'
 import { CitationPanel, type CitationSource, type VerificationStats } from '@/components/streaming/CitationPanel'
 import { useSourcesStore } from '@/lib/stores/sources-store'
 import { KIRAWelcome } from '@/components/common/KiraLogo'
-import type { ThinkingHierarchy as ThinkingHierarchyType } from '@/types/thinking'
 
 // ==================== Types ====================
 
-export interface ThinkingStep {
-  node: string
-  status: 'pending' | 'running' | 'complete'
-  duration?: number
-  timestamp?: number
-}
 
 export interface SourceChunk {
   id: string
@@ -38,8 +30,6 @@ export interface Message {
   content: string
   timestamp: Date
   sources?: SourceChunk[]
-  thinking?: ThinkingStep[]  // Legacy, for backward compatibility
-  thinkingHierarchy?: ThinkingHierarchyType  // NEW structured thinking
   isStreaming?: boolean
   streamingState?: 'connecting' | 'routing' | 'retrieving' | 'generating' | 'complete' | 'error'
   citation_verification?: VerificationStats
@@ -92,17 +82,6 @@ const AssistantMessage = memo((
 
   return (
     <>
-      {/* Thinking Block - Use new ThinkingHierarchy if available, fallback to legacy */}
-      {message.thinkingHierarchy ? (
-        <ThinkingHierarchy hierarchy={message.thinkingHierarchy} />
-      ) : (
-        <ThinkingBlock
-          steps={message.thinking || []}
-          isLoading={isLoading}
-          streamingState={message.streamingState}
-        />
-      )}
-
       {/* Content */}
       <div className="text-base py-2 text-foreground">
         {message.use_new_citation_format ? (
@@ -196,14 +175,6 @@ const MessageRow = memo((
           </button>
         </div>
       )}
-
-      {/* ✅ Rejection Indicator - NEW */}
-      {message.role === 'assistant' && message.rejection_detected && (
-        <div className="mt-2 text-xs text-muted-foreground italic flex items-center gap-1.5">
-          <span>ℹ️</span>
-          <span>{message.rejection_reasoning || "Không tìm thấy thông tin trong tài liệu"}</span>
-        </div>
-      )}
     </div>
   </div>
 ))
@@ -258,19 +229,6 @@ export function SimpleChat({
       (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
     )
 
-    // DEBUG: Log assistant messages with thinking hierarchy
-    const assistantMsgs = merged.filter(m => m.role === 'assistant' && m.thinkingHierarchy)
-    console.log('[DEBUG SimpleChat] displayMessages:', {
-      total: merged.length,
-      withThinking: assistantMsgs.length,
-      assistantMsgs: assistantMsgs.map(m => ({
-        id: m.id,
-        hasThinking: !!m.thinkingHierarchy,
-        status: m.thinkingHierarchy?.status,
-        execution: m.thinkingHierarchy?.execution?.length,
-        isOptimistic: m.isOptimistic,
-      }))
-    })
 
     return merged
   }, [messages, optimisticMessages])

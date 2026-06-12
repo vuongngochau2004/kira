@@ -1,9 +1,7 @@
 """Metrics API endpoints for routing monitoring and analysis."""
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.shared.infrastructure.persistence.database.session import get_session
 from src.shared.infrastructure.monitoring.routing_metrics import get_metrics_collector
 from src.shared.infrastructure.auth.dependencies import get_current_user
 from src.shared.infrastructure.persistence.database.models import User

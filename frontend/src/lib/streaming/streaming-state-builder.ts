@@ -42,8 +42,6 @@ export interface MessageState {
   routing: RoutingInfo | null
   /** Retrieval stages */
   retrieval: RetrievalStage[]
-  /** Thinking/reasoning content (from 'thinking' chunks) */
-  thinking: string
   /** Main response content (from 'content' chunks) */
   content: string
   /** Source citations */
@@ -64,7 +62,6 @@ const INITIAL_STATE: MessageState = {
   status: 'connecting',
   routing: null,
   retrieval: [],
-  thinking: '',
   content: '',
   sources: [],
   error: null,
@@ -97,10 +94,6 @@ export class StreamingStateBuilder {
         this.processContent(data)
         break
 
-      case 'thinking':
-        this.processThinking(data)
-        break
-
       case 'metadata':
         this.processMetadata(data)
         break
@@ -126,7 +119,6 @@ export class StreamingStateBuilder {
       status: this.state.status,
       routing: this.state.routing,
       retrieval: [...this.state.retrieval],
-      thinking: this.state.thinking,
       content: this.state.content,
       sources: [...this.state.sources],
       error: this.state.error,
@@ -194,15 +186,6 @@ export class StreamingStateBuilder {
     }
   }
 
-  private processThinking(data: any): void {
-    this.state.status = 'generating'
-
-    const text = data?.text ?? ''
-    if (text) {
-      this.state.thinking += text
-    }
-  }
-
   private processMetadata(data: any): void {
     this.state.status = 'generating'
 
@@ -244,7 +227,28 @@ export function ensureFlatSources(rawSources: any[] | undefined): any[] | undefi
 
   // Check if it is grouped structure (contains 'chunks')
   const isGrouped = rawSources.some(s => s && s.hasOwnProperty('chunks'))
-  if (!isGrouped) return rawSources
+  if (!isGrouped) {
+    return rawSources.map((citation: any, idx: number) => {
+      const docTitle = citation.filename || citation.source || citation.title || 'Tài liệu'
+      const textVal = citation.text || citation.content || citation.snippet || ''
+      const chunkId = citation.chunk_id || citation.id || `chunk-${idx}`
+      return {
+        id: chunkId,
+        chunk_id: chunkId,
+        source: docTitle,
+        title: docTitle,
+        snippet: textVal,
+        content: textVal,
+        content_length: textVal.length,
+        page_number: citation.page_number ?? citation.page,
+        score: citation.score ?? citation.confidence,
+        grounding_score: citation.grounding_score ?? citation.score ?? citation.confidence,
+        document_id: citation.document_id,
+        chunk_index: citation.chunk_index ?? idx,
+        page: citation.page_number ?? citation.page
+      }
+    })
+  }
 
   return rawSources.flatMap((doc: any, docIdx: number) => {
     const docTitle = doc.filename || doc.title || 'Tài liệu'

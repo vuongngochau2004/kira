@@ -12,6 +12,7 @@ from src.shared.ports.classification import ClassificationResult, Intent
 from src.modules.rag.orchestration.state.rag_state import Citation as StateCitation
 from src.modules.rag.application import RAGPipelineService
 from src.modules.rag.composition import create_default_rag_pipeline_service
+from src.modules.rag.domain.services.rag_domain_service import RAGService
 
 
 class RAGHandler(QueryHandlerBase):
@@ -69,6 +70,7 @@ class RAGHandler(QueryHandlerBase):
                 "confidence": citation.get("score")
                 if citation.get("score") is not None
                 else citation.get("confidence", 1.0),
+                "document_id": citation.get("document_id"),
             }
         if isinstance(citation, StateCitation):
             return {
@@ -76,9 +78,16 @@ class RAGHandler(QueryHandlerBase):
                 "text": citation.text,
                 "page": citation.page_number,
                 "confidence": citation.score if citation.score is not None else 1.0,
+                "document_id": str(citation.document_id) if getattr(citation, "document_id", None) else None,
             }
         if isinstance(citation, Citation):
-            return citation.to_dict()
+            return {
+                "filename": citation.filename,
+                "text": citation.text,
+                "page": citation.page_number,
+                "confidence": citation.score if citation.score is not None else 1.0,
+                "document_id": citation.document_id,
+            }
         return {}
 
     @classmethod
@@ -163,25 +172,37 @@ class RAGHandler(QueryHandlerBase):
             metadata["agent_results"] = state.get("agent_results", [])
             metadata["total_execution_time_ms"] = state.get("total_execution_time_ms", 0.0)
 
+            is_rejection = RAGService.is_rejection_response(final_response)
+
             # Convert citations to expected format
             citations = []
-            for citation in final_citations:
-                if isinstance(citation, dict):
-                    citations.append(Citation(
-                        filename=citation.get("filename", ""),
-                        page=citation.get("page_number"),
-                        text=citation.get("text", ""),
-                        confidence=citation.get("score") if citation.get("score") is not None else 1.0
-                    ))
-                elif isinstance(citation, StateCitation):
-                    citations.append(Citation(
-                        filename=citation.filename,
-                        page=citation.page_number,
-                        text=citation.text,
-                        confidence=citation.score if citation.score is not None else 1.0
-                    ))
-                elif isinstance(citation, Citation):
-                    citations.append(citation)
+            if is_rejection:
+                metadata["rejection_detected"] = True
+                metadata["rejection_reasoning"] = final_response
+                metadata["relevance_filtering"] = {
+                    "enabled": True,
+                    "is_rejection": True,
+                    "rejection_reason": "no_relevant_docs"
+                }
+                metadata["has_relevant_docs"] = False
+            else:
+                for citation in final_citations:
+                    if isinstance(citation, dict):
+                        citations.append(Citation(
+                            filename=citation.get("filename", ""),
+                            page=citation.get("page_number"),
+                            text=citation.get("text", ""),
+                            confidence=citation.get("score") if citation.get("score") is not None else 1.0
+                        ))
+                    elif isinstance(citation, StateCitation):
+                        citations.append(Citation(
+                            filename=citation.filename,
+                            page=citation.page_number,
+                            text=citation.text,
+                            confidence=citation.score if citation.score is not None else 1.0
+                        ))
+                    elif isinstance(citation, Citation):
+                        citations.append(citation)
 
             logger.info(
                 f"✅ <green>[RAG FLOW COMPLETED]</green> RAG completed. "
@@ -306,25 +327,42 @@ class RAGHandler(QueryHandlerBase):
                         "data": {"text": final_response},
                     }
 
-                citations = [
-                    citation
-                    for citation in (
-                        self._citation_to_dict(citation)
-                        for citation in final_state.get("final_citations", [])
-                    )
-                    if citation
-                ]
+                is_rejection = RAGService.is_rejection_response(final_response)
+
+                citations = []
+                if not is_rejection:
+                    citations = [
+                        citation
+                        for citation in (
+                            self._citation_to_dict(citation)
+                            for citation in final_state.get("final_citations", [])
+                        )
+                        if citation
+                    ]
+
+                metadata_payload = {
+                    "langgraph": True,
+                    "stream_modes": ["updates", "messages"],
+                    "citations": citations,
+                    "sources": citations,
+                    "generation_metadata": final_state.get("generation_metadata", {}),
+                    "quality": final_state.get("quality_agent_output", {}),
+                    "total_execution_time_ms": final_state.get("total_execution_time_ms", 0.0),
+                }
+
+                if is_rejection:
+                    metadata_payload["rejection_detected"] = True
+                    metadata_payload["rejection_reasoning"] = final_response
+                    metadata_payload["relevance_filtering"] = {
+                        "enabled": True,
+                        "is_rejection": True,
+                        "rejection_reason": "no_relevant_docs"
+                    }
+                    metadata_payload["has_relevant_docs"] = False
+
                 yield {
                     "type": "metadata",
-                    "data": {
-                        "langgraph": True,
-                        "stream_modes": ["updates", "messages"],
-                        "citations": citations,
-                        "sources": citations,
-                        "generation_metadata": final_state.get("generation_metadata", {}),
-                        "quality": final_state.get("quality_agent_output", {}),
-                        "total_execution_time_ms": final_state.get("total_execution_time_ms", 0.0),
-                    },
+                    "data": metadata_payload,
                 }
 
             # Yield completion

@@ -1,25 +1,15 @@
 /**
- * Streaming module - Handles SSE streaming and thinking tag parsing
+ * Streaming module - Handles SSE streaming and state building
  *
  * Architecture:
- * 1. ThinkingTagParser - Pure functions for parsing <thinking> tags
- * 2. StreamingStateBuilder - State machine for building complete message state
+ * 1. StreamingStateBuilder - State machine for building complete message state
  *
  * Design principles:
- * - Separation of concerns: Parse vs Build vs Render
+ * - Separation of concerns: Accumulate vs Render
  * - Pure functions where possible
  * - Immutable state updates
  * - Type-safe
  */
-
-export {
-  parseChunk,
-  parseFullContent,
-  stripThinkingTags,
-  createStreamingParser,
-  type ParseResult,
-  type ParseState,
-} from './thinking-tag-parser'
 
 export {
   StreamingStateBuilder,

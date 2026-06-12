@@ -14,7 +14,6 @@ import json
 import logging
 import uuid
 from typing import Any
-from uuid import UUID
 
 from src.modules.chat.application.dto import ChatQuery
 

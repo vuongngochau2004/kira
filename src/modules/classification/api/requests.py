@@ -6,7 +6,6 @@ Defines request models for classification endpoints.
 
 from pydantic import BaseModel, Field, validator
 from typing import Any, Optional
-from uuid import UUID
 
 
 class ClassifyRequest(BaseModel):

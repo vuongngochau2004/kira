@@ -3,7 +3,6 @@
 Orchestrates hybrid search combining dense and BM25 retrieval with RRF fusion.
 """
 
-from typing import Any
 
 from src.modules.retrieval.domain.services.hybrid_search import hybrid_search
 from src.shared.ports.vector_store import VectorStorePort

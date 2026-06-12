@@ -8,7 +8,7 @@ import asyncio
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, TypeVar, Generic
+from typing import Any, TypeVar
 from uuid import UUID
 
 from src.shared.ports.classification import ClassificationResult, ClassificationCacheBase

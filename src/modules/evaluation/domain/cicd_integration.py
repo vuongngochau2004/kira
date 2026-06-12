@@ -28,10 +28,8 @@ from typing import Any, Optional
 from evaluation.framework import (
     RAGEvaluationFramework,
     BaselineConfig,
-    ComprehensiveEvaluationResult,
 )
-from src.shared.infrastructure.monitoring.dashboard_config import DashboardConfig, AlertSeverity
-from src.config.config import settings
+from src.shared.infrastructure.monitoring.dashboard_config import DashboardConfig
 
 logger = logging.getLogger(__name__)
 

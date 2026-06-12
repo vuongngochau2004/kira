@@ -13,12 +13,9 @@ import { useConversationStore } from '@/lib/stores/conversation-store'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useOptimistic, useTransition } from 'react'
 import { MessageQueue, type QueuedMessage } from '@/lib/utils/message-queue'
-import type { ThinkingHierarchy } from '@/types/thinking'
 import {
   createStreamingStateBuilder,
-  parseChunk,
   ensureFlatSources,
-  type MessageState as StreamingMessageState,
   type StreamingState,
   type SourceChunk,
 } from '@/lib/streaming'
@@ -31,7 +28,6 @@ export interface Message {
   content: string
   timestamp: Date
   sources?: SourceChunk[]
-  thinkingHierarchy?: ThinkingHierarchy
   streamingState?: StreamingState
   isStreaming?: boolean
   isOptimistic?: boolean
@@ -40,55 +36,6 @@ export interface Message {
 // ==================== Constants ====================
 
 // ==================== Helpers ====================
-
-/**
- * Convert StreamingMessageState to ThinkingHierarchy for UI
- * Simple mapping, strip any remaining thinking tags
- */
-function stateToHierarchy(state: StreamingMessageState): ThinkingHierarchy {
-  const hierarchy: ThinkingHierarchy = {
-    status: state.status === 'complete' ? 'complete' : 'running',
-    execution: [],
-  }
-
-  // Map routing
-  if (state.routing) {
-    hierarchy.routing = {
-      router: state.routing.router,
-      intent: state.routing.intent,
-      timestamp: state.timestamp,
-    }
-  }
-
-  // Map retrieval
-  if (state.retrieval.length > 0) {
-    hierarchy.execution = state.retrieval.map(stage => ({
-      stage: 'retrieval',
-      iteration: stage.iteration,
-      strategy: stage.strategy,
-      chunksRetrieved: stage.chunksRetrieved,
-      uniqueDocuments: stage.uniqueDocuments,
-      topDocuments: stage.topDocuments,
-      timestamp: state.timestamp,
-    }))
-  }
-
-  // Map thinking content - STRIP any remaining thinking tags
-  if (state.thinking) {
-    // Remove <thinking>, </thinking> tags if present (defense in depth)
-    const cleanThinking = state.thinking
-      .replace(/<\/?thinking[^>]*>/gi, '')
-      .trim()
-
-    hierarchy.reasoning = {
-      content: cleanThinking,
-      isStreaming: state.status !== 'complete',
-      timestamp: state.timestamp,
-    }
-  }
-
-  return hierarchy
-}
 
 // ==================== Custom Hook ====================
 
@@ -170,6 +117,15 @@ export function useSimpleChat() {
     setIsLoading(false)
   }
 
+  function cleanRejectionContent(content: string): string {
+    if (!content) return ''
+    // Remove ([Document X], [Document Y]...)
+    let cleaned = content.replace(/\s*\(\s*\[Document\s+\d+\][\s\d\w,\[\]-]*\)/gi, '')
+    // Remove [Document X] without parentheses
+    cleaned = cleaned.replace(/\s*\[Document\s+\d+\]/gi, '')
+    return cleaned.trim()
+  }
+
   /**
    * Update assistant message with current streaming state
    * Simple mapping: state → hierarchy → message
@@ -178,33 +134,21 @@ export function useSimpleChat() {
     if (!msgId) return
 
     const state = stateBuilder.getState()
-    
-    // Parse thinking tags from state.content in case the backend sent them in the content stream
-    const parsed = parseChunk(state.content, false)
-    const hierarchy = stateToHierarchy(state)
 
-    // Merge reasoning extracted from content stream
-    const contentReasoning = parsed.reasoning.trim()
-    if (contentReasoning) {
-      hierarchy.reasoning = {
-        content: ((hierarchy.reasoning?.content || '') + '\n' + contentReasoning).trim(),
-        isStreaming: state.status !== 'complete',
-        timestamp: state.timestamp,
-      }
-    }
+    const content = cleanRejectionContent(state.content)
+    const rejectionReasoning = cleanRejectionContent(state.rejection_reasoning || '')
 
     setMessages((prev) =>
       prev.map((msg) =>
         msg.id === msgId
           ? {
               ...msg,
-              content: parsed.content,
-              thinkingHierarchy: hierarchy,
+              content: content,
               sources: state.sources.length > 0 ? [...state.sources] : undefined,
               streamingState: state.status,
               isStreaming: state.status !== 'complete',
               rejection_detected: state.rejection_detected,
-              rejection_reasoning: state.rejection_reasoning,
+              rejection_reasoning: rejectionReasoning,
             }
           : msg
       )
@@ -218,85 +162,31 @@ export function useSimpleChat() {
       setMessages(
         conversation.messages.map((msg) => {
           if (msg.role === 'assistant') {
-            const thinkingData = (msg as any).thinking_data || null
-            const isEmptyObject = thinkingData && typeof thinkingData === 'object' && Object.keys(thinkingData).length === 0
-            const thinkingMetadata = (isEmptyObject || !thinkingData) ? null : (thinkingData?.thinking || thinkingData)
+            const msgObj = msg as unknown as Record<string, unknown>
+            const metadata = msgObj.metadata as Record<string, unknown> | null
 
-            const parsed = parseChunk(msg.content || '', false)
-            let hierarchy: ThinkingHierarchy | undefined = undefined
+            const rejectionDetected = (metadata?.rejection_detected as boolean) ||
+                                      (msgObj.rejection_detected as boolean) ||
+                                      false
+            const rawRejectionReasoning = (metadata?.rejection_reasoning as string) ||
+                                       (msgObj.rejection_reasoning as string) ||
+                                       ''
+            const rejectionReasoning = cleanRejectionContent(rawRejectionReasoning)
 
-            if (thinkingMetadata && typeof thinkingMetadata === 'object') {
-              const routerName = thinkingMetadata.router || null
-              const retrievalStages = thinkingMetadata.retrieval || []
-              let reasoning = thinkingMetadata.reasoning || ''
-
-              if (routerName || retrievalStages.length > 0 || reasoning) {
-                hierarchy = {
-                  status: 'complete',
-                  execution: [],
-                }
-
-                if (routerName) {
-                  const routerMatch = routerName.match(/^(\w+)(?:\s+\((\w+)\))?/)
-                  if (routerMatch) {
-                    hierarchy.routing = {
-                      router: routerMatch[1],
-                      intent: routerMatch[2],
-                      timestamp: new Date(msg.created_at).getTime(),
-                    }
-                  }
-                }
-
-                if (retrievalStages.length > 0) {
-                  hierarchy.execution = retrievalStages.map((stage: any) => ({
-                    stage: 'retrieval',
-                    iteration: stage.iteration || 1,
-                    strategy: (stage.strategy?.toLowerCase() === 'hybrid' ? 'hybrid' : 'dense') as 'dense' | 'hybrid',
-                    chunksRetrieved: stage.chunks_retrieved ?? stage.docs_retrieved ?? 0,
-                    uniqueDocuments: stage.unique_documents ?? 1,
-                    topDocuments: stage.top_documents,
-                    timestamp: new Date(msg.created_at).getTime(),
-                  }))
-                }
-
-                if (reasoning) {
-                  // Strip any <thinking> tags from reasoning content
-                  const cleanReasoning = reasoning.replace(/<\/?thinking[^>]*>/gi, '').trim()
-
-                  hierarchy.reasoning = {
-                    content: cleanReasoning,
-                    isStreaming: false,
-                    timestamp: new Date(msg.created_at).getTime(),
-                  }
-                }
-              }
-            }
-
-            // Also integrate any thinking tags found in the content itself (defensive fallback)
-            const contentReasoning = parsed.reasoning.trim()
-            if (contentReasoning) {
-              if (!hierarchy) {
-                hierarchy = {
-                  status: 'complete',
-                  execution: [],
-                }
-              }
-              hierarchy.reasoning = {
-                content: ((hierarchy.reasoning?.content || '') + '\n' + contentReasoning).trim(),
-                isStreaming: false,
-                timestamp: new Date(msg.created_at).getTime(),
-              }
-            }
+            const parsedContent = cleanRejectionContent(msg.content || '')
 
             return {
               id: msg.id,
               role: 'assistant' as const,
-              content: parsed.content || '',
+              content: parsedContent,
               timestamp: new Date(msg.created_at),
-              thinkingHierarchy: hierarchy,
-              sources: ensureFlatSources(msg.sources || (msg.metadata as any)?.sources || undefined) as any,
+              sources: ensureFlatSources(
+                (msg.sources as SourceChunk[]) || (metadata?.sources as SourceChunk[]) || undefined
+              ) as SourceChunk[] | undefined,
               streamingState: 'complete' as const,
               isStreaming: false,
+              rejection_detected: rejectionDetected,
+              rejection_reasoning: rejectionReasoning,
             }
           }
 
@@ -339,10 +229,6 @@ export function useSimpleChat() {
               role: 'assistant' as const,
               content: '',
               timestamp: new Date(),
-              thinkingHierarchy: existingMsg?.thinkingHierarchy || {
-                status: 'running',
-                execution: [],
-              },
               sources: existingMsg?.sources || [],
               streamingState: 'connecting',
               isStreaming: true,
@@ -531,10 +417,6 @@ export function useSimpleChat() {
       isOptimistic: true,
       isStreaming: true,
       streamingState: 'connecting',
-      thinkingHierarchy: {
-        status: 'running',
-        execution: [],
-      },
     }
 
     setMessages((prev) => [...prev, tempUserMessage, tempAssistantMessage])

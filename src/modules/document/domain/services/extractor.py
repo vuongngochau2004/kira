@@ -376,7 +376,6 @@ async def extract_content(file_path: str, file_type: str) -> ExtractionResult:
     Returns:
         ExtractionResult with text, pages, metadata
     """
-    from pathlib import Path
 
     if not Path(file_path).exists():
         return ExtractionResult(

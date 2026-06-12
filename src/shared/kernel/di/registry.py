@@ -8,7 +8,6 @@ from typing import Optional
 
 from src.shared.kernel.di.container import ServiceContainer
 from src.shared.ports.classification import ClassificationStrategyBase
-from src.shared.ports.handlers import QueryHandlerBase
 
 
 # Global container instance

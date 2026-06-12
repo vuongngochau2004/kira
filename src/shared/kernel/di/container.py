@@ -5,7 +5,7 @@ Protocol-based DI container following SOLID principles.
 """
 
 import asyncio
-from typing import Type, TypeVar, Any, Callable, Awaitable, Optional
+from typing import Type, TypeVar, Any, Callable, Awaitable
 from threading import Lock
 
 from src.shared.ports.container import Lifecycle, DependencyContainerBase, ServiceDescriptor

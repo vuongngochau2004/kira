@@ -12,7 +12,7 @@ protection is planned for future implementation.
 """
 
 import secrets
-from fastapi import Request, HTTPException, status
+from fastapi import Request
 
 
 # CSRF token length (bytes)

@@ -10,7 +10,6 @@ The corresponding ORM model lives in:
 
 from dataclasses import dataclass
 from datetime import datetime
-from uuid import UUID
 
 from src.shared.kernel.base.entity import Entity
 

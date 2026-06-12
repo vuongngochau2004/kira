@@ -4,7 +4,6 @@ import math
 import re
 import unicodedata
 from collections import Counter
-from typing import Any
 
 
 def _normalize(text: str) -> str:

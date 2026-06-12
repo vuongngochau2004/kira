@@ -22,10 +22,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Optional
 from uuid import uuid4
 
-from src.config.config import settings
 
 logger = logging.getLogger(__name__)
 

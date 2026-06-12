@@ -9,7 +9,6 @@ import json
 import logging
 from collections.abc import AsyncIterator
 from enum import Enum
-from typing import Any, Callable
 
 from src.config.config import settings
 
@@ -287,7 +286,7 @@ async def _chat_glm_stream(
             if text:
                 yield text
 
-    logger.debug(f"[GLM STREAM] Completed")
+    logger.debug("[GLM STREAM] Completed")
 
 
 async def _chat_gemini_async(

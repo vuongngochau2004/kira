@@ -82,7 +82,7 @@ class MessageResponse(BaseModel):
         content: Message content text
         sources: Grouped document sources with chunks
         citations: Legacy flat citations list (deprecated)
-        thinking_data: Thinking/reasoning data from LLM
+        metadata: Processing metadata (handler, latency, rejection, etc.)
         created_at: Creation timestamp
     """
 
@@ -98,7 +98,7 @@ class MessageResponse(BaseModel):
         default_factory=list,
         description="Legacy flat citations list (deprecated)",
     )
-    thinking_data: dict = Field(default_factory=dict)
+    metadata: dict = Field(default_factory=dict)
     created_at: str
 
 

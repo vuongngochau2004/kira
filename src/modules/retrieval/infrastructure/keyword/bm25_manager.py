@@ -1,7 +1,6 @@
 """BM25 index manager for in-memory per-user indexes."""
 
 from uuid import UUID
-from typing import Any
 
 from src.modules.retrieval.domain.services.bm25_index import BM25Index
 

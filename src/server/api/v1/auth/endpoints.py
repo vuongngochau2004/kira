@@ -21,7 +21,6 @@ from src.server.api.v1.auth.schemas import (
     UserLoginRequest,
     TokenResponse,
     TokenRefreshRequest,
-    UserWithTokenResponse,
     UserResponse,
 )
 

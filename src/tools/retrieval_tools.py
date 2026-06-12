@@ -403,7 +403,6 @@ async def hybrid_retrieve_with_expansion(
         >>> metadata = response["metadata"]
     """
     try:
-        import asyncio
         from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
         from src.ingestion.embedding import embed_single
         from src.modules.retrieval.domain.services.hybrid_search import reciprocal_rank_fusion

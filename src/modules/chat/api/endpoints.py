@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import uuid
 from typing import Optional
 
@@ -153,19 +154,6 @@ def _process_stream_content_chunk(chunk_data: dict) -> tuple[str, str]:
     return text, sse_event
 
 
-def _process_stream_thinking_chunk(chunk_data: dict) -> tuple[str, str]:
-    """Process thinking chunk and extract reasoning text.
-
-    Args:
-        chunk_data: Thinking chunk data dict
-
-    Returns:
-        Tuple of (thinking_text, sse_event)
-    """
-    thinking_text = chunk_data.get("text", "")
-    sse_event = f"data: {json.dumps({'type': 'thinking', 'data': {'text': thinking_text}})}\n\n"
-    return thinking_text, sse_event
-
 
 async def _ensure_conversation_exists(
     conversation_id: uuid.UUID | None,
@@ -195,31 +183,79 @@ async def _ensure_conversation_exists(
     return conv.id
 
 
-def _build_thinking_metadata(
+def _build_message_metadata(
     router_name: str | None,
     retrieval_stages: list[dict],
-    thinking_content: list[str],
 ) -> dict | None:
-    """Build thinking metadata from collected streaming data.
+    """Build message metadata from collected streaming data.
 
     Args:
         router_name: Name of router used
         retrieval_stages: List of retrieval stage dicts
-        thinking_content: List of thinking text chunks
 
     Returns:
         Metadata dict or None if no metadata
     """
-    thinking_metadata: dict = {}
+    metadata: dict = {}
 
     if router_name:
-        thinking_metadata["router"] = router_name
+        metadata["router"] = router_name
     if retrieval_stages:
-        thinking_metadata["retrieval"] = retrieval_stages
-    if thinking_content:
-        thinking_metadata["reasoning"] = "".join(thinking_content)
+        metadata["retrieval"] = retrieval_stages
 
-    return thinking_metadata if thinking_metadata else None
+    return metadata if metadata else None
+
+
+async def _resolve_citation_filenames(citations: list[dict], db: AsyncSession) -> list[dict]:
+    """Look up filenames in database for all citations and fill them in."""
+    if not citations:
+        return citations
+
+    doc_ids: list[str] = [
+        c["document_id"]
+        for c in citations
+        if c.get("document_id")
+    ]
+    if not doc_ids:
+        return citations
+
+    try:
+        from src.modules.retrieval.infrastructure.document_store import get_documents_batch
+
+        doc_mapping = await get_documents_batch(doc_ids, db=db)
+
+        for c in citations:
+            doc_id = c.get("document_id")
+            if doc_id and str(doc_id) in doc_mapping:
+                filename = doc_mapping[str(doc_id)]
+                c["filename"] = filename
+                c["source"] = filename
+                c["title"] = filename
+    except Exception as e:
+        logger.warning(f"Failed to resolve citation filenames: {e}")
+
+    return citations
+
+
+def _clean_rejection_content(content: str) -> str:
+    """Strip raw document bracket citations (e.g. [Document 1]) from rejection messages."""
+    if not content:
+        return ""
+    # Remove ([Document X], [Document Y]...)
+    cleaned = re.sub(
+        r"\s*\(\s*\[Document\s+\d+\][\s\d\w,\[\]-]*\)",
+        "",
+        content,
+        flags=re.IGNORECASE,
+    )
+    # Remove [Document X] without parentheses
+    cleaned = re.sub(
+        r"\s*\[Document\s+\d+\]",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    return cleaned.strip()
 
 
 async def _save_streamed_messages(
@@ -228,7 +264,7 @@ async def _save_streamed_messages(
     query: str,
     full_content: list[str],
     citations: list,
-    thinking_metadata: dict | None,
+    metadata: dict | None,
     db: AsyncSession,
 ) -> tuple[uuid.UUID, uuid.UUID]:
     """Save user and assistant messages from streaming session.
@@ -239,7 +275,7 @@ async def _save_streamed_messages(
         query: Original user query
         full_content: List of content chunks
         citations: List of citation dicts
-        thinking_metadata: Thinking metadata or None
+        metadata: Message metadata or None
         db: Database session
 
     Returns:
@@ -258,13 +294,16 @@ async def _save_streamed_messages(
         db=db,
     )
 
-    # Save assistant message with thinking data
+    content_str = _clean_rejection_content("".join(full_content))
+    resolved_citations = await _resolve_citation_filenames(citations, db)
+
+    # Save assistant message with metadata
     msg = await create_message(
         conversation_id=conv_id,
         role="assistant",
-        content="".join(full_content),
-        sources=citations,
-        thinking_data={"thinking": thinking_metadata} if thinking_metadata else None,
+        content=content_str,
+        sources=resolved_citations,
+        metadata=metadata,
         db=db,
     )
     return conv_id, msg.id
@@ -284,17 +323,31 @@ async def _save_messages(
         db=db,
     )
 
-    # Extract thinking metadata if available
-    metadata = None
-    if "metadata" in response and "thinking" in response["metadata"]:
-        metadata = response["metadata"]
+    # Extract metadata if available
+    metadata = response.get("metadata") or {}
+    
+    db_metadata = {}
+    router_name = metadata.get("handler")
+    if router_name:
+        db_metadata["router"] = router_name
+    
+    if metadata.get("rejection_detected"):
+        db_metadata["rejection_detected"] = True
+        db_metadata["rejection_reasoning"] = _clean_rejection_content(metadata.get("rejection_reasoning") or "")
+    elif metadata.get("relevance_filtering", {}).get("is_rejection"):
+        db_metadata["rejection_detected"] = True
+        db_metadata["rejection_reasoning"] = _clean_rejection_content(response["content"])
+
+    content_str = _clean_rejection_content(response["content"])
+    citations = response.get("citations") or response.get("sources") or []
+    resolved_citations = await _resolve_citation_filenames(citations, db)
 
     msg = await create_message(
         conversation_id=conversation_id,
         role="assistant",
-        content=response["content"],
-        sources=response.get("sources", []),
-        thinking_data=metadata,
+        content=content_str,
+        sources=resolved_citations,
+        metadata=db_metadata if db_metadata else None,
         db=db,
     )
     return msg.id
@@ -338,9 +391,21 @@ async def chat_completion(
     await _save_messages(conv_id, message, result, db)
 
     # Return backward-compatible response structure
+    raw_citations = [
+        {
+            "filename": c.filename,
+            "text": c.text,
+            "page": c.page,
+            "confidence": c.confidence,
+            "document_id": str(c.document_id) if getattr(c, "document_id", None) else None,
+        }
+        for c in result.citations
+    ] if result.citations else []
+    resolved_citations = await _resolve_citation_filenames(raw_citations, db)
+
     return {
-        "content": result.content,
-        "citations": [{"filename": c.filename, "text": c.text, "page": c.page, "confidence": c.confidence} for c in result.citations] if result.citations else [],
+        "content": _clean_rejection_content(result.content),
+        "citations": resolved_citations,
         "conversation_id": str(conv_id),
         "message_id": str(uuid.uuid4()),
         "metadata": result.metadata,
@@ -373,10 +438,9 @@ async def _stream_generator(
     citations: list = []
     conversation_id_to_save = conversation_id
 
-    # Collect thinking data for metadata
+    # Collect data for metadata
     router_name: str | None = None
     retrieval_stages: list[dict] = []
-    thinking_content: list[str] = []
     done_sent = False
 
     # Load conversation history if continuing conversation
@@ -410,11 +474,6 @@ async def _stream_generator(
                 full_content.append(text)
                 yield sse_event
 
-            elif chunk_type == "thinking":
-                thinking_text, sse_event = _process_stream_thinking_chunk(chunk_data)
-                thinking_content.append(thinking_text)
-                yield sse_event
-
             elif chunk_type == "status":
                 yield f"data: {json.dumps({'type': 'status', 'data': chunk_data})}\n\n"
 
@@ -425,10 +484,21 @@ async def _stream_generator(
                 elif "sources" in chunk_data:
                     citations = chunk_data["sources"]
 
-                # Build thinking metadata
-                thinking_metadata = _build_thinking_metadata(
-                    router_name, retrieval_stages, thinking_content
+                citations = await _resolve_citation_filenames(citations, db)
+                chunk_data["citations"] = citations
+                chunk_data["sources"] = citations
+
+                # Build message metadata
+                metadata = _build_message_metadata(
+                    router_name, retrieval_stages
                 )
+                if metadata is None:
+                    metadata = {}
+                if chunk_data.get("rejection_detected"):
+                    metadata["rejection_detected"] = True
+                    cleaned_reasoning = _clean_rejection_content(chunk_data.get("rejection_reasoning") or "")
+                    metadata["rejection_reasoning"] = cleaned_reasoning
+                    chunk_data["rejection_reasoning"] = cleaned_reasoning
 
                 # Save messages to DB
                 saved_conversation_id, msg_id = await _save_streamed_messages(
@@ -437,7 +507,7 @@ async def _stream_generator(
                     query,
                     full_content,
                     citations,
-                    thinking_metadata,
+                    metadata,
                     db,
                 )
 
@@ -629,21 +699,28 @@ async def get_conversation_detail(
 
     messages = await get_conversation_messages(conv.id, db=db)
 
-    return {
-        "id": str(conv.id),
-        "title": conv.title,
-        "message_count": conv.message_count,
-        "messages": [
+    # Resolve filenames for assistant messages before sending to client
+    resolved_messages = []
+    for msg in messages:
+        sources = msg.sources
+        if msg.role == "assistant" and sources:
+            sources = await _resolve_citation_filenames(sources, db)
+        resolved_messages.append(
             {
                 "id": str(msg.id),
                 "role": msg.role,
                 "content": msg.content,
-                "sources": msg.sources,
-                "thinking_data": msg.thinking_data or {},
+                "sources": sources,
+                "metadata": msg.meta_data or {},
                 "created_at": msg.created_at.isoformat(),
             }
-            for msg in messages
-        ],
+        )
+
+    return {
+        "id": str(conv.id),
+        "title": conv.title,
+        "message_count": conv.message_count,
+        "messages": resolved_messages,
     }
 
 

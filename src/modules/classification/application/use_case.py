@@ -8,12 +8,11 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from src.shared.ports.classification import ClassificationStrategyBase, ClassificationResult, Intent
+from src.shared.ports.classification import ClassificationResult, Intent
 from src.modules.classification.domain.strategies.composite import CompositeClassifier
 from src.modules.classification.domain.strategies.keyword import KeywordStrategy
 from src.modules.classification.domain.strategies.llm import LLMStrategy
 from src.modules.classification.domain.strategies.cached import CachedStrategy
-from src.modules.classification.domain.cache.lru_cache import AsyncLRUCache
 
 
 logger = logging.getLogger(__name__)

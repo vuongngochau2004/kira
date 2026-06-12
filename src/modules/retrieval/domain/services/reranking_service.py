@@ -12,7 +12,6 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from src.config.config import settings
 from src.modules.retrieval.domain.prompts import (
     RERANKING_SYSTEM_PROMPT,
     SCORING_SYSTEM_PROMPT,

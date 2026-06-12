@@ -28,6 +28,92 @@ interface GroupedSource {
   }>
 }
 
+function cleanStringForMatching(str: string): string {
+  if (!str) return ''
+  return str
+    .toLowerCase()
+    .replace(/[\s\r\n\t]+/g, ' ')
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, '')
+    .trim()
+}
+
+function findLongestMatch(content: string, snippet: string): { index: number; length: number } | null {
+  const cleanedC = content.toLowerCase()
+  const cleanedS = snippet.toLowerCase()
+
+  // Try exact match first
+  const exactIdx = cleanedC.indexOf(cleanedS)
+  if (exactIdx !== -1) {
+    return { index: exactIdx, length: snippet.length }
+  }
+
+  // Find longest word sub-segment that matches
+  const words = snippet.split(/\s+/).filter(Boolean)
+  if (words.length === 0) return null
+
+  // Check word segments of decreasing length
+  for (let len = words.length - 1; len >= 3; len--) {
+    for (let start = 0; start <= words.length - len; start++) {
+      const subPhrase = words.slice(start, start + len).join(' ')
+      const idx = cleanedC.indexOf(subPhrase.toLowerCase())
+      if (idx !== -1) {
+        return { index: idx, length: subPhrase.length }
+      }
+    }
+  }
+
+  return null
+}
+
+function renderHighlightedContent(content: string, snippets: string[], isSelected: boolean) {
+  if (!snippets || snippets.length === 0) {
+    return <span className={isSelected ? "font-bold bg-primary/30 px-0.5 rounded text-foreground" : ""}>{content}</span>
+  }
+
+  // Find the snippet with the best match in this content
+  let bestMatch: { index: number; length: number } | null = null
+  let matchedSnippetIndex = -1
+
+  for (let i = 0; i < snippets.length; i++) {
+    const match = findLongestMatch(content, snippets[i])
+    if (match) {
+      if (!bestMatch || match.length > bestMatch.length) {
+        bestMatch = match
+        matchedSnippetIndex = i
+      }
+    }
+  }
+
+  if (bestMatch && matchedSnippetIndex !== -1) {
+    const index = bestMatch.index
+    const length = bestMatch.length
+
+    const before = content.substring(0, index)
+    const match = content.substring(index, index + length)
+    const after = content.substring(index + length)
+
+    return (
+      <span>
+        {before}
+        <strong className={cn(
+          "font-bold text-foreground px-0.5 rounded",
+          isSelected ? "bg-primary/45 ring-1 ring-primary/60" : "bg-primary/25"
+        )}>
+          {match}
+        </strong>
+        {after}
+      </span>
+    )
+  }
+
+  // If no match is found, render as normal text (or select highlight if active)
+  return (
+    <span className={isSelected ? "font-bold bg-primary/35 px-0.5 rounded ring-1 ring-primary/40 text-foreground" : ""}>
+      {content}
+    </span>
+  )
+}
+
 export function SourcePanel({ sources, isOpen, onClose, activeSourceId, className }: SourcePanelProps) {
   const [expandedDocKeys, setExpandedDocKeys] = useState<Set<string>>(new Set())
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
@@ -248,88 +334,31 @@ export function SourcePanel({ sources, isOpen, onClose, activeSourceId, classNam
 
               {isExpanded && (
                 <div className={cn(
-                  "ml-6 mt-2 text-sm text-foreground p-3 rounded-lg",
-                  isActive && "bg-primary/10 border border-primary/20"
+                  "ml-6 mt-2 text-sm text-foreground p-3 rounded-lg bg-muted/20 border border-muted",
+                  isActive && "bg-primary/5 border-primary/20"
                 )}>
-                  {group.document_id && fetchingDocIds.has(group.document_id) ? (
-                    <div className="flex items-center gap-2 text-muted-foreground py-2 justify-center">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                      <span>Đang tải tài liệu...</span>
-                    </div>
-                  ) : group.document_id && docChunks[group.document_id] ? (
-                    <div className="border border-border/80 bg-muted/10 rounded-lg p-2 max-h-48 overflow-y-auto custom-scrollbar text-xs space-y-4">
-                      {Object.entries(
-                        docChunks[group.document_id].reduce((acc, chunk) => {
-                          const page = chunk.metadata?.page_number || chunk.metadata?.page || 1
-                          if (!acc[page]) acc[page] = []
-                          acc[page].push(chunk)
-                          return acc
-                        }, {} as Record<number, typeof docChunks[string]>)
-                      )
-                      .filter(([pageNum, pageChunks]) => {
-                        return pageChunks.some(chunk => 
-                          group.chunks.some(c => {
-                            const cleanedS = c.content.trim().toLowerCase()
-                            const cleanedC = chunk.content.trim().toLowerCase()
-                            return cleanedC.includes(cleanedS) || cleanedS.includes(cleanedC)
-                          })
-                        )
-                      })
-                      .map(([pageNum, pageChunks]) => (
-                        <div key={pageNum} className="space-y-1">
-                          <div className="text-[10px] text-primary/70 font-semibold select-none border-b border-primary/10 pb-0.5 mb-1">
-                            Trang {pageNum}
+                  <div className="mt-3 space-y-2.5 max-h-80 overflow-y-auto custom-scrollbar pr-1 select-text">
+                    {group.chunks.map((c, chunkIdx) => {
+                      const isExactCurrentSource = activeSourceId ? activeSourceId === c.id : false
+                      return (
+                        <div 
+                          key={c.id || chunkIdx}
+                          className={cn(
+                            "text-xs leading-relaxed p-3 rounded-xl transition-all border",
+                            isExactCurrentSource
+                              ? "bg-primary/10 border-primary/30 text-foreground font-semibold shadow-sm"
+                              : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          )}
+                        >
+                          <div className="text-[10px] font-sans font-semibold text-primary/70 mb-1 select-none flex items-center justify-between">
+                            <span>Trích dẫn #{chunkIdx + 1}</span>
+                            {c.chunk_index !== undefined && <span>Trang {c.chunk_index + 1}</span>}
                           </div>
-                          <div className="text-justify leading-relaxed">
-                            {pageChunks.map((chunk, chunkIdx) => {
-                              const matchesAnySource = group.chunks.some(c => {
-                                const cleanedS = c.content.trim().toLowerCase()
-                                const cleanedC = chunk.content.trim().toLowerCase()
-                                return cleanedC.includes(cleanedS) || cleanedS.includes(cleanedC)
-                              })
-
-                              const isExactCurrentSource = (() => {
-                                if (activeSourceId) {
-                                  const matchedS = sources.find(s => s.id === activeSourceId)
-                                  if (matchedS && (matchedS.document_id === group.document_id || matchedS.title === group.title)) {
-                                    const cleanedS = matchedS.content.trim().toLowerCase()
-                                    const cleanedC = chunk.content.trim().toLowerCase()
-                                    return cleanedC.includes(cleanedS) || cleanedS.includes(cleanedC)
-                                  }
-                                }
-                                return false
-                              })()
-
-                              return (
-                                <span
-                                  key={chunk.id || `chunk-${chunkIdx}`}
-                                  id={isExactCurrentSource ? `active-chunk-mobile-${groupKey}` : undefined}
-                                  className={cn(
-                                    "transition-colors px-0.5 rounded cursor-pointer",
-                                    isExactCurrentSource 
-                                      ? "font-bold text-foreground bg-primary/30 ring-1 ring-primary/40"
-                                      : matchesAnySource
-                                        ? "font-semibold text-foreground bg-primary/15 hover:bg-primary/25"
-                                        : "text-muted-foreground/80 hover:bg-muted hover:text-foreground"
-                                  )}
-                                >
-                                  {chunk.content}{" "}
-                                </span>
-                              )
-                            })}
-                          </div>
+                          <p className="text-justify font-sans">{c.content}</p>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="border border-border/80 bg-muted/10 rounded-lg p-2 max-h-48 overflow-y-auto custom-scrollbar text-xs space-y-2">
-                      {group.chunks.map((c, chunkIdx) => (
-                        <p key={c.id || chunkIdx} className="leading-relaxed text-foreground font-bold bg-primary/10 pl-2 py-0.5 border-l border-primary/50 rounded-r">
-                          {c.content}
-                        </p>
-                      ))}
-                    </div>
-                  )}
+                      )
+                    })}
+                  </div>
                   
                   {isActive && (
                     <div className="mt-3 pt-3 border-t border-primary/20">

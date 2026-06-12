@@ -421,7 +421,8 @@ class GenerationAgent:
                 page_number=doc.page_number,
                 text=text,
                 doc_index=idx,
-                score=doc.score
+                score=doc.score,
+                document_id=str(doc.doc_id) if doc.doc_id else None
             )
             citations.append(citation)
 

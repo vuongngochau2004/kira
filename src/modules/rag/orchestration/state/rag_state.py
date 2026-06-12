@@ -25,6 +25,7 @@ class Citation(BaseModel):
     doc_index: Optional[int] = Field(None, description="Document index in response")
     score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Relevance score")
     chunk_index: Optional[int] = Field(None, description="Chunk index within document")
+    document_id: Optional[str] = Field(None, description="Source document ID")
 
 
 # ============================================================================

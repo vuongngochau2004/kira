@@ -5,7 +5,6 @@ Defines Pydantic models for search request validation.
 
 from pydantic import BaseModel, Field
 from typing import Optional
-from uuid import UUID
 
 
 class HybridSearchRequest(BaseModel):

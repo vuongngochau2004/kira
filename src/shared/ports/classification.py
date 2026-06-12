@@ -20,7 +20,7 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from dataclasses import dataclass, field
 from enum import Enum
 from uuid import UUID
