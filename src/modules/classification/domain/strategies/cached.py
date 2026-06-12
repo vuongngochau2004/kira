@@ -7,7 +7,7 @@ Wraps any classification strategy with LRU cache for performance.
 from typing import Any
 from uuid import UUID
 
-from src.shared.kernel.interfaces.classification import ClassificationStrategyBase, ClassificationResult
+from src.shared.ports.classification import ClassificationStrategyBase, ClassificationResult
 from src.modules.classification.domain.cache.lru_cache import AsyncLRUCache, generate_cache_key
 
 

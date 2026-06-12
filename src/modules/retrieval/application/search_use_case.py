@@ -6,6 +6,7 @@ Orchestrates hybrid search combining dense and BM25 retrieval with RRF fusion.
 from typing import Any
 
 from src.modules.retrieval.domain.services.hybrid_search import hybrid_search
+from src.shared.ports.vector_store import VectorStorePort
 
 
 class SearchUseCase:
@@ -18,13 +19,20 @@ class SearchUseCase:
     - Optional LLM reranking
     """
 
-    def __init__(self, bm25_index_getter=None, llm_client=None):
+    def __init__(
+        self,
+        vector_store: VectorStorePort,
+        bm25_index_getter=None,
+        llm_client=None,
+    ):
         """Initialize search use case.
 
         Args:
+            vector_store: Vector store port for dense retrieval
             bm25_index_getter: Function to get BM25 index for user
             llm_client: Optional LLM client for reranking
         """
+        self._vector_store = vector_store
         self._get_bm25_index = bm25_index_getter
         self._llm_client = llm_client
 
@@ -69,9 +77,36 @@ class SearchUseCase:
             k=k,
             rrf_k=rrf_k,
             enable_rerank=enable_rerank,
+            dense_search_fn=self._dense_search,
         )
 
         return results
+
+    async def _dense_search(
+        self,
+        query_embedding: list[float],
+        user_id: str | None = None,
+        k: int = 5,
+    ) -> list[dict]:
+        """Run dense retrieval through the vector store port."""
+        results = await self._vector_store.search(
+            embedding=query_embedding,
+            user_id=user_id,
+            k=k,
+        )
+        return [
+            {
+                "id": result.id,
+                "text": result.text,
+                "content": result.text,
+                "metadata": result.metadata,
+                "document_id": result.metadata.get("document_id"),
+                "chunk_index": result.metadata.get("chunk_index"),
+                "page_number": result.metadata.get("page_number"),
+                "score": result.score,
+            }
+            for result in results
+        ]
 
 
 __all__ = ["SearchUseCase"]

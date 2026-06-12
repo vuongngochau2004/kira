@@ -3,4 +3,6 @@
 Contains use cases and orchestration logic for retrieval operations.
 """
 
-__all__ = []
+from src.modules.retrieval.application.search_use_case import SearchUseCase
+
+__all__ = ["SearchUseCase"]

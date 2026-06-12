@@ -12,11 +12,6 @@ from .document_repository import (
     delete_document,
     create_chunks,
     get_document_chunks,
-    create_conversation,
-    create_message,
-    get_conversation_messages,
-    list_conversations,
-    get_conversation,
 )
 
 __all__ = [
@@ -28,9 +23,4 @@ __all__ = [
     "delete_document",
     "create_chunks",
     "get_document_chunks",
-    "create_conversation",
-    "create_message",
-    "get_conversation_messages",
-    "list_conversations",
-    "get_conversation",
 ]

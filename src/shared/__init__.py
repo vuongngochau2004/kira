@@ -5,7 +5,7 @@ that are shared across all modules in the modular monolith architecture.
 """
 
 # Shared Kernel - ABC interfaces, DI, base classes
-from src.shared.kernel.interfaces import (
+from src.shared.ports import (
     ClassificationStrategyBase,
     ClassificationResult,
     ClassificationCacheBase,

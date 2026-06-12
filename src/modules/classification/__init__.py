@@ -10,8 +10,8 @@ Classification Chain (fastest to slowest):
 3. LLMStrategy - Fallback to LLM classifier (~800ms)
 
 Usage:
-    >>> from src.modules.classification.application import ClassificationUseCase
-    >>> use_case = ClassificationUseCase()
+    >>> from src.modules.classification.application import Classification
+    >>> use_case = Classification()
     >>> result = await use_case.classify("hỏi về contract.pdf", "user123")
     >>> assert result.intent == Intent.RAG
 
@@ -22,7 +22,7 @@ Module Structure:
 - api/ - Request/response DTOs
 """
 
-from src.modules.classification.application import ClassificationUseCase, ClassifyQuery, ClassificationResultDTO
+from src.modules.classification.application import Classification, ClassifyQuery, ClassificationResultDTO
 from src.modules.classification.domain import (
     CompositeClassifier,
     KeywordStrategy,
@@ -41,7 +41,7 @@ from src.modules.classification.api import (
 
 __all__ = [
     # Application layer
-    "ClassificationUseCase",
+    "Classification",
     "ClassifyQuery",
     "ClassificationResultDTO",
     # Domain layer

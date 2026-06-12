@@ -8,7 +8,7 @@ import asyncio
 from typing import Type, TypeVar, Any, Callable, Awaitable, Optional
 from threading import Lock
 
-from src.shared.kernel.interfaces.container import Lifecycle, DependencyContainerBase, ServiceDescriptor
+from src.shared.ports.container import Lifecycle, DependencyContainerBase, ServiceDescriptor
 
 
 T = TypeVar("T")

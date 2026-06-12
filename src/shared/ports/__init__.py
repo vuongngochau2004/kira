@@ -1,30 +1,64 @@
-"""Hexagonal Architecture Ports — External dependency contracts.
+"""Shared application ports and contracts.
 
-Ports define what the application NEEDS from the outside world.
-Adapters (in shared/adapters/) provide the actual implementations.
-
-Usage:
-    # In application code — depend on ports only:
-    from src.shared.ports import LLMPort, VectorStorePort
-
-    # In server/main.py — wire concrete adapters to ports:
-    from src.shared.adapters.llm.glm_adapter import GLMAdapter
-    await container.register_singleton(LLMPort, GLMAdapter())
+Ports define the contracts that application and domain code depend on.
+Infrastructure adapters provide concrete implementations for external systems.
 """
-from .llm import LLMPort
-from .vector_store import VectorStorePort, VectorDocument, SearchResult
-from .embedding import EmbeddingPort
-from .storage import StoragePort
-from .ocr import OCRPort
+
+from src.shared.ports.classification import (
+    ClassificationCacheBase,
+    ClassificationResult,
+    ClassificationStrategyBase,
+    Intent,
+)
+from src.shared.ports.container import (
+    DependencyContainerBase,
+    Lifecycle,
+    ScopeManagerBase,
+    ServiceDescriptor,
+    ServiceRegistryBase,
+)
+from src.shared.ports.document_repository import DocumentRepositoryPort
+from src.shared.ports.embedding import EmbeddingPort
+from src.shared.ports.handlers import Citation, HandlerConfig, HandlerResult, QueryHandlerBase
+from src.shared.ports.keyword_index import KeywordIndexPort
+from src.shared.ports.llm import LLMPort
+from src.shared.ports.ocr import OCRPort
+from src.shared.ports.retrieval import (
+    BM25RetrieverBase,
+    DenseRetrieverBase,
+    Document,
+    HybridRetrieverBase,
+    RetrieverBase,
+)
+from src.shared.ports.storage import StoragePort
+from src.shared.ports.vector_store import SearchResult, VectorDocument, VectorStorePort
 
 __all__ = [
-    # Ports
-    "LLMPort",
-    "VectorStorePort",
+    "BM25RetrieverBase",
+    "ClassificationCacheBase",
+    "ClassificationResult",
+    "ClassificationStrategyBase",
+    "Citation",
+    "DependencyContainerBase",
+    "DenseRetrieverBase",
+    "Document",
+    "DocumentRepositoryPort",
     "EmbeddingPort",
-    "StoragePort",
+    "HandlerConfig",
+    "HandlerResult",
+    "HybridRetrieverBase",
+    "Intent",
+    "KeywordIndexPort",
+    "Lifecycle",
+    "LLMPort",
     "OCRPort",
-    # Data classes (shared across ports and adapters)
-    "VectorDocument",
+    "QueryHandlerBase",
+    "RetrieverBase",
+    "ScopeManagerBase",
+    "StoragePort",
+    "ServiceDescriptor",
+    "ServiceRegistryBase",
     "SearchResult",
+    "VectorDocument",
+    "VectorStorePort",
 ]

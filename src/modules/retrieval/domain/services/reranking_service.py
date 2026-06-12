@@ -13,6 +13,12 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.config.config import settings
+from src.modules.retrieval.domain.prompts import (
+    RERANKING_SYSTEM_PROMPT,
+    SCORING_SYSTEM_PROMPT,
+    build_reranking_prompt,
+    build_scoring_prompt,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +41,7 @@ async def _run_llm_rerank(llm_client: Any, prompt: str) -> str:
         Exception: If LLM call fails or times out
     """
     messages = [
-        {"role": "system", "content": "Bạn là assistant chuyên gia phân tích và xếp hạng thông tin."},
+        {"role": "system", "content": RERANKING_SYSTEM_PROMPT},
         {"role": "user", "content": prompt}
     ]
 
@@ -62,7 +68,7 @@ async def _score_document_async(llm_client: Any, prompt: str) -> float:
         Relevance score (0.0-1.0)
     """
     messages = [
-        {"role": "system", "content": "Bạn là chuyên gia đánh giá độ liên quan của thông tin."},
+        {"role": "system", "content": SCORING_SYSTEM_PROMPT},
         {"role": "user", "content": prompt}
     ]
 
@@ -89,7 +95,6 @@ async def _score_all_documents_async(
     llm_client: Any,
     query: str,
     doc_list: list[dict],
-    prompt_template: str,
 ) -> list[dict]:
     """Score all documents in parallel.
 
@@ -97,18 +102,13 @@ async def _score_all_documents_async(
         llm_client: LLM client
         query: Search query
         doc_list: List of documents
-        prompt_template: Scoring prompt template
-
     Returns:
         List of documents with rerank_score
     """
     tasks = []
     for doc in doc_list:
         text = doc.get("text", doc.get("content", "")) or ""
-        prompt = prompt_template.format(
-            query=query,
-            document=text[:1000]  # Limit to 1000 chars
-        )
+        prompt = build_scoring_prompt(query, text[:1000])
         tasks.append(_score_document_async(llm_client, prompt))
 
     scores = await asyncio.gather(*tasks)
@@ -243,22 +243,7 @@ def llm_rerank(
         formatted_docs = _format_documents_for_reranking(doc_list)
 
         # Create reranking prompt
-        prompt = f"""Bạn là chuyên gia phân tích thông tin. Hãy xếp hạng các đoạn văn bản dưới đây theo độ liên quan đến câu hỏi.
-
-CÂU HỎI: {query}
-
-CÁC ĐOẠN VĂN BẢN:
-{formatted_docs}
-
-YÊU CẦU:
-1. Đọc kỹ câu hỏi và từng đoạn văn bản
-2. Xếp hạng các đoạn văn bản từ **độ liên quan cao nhất** đến **thấp nhất**
-3. Chỉ trả về một mảng JSON chứa số thứ tự của các đoạn văn bản đã được xếp hạng
-
-Định dạng trả về: [số_thứ_tự_0, số_thứ_tự_1, số_thứ_tự_2, ...]
-Ví dụ: [3, 0, 4, 1, 2] có nghĩa là đoạn 3 liên quan nhất, sau đó đến đoạn 0, v.v.
-
-Trả về chỉ mảng JSON, không giải thích:"""
+        prompt = build_reranking_prompt(query, formatted_docs)
 
         # Call LLM
         llm_client = _get_llm_client()
@@ -336,23 +321,6 @@ def score_and_rerank(
 
         num_docs = len(doc_list)
 
-        # Score each document
-        prompt_template = """Đánh giá độ liên quan của đoạn văn bản dưới đây đến câu hỏi.
-
-CÂU HỎI: {query}
-
-ĐOẠN VĂN BẢN:
-{document}
-
-Hãy đánh giá trên thang điểm từ 0.0 đến 1.0:
-- 0.9-1.0: Rất liên quan, trực tiếp trả lời câu hỏi
-- 0.7-0.9: Liên quan, chứa thông tin hữu ích
-- 0.5-0.7: Có liên quan một phần
-- 0.3-0.5: Liên quan ít
-- 0.0-0.3: Không liên quan
-
-Chỉ trả về một con số (float), không giải thích:"""
-
         llm_client = _get_llm_client()
         if llm_client is None:
             logger.warning("LLM client not initialized, returning original order")
@@ -361,7 +329,7 @@ Chỉ trả về một con số (float), không giải thích:"""
         # Run async scoring
         try:
             scored_docs = asyncio.run(
-                _score_all_documents_async(llm_client, query, doc_list, prompt_template)
+                _score_all_documents_async(llm_client, query, doc_list)
             )
         except Exception as e:
             logger.error(f"Async scoring failed: {e}")

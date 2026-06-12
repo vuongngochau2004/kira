@@ -13,8 +13,8 @@ import time
 from loguru import logger
 from typing import Any, AsyncIterator
 
-from src.shared.kernel.interfaces.classification import ClassificationResult, Intent
-from src.shared.kernel.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig
+from src.shared.ports.classification import ClassificationResult, Intent
+from src.shared.ports.handlers import QueryHandlerBase, HandlerResult, HandlerConfig
 
 from src.modules.chat.domain.services import ConversationService, ConversationContext
 

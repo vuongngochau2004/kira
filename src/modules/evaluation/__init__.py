@@ -8,8 +8,8 @@ This module provides RAGAS-based evaluation for RAG outputs including:
 - Batch evaluation
 
 Usage:
-    >>> from src.modules.evaluation import EvaluationUseCase
-    >>> use_case = EvaluationUseCase()
+    >>> from src.modules.evaluation import Evaluation
+    >>> use_case = Evaluation()
     >>> result = await use_case.evaluate(query, context, answer)
 
 Module Structure:
@@ -19,7 +19,7 @@ Module Structure:
 - api/ - Request/response DTOs
 """
 
-from src.modules.evaluation.application import EvaluationUseCase, EvaluationQuery, EvaluationResultDTO
+from src.modules.evaluation.application import Evaluation, EvaluationQuery, EvaluationResultDTO
 from src.modules.evaluation.domain import (
     RAGASEvaluationService,
     get_evaluation_service,
@@ -31,7 +31,7 @@ from src.modules.evaluation.api import EvaluationRequestDTO, EvaluationResponseD
 
 __all__ = [
     # Application
-    "EvaluationUseCase",
+    "Evaluation",
     "EvaluationQuery",
     "EvaluationResultDTO",
     # Domain

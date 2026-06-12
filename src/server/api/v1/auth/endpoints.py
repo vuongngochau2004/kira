@@ -16,7 +16,7 @@ from src.shared.infrastructure.auth.security import (
 )
 from src.shared.infrastructure.auth.dependencies import get_current_user
 from src.shared.infrastructure.auth.jwt_cookie import set_auth_cookies, clear_auth_cookies
-from src.models.auth import (
+from src.server.api.v1.auth.schemas import (
     UserRegisterRequest,
     UserLoginRequest,
     TokenResponse,

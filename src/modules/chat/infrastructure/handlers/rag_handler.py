@@ -7,17 +7,11 @@ from loguru import logger
 from typing import AsyncIterator, Dict, Any, Optional
 from uuid import UUID
 
-from src.shared.kernel.interfaces.handlers import QueryHandlerBase, HandlerResult, HandlerConfig, Citation
-from src.shared.kernel.interfaces.classification import ClassificationResult, Intent
-from src.modules.rag.domain.state.rag_state import (
-    RAGState,
-    OrchestratorAgentConfig,
-    RetrievalAgentConfig,
-    GenerationAgentConfig,
-    QualityAgentConfig,
-    Citation as StateCitation,
-)
-from src.modules.rag.domain.graph.langgraph_pipeline import create_langgraph_pipeline
+from src.shared.ports.handlers import QueryHandlerBase, HandlerResult, HandlerConfig, Citation
+from src.shared.ports.classification import ClassificationResult, Intent
+from src.modules.rag.orchestration.state.rag_state import Citation as StateCitation
+from src.modules.rag.application import RAGPipelineService
+from src.modules.rag.composition import create_default_rag_pipeline_service
 
 
 class RAGHandler(QueryHandlerBase):
@@ -32,7 +26,11 @@ class RAGHandler(QueryHandlerBase):
                                  [Regenerate] or [END]
     """
 
-    def __init__(self, config: Optional[HandlerConfig] = None):
+    def __init__(
+        self,
+        config: Optional[HandlerConfig] = None,
+        rag_service: RAGPipelineService | None = None,
+    ):
         """
         Initialize LangGraph RAG handler.
 
@@ -40,14 +38,7 @@ class RAGHandler(QueryHandlerBase):
             config: Optional handler configuration
         """
         self.config = config or HandlerConfig()
-
-        # Create LangGraph pipeline with default configurations
-        self.pipeline = create_langgraph_pipeline(
-            orchestrator_config=OrchestratorAgentConfig(),
-            retrieval_config=RetrievalAgentConfig(),
-            generation_config=GenerationAgentConfig(),
-            quality_config=QualityAgentConfig(),
-        )
+        self.rag_service = rag_service or create_default_rag_pipeline_service()
 
         logger.info("✅ RAGHandler initialized with LangGraph pipeline")
 
@@ -156,7 +147,7 @@ class RAGHandler(QueryHandlerBase):
 
         try:
             # Run LangGraph pipeline
-            state = await self.pipeline.run(
+            state = await self.rag_service.run(
                 query=query,
                 user_id=str(user_id),
                 conversation_id=context.get("conversation_id") if context else None
@@ -265,7 +256,7 @@ class RAGHandler(QueryHandlerBase):
             emitted_generation_snapshot = False
 
             # Stream LangGraph pipeline
-            async for event in self.pipeline.run_stream(
+            async for event in self.rag_service.run_stream(
                 query=query,
                 user_id=str(user_id),
                 conversation_id=context.get("conversation_id") if context else None

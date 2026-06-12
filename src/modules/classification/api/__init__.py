@@ -4,8 +4,8 @@ Classification API layer.
 Contains request/response DTOs for classification endpoints.
 """
 
-from src.modules.classification.api.classification_requests import ClassifyRequest, BatchClassifyRequest
-from src.modules.classification.api.classification_responses import (
+from src.modules.classification.api.requests import ClassifyRequest, BatchClassifyRequest
+from src.modules.classification.api.responses import (
     ClassificationResponse,
     BatchClassificationResponse,
     StrategyInfoResponse,

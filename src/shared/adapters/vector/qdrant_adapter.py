@@ -1,23 +1,17 @@
-"""Qdrant Adapter — implements VectorStorePort using existing qdrant_store.
+"""Qdrant adapter for VectorStorePort."""
 
-This adapter wraps the qdrant_store module functions to conform to
-the VectorStorePort interface defined in shared/ports/vector_store.py.
-
-To swap to Weaviate or Pinecone, create a new adapter implementing
-the same VectorStorePort — no application code changes needed.
-"""
+import uuid
 from uuid import UUID
 
-from src.shared.ports.vector_store import VectorStorePort, VectorDocument, SearchResult
+from qdrant_client.models import PointStruct
+
+from src.config.config import settings
+from src.modules.retrieval.infrastructure.vector import qdrant_store
+from src.shared.ports.vector_store import SearchResult, VectorDocument, VectorStorePort
 
 
 class QdrantAdapter(VectorStorePort):
-    """Adapter: wraps qdrant_store functions to conform to VectorStorePort.
-
-    Example:
-        >>> adapter = QdrantAdapter()
-        >>> results = await adapter.search(embedding=[0.1, 0.2, ...], k=5)
-    """
+    """Adapter that maps the vector store port to Qdrant."""
 
     async def search(
         self,
@@ -37,11 +31,8 @@ class QdrantAdapter(VectorStorePort):
         Returns:
             List of SearchResult ordered by score descending
         """
-        from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
-        from src.config.config import settings
-
         effective_min_score = min_score or settings.retrieval_min_score_threshold
-        raw_results = search_similar(
+        raw_results = qdrant_store.search_similar(
             query_embedding=embedding,
             user_id=str(user_id) if user_id else None,
             limit=k,
@@ -63,32 +54,43 @@ class QdrantAdapter(VectorStorePort):
         Args:
             documents: List of VectorDocument to upsert
         """
-        from src.modules.retrieval.infrastructure.vector.qdrant_store import upsert_point
+        if not documents:
+            return
 
-        for doc in documents:
-            payload = {**doc.metadata, "text": doc.text}
-            upsert_point(
-                point_id=doc.id,
+        client = qdrant_store.get_client()
+        qdrant_store.ensure_collection()
+
+        points = [
+            PointStruct(
+                id=doc.id or str(uuid.uuid4()),
                 vector=doc.embedding,
-                payload=payload,
+                payload={**doc.metadata, "text": doc.text},
             )
+            for doc in documents
+        ]
+
+        client.upsert(
+            collection_name=settings.qdrant_collection,
+            points=points,
+        )
 
     async def delete(self, document_ids: list[str]) -> None:
-        """Delete documents from Qdrant by their IDs.
+        """Delete vectors by source document IDs.
 
         Args:
-            document_ids: List of chunk IDs to delete
+            document_ids: List of source document IDs to delete
         """
-        from src.modules.retrieval.infrastructure.vector.qdrant_store import delete_by_document_id
-
         for doc_id in document_ids:
-            delete_by_document_id(doc_id)
+            qdrant_store.delete_document(doc_id)
+
+    async def delete_document(self, document_id: str | UUID) -> None:
+        """Delete all vectors for a source document."""
+        qdrant_store.delete_document(document_id)
 
     async def health_check(self) -> bool:
         """Check Qdrant connectivity."""
         try:
-            from src.modules.retrieval.infrastructure.vector.qdrant_store import get_client
-            get_client().get_collections()
+            qdrant_store.get_client().get_collections()
             return True
         except Exception:
             return False

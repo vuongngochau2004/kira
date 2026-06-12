@@ -8,7 +8,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from src.shared.kernel.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
+from src.shared.ports.classification import ClassificationStrategyBase, ClassificationResult, Intent
 
 
 logger = logging.getLogger(__name__)

@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
-from src.shared.kernel.interfaces.classification import Intent, ClassificationResult
-from src.shared.kernel.interfaces.handlers import HandlerResult, Citation
+from src.shared.ports.classification import Intent, ClassificationResult
+from src.shared.ports.handlers import HandlerResult, Citation
 
 
 @dataclass

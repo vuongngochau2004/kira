@@ -5,9 +5,8 @@ import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
-from src.models.evaluation import GoldenDataset, GoldenDatasetSample
+from src.modules.evaluation.domain.models import GoldenDataset
 
 logger = logging.getLogger(__name__)
 

@@ -11,9 +11,12 @@ class UploadDocumentRequest:
     """Request DTO for document upload."""
 
     file_name: str
-    file_path: str
     user_id: UUID | str
     file_type: str
+    file_content: bytes | None = None
+    file_path: str | None = None
+    file_size: int | None = None
+    content_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,40 @@ class ProcessDocumentRequest:
 
 
 @dataclass(frozen=True)
+class ListDocumentsRequest:
+    """Request DTO for listing documents."""
+
+    user_id: UUID | str
+    status: str | None = None
+    limit: int = 100
+    offset: int = 0
+
+
+@dataclass(frozen=True)
+class GetDocumentRequest:
+    """Request DTO for fetching a document."""
+
+    document_id: UUID
+    user_id: UUID | str
+
+
+@dataclass(frozen=True)
+class DownloadDocumentRequest:
+    """Request DTO for downloading a document."""
+
+    document_id: UUID
+    user_id: UUID | str
+
+
+@dataclass(frozen=True)
+class GetDocumentChunksRequest:
+    """Request DTO for fetching document chunks."""
+
+    document_id: UUID
+    user_id: UUID | str
+
+
+@dataclass(frozen=True)
 class DocumentUploadResult:
     """Result DTO for document upload."""
 
@@ -43,6 +80,7 @@ class DocumentUploadResult:
     message: str
     storage_path: str | None = None
     metadata: dict[str, Any] | None = None
+    document: Any | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
@@ -94,6 +132,39 @@ class DocumentProcessResult:
 
 
 @dataclass(frozen=True)
+class DocumentListResult:
+    """Result DTO for document listing."""
+
+    documents: list[Any]
+    total: int
+    limit: int
+    offset: int
+
+
+@dataclass(frozen=True)
+class DocumentGetResult:
+    """Result DTO for document fetching."""
+
+    document: Any | None
+
+
+@dataclass(frozen=True)
+class DocumentDownloadResult:
+    """Result DTO for document download."""
+
+    filename: str
+    file_bytes: bytes
+    media_type: str
+
+
+@dataclass(frozen=True)
+class DocumentChunksResult:
+    """Result DTO for document chunks."""
+
+    chunks: list[Any]
+
+
+@dataclass(frozen=True)
 class DocumentMetadata:
     """Document metadata value object."""
 
@@ -126,8 +197,16 @@ __all__ = [
     "UploadDocumentRequest",
     "DeleteDocumentRequest",
     "ProcessDocumentRequest",
+    "ListDocumentsRequest",
+    "GetDocumentRequest",
+    "DownloadDocumentRequest",
+    "GetDocumentChunksRequest",
     "DocumentUploadResult",
     "DocumentDeleteResult",
     "DocumentProcessResult",
+    "DocumentListResult",
+    "DocumentGetResult",
+    "DocumentDownloadResult",
+    "DocumentChunksResult",
     "DocumentMetadata",
 ]

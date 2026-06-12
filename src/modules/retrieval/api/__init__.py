@@ -3,13 +3,13 @@
 Exports request/response DTOs for search operations.
 """
 
-from src.modules.retrieval.api.search_requests import (
+from src.modules.retrieval.api.requests import (
     HybridSearchRequest,
     DenseSearchRequest,
     BM25SearchRequest,
     RerankRequest,
 )
-from src.modules.retrieval.api.search_responses import (
+from src.modules.retrieval.api.responses import (
     SearchResult,
     SearchResponse,
     RerankResponse,

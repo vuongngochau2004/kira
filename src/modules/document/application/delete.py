@@ -1,23 +1,32 @@
-"""Document deletion use case for application layer."""
+"""Document deletion application service."""
 
 import logging
 import uuid
 
 from src.modules.document.application.dto import DeleteDocumentRequest, DocumentDeleteResult
-from src.modules.document.infrastructure.storage.storage import delete_file, file_exists
+from src.shared.ports.document_repository import DocumentRepositoryPort
+from src.shared.ports.keyword_index import KeywordIndexPort
+from src.shared.ports.vector_store import VectorStorePort
 
 logger = logging.getLogger(__name__)
 
 
-class DeleteDocumentUseCase:
-    """Use case for deleting documents."""
+class DeleteDocument:
+    """Application service for deleting documents and related indexes."""
 
-    def __init__(self):
-        """Initialize delete document use case."""
-        pass
+    def __init__(
+        self,
+        repository: DocumentRepositoryPort,
+        keyword_index: KeywordIndexPort,
+        vector_store: VectorStorePort,
+    ):
+        """Initialize document deletion service."""
+        self.repository = repository
+        self.keyword_index = keyword_index
+        self.vector_store = vector_store
 
     async def execute(self, request: DeleteDocumentRequest) -> DocumentDeleteResult:
-        """Execute document deletion use case.
+        """Soft-delete a document and clean retrieval indexes.
 
         Args:
             request: Delete document request
@@ -28,30 +37,21 @@ class DeleteDocumentUseCase:
         logger.info("Deleting document: %s for user: %s", request.document_id, request.user_id)
 
         try:
-            # In a full implementation, would:
-            # 1. Delete from database (soft delete)
-            # 2. Delete chunks from Qdrant
-            # 3. Delete from BM25 index
-            # 4. Delete file from storage
+            user_id = self._normalize_uuid(request.user_id)
+            success = await self.repository.delete_document(
+                document_id=request.document_id,
+                user_id=user_id,
+            )
 
-            # For now, implement storage deletion
-            # Would get storage_path from database in real implementation
+            if not success:
+                return DocumentDeleteResult(
+                    document_id=request.document_id,
+                    success=False,
+                    message="Document not found",
+                )
 
-            document_id_str = str(request.document_id)
-
-            # Example storage path pattern
-            user_id_str = str(request.user_id) if isinstance(request.user_id, uuid.UUID) else request.user_id
-            possible_storage_paths = [
-                f"{user_id_str}/{document_id_str}/",  # Directory pattern
-                f"{user_id_str}/{document_id_str}",  # File pattern
-            ]
-
-            deleted_any = False
-            for storage_path in possible_storage_paths:
-                if file_exists(storage_path):
-                    delete_file(storage_path)
-                    deleted_any = True
-                    logger.info("Deleted file from storage: %s", storage_path)
+            await self.keyword_index.remove_document(str(user_id), str(request.document_id))
+            await self.vector_store.delete_document(request.document_id)
 
             return DocumentDeleteResult(
                 document_id=request.document_id,
@@ -67,5 +67,9 @@ class DeleteDocumentUseCase:
                 message=f"Delete failed: {str(e)}",
             )
 
+    def _normalize_uuid(self, value: uuid.UUID | str) -> uuid.UUID:
+        """Normalize UUID-like values."""
+        return value if isinstance(value, uuid.UUID) else uuid.UUID(value)
 
-__all__ = ["DeleteDocumentUseCase"]
+
+__all__ = ["DeleteDocument"]

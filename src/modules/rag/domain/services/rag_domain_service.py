@@ -13,7 +13,7 @@ domain rules without depending on specific LLM or retrieval implementations.
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.shared.kernel.interfaces.handlers import Citation
+from src.shared.ports.handlers import Citation
 
 
 # Vietnamese rejection patterns for detecting irrelevant document responses

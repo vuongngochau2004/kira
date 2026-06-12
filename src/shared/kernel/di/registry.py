@@ -7,8 +7,8 @@ Registers and configures all services for the DI container.
 from typing import Optional
 
 from src.shared.kernel.di.container import ServiceContainer
-from src.shared.kernel.interfaces.classification import ClassificationStrategyBase
-from src.shared.kernel.interfaces.handlers import QueryHandlerBase
+from src.shared.ports.classification import ClassificationStrategyBase
+from src.shared.ports.handlers import QueryHandlerBase
 
 
 # Global container instance
@@ -92,6 +92,7 @@ class ServiceRegistry:
             from src.shared.ports.vector_store import VectorStorePort
             from src.shared.ports.embedding import EmbeddingPort
             from src.shared.ports.storage import StoragePort
+            from src.shared.ports.keyword_index import KeywordIndexPort
             from src.shared.ports.ocr import OCRPort
 
             from src.shared.adapters.llm.glm_adapter import GLMAdapter
@@ -99,11 +100,17 @@ class ServiceRegistry:
             from src.shared.adapters.embedding.api_adapter import EmbeddingAPIAdapter
             from src.shared.adapters.storage.minio_adapter import MinIOAdapter
             from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
+            from src.modules.retrieval.infrastructure.keyword.bm25_adapter import BM25KeywordIndexAdapter
+            from src.modules.retrieval.infrastructure.keyword.bm25_manager import get_bm25_manager
 
             await container.register_singleton(LLMPort, GLMAdapter())
             await container.register_singleton(VectorStorePort, QdrantAdapter())
             await container.register_singleton(EmbeddingPort, EmbeddingAPIAdapter())
             await container.register_singleton(StoragePort, MinIOAdapter())
+            await container.register_singleton(
+                KeywordIndexPort,
+                BM25KeywordIndexAdapter(manager=get_bm25_manager()),
+            )
             await container.register_singleton(OCRPort, PaddleOCRAdapter())
 
         except ImportError as e:

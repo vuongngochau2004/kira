@@ -28,12 +28,11 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.modules.evaluation.domain.service import RAGASEvaluationService, get_evaluation_service
-from src.models.evaluation import (
+from src.modules.evaluation.domain.models import (
     EvaluationRequest,
     EvaluationMetric,
     EvaluationResponse,
 )
-from src.config.config import settings
 
 logger = logging.getLogger(__name__)
 

@@ -93,6 +93,15 @@ class VectorStorePort(ABC):
         ...
 
     @abstractmethod
+    async def delete_document(self, document_id: str | UUID) -> None:
+        """Delete all vectors that belong to a source document.
+
+        Args:
+            document_id: Source document ID
+        """
+        ...
+
+    @abstractmethod
     async def health_check(self) -> bool:
         """Check if vector store is reachable and operational.
 

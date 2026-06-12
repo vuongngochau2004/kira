@@ -1,7 +1,6 @@
 """
 Chat API response DTOs - Pydantic models for HTTP response formatting.
 
-Extracted from src/models/chat.py into the chat module's API layer.
 These DTOs decouple HTTP concerns from domain logic.
 """
 

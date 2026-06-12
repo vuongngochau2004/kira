@@ -6,6 +6,7 @@ Migrated from src/ingestion/pipelines.py
 import asyncio
 import logging
 import tempfile
+import uuid
 from pathlib import Path
 from uuid import UUID
 
@@ -14,18 +15,17 @@ logger = logging.getLogger(__name__)
 from src.modules.document.domain.services.extractor import extract_content_sync
 from src.modules.document.domain.services.cleaner import clean_document
 from src.modules.document.domain.services.chunker import chunk_document
-from src.modules.document.domain.services.embedder import embed
-from src.modules.document.infrastructure.storage.storage import download_file
-from src.modules.retrieval.infrastructure.vector.qdrant_store import store_chunks
-from src.modules.retrieval.infrastructure.document_store.document_repository import update_document_status, create_chunks
 from src.constants import (
-    DOC_STATUS_COMPLETED,
-    DOC_STATUS_FAILED,
+    DocumentStatus,
     ERR_NO_CONTENT,
     ERR_NO_CHUNKS,
     ERR_EXTRACTION_FAILED,
     ERR_PROCESSING_FAILED,
 )
+from src.shared.ports.document_repository import DocumentRepositoryPort
+from src.shared.ports.embedding import EmbeddingPort
+from src.shared.ports.storage import StoragePort
+from src.shared.ports.vector_store import VectorDocument, VectorStorePort
 
 DEFAULT_TIMEOUT_SECONDS = 600
 
@@ -34,6 +34,10 @@ async def process_document(
     document_id: UUID,
     user_id: UUID,
     storage_path: str,
+    storage: StoragePort,
+    embedding: EmbeddingPort,
+    vector_store: VectorStorePort,
+    repository: DocumentRepositoryPort,
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> dict:
     """Process document: extract, clean, chunk, embed, store.
@@ -54,23 +58,23 @@ async def process_document(
             document_id,
             user_id,
             storage_path,
+            await storage.download(storage_path),
+            embedding,
+            vector_store,
         )
 
-        await _update_document_status_result(document_id, result)
+        await _update_document_status_result(document_id, result, repository)
 
         return result
 
     except Exception as e:
         error_msg = f"{ERR_PROCESSING_FAILED}: {str(e)}"
         logger.error("Exception in process_document for %s: %s", document_id, e, exc_info=True)
-        from src.shared.infrastructure.persistence.database.session import async_session_factory
-        async with async_session_factory() as session:
-            await update_document_status(
-                document_id=document_id,
-                status=DOC_STATUS_FAILED,
-                error_message=error_msg,
-                db=session,
-            )
+        await repository.update_document_status(
+            document_id=document_id,
+            status=DocumentStatus.FAILED.value,
+            error_message=error_msg,
+        )
         return {"success": False, "error": error_msg}
 
 
@@ -78,6 +82,9 @@ def _process_sync(
     document_id: UUID,
     user_id: UUID,
     storage_path: str,
+    file_bytes: bytes,
+    embedding: EmbeddingPort,
+    vector_store: VectorStorePort,
 ) -> dict:
     """Synchronous document processing."""
     temp_file = None
@@ -85,10 +92,10 @@ def _process_sync(
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".tmp")
         temp_file.close()  # Close immediately to free the file handle lock on Windows
 
-        logger.info("[Step 1/7] Downloading file from MinIO: %s", storage_path)
-        download_file(storage_path, temp_file.name)
+        logger.info("[Step 1/7] Writing downloaded file to temp path: %s", storage_path)
+        Path(temp_file.name).write_bytes(file_bytes)
         file_type = storage_path.rsplit(".", 1)[-1] if "." in storage_path else "txt"
-        logger.info("Download complete. File saved to temp path.")
+        logger.info("File saved to temp path.")
 
         logger.info("[Step 2/7] Extracting content (format: %s)...", file_type)
         extraction_result = extract_content_sync(temp_file.name, file_type)
@@ -145,19 +152,20 @@ def _process_sync(
 
         logger.info("[Step 5/7] Generating embeddings via API model server...")
         chunk_texts = [chunk.content for chunk in chunks]
-        embeddings = embed(chunk_texts)
+        embeddings = asyncio.run(embedding.embed_batch(chunk_texts))
         logger.info("Embedding generation complete. Generated %d vectors.", len(embeddings))
 
-        logger.info("[Step 6/7] Storing chunk vectors in Qdrant Vector DB...")
+        logger.info("[Step 6/7] Storing chunk vectors in vector store...")
         chunk_data = _prepare_chunk_data(chunks)
-        qdrant_ids = store_chunks(
-            chunks=chunk_data,
+        vector_documents, qdrant_ids = _prepare_vector_documents(
+            chunk_data=chunk_data,
             embeddings=embeddings,
             document_id=document_id,
             user_id=user_id,
         )
+        asyncio.run(vector_store.upsert(vector_documents))
         _update_chunk_metadata(chunk_data, qdrant_ids)
-        logger.info("Storing in Qdrant Vector DB complete.")
+        logger.info("Storing in vector store complete.")
 
         return {
             "success": True,
@@ -192,35 +200,63 @@ def _update_chunk_metadata(chunk_data: list[dict], qdrant_ids: list) -> None:
         chunk_dict["metadata"]["qdrant_point_id"] = qdrant_ids[i]
 
 
-async def _update_document_status_result(document_id: UUID, result: dict) -> None:
+def _prepare_vector_documents(
+    chunk_data: list[dict],
+    embeddings: list[list[float]],
+    document_id: UUID,
+    user_id: UUID,
+) -> tuple[list[VectorDocument], list[str]]:
+    """Prepare vector documents and stable vector IDs."""
+    vector_documents = []
+    qdrant_ids = []
+
+    for i, (chunk, chunk_embedding) in enumerate(zip(chunk_data, embeddings)):
+        chunk_index = chunk.get("index", i)
+        point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{document_id}_chunk_{chunk_index}"))
+        qdrant_ids.append(point_id)
+        vector_documents.append(
+            VectorDocument(
+                id=point_id,
+                text=chunk.get("content", ""),
+                embedding=chunk_embedding,
+                metadata={
+                    "document_id": str(document_id),
+                    "user_id": str(user_id),
+                    "chunk_index": chunk_index,
+                    **chunk.get("metadata", {}),
+                },
+            )
+        )
+
+    return vector_documents, qdrant_ids
+
+
+async def _update_document_status_result(
+    document_id: UUID,
+    result: dict,
+    repository: DocumentRepositoryPort,
+) -> None:
     """Update document status based on processing result."""
-    from src.shared.infrastructure.persistence.database.session import async_session_factory
-
     logger.info("[Step 7/7] Saving chunks and updating final document status in PostgreSQL...")
-    async with async_session_factory() as session:
-        if result["success"]:
-            # Save chunks to PostgreSQL document_chunks table
-            await create_chunks(
-                document_id=document_id,
-                chunks=result["chunks"],
-                db=session,
-            )
+    if result["success"]:
+        await repository.create_chunks(
+            document_id=document_id,
+            chunks=result["chunks"],
+        )
 
-            await update_document_status(
-                document_id=document_id,
-                status=DOC_STATUS_COMPLETED,
-                chunk_count=result["chunk_count"],
-                db=session,
-            )
-            logger.info(">>> SUCCESS: Document %s fully processed and indexed successfully!", document_id)
-        else:
-            logger.error("Document processing failed for %s: %s", document_id, result.get('error'))
-            await update_document_status(
-                document_id=document_id,
-                status=DOC_STATUS_FAILED,
-                error_message=result["error"],
-                db=session,
-            )
+        await repository.update_document_status(
+            document_id=document_id,
+            status=DocumentStatus.COMPLETED.value,
+            chunk_count=result["chunk_count"],
+        )
+        logger.info(">>> SUCCESS: Document %s fully processed and indexed successfully!", document_id)
+    else:
+        logger.error("Document processing failed for %s: %s", document_id, result.get('error'))
+        await repository.update_document_status(
+            document_id=document_id,
+            status=DocumentStatus.FAILED.value,
+            error_message=result["error"],
+        )
 
 
 __all__ = ["process_document"]

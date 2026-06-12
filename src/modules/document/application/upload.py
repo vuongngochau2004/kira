@@ -1,35 +1,39 @@
-"""Document upload use case for application layer."""
+"""Document upload application service."""
 
+import asyncio
 import logging
 import uuid
-from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from src.modules.document.application.dto import (
-    DocumentMetadata,
     DocumentUploadResult,
     UploadDocumentRequest,
 )
-from src.modules.document.infrastructure.storage.storage import upload_file
-from src.shared.domain.entities import DocumentEntity
+from src.shared.ports.document_repository import DocumentRepositoryPort
+from src.shared.ports.storage import StoragePort
 
 logger = logging.getLogger(__name__)
 
 
-class UploadDocumentUseCase:
-    """Use case for uploading documents."""
+class UploadDocument:
+    """Application service for storing an uploaded document and creating metadata."""
 
-    def __init__(self, file_store_client: Any = None):
-        """Initialize upload document use case.
+    def __init__(
+        self,
+        repository: DocumentRepositoryPort,
+        storage: StoragePort,
+    ):
+        """Initialize document upload service.
 
         Args:
-            file_store_client: Optional file store client (for dependency injection)
+            repository: Document metadata repository
+            storage: Object storage adapter
         """
-        self.file_store_client = file_store_client
+        self.repository = repository
+        self.storage = storage
 
     async def execute(self, request: UploadDocumentRequest) -> DocumentUploadResult:
-        """Execute document upload use case.
+        """Store document bytes or a local file and create the document record.
 
         Args:
             request: Upload document request
@@ -40,61 +44,60 @@ class UploadDocumentUseCase:
         logger.info("Uploading document: %s for user: %s", request.file_name, request.user_id)
 
         try:
-            # Validate file exists
-            file_path = Path(request.file_path)
-            if not file_path.exists():
+            if request.file_content is None and request.file_path is None:
                 return DocumentUploadResult(
                     document_id=uuid.uuid4(),
                     status="failed",
-                    message=f"File not found: {request.file_path}",
+                    message="Either file_content or file_path is required",
                 )
 
-            # Generate document ID
-            document_id = uuid.uuid4()
-
-            # Generate storage path
             storage_path = self._generate_storage_path(
                 user_id=request.user_id,
-                document_id=document_id,
                 file_name=request.file_name,
             )
 
-            # Upload file to storage
-            upload_file(
-                file_path=request.file_path,
-                object_name=storage_path,
-            )
+            file_size = request.file_size
+            if request.file_content is not None:
+                file_size = len(request.file_content)
+                await self.storage.upload(
+                    key=storage_path,
+                    data=request.file_content,
+                    content_type=request.content_type or "application/octet-stream",
+                )
+            else:
+                file_path = Path(request.file_path or "")
+                if not file_path.exists():
+                    return DocumentUploadResult(
+                        document_id=uuid.uuid4(),
+                        status="failed",
+                        message=f"File not found: {request.file_path}",
+                    )
+
+                file_size = file_size if file_size is not None else file_path.stat().st_size
+                data = await asyncio.to_thread(file_path.read_bytes)
+                await self.storage.upload(
+                    key=storage_path,
+                    data=data,
+                    content_type=request.content_type or "application/octet-stream",
+                )
 
             logger.info("File uploaded to storage: %s", storage_path)
 
-            # Create document metadata
-            metadata = DocumentMetadata(
+            document = await self.repository.create_document(
+                user_id=self._normalize_uuid(request.user_id),
                 filename=request.file_name,
                 file_type=request.file_type,
-                user_id=request.user_id,
-                created_at=datetime.utcnow(),
-                status="pending",
-            )
-
-            # Create document entity (would be saved to database in full implementation)
-            document_entity = DocumentEntity(
-                id=document_id,
-                filename=request.file_name,
-                user_id=str(request.user_id) if isinstance(request.user_id, uuid.UUID) else request.user_id,
-                created_at=datetime.utcnow(),
+                file_size=file_size or 0,
                 storage_path=storage_path,
-                status="pending",
-                metadata=metadata.to_dict(),
             )
 
             return DocumentUploadResult(
-                document_id=document_id,
+                document_id=document.id,
                 status="success",
                 message="Document uploaded successfully",
                 storage_path=storage_path,
-                metadata={
-                    "document": document_entity.to_dict() if hasattr(document_entity, 'to_dict') else {},
-                },
+                metadata={"filename": request.file_name, "file_size": file_size or 0},
+                document=document,
             )
 
         except Exception as e:
@@ -105,24 +108,24 @@ class UploadDocumentUseCase:
                 message=f"Upload failed: {str(e)}",
             )
 
-    def _generate_storage_path(self, user_id: uuid.UUID | str, document_id: uuid.UUID, file_name: str) -> str:
+    def _generate_storage_path(self, user_id: uuid.UUID | str, file_name: str) -> str:
         """Generate storage path for document.
 
         Args:
             user_id: User ID
-            document_id: Document ID
             file_name: Original file name
 
         Returns:
             Storage path string
         """
         user_id_str = str(user_id) if isinstance(user_id, uuid.UUID) else user_id
-        document_id_str = str(document_id)
+        file_ext = Path(file_name).suffix.lstrip(".") or "txt"
 
-        # Generate path: {user_id}/{document_id}/{original_filename}
-        # This organizes files by user and document
-        safe_filename = Path(file_name).name
-        return f"{user_id_str}/{document_id_str}/{safe_filename}"
+        return f"{user_id_str}/{uuid.uuid4()}.{file_ext}"
+
+    def _normalize_uuid(self, value: uuid.UUID | str) -> uuid.UUID:
+        """Normalize UUID-like values."""
+        return value if isinstance(value, uuid.UUID) else uuid.UUID(value)
 
 
-__all__ = ["UploadDocumentUseCase"]
+__all__ = ["UploadDocument"]

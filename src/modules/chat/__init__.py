@@ -19,6 +19,7 @@ Import examples:
 # Application layer (use cases and DTOs) - lightweight, no heavy deps
 from src.modules.chat.application import (
     ChatUseCase,
+    ChatGraph,
     StreamingUseCase,
     ChatQuery,
     ChatResult,
@@ -47,6 +48,7 @@ from src.modules.chat.api import (
 __all__ = [
     # Application
     "ChatUseCase",
+    "ChatGraph",
     "StreamingUseCase",
     "ChatQuery",
     "ChatResult",

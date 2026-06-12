@@ -8,38 +8,10 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
-from src.shared.kernel.interfaces.classification import ClassificationStrategyBase, ClassificationResult, Intent
+from src.shared.ports.classification import ClassificationStrategyBase, ClassificationResult, Intent
 from src.shared.infrastructure.llm.client import chat_async
 from src.shared.utils.agent import parse_json_response
-
-
-# Routing classifier prompt
-ROUTING_CLASSIFIER_PROMPT = """Bạn là classifier phân loại câu hỏi trong hệ thống K.I.R.A.
-
-Phân tích câu hỏi và chọn loại intent phù hợp nhất:
-
-**Câu hỏi:** {query}
-
-**Các loại intent:**
-1. **conversational** - Chào hỏi, cảm ơn, chat thông thường, hỏi về bot
-   Ví dụ: "xin chào", "cảm ơn", "bạn tên gì", "bot làm được gì"
-
-2. **rag** - Câu hỏi cần tìm kiếm trong tài liệu, kiến thức từ database
-   Ví dụ: "điều khoản hợp đồng", "quy định về lao động", "thủ tục thành lập công ty"
-
-**Yêu cầu:**
-- Chọn MỘT loại phù hợp nhất
-- Đánh giá độ tự tin (confidence: 0.0 đến 1.0)
-- Giải thích ngắn gọn lý do
-
-**Trả về JSON:**
-```json
-{{
-    "intent": "conversational|rag",
-    "confidence": 0.0-1.0,
-    "reason": "lý do ngắn gọn"
-}}
-```"""
+from src.modules.classification.domain.prompts import ROUTING_CLASSIFIER_PROMPT
 
 
 class LLMStrategy(ClassificationStrategyBase):

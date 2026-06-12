@@ -11,6 +11,7 @@ from collections import defaultdict
 from typing import Any
 
 from src.config.config import settings
+from src.modules.retrieval.domain.prompts import RERANKING_SYSTEM_PROMPT, build_reranking_prompt
 
 
 logger = logging.getLogger(__name__)
@@ -113,10 +114,8 @@ async def hybrid_search(
     Returns:
         Fused list of chunks ranked by RRF score (and reranked if enabled)
     """
-    # Import dependencies dynamically to avoid circular imports
     if dense_search_fn is None:
-        from src.modules.retrieval.infrastructure.vector.dense_retrieval import dense_search
-        dense_search_fn = dense_search
+        raise ValueError("hybrid_search requires dense_search_fn dependency")
 
     k = k or settings.retrieval_k
     rrf_k = rrf_k or settings.rrf_k
@@ -127,6 +126,8 @@ async def hybrid_search(
         user_id=user_id,
         k=k * DENSE_MULTIPLIER,
     )
+    if asyncio.iscoroutine(dense_results):
+        dense_results = await dense_results
 
     bm25_results = _get_bm25_results(bm25_index, query_text, k)
 
@@ -205,22 +206,7 @@ def _build_reranking_prompt(query: str, candidates: list[dict]) -> str:
     Returns:
         Formatted prompt string
     """
-    return f"""Bạn là chuyên gia phân tích thông tin. Hãy xếp hạng các đoạn văn bản dưới đây theo độ liên quan đến câu hỏi.
-
-CÂU HỎI: {query}
-
-CÁC ĐOẠN VĂN BẢN:
-{_format_docs_for_llm(candidates)}
-
-YÊU CẦU:
-1. Đọc kỹ câu hỏi và từng đoạn văn bản
-2. Xếp hạng các đoạn văn bản từ độ liên quan cao nhất đến thấp nhất
-3. Chỉ trả về một mảng JSON chứa số thứ tự của các đoạn văn bản đã được xếp hạng
-
-Định dạng trả về: [số_thứ_tự_0, số_thứ_tự_1, ...]
-Ví dụ: [3, 0, 4, 1, 2]
-
-Trả về chỉ mảng JSON, không giải thích:"""
+    return build_reranking_prompt(query, _format_docs_for_llm(candidates))
 
 
 async def _call_llm_for_reranking(prompt: str) -> str:
@@ -236,7 +222,7 @@ async def _call_llm_for_reranking(prompt: str) -> str:
         Exception: If LLM call fails or times out
     """
     messages = [
-        {"role": "system", "content": "Bạn là assistant chuyên gia phân tích và xếp hạng thông tin."},
+        {"role": "system", "content": RERANKING_SYSTEM_PROMPT},
         {"role": "user", "content": prompt}
     ]
 
