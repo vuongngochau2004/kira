@@ -82,6 +82,24 @@ class SqlAlchemyDocumentRepository(DocumentRepositoryPort):
             db=self.db,
         )
 
+    async def create_deletion_retry_job(
+        self,
+        document_id: UUID,
+        user_id: UUID,
+        storage_path: str | None,
+        cleanup_targets: list[str],
+        last_error: str,
+    ) -> Any:
+        """Create a retry job for failed external document cleanup."""
+        return await document_repository.create_deletion_retry_job(
+            document_id=document_id,
+            user_id=user_id,
+            storage_path=storage_path,
+            cleanup_targets=cleanup_targets,
+            last_error=last_error,
+            db=self.db,
+        )
+
     async def create_chunks(self, document_id: UUID, chunks: list[dict]) -> list[Any]:
         """Persist document chunks."""
         return await document_repository.create_chunks(

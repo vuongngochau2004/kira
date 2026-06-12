@@ -10,6 +10,7 @@ from .document_repository import (
     get_documents_batch,
     list_documents,
     delete_document,
+    create_deletion_retry_job,
     create_chunks,
     get_document_chunks,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "get_documents_batch",
     "list_documents",
     "delete_document",
+    "create_deletion_retry_job",
     "create_chunks",
     "get_document_chunks",
 ]

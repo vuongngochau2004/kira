@@ -171,6 +171,51 @@ class DocumentChunk(Base):
         return f"<DocumentChunk(id={self.id}, idx={self.chunk_index})>"
 
 
+class DocumentDeletionJob(Base):
+    """Retry job for document cleanup outside PostgreSQL."""
+
+    __tablename__ = "document_deletion_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False,
+    )
+    storage_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    cleanup_targets: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb"),
+    )
+    status: Mapped[str] = mapped_column(
+        String(50), default="pending", server_default=text("'pending'"),
+    )
+    attempts: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    next_retry_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow, server_default=text("NOW()"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow,
+        server_default=text("NOW()"),
+        onupdate=datetime.utcnow,
+    )
+
+    __table_args__ = (
+        Index('idx_document_deletion_job_status', 'status', 'next_retry_at'),
+        Index('idx_document_deletion_job_document', 'document_id'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<DocumentDeletionJob(id={self.id}, document_id={self.document_id})>"
+
+
 class Conversation(Base):
     """Chat conversation with denormalized message count."""
 

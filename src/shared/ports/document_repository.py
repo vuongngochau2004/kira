@@ -53,6 +53,18 @@ class DocumentRepositoryPort(ABC):
         ...
 
     @abstractmethod
+    async def create_deletion_retry_job(
+        self,
+        document_id: UUID,
+        user_id: UUID,
+        storage_path: str | None,
+        cleanup_targets: list[str],
+        last_error: str,
+    ) -> Any:
+        """Create a retry job for failed external document cleanup."""
+        ...
+
+    @abstractmethod
     async def create_chunks(self, document_id: UUID, chunks: list[dict]) -> list[Any]:
         """Persist document chunks."""
         ...

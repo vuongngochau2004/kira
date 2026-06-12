@@ -61,6 +61,7 @@ def delete_document_service(db: AsyncSession) -> DeleteDocument:
         repository=document_repository(db),
         keyword_index=keyword_index_adapter(),
         vector_store=vector_store_adapter(),
+        storage=storage_adapter(),
     )
 
 

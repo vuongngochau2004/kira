@@ -267,6 +267,43 @@ async def delete_document(
     return result.scalar_one_or_none() is not None
 
 
+async def create_deletion_retry_job(
+    document_id: UUID,
+    user_id: UUID,
+    storage_path: str | None,
+    cleanup_targets: list[str],
+    last_error: str,
+    db: AsyncSession | None = None,
+) -> Any:
+    """Create a retry job for failed document cleanup.
+
+    Args:
+        document_id: Document ID
+        user_id: User ID
+        storage_path: Object storage path, if any
+        cleanup_targets: Failed cleanup targets to retry
+        last_error: Error summary from the cleanup attempt
+        db: Optional database session
+
+    Returns:
+        Created deletion retry job
+    """
+    from src.shared.infrastructure.persistence.database.models import DocumentDeletionJob
+
+    session = await _get_session(db)
+    job = DocumentDeletionJob(
+        document_id=document_id,
+        user_id=user_id,
+        storage_path=storage_path,
+        cleanup_targets=cleanup_targets,
+        last_error=last_error,
+    )
+    session.add(job)
+    await session.commit()
+    await session.refresh(job)
+    return job
+
+
 async def create_chunks(
     document_id: UUID,
     chunks: list[dict],
@@ -335,6 +372,7 @@ __all__ = [
     "get_documents_batch",
     "list_documents",
     "delete_document",
+    "create_deletion_retry_job",
     "create_chunks",
     "get_document_chunks",
 ]
