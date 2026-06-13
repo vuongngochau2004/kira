@@ -101,7 +101,8 @@ class QualityAgent:
 
             # Stage 1: Critique (merged from CritiqueAgent)
             critique_result = await self._critique_response(query, response, documents)
-            logger.info(f"Critique: quality={critique_result.quality_level.value}, confidence={critique_result.confidence_score:.2f}")
+            critique_quality = self._quality_level_value(critique_result.quality_level)
+            logger.info(f"Critique: quality={critique_quality}, confidence={critique_result.confidence_score:.2f}")
 
             # Stage 2: Verification (merged from VerificationAgent)
             verification_result = await self._verify_response(query, response, documents, critique_result)
@@ -136,7 +137,7 @@ class QualityAgent:
                 execution_time_ms=execution_time,
                 metadata={
                     "quality_score": quality_score,
-                    "critique_quality": critique_result.quality_level.value,
+                    "critique_quality": critique_quality,
                     "verification_passed": verification_result.is_verified,
                     "should_regenerate": should_regenerate,
                     "issues_count": len(critique_result.issues)
@@ -198,7 +199,7 @@ class QualityAgent:
                 "data": {
                     "stage": "critique",
                     "status": "completed",
-                    "quality": critique_result.quality_level.value,
+                    "quality": self._quality_level_value(critique_result.quality_level),
                     "issues": len(critique_result.issues)
                 }
             }
@@ -606,6 +607,10 @@ class QualityAgent:
             QualityScore.FAILED: 0.2
         }
         return mapping.get(quality_level, 0.5)
+
+    def _quality_level_value(self, quality_level: QualityScore | str) -> str:
+        """Return the serialized quality level for enum or string inputs."""
+        return quality_level.value if isinstance(quality_level, QualityScore) else str(quality_level)
 
     def _should_regenerate(
         self,

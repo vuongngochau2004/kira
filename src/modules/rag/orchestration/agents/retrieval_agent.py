@@ -22,6 +22,7 @@ Example:
 import logging
 from typing import List, Dict, Any, AsyncIterator, Optional
 import time
+from uuid import UUID
 
 from src.shared.ports.llm import LLMPort
 from src.shared.ports.embedding import EmbeddingPort
@@ -413,8 +414,16 @@ class RetrievalAgent:
             # Convert to DocumentWithScore objects
             retrieved_docs = []
             for result in search_results:
+                doc_id = self._extract_document_id(result)
+                if doc_id is None:
+                    logger.warning(
+                        "Skipping search result without a valid document UUID: "
+                        f"keys={list(result.keys())}, metadata_keys={list(result.get('metadata', {}).keys())}"
+                    )
+                    continue
+
                 doc = DocumentWithScore(
-                    doc_id=result.get("document_id", result.get("chunk_id", "")),
+                    doc_id=doc_id,
                     content=result.get("text", result.get("content", "")),
                     filename=result.get("filename", result.get("metadata", {}).get("title", "Unknown")),
                     page_number=result.get("page_number", result.get("metadata", {}).get("page", 0)),
@@ -446,6 +455,29 @@ class RetrievalAgent:
                 query_expansions=[],
                 search_time_ms=search_time
             )
+
+    def _extract_document_id(self, result: Dict[str, Any]) -> UUID | None:
+        """Extract a stable UUID from a search result or its metadata."""
+        metadata = result.get("metadata") or {}
+        candidates = (
+            result.get("document_id"),
+            metadata.get("document_id"),
+            result.get("doc_id"),
+            metadata.get("doc_id"),
+            result.get("chunk_id"),
+            result.get("id"),
+        )
+
+        for candidate in candidates:
+            if not candidate:
+                continue
+
+            try:
+                return candidate if isinstance(candidate, UUID) else UUID(str(candidate))
+            except (TypeError, ValueError):
+                continue
+
+        return None
 
     # ==========================================================================
     # Stage 3: Reranking (merged from RerankingAgent)
