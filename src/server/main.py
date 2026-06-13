@@ -8,7 +8,7 @@ from src.config.config import settings
 from src.shared.infrastructure.persistence.database.session import init_db, close_db
 from src.tools.retrieval_tools import init_retrieval_tools
 from src.tools.ingestion_tools import init_ingestion_tools
-from src.tools.reranking_tools import init_reranking_tools
+from src.modules.retrieval.domain.services.reranking_service import init_reranking_service
 from src.shared.adapters.embedding.api_adapter import EmbeddingAPIAdapter
 from src.shared.infrastructure.llm.client import LLMClient
 from src.modules.retrieval.domain.services.hybrid_search import set_llm_client
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
         max_tokens=512,
         timeout=30.0,
     )
-    init_reranking_tools(llm_client=llm_client)
+    init_reranking_service(llm_client=llm_client)
     set_llm_client(llm_client)
 
     yield

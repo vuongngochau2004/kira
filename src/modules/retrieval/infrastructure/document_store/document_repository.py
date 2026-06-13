@@ -365,6 +365,54 @@ async def get_document_chunks(
     return list(result.scalars().all())
 
 
+async def list_completed_chunks_for_user(
+    user_id: UUID,
+    db: AsyncSession | None = None,
+) -> list[dict]:
+    """Load persisted chunks for completed, non-deleted documents owned by a user."""
+    from src.constants import DocumentStatus
+    from src.shared.infrastructure.persistence.database.models import Document, DocumentChunk
+    from src.shared.infrastructure.persistence.database.session import async_session_factory
+
+    async def _query(session: AsyncSession) -> list[dict]:
+        result = await session.execute(
+            select(DocumentChunk, Document.filename)
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .where(
+                Document.user_id == user_id,
+                Document.status == DocumentStatus.COMPLETED.value,
+                Document.deleted_at.is_(None),
+            )
+            .order_by(Document.created_at.desc(), DocumentChunk.chunk_index)
+        )
+
+        chunks: list[dict] = []
+        for chunk, filename in result.all():
+            metadata = dict(chunk.meta_data or {})
+            metadata.setdefault("document_id", str(chunk.document_id))
+            metadata.setdefault("chunk_index", chunk.chunk_index)
+            metadata.setdefault("filename", filename)
+            if chunk.qdrant_point_id:
+                metadata.setdefault("qdrant_point_id", chunk.qdrant_point_id)
+
+            chunks.append(
+                {
+                    "index": chunk.chunk_index,
+                    "content": chunk.content,
+                    "token_count": chunk.token_count,
+                    "metadata": metadata,
+                }
+            )
+
+        return chunks
+
+    if db is not None:
+        return await _query(db)
+
+    async with async_session_factory() as session:
+        return await _query(session)
+
+
 __all__ = [
     "create_document",
     "update_document_status",
@@ -375,4 +423,5 @@ __all__ = [
     "create_deletion_retry_job",
     "create_chunks",
     "get_document_chunks",
+    "list_completed_chunks_for_user",
 ]

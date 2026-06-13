@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
-import { Check, Copy, Paperclip, Pencil, Send, Square, X } from 'lucide-react'
+import { Check, Copy, Download, FileText, Paperclip, Pencil, Send, Square, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { SourceCitation } from '@/components/streaming/SourceCitation'
@@ -11,6 +11,7 @@ import { CitationRichText } from '@/components/streaming/CitationRichText'
 import { CitationPanel, type CitationSource, type VerificationStats } from '@/components/streaming/CitationPanel'
 import { useSourcesStore } from '@/lib/stores/sources-store'
 import { KIRAWelcome } from '@/components/common/KiraLogo'
+import type { Attachment } from '@/lib/streaming'
 
 // ==================== Types ====================
 
@@ -30,13 +31,12 @@ export interface Message {
   content: string
   timestamp: Date
   sources?: SourceChunk[]
+  attachments?: Attachment[]
   isStreaming?: boolean
   streamingState?: 'connecting' | 'routing' | 'retrieving' | 'generating' | 'complete' | 'error'
   citation_verification?: VerificationStats
   use_new_citation_format?: boolean  // Use [source:chunk_id] format
   isOptimistic?: boolean  // NEW: Mark optimistic messages for UI indication
-  rejection_detected?: boolean  // ✅ NEW: Explicit backend rejection signal
-  rejection_reasoning?: string  // ✅ NEW: LLM's explanation for rejection (Vietnamese)
 }
 
 interface SimpleChatProps {
@@ -69,6 +69,61 @@ const UserMessage = memo(({ content }: { content: string }) => (
 ))
 UserMessage.displayName = 'UserMessage'
 
+const SPINNER_WORDS = [
+  'Thinking...',
+  'Processing...',
+  'Reading...',
+  'Checking...',
+  'Composing...',
+]
+
+const ThinkingWordSpinner = memo(() => {
+  const [wordIndex, setWordIndex] = useState(0)
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setWordIndex((current) => (current + 1) % SPINNER_WORDS.length)
+    }, 1100)
+
+    return () => window.clearInterval(interval)
+  }, [])
+
+  return (
+    <div
+      aria-label="Đang tạo câu trả lời"
+      className="mb-2 text-xs font-medium text-muted-foreground/70 animate-pulse"
+    >
+      {SPINNER_WORDS[wordIndex]}
+    </div>
+  )
+})
+ThinkingWordSpinner.displayName = 'ThinkingWordSpinner'
+
+const MessageAttachments = memo(({ attachments }: { attachments?: Attachment[] }) => {
+  if (!attachments || attachments.length === 0) return null
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {attachments.map((attachment) => (
+        <a
+          key={attachment.id}
+          href={attachment.download_url}
+          download={attachment.filename}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          title={attachment.filename}
+        >
+          <FileText className="h-4 w-4 shrink-0 text-primary" />
+          <span className="truncate">{attachment.filename}</span>
+          <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </a>
+      ))}
+    </div>
+  )
+})
+MessageAttachments.displayName = 'MessageAttachments'
+
 /**
  * Assistant message component with streaming support
  */
@@ -85,6 +140,7 @@ const AssistantMessage = memo((
     <>
       {/* Content */}
       <div className="text-base py-2 text-foreground">
+        {isStreaming && <ThinkingWordSpinner />}
         {message.use_new_citation_format ? (
           <CitationRichText
             content={message.content || ''}
@@ -150,7 +206,7 @@ const MessageRow = memo((
       )}
 
       {/* Source Citation */}
-      {message.role === 'assistant' && message.sources && message.sources.length > 0 && !message.use_new_citation_format && !message.rejection_detected && (
+      {message.role === 'assistant' && message.sources && message.sources.length > 0 && !message.use_new_citation_format && (
         <div className="mt-2">
           <SourceCitation
             sources={message.sources}
@@ -163,7 +219,7 @@ const MessageRow = memo((
       )}
 
       {/* Citation Button - New format */}
-      {message.role === 'assistant' && message.use_new_citation_format && message.sources && message.sources.length > 0 && !message.rejection_detected && (
+      {message.role === 'assistant' && message.use_new_citation_format && message.sources && message.sources.length > 0 && (
         <div className="mt-2">
           <button
             onClick={() => {
@@ -180,6 +236,10 @@ const MessageRow = memo((
             )}
           </button>
         </div>
+      )}
+
+      {message.role === 'assistant' && (
+        <MessageAttachments attachments={message.attachments} />
       )}
 
       <div
@@ -400,10 +460,21 @@ export function SimpleChat({
   }, [welcomeVisible, displayMessages, scrollMessageToTop])
 
   /**
+   * Sync welcomeVisible with isNewChat prop
+   */
+  useEffect(() => {
+    setWelcomeVisible(isNewChat)
+    setWelcomeExiting(false)
+  }, [isNewChat])
+
+  /**
    * Handle welcome screen fade-out
    */
   useEffect(() => {
-    if (displayMessages.length > 0 && welcomeVisible) {
+    // Only fade out if we have messages AND (we are not in a new chat OR at least one message is optimistic/new)
+    const hasNewChatMessages = displayMessages.length > 0 && (!isNewChat || displayMessages.some(msg => msg.isOptimistic))
+
+    if (hasNewChatMessages && welcomeVisible) {
       setWelcomeExiting(true)
       const timer = setTimeout(() => {
         setWelcomeVisible(false)
@@ -411,7 +482,7 @@ export function SimpleChat({
       }, 300)
       return () => clearTimeout(timer)
     }
-  }, [displayMessages.length, welcomeVisible])
+  }, [displayMessages, welcomeVisible, isNewChat])
 
   // ==================== Handlers ====================
 

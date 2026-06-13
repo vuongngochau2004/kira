@@ -19,6 +19,7 @@ Example:
 
 import logging
 from typing import List, Dict, Any, AsyncIterator, Optional
+import json
 import re
 import time
 
@@ -299,9 +300,95 @@ class QualityAgent:
                 should_regenerate=False
             )
 
-        # TODO: Implement LLM-based critique
-        # For now, use rule-based critique
-        return self._rule_based_critique(response, documents)
+        try:
+            return await self._llm_structured_critique(query, response, documents)
+        except Exception as e:
+            logger.warning("LLM structured critique failed, using rule-based fallback: %s", e)
+            return self._rule_based_critique(response, documents)
+
+    async def _llm_structured_critique(
+        self,
+        query: str,
+        response: str,
+        documents: List[Any],
+    ) -> CritiqueResult:
+        """Run structured LLM critique instead of hardcoded issue patterns."""
+        context = self._format_documents_for_quality(documents)
+        prompt = f"""Bạn đánh giá chất lượng câu trả lời RAG dựa trên câu hỏi và tài liệu.
+
+CÂU HỎI:
+{query}
+
+TÀI LIỆU:
+{context}
+
+CÂU TRẢ LỜI:
+{response}
+
+Trả về DUY NHẤT JSON hợp lệ:
+{{
+  "quality_level": "excellent|good|acceptable|poor|failed",
+  "confidence_score": 0.0,
+  "issues": ["vấn đề nếu có"],
+  "suggestions": ["đề xuất cải thiện nếu có"],
+  "should_regenerate": false
+}}
+
+Quy tắc:
+- Đánh giá factual consistency, citation usefulness, mức độ trả lời đúng câu hỏi, ngôn ngữ tiếng Việt.
+- should_regenerate=true nếu câu trả lời sai căn cứ, thiếu căn cứ quan trọng, hoặc không trả lời đúng câu hỏi.
+"""
+        if self.llm_client is None:
+            raise RuntimeError("QualityAgent requires LLM client for structured critique")
+
+        raw = await self.llm_client.generate(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=700,
+        )
+        parsed = self._parse_json_object(raw)
+
+        quality_value = str(parsed.get("quality_level") or QualityScore.ACCEPTABLE.value).lower()
+        try:
+            quality_level = QualityScore(quality_value)
+        except ValueError:
+            quality_level = QualityScore.ACCEPTABLE
+
+        confidence = float(parsed.get("confidence_score", 0.6))
+        confidence = max(0.0, min(1.0, confidence))
+        issues = parsed.get("issues") or []
+        suggestions = parsed.get("suggestions") or []
+
+        return CritiqueResult(
+            quality_level=quality_level,
+            confidence_score=confidence,
+            issues=[str(item) for item in issues if str(item).strip()],
+            suggestions=[str(item) for item in suggestions if str(item).strip()],
+            should_regenerate=bool(parsed.get("should_regenerate", False)),
+        )
+
+    @staticmethod
+    def _parse_json_object(raw: str) -> dict[str, Any]:
+        text = (raw or "").strip()
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+            if not match:
+                raise
+            parsed = json.loads(match.group(0))
+        if not isinstance(parsed, dict):
+            raise ValueError("Expected JSON object")
+        return parsed
+
+    @staticmethod
+    def _format_documents_for_quality(documents: List[Any]) -> str:
+        parts = []
+        for index, doc in enumerate(documents, start=1):
+            filename = getattr(doc, "filename", f"Document {index}")
+            content = getattr(doc, "content", "")
+            parts.append(f"[Document {index}] {filename}\n{content}")
+        return "\n\n".join(parts)
 
     def _rule_based_critique(self, response: str, documents: List[Any]) -> CritiqueResult:
         """
@@ -358,10 +445,6 @@ class QualityAgent:
             issues.append("Response too short")
         elif len(response) > 5000:
             issues.append("Response too long")
-
-        # Check citations
-        if not re.search(r'\[Document\s+\d+\]', response):
-            issues.append("No document citations")
 
         # Check for Vietnamese
         if not re.search(r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', response):
@@ -500,7 +583,8 @@ class QualityAgent:
         """
         Verify citation accuracy.
 
-        TODO: Implement more sophisticated citation validation.
+        Since inline [Document X] citations are no longer required in responses,
+        this returns a neutral score based only on document availability.
 
         Args:
             response: Generated response
@@ -511,29 +595,8 @@ class QualityAgent:
         """
         if not documents:
             return 0.5
-
-        score = 1.0
-        num_docs = len(documents)
-
-        # Extract cited document numbers
-        cited_docs = set()
-        for match in re.finditer(r'\[Document\s+(\d+)\]', response):
-            try:
-                doc_num = int(match.group(1))
-                cited_docs.add(doc_num)
-            except ValueError:
-                pass
-
-        # Validate citation range
-        for doc_num in cited_docs:
-            if doc_num < 1 or doc_num > num_docs:
-                score -= 0.3
-
-        # Check if any citations exist
-        if not cited_docs:
-            score -= 0.5
-
-        return max(0.0, min(1.0, score))
+        # Documents were retrieved — assume citations are handled externally
+        return 0.8
 
     def _assess_reasoning_quality(self, response: str) -> float:
         """

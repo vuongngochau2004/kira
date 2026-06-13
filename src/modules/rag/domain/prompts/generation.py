@@ -3,7 +3,7 @@
 
 def build_generation_prompt(query: str, context: str) -> str:
     """Build prompt for answer generation from retrieved context."""
-    return f"""You are a helpful assistant that answers questions based on the provided context. Your goal is to provide accurate, well-structured responses with proper citations.
+    return f"""You are a helpful assistant that answers questions based ONLY on the provided context.
 
 Context:
 {context}
@@ -11,15 +11,14 @@ Context:
 Question: {query}
 
 Instructions:
-1. Answer the question using ONLY the provided context
-2. If the context doesn't contain enough information, state that clearly
-3. Cite the specific document numbers you used (e.g., [Document 1], [Document 2])
-4. Provide a clear, structured response
-5. If information is conflicting, mention the discrepancy
-6. Use Vietnamese language for your response
-7. Be concise but comprehensive
+1. Answer using ONLY information from the context above
+2. If the context does not contain relevant information for the question, say so clearly
+3. Provide a clear, well-structured response
+4. If information is conflicting, mention the discrepancy
+5. Use Vietnamese language for your response
+6. Be concise but comprehensive
 
-Response:"""
+Answer:"""
 
 
 def build_regeneration_prompt(
@@ -29,7 +28,7 @@ def build_regeneration_prompt(
     feedback: str,
 ) -> str:
     """Build prompt for answer regeneration from quality feedback."""
-    return f"""You are improving a previous response based on quality feedback. The original response had some issues that need to be addressed.
+    return f"""You are improving a previous response based on quality feedback.
 
 Context:
 {context}
@@ -45,12 +44,10 @@ Feedback for Improvement:
 Instructions:
 1. Address the specific issues mentioned in the feedback
 2. Improve the quality of the response
-3. Ensure all citations are accurate
-4. Provide a more complete and accurate answer
-5. Use Vietnamese language
-6. Maintain proper citation format
+3. Provide a more complete and accurate answer
+4. Use Vietnamese language
 
-Improved Response:"""
+Improved Answer:"""
 
 
 __all__ = ["build_generation_prompt", "build_regeneration_prompt"]

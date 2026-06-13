@@ -77,10 +77,12 @@ class ServiceRegistry:
         try:
             from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
             from src.modules.chat.infrastructure.handlers.conversational import ConversationalHandler
+            from src.modules.chat.infrastructure.handlers.drafting_handler import AdministrativeDraftingHandler
 
             # Register handlers as singletons (stateless) under concrete classes
             await container.register_singleton(RAGHandler, RAGHandler())
             await container.register_singleton(ConversationalHandler, ConversationalHandler())
+            await container.register_singleton(AdministrativeDraftingHandler, AdministrativeDraftingHandler())
 
         except ImportError as e:
             print(f"Warning: Could not import handlers: {e}")
@@ -141,8 +143,10 @@ class ServiceRegistry:
         try:
             from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
             from src.modules.chat.infrastructure.handlers.conversational import ConversationalHandler
+            from src.modules.chat.infrastructure.handlers.drafting_handler import AdministrativeDraftingHandler
             await container.get(RAGHandler)
             await container.get(ConversationalHandler)
+            await container.get(AdministrativeDraftingHandler)
         except Exception as e:
             print(f"Warning: Failed to warm up handlers: {e}")
 

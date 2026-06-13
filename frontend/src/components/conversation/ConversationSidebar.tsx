@@ -42,15 +42,6 @@ export function ConversationSidebar({ className }: ConversationSidebarProps) {
     enabled: mounted && isAuthenticated,
   })
 
-  // Create conversation mutation
-  const createMutation = useMutation({
-    mutationFn: () => conversationsAPI.create(),
-    onSuccess: (conversation) => {
-      setActiveConversation(conversation.id)
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
-    },
-  })
-
   // Delete conversation mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => conversationsAPI.delete(id),

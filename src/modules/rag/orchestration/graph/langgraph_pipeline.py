@@ -78,6 +78,7 @@ class LangGraphRAGPipeline:
         self.retrieval_config = retrieval_config
         self.generation_config = generation_config
         self.quality_config = quality_config
+        self.llm = llm
 
         # Initialize agents (reuse existing implementations)
         self.orchestrator_agent = OrchestratorAgent(orchestrator_config)
@@ -386,6 +387,7 @@ class LangGraphRAGPipeline:
             )
             yield {"mode": "updates", "chunk": {"retrieval": state}}
 
+            generation_final_state = state
             async for generation_chunk in self.generation_agent.handle_stream(
                 state,
                 context={"langgraph_node": True, "streaming": True},
@@ -397,9 +399,15 @@ class LangGraphRAGPipeline:
                     text = chunk_data.get("text", "")
                     if text:
                         yield {"mode": "messages", "chunk": text}
+                elif chunk_type == "metadata":
+                    # handle_stream mutates state in-place and stores the final state
+                    # The state object itself is updated, so we just need to track it
+                    generation_final_state = state
                 elif chunk_type == "error":
                     yield {"mode": "error", "chunk": chunk_data}
 
+            # Use the state that was updated in-place by handle_stream
+            state = generation_final_state
             if state.get("generated_response") and not state.get("final_response"):
                 state["final_response"] = state["generated_response"]
             yield {"mode": "updates", "chunk": {"generation": state}}

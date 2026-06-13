@@ -190,6 +190,9 @@ class LLMStrategy(ClassificationStrategyBase):
         """
         intent_map = {
             "rag": Intent.RAG,
+            "drafting": Intent.DRAFTING,
+            "draft": Intent.DRAFTING,
+            "administrative_drafting": Intent.DRAFTING,
             "conversational": Intent.CONVERSATIONAL,
             "conversation": Intent.CONVERSATIONAL,
             "chat": Intent.CONVERSATIONAL,
@@ -214,6 +217,7 @@ class LLMStrategy(ClassificationStrategyBase):
         """
         handler_map = {
             Intent.RAG: "RAGHandler",
+            Intent.DRAFTING: "AdministrativeDraftingHandler",
             Intent.CONVERSATIONAL: "ConversationalHandler",
         }
 

@@ -1,7 +1,6 @@
 """RAGAS evaluation API endpoints."""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -147,7 +146,7 @@ async def create_golden_dataset(
 @router.get("/evaluate/datasets/{dataset_id}/evaluate", response_model=BatchEvaluationResponse)
 async def evaluate_dataset(
     dataset_id: str,
-    metrics: Optional[list[str]] = None,
+    metrics: list[str] | None = None,
     current_user: User = Depends(get_current_user),
 ) -> BatchEvaluationResponse:
     """Evaluate a golden dataset.

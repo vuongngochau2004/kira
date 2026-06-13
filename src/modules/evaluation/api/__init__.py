@@ -1,17 +1,27 @@
 """
 Evaluation API layer.
 
-Contains request/response DTOs for evaluation endpoints.
+Contains request/response schemas for evaluation endpoints.
 """
 
-from src.modules.evaluation.api.dto import (
-    EvaluationRequestDTO,
-    EvaluationResponseDTO,
-    BatchEvaluationRequestDTO
+from src.modules.evaluation.api.schemas import (
+    BatchEvaluationRequest,
+    BatchEvaluationResponse,
+    EvaluationMetric,
+    EvaluationRequest,
+    EvaluationResponse,
+    EvaluationResult,
+    GoldenDataset,
+    GoldenDatasetSample,
 )
 
 __all__ = [
-    "EvaluationRequestDTO",
-    "EvaluationResponseDTO",
-    "BatchEvaluationRequestDTO",
+    "EvaluationMetric",
+    "EvaluationRequest",
+    "EvaluationResponse",
+    "EvaluationResult",
+    "BatchEvaluationRequest",
+    "BatchEvaluationResponse",
+    "GoldenDataset",
+    "GoldenDatasetSample",
 ]

@@ -25,7 +25,8 @@ interface StreamingTextProps {
 // Preprocess content for citation links
 const preprocessContent = (content: string) => {
   if (!content) return ''
-  return content.replace(/(?<!\[)\[(\d+)\](?!\]|\()/g, '[$1](#source-$1)')
+  // No preprocessing: citations are displayed via SourceCitation list below message
+  return content
 }
 
 // Streaming component: plain text with smooth cursor animation

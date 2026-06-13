@@ -30,6 +30,12 @@ class BM25IndexManager:
             self._indexes[key] = BM25Index()
         return self._indexes[key]
 
+    def has_documents(self, user_id: UUID | str) -> bool:
+        """Return True when the user's BM25 index has indexed chunks."""
+        key = self._get_key(user_id)
+        index = self._indexes.get(key)
+        return bool(index and index.document_count > 0)
+
     def add_document(
         self,
         user_id: UUID | str,

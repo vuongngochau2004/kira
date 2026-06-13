@@ -27,7 +27,7 @@ from src.modules.evaluation.domain import (
     RAGEvaluationFramework,
     MetricType,
 )
-from src.modules.evaluation.api import EvaluationRequestDTO, EvaluationResponseDTO
+from src.modules.evaluation.api import EvaluationRequest, EvaluationResponse
 
 __all__ = [
     # Application
@@ -41,6 +41,6 @@ __all__ = [
     "RAGEvaluationFramework",
     "MetricType",
     # API
-    "EvaluationRequestDTO",
-    "EvaluationResponseDTO",
+    "EvaluationRequest",
+    "EvaluationResponse",
 ]

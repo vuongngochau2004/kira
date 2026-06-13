@@ -47,7 +47,7 @@ class Intent(str, Enum):
     Represents the different types of user queries in the RAG system:
     - RAG: Document retrieval and generation
     - CONVERSATIONAL: Direct chat without retrieval
-    - DRAFTING: Content creation (future)
+    - DRAFTING: Content creation 
     - SEMANTIC: Semantic routing (future)
     """
 

@@ -6,8 +6,6 @@ import { useSidebarCollapse } from './useSidebarCollapse'
 import { SidebarCollapsed } from './SidebarCollapsed'
 import { SidebarExpanded, SidebarPage } from './SidebarExpanded'
 import { cn } from '@/lib/utils'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { conversationsAPI } from '@/lib/api/simple-client'
 import { useConversationStore } from '@/lib/stores/conversation-store'
 
 interface CollapsibleSidebarProps {
@@ -27,7 +25,6 @@ export function CollapsibleSidebar({ customContent }: CollapsibleSidebarProps) {
   const router = useRouter()
   const [currentPage, setCurrentPage] = React.useState<SidebarPage>(() => getPageFromPath(pathname))
   const { setActiveConversation } = useConversationStore()
-  const queryClient = useQueryClient()
 
   // Update page when pathname changes
   React.useEffect(() => {
@@ -38,18 +35,9 @@ export function CollapsibleSidebar({ customContent }: CollapsibleSidebarProps) {
     setCurrentPage(newPage)
   }
 
-  // Create conversation mutation
-  const createMutation = useMutation({
-    mutationFn: () => conversationsAPI.create(),
-    onSuccess: (conversation) => {
-      setActiveConversation(conversation.id)
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      router.push('/conversation')
-    },
-  })
-
   const handleCreateConversation = () => {
-    createMutation.mutate()
+    setActiveConversation(null)
+    router.push('/conversation')
   }
 
   // On mobile (< 768px), sidebar is always hidden

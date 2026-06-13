@@ -17,6 +17,7 @@ export {
   ensureFlatSources,
   type StreamingState,
   type MessageState,
+  type Attachment,
   type RoutingInfo,
   type RetrievalStage,
   type SourceChunk,

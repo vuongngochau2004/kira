@@ -11,6 +11,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { conversationsAPI, chatAPI } from '@/lib/api/simple-client'
 import { useConversationStore } from '@/lib/stores/conversation-store'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useSourcesStore } from '@/lib/stores/sources-store'
 import { useOptimistic, useTransition } from 'react'
 import { MessageQueue, type QueuedMessage } from '@/lib/utils/message-queue'
 import {
@@ -18,6 +19,7 @@ import {
   ensureFlatSources,
   type StreamingState,
   type SourceChunk,
+  type Attachment,
 } from '@/lib/streaming'
 
 // ==================== Types ====================
@@ -28,6 +30,7 @@ export interface Message {
   content: string
   timestamp: Date
   sources?: SourceChunk[]
+  attachments?: Attachment[]
   streamingState?: StreamingState
   isStreaming?: boolean
   isOptimistic?: boolean
@@ -55,6 +58,7 @@ export function useSimpleChat() {
   // Store & Router
   const { activeConversationId, setActiveConversation, updateURL } = useConversationStore()
   const { isAuthenticated } = useAuthStore()
+  const sourcesStore = useSourcesStore()
 
   // State
   const [mounted, setMounted] = useState(false)
@@ -111,6 +115,10 @@ export function useSimpleChat() {
   useEffect(() => {
     if (!activeConversationId && mounted && isAuthenticated && !isCreatingConversation) {
       setMessages([])
+      // Reset sources panel when switching to new chat
+      sourcesStore.setSources([])
+      sourcesStore.setIsOpen(false)
+      sourcesStore.setActiveSourceId(null)
     }
   }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation])
 
@@ -129,15 +137,6 @@ export function useSimpleChat() {
     setIsLoading(false)
   }
 
-  function cleanRejectionContent(content: string): string {
-    if (!content) return ''
-    // Remove ([Document X], [Document Y]...)
-    let cleaned = content.replace(/\s*\(\s*\[Document\s+\d+\][\s\d\w,\[\]-]*\)/gi, '')
-    // Remove [Document X] without parentheses
-    cleaned = cleaned.replace(/\s*\[Document\s+\d+\]/gi, '')
-    return cleaned.trim()
-  }
-
   /**
    * Update assistant message with current streaming state
    * Simple mapping: state → hierarchy → message
@@ -147,20 +146,16 @@ export function useSimpleChat() {
 
     const state = stateBuilder.getState()
 
-    const content = cleanRejectionContent(state.content)
-    const rejectionReasoning = cleanRejectionContent(state.rejection_reasoning || '')
-
     setMessages((prev) =>
       prev.map((msg) =>
         msg.id === msgId
           ? {
               ...msg,
-              content: content,
+              content: state.content,
               sources: state.sources.length > 0 ? [...state.sources] : undefined,
+              attachments: state.attachments.length > 0 ? [...state.attachments] : undefined,
               streamingState: state.status,
               isStreaming: state.status !== 'complete',
-              rejection_detected: state.rejection_detected,
-              rejection_reasoning: rejectionReasoning,
             }
           : msg
       )
@@ -194,28 +189,17 @@ export function useSimpleChat() {
             const msgObj = msg as unknown as Record<string, unknown>
             const metadata = msgObj.metadata as Record<string, unknown> | null
 
-            const rejectionDetected = (metadata?.rejection_detected as boolean) ||
-                                      (msgObj.rejection_detected as boolean) ||
-                                      false
-            const rawRejectionReasoning = (metadata?.rejection_reasoning as string) ||
-                                       (msgObj.rejection_reasoning as string) ||
-                                       ''
-            const rejectionReasoning = cleanRejectionContent(rawRejectionReasoning)
-
-            const parsedContent = cleanRejectionContent(msg.content || '')
-
             return {
               id: msg.id,
               role: 'assistant' as const,
-              content: parsedContent,
+              content: msg.content || '',
               timestamp: new Date(msg.created_at),
               sources: ensureFlatSources(
                 (msg.sources as SourceChunk[]) || (metadata?.sources as SourceChunk[]) || undefined
               ) as SourceChunk[] | undefined,
+              attachments: (metadata?.attachments as Attachment[]) || undefined,
               streamingState: 'complete' as const,
               isStreaming: false,
-              rejection_detected: rejectionDetected,
-              rejection_reasoning: rejectionReasoning,
             }
           }
 
@@ -518,6 +502,10 @@ export function useSimpleChat() {
     setMessages([])
     setActiveConversation(null)
     setError(null)
+    // Reset sources panel
+    sourcesStore.setSources([])
+    sourcesStore.setIsOpen(false)
+    sourcesStore.setActiveSourceId(null)
   }, [setActiveConversation, cleanup])
 
   const retryMessage = useCallback(() => {

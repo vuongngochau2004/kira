@@ -114,6 +114,7 @@ export interface ContentData {
 
 export interface MetadataData {
   citations?: any[]
+  attachments?: any[]
   conversation_id?: string
   message_id?: string
 }

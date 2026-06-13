@@ -569,7 +569,7 @@ async def retrieve_with_rerank(
         reranking_applied = False
 
         if enable_reranking and len(initial_docs) > rerank_top_k:
-            from src.tools.reranking_tools import score_and_rerank
+            from src.modules.retrieval.domain.services.reranking_service import score_and_rerank
 
             docs_json = json.dumps(initial_docs, ensure_ascii=False)
             rerank_result = score_and_rerank.invoke({

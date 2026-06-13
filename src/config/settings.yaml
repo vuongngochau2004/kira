@@ -51,6 +51,56 @@ semantic_routing:
   enabled: true                 # Feature flag for semantic routing
   threshold: 0.75              # Similarity threshold (0.0-1.0)
 
+# Classification fast-path keyword configuration
+classification:
+  file_keywords:
+    - "tài liệu"
+    - "doc"
+    - "pdf"
+    - "file"
+    - "hỏi về"
+    - "trong"
+    - "có"
+    - "liên quan"
+    - "về"
+    - "chương"
+    - "mục"
+    - "điều"
+    - "khoản"
+    - "bản"
+    - "phụ lục"
+  drafting_actions:
+    - "soạn"
+    - "soạn thảo"
+    - "lập"
+    - "viết"
+    - "tạo"
+    - "chuẩn bị"
+  drafting_keywords:
+    - "công văn"
+    - "tờ trình"
+    - "quyết định"
+    - "thông báo"
+    - "kế hoạch"
+    - "biên bản"
+    - "văn bản hành chính"
+    - "đơn đề nghị"
+    - "giấy mời"
+    - "báo cáo"
+
+# Lightweight query expansion before retrieval
+query_expansion:
+  synonyms:
+    hỏi:
+      - "đặt câu hỏi"
+      - "tìm hiểu"
+    tài liệu:
+      - "văn bản"
+      - "hồ sơ"
+    hợp đồng:
+      - "thỏa thuận"
+      - "biên bản"
+
 # Feature Flags
 # Gradual rollout flags for new architecture phases
 feature_flags:

@@ -26,6 +26,7 @@ from uuid import UUID
 
 from src.shared.ports.llm import LLMPort
 from src.shared.ports.embedding import EmbeddingPort
+from src.config.config import settings
 from src.modules.retrieval.application.search_use_case import SearchUseCase
 from src.modules.rag.orchestration.state.rag_state import (
     RAGState,
@@ -37,7 +38,7 @@ from src.modules.rag.orchestration.state.rag_state import (
     create_agent_result,
     mark_agent_start,
     update_state_with_agent_result,
-    update_retrieval_output
+    update_retrieval_output,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,11 +82,7 @@ class RetrievalAgent:
         self.search = search
         self._reranker = None  # Lazy-loaded reranker
 
-    async def handle(
-        self,
-        state: RAGState,
-        context: Optional[Dict[str, Any]] = None
-    ) -> RAGState:
+    async def handle(self, state: RAGState, context: Optional[Dict[str, Any]] = None) -> RAGState:
         """
         Execute full retrieval workflow: refine -> retrieve -> rerank.
 
@@ -114,16 +111,12 @@ class RetrievalAgent:
 
             # Stage 2: Document retrieval (original RetrievalAgent)
             retrieved_docs, retrieval_metadata = await self._retrieve_documents(
-                queries=refined_queries,
-                user_id=user_id
+                queries=refined_queries, user_id=user_id
             )
             logger.info(f"Retrieval: found {len(retrieved_docs)} documents")
 
             # Stage 3: Reranking (merged from RerankingAgent)
-            reranked_docs = await self._rerank_documents(
-                query=query,
-                documents=retrieved_docs
-            )
+            reranked_docs = await self._rerank_documents(query=query, documents=retrieved_docs)
             logger.info(f"Reranking: {len(reranked_docs)} documents after reranking")
 
             # Update state with combined output
@@ -132,7 +125,7 @@ class RetrievalAgent:
                 refined_queries=refined_queries,
                 retrieved_docs=retrieved_docs,
                 reranked_docs=reranked_docs,
-                metadata=retrieval_metadata
+                metadata=retrieval_metadata,
             )
 
             execution_time = (time.time() - start_time) * 1000
@@ -144,8 +137,10 @@ class RetrievalAgent:
                     "refined_queries": len(refined_queries),
                     "retrieved_docs": len(retrieved_docs),
                     "reranked_docs": len(reranked_docs),
-                    "strategy": str(retrieval_metadata.strategy) if retrieval_metadata else "unknown"
-                }
+                    "strategy": str(retrieval_metadata.strategy)
+                    if retrieval_metadata
+                    else "unknown",
+                },
             )
 
             logger.info(f"RetrievalAgent completed in {execution_time:.0f}ms")
@@ -159,22 +154,17 @@ class RetrievalAgent:
                 agent_name="RetrievalAgent",
                 status=AgentStatus.FAILED,
                 execution_time_ms=execution_time,
-                error_message=str(e)
+                error_message=str(e),
             )
 
             # Set empty results on failure
             state = update_retrieval_output(
-                state=state,
-                refined_queries=[state["query"]],
-                retrieved_docs=[],
-                reranked_docs=[]
+                state=state, refined_queries=[state["query"]], retrieved_docs=[], reranked_docs=[]
             )
             return update_state_with_agent_result(state, result)
 
     async def handle_stream(
-        self,
-        state: RAGState,
-        context: Optional[Dict[str, Any]] = None
+        self, state: RAGState, context: Optional[Dict[str, Any]] = None
     ) -> AsyncIterator[Dict[str, Any]]:
         """
         Execute retrieval with streaming progress updates.
@@ -208,16 +198,15 @@ class RetrievalAgent:
                 "data": {
                     "stage": "query_refinement",
                     "status": "completed",
-                    "refined_queries": len(refined_queries)
-                }
+                    "refined_queries": len(refined_queries),
+                },
             }
 
             # Stage 2: Retrieval
             yield {"type": "stage", "data": {"stage": "retrieval", "status": "started"}}
 
             retrieved_docs, retrieval_metadata = await self._retrieve_documents(
-                queries=refined_queries,
-                user_id=user_id
+                queries=refined_queries, user_id=user_id
             )
 
             yield {
@@ -225,8 +214,8 @@ class RetrievalAgent:
                 "data": {
                     "stage": "retrieval",
                     "status": "completed",
-                    "retrieved_docs": len(retrieved_docs)
-                }
+                    "retrieved_docs": len(retrieved_docs),
+                },
             }
 
             # Stage 3: Reranking
@@ -240,14 +229,14 @@ class RetrievalAgent:
                 refined_queries=refined_queries,
                 retrieved_docs=retrieved_docs,
                 reranked_docs=reranked_docs,
-                metadata=retrieval_metadata
+                metadata=retrieval_metadata,
             )
 
             execution_time = (time.time() - start_time) * 1000
             result = create_agent_result(
                 agent_name="RetrievalAgent",
                 status=AgentStatus.COMPLETED,
-                execution_time_ms=execution_time
+                execution_time_ms=execution_time,
             )
             state = update_state_with_agent_result(state, result)
 
@@ -256,8 +245,8 @@ class RetrievalAgent:
                 "data": {
                     "stage": "reranking",
                     "status": "completed",
-                    "reranked_docs": len(reranked_docs)
-                }
+                    "reranked_docs": len(reranked_docs),
+                },
             }
 
             yield {"type": "done", "data": {"total_time_ms": execution_time}}
@@ -324,7 +313,7 @@ class RetrievalAgent:
                 seen.add(normalized)
                 unique_queries.append(q)
 
-        return unique_queries[:self.config.expansion_count]
+        return unique_queries[: self.config.expansion_count]
 
     def _synonym_expansion(self, query: str) -> List[str]:
         """
@@ -338,13 +327,7 @@ class RetrievalAgent:
         Returns:
             List of synonym-expanded queries
         """
-        # Simplified Vietnamese synonym mapping
-        synonym_map = {
-            "hỏi": ["đặt câu hỏi", "tìm hiểu"],
-            "tài liệu": ["văn bản", "hồ sơ"],
-            "hợp đồng": ["thỏa thuận", "biên bản"],
-            # TODO: Add more domain-specific synonyms
-        }
+        synonym_map = settings.query_expansion_synonyms
 
         expansions = []
         for word, synonyms in synonym_map.items():
@@ -361,9 +344,7 @@ class RetrievalAgent:
     # ==========================================================================
 
     async def _retrieve_documents(
-        self,
-        queries: List[str],
-        user_id: str
+        self, queries: List[str], user_id: str
     ) -> tuple[List[DocumentWithScore], RetrievalMetadata]:
         """
         Execute hybrid document retrieval.
@@ -388,7 +369,7 @@ class RetrievalAgent:
                 strategy=RetrievalStrategy.HYBRID,
                 total_results=0,
                 query_expansions=[],
-                search_time_ms=0
+                search_time_ms=0,
             )
 
         try:
@@ -408,7 +389,7 @@ class RetrievalAgent:
                 user_id=user_id,
                 k=self.config.top_k,
                 rrf_k=60,
-                enable_rerank=self.config.enable_reranking
+                enable_rerank=self.config.enable_reranking,
             )
 
             # Convert to DocumentWithScore objects
@@ -425,11 +406,17 @@ class RetrievalAgent:
                 doc = DocumentWithScore(
                     doc_id=doc_id,
                     content=result.get("text", result.get("content", "")),
-                    filename=result.get("filename", result.get("metadata", {}).get("title", "Unknown")),
-                    page_number=result.get("page_number", result.get("metadata", {}).get("page", 0)),
-                    chunk_index=result.get("chunk_index", result.get("metadata", {}).get("chunk_index", 0)),
+                    filename=result.get(
+                        "filename", result.get("metadata", {}).get("title", "Unknown")
+                    ),
+                    page_number=result.get(
+                        "page_number", result.get("metadata", {}).get("page", 0)
+                    ),
+                    chunk_index=result.get(
+                        "chunk_index", result.get("metadata", {}).get("chunk_index", 0)
+                    ),
                     score=result.get("rrf_score", result.get("score", 0.0)),
-                    metadata=result.get("metadata", {})
+                    metadata=result.get("metadata", {}),
                 )
                 retrieved_docs.append(doc)
 
@@ -439,7 +426,7 @@ class RetrievalAgent:
                 strategy=RetrievalStrategy.HYBRID,
                 total_results=len(retrieved_docs),
                 query_expansions=queries[1:] if len(queries) > 1 else [],
-                search_time_ms=search_time
+                search_time_ms=search_time,
             )
 
             logger.info(f"Retrieved {len(retrieved_docs)} documents in {search_time:.0f}ms")
@@ -453,7 +440,7 @@ class RetrievalAgent:
                 strategy=RetrievalStrategy.HYBRID,
                 total_results=0,
                 query_expansions=[],
-                search_time_ms=search_time
+                search_time_ms=search_time,
             )
 
     def _extract_document_id(self, result: Dict[str, Any]) -> UUID | None:
@@ -484,9 +471,7 @@ class RetrievalAgent:
     # ==========================================================================
 
     async def _rerank_documents(
-        self,
-        query: str,
-        documents: List[DocumentWithScore]
+        self, query: str, documents: List[DocumentWithScore]
     ) -> List[DocumentWithScore]:
         """
         Rerank documents using cross-encoder or content overlap.
@@ -512,9 +497,7 @@ class RetrievalAgent:
         return self._fallback_reranking(query, documents)
 
     def _fallback_reranking(
-        self,
-        query: str,
-        documents: List[DocumentWithScore]
+        self, query: str, documents: List[DocumentWithScore]
     ) -> List[DocumentWithScore]:
         """
         Fallback reranking using content overlap.
@@ -544,7 +527,7 @@ class RetrievalAgent:
                 page_number=doc.page_number,
                 chunk_index=doc.chunk_index,
                 score=min(1.0, doc.score + (boost * 0.2)),
-                metadata=doc.metadata
+                metadata=doc.metadata,
             )
             reranked_docs.append(reranked_doc)
 
@@ -552,4 +535,4 @@ class RetrievalAgent:
         reranked_docs.sort(key=lambda x: x.score, reverse=True)
         filtered = [d for d in reranked_docs if d.score >= self.config.rerank_threshold]
 
-        return filtered[:self.config.rerank_top_k]
+        return filtered[: self.config.rerank_top_k]

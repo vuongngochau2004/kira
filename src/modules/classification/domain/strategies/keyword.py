@@ -7,8 +7,22 @@ Fast classification using fuzzy file matching and keyword detection.
 from typing import Any
 from uuid import UUID
 
+from src.config.config import settings
 from src.shared.ports.classification import ClassificationStrategyBase, ClassificationResult, Intent
 from src.shared.ports.retrieval import Document
+
+
+DEFAULT_FILE_KEYWORDS = [
+    "tài liệu", "doc", "pdf", "file", "hỏi về",
+    "trong", "có", "liên quan", "về", "chương",
+    "mục", "điều", "khoản", "bản", "phụ lục",
+]
+DEFAULT_DRAFTING_ACTIONS = ["soạn", "soạn thảo", "lập", "viết", "tạo", "chuẩn bị"]
+DEFAULT_DRAFTING_KEYWORDS = [
+    "công văn", "tờ trình", "quyết định", "thông báo",
+    "kế hoạch", "biên bản", "văn bản hành chính",
+    "đơn đề nghị", "giấy mời", "báo cáo",
+]
 
 
 class KeywordStrategy(ClassificationStrategyBase):
@@ -44,11 +58,9 @@ class KeywordStrategy(ClassificationStrategyBase):
             fuzzy_threshold: Minimum similarity for fuzzy matching (0.0 to 1.0)
         """
         self.user_documents = user_documents or {}
-        self.file_keywords = file_keywords or [
-            "tài liệu", "doc", "pdf", "file", "hỏi về",
-            "trong", "có", "liên quan", "về", "chương",
-            "mục", "điều", "khoản", "bản", "phụ lục"
-        ]
+        self.file_keywords = file_keywords or settings.classification_file_keywords or DEFAULT_FILE_KEYWORDS
+        self.drafting_actions = settings.classification_drafting_actions or DEFAULT_DRAFTING_ACTIONS
+        self.drafting_keywords = settings.classification_drafting_keywords or DEFAULT_DRAFTING_KEYWORDS
         self.fuzzy_threshold = fuzzy_threshold
 
     def can_handle(self, query: str, user_id: str | UUID) -> bool:
@@ -66,6 +78,10 @@ class KeywordStrategy(ClassificationStrategyBase):
             return False
 
         query_lower = query.lower()
+
+        # Administrative drafting requests should be handled before generic RAG.
+        if self._detect_drafting_keywords(query):
+            return True
 
         # Check for file keywords
         for keyword in self.file_keywords:
@@ -92,6 +108,20 @@ class KeywordStrategy(ClassificationStrategyBase):
             ClassificationResult with intent and confidence
         """
         user_id_str = str(user_id)
+
+        drafting_match = self._detect_drafting_keywords(query)
+        if drafting_match:
+            return ClassificationResult(
+                intent=Intent.DRAFTING,
+                confidence=0.9,
+                reason=f"Administrative drafting keyword detected: {drafting_match}",
+                metadata={
+                    "strategy": "keyword",
+                    "drafting_keyword_match": drafting_match,
+                    "user_doc_count": len(self.user_documents.get(user_id_str, [])),
+                },
+                handler_hint="AdministrativeDraftingHandler",
+            )
 
         # 1. Check for file keywords
         keyword_match = self._detect_keywords(query)
@@ -140,6 +170,25 @@ class KeywordStrategy(ClassificationStrategyBase):
 
         for keyword in self.file_keywords:
             if keyword in query_lower:
+                return keyword
+
+        return None
+
+    def _detect_drafting_keywords(self, query: str) -> str | None:
+        """
+        Detect administrative drafting keywords in query.
+
+        Args:
+            query: User query string
+
+        Returns:
+            First matched drafting keyword or None
+        """
+        query_lower = query.lower()
+
+        has_drafting_action = any(action in query_lower for action in self.drafting_actions)
+        for keyword in self.drafting_keywords:
+            if keyword in query_lower and (has_drafting_action or keyword == "văn bản hành chính"):
                 return keyword
 
         return None

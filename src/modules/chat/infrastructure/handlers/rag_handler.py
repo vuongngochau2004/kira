@@ -91,6 +91,18 @@ class RAGHandler(QueryHandlerBase):
         return {}
 
     @classmethod
+    def _build_relevance_context(cls, citations: list[Any]) -> str:
+        """Build compact context text for structured relevance evaluation."""
+        parts: list[str] = []
+        for idx, citation in enumerate(citations, start=1):
+            citation_dict = cls._citation_to_dict(citation)
+            text = citation_dict.get("text", "")
+            filename = citation_dict.get("filename", f"Document {idx}")
+            if text:
+                parts.append(f"[Document {idx}] {filename}\n{text}")
+        return "\n\n".join(parts)
+
+    @classmethod
     def _build_status_chunk(cls, node_name: str, state_update: dict[str, Any]) -> dict[str, Any]:
         """Create a compact status chunk from a LangGraph node update."""
         metadata: dict[str, Any] = {}
@@ -172,17 +184,31 @@ class RAGHandler(QueryHandlerBase):
             metadata["agent_results"] = state.get("agent_results", [])
             metadata["total_execution_time_ms"] = state.get("total_execution_time_ms", 0.0)
 
-            is_rejection = RAGService.is_rejection_response(final_response)
+            # Short-circuit: if GenerationAgent already cleared citations (has_citations=false),
+            # treat as rejection immediately — calling evaluate_relevance with empty context
+            # would give unreliable results and waste an LLM call.
+            if not final_citations:
+                is_rejection = True
+                relevance = {"has_relevant_docs": False, "reason": "generation_no_citations", "fallback": False}
+            else:
+                relevance = await RAGService.evaluate_relevance(
+                    query=query,
+                    response=final_response,
+                    context=self._build_relevance_context(final_citations),
+                    llm=self.rag_service.llm,
+                )
+                is_rejection = not relevance.get("has_relevant_docs", False)
 
             # Convert citations to expected format
             citations = []
             if is_rejection:
                 metadata["rejection_detected"] = True
-                metadata["rejection_reasoning"] = final_response
+                metadata["rejection_reasoning"] = relevance.get("reason") or final_response
                 metadata["relevance_filtering"] = {
                     "enabled": True,
                     "is_rejection": True,
-                    "rejection_reason": "no_relevant_docs"
+                    "rejection_reason": relevance.get("reason") or "no_relevant_docs",
+                    "structured": not relevance.get("fallback", False),
                 }
                 metadata["has_relevant_docs"] = False
             else:
@@ -286,6 +312,7 @@ class RAGHandler(QueryHandlerBase):
                 chunk = event.get("chunk") if isinstance(event, dict) else event
 
                 if mode == "messages":
+                    # Stream each token directly — LLM now outputs plain text (no JSON wrapper)
                     message_chunk = chunk[0] if isinstance(chunk, tuple) else chunk
                     text = self._extract_message_text(message_chunk)
                     if text:
@@ -327,7 +354,22 @@ class RAGHandler(QueryHandlerBase):
                         "data": {"text": final_response},
                     }
 
-                is_rejection = RAGService.is_rejection_response(final_response)
+                final_citations = final_state.get("final_citations", [])
+
+                # Short-circuit: if GenerationAgent already cleared citations (has_citations=false),
+                # treat as rejection immediately — calling evaluate_relevance with empty context
+                # would give unreliable results and waste an LLM call.
+                if not final_citations:
+                    is_rejection = True
+                    relevance = {"has_relevant_docs": False, "reason": "generation_no_citations", "fallback": False}
+                else:
+                    relevance = await RAGService.evaluate_relevance(
+                        query=query,
+                        response=final_response,
+                        context=self._build_relevance_context(final_citations),
+                        llm=self.rag_service.llm,
+                    )
+                    is_rejection = not relevance.get("has_relevant_docs", False)
 
                 citations = []
                 if not is_rejection:
@@ -335,7 +377,7 @@ class RAGHandler(QueryHandlerBase):
                         citation
                         for citation in (
                             self._citation_to_dict(citation)
-                            for citation in final_state.get("final_citations", [])
+                            for citation in final_citations
                         )
                         if citation
                     ]
@@ -352,11 +394,12 @@ class RAGHandler(QueryHandlerBase):
 
                 if is_rejection:
                     metadata_payload["rejection_detected"] = True
-                    metadata_payload["rejection_reasoning"] = final_response
+                    metadata_payload["rejection_reasoning"] = relevance.get("reason") or final_response
                     metadata_payload["relevance_filtering"] = {
                         "enabled": True,
                         "is_rejection": True,
-                        "rejection_reason": "no_relevant_docs"
+                        "rejection_reason": relevance.get("reason") or "no_relevant_docs",
+                        "structured": not relevance.get("fallback", False),
                     }
                     metadata_payload["has_relevant_docs"] = False
 

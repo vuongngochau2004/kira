@@ -34,7 +34,7 @@ class InterceptHandler(logging.Handler):
             else:
                 break
 
-        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+        logger.opt(depth=depth, exception=record.exc_info, colors=True).log(level, record.getMessage())
 
 
 def log_filter(record: dict[str, Any]) -> bool:

@@ -151,6 +151,22 @@ class Settings(BaseSettings):
         default=_static_config.get("semantic_routing", {}).get("threshold", 0.75)
     )
 
+    # ----- Classification fast-path config (from settings.yaml) -----
+    classification_file_keywords: list[str] = Field(
+        default=_static_config.get("classification", {}).get("file_keywords", [])
+    )
+    classification_drafting_actions: list[str] = Field(
+        default=_static_config.get("classification", {}).get("drafting_actions", [])
+    )
+    classification_drafting_keywords: list[str] = Field(
+        default=_static_config.get("classification", {}).get("drafting_keywords", [])
+    )
+
+    # ----- Query expansion (from settings.yaml) -----
+    query_expansion_synonyms: dict[str, list[str]] = Field(
+        default=_static_config.get("query_expansion", {}).get("synonyms", {})
+    )
+
     # ----- Feature Flags (from settings.yaml) -----
     # Feature flags for gradual rollout of new architecture
     feature_flags: dict[str, bool | int] = Field(

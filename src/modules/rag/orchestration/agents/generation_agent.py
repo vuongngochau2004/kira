@@ -20,7 +20,7 @@ Example:
 
 import logging
 from typing import List, Dict, Any, AsyncIterator, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 
 from src.shared.ports.llm import LLMPort
@@ -150,12 +150,15 @@ class GenerationAgent:
                 max_tokens=self.config.max_tokens
             )
 
-            # Extract citations
+            # Use response directly as plain text (no JSON wrapping)
+            answer_text = response.strip()
+
+            # Extract citations from retrieved documents
             citations = self._extract_citations(documents) if self.config.include_citations else []
 
             # Update state
-            state["generated_response"] = response
-            state["final_response"] = response
+            state["generated_response"] = answer_text
+            state["final_response"] = answer_text
             state["final_citations"] = citations
             state["generation_metadata"] = {
                 "model": self.config.model,
@@ -163,7 +166,7 @@ class GenerationAgent:
                 "max_tokens": self.config.max_tokens,
                 "context_size": len(context_str),
                 "documents_used": len(documents),
-                "generated_at": datetime.utcnow().isoformat()
+                "generated_at": datetime.now(timezone.utc).isoformat()
             }
 
             execution_time = (time.time() - start_time) * 1000
@@ -226,9 +229,8 @@ class GenerationAgent:
             context_str = self._build_context(documents)
             prompt = self._build_prompt(query, context_str)
 
-            # Stream generation
+            # Stream generation — yield each token chunk directly to the frontend
             full_response = ""
-            citations = self._extract_citations(documents) if self.config.include_citations else []
 
             async for chunk in self._stream_text(
                 prompt=prompt,
@@ -236,8 +238,6 @@ class GenerationAgent:
                 max_tokens=self.config.max_tokens
             ):
                 full_response += chunk
-
-                # Yield content chunk
                 yield {
                     "type": "content",
                     "data": {
@@ -246,9 +246,15 @@ class GenerationAgent:
                     }
                 }
 
+            # Use full response directly as plain text (no JSON parsing)
+            answer_text = full_response.strip()
+
+            # Extract citations from retrieved documents
+            citations = self._extract_citations(documents) if self.config.include_citations else []
+
             # Update state
-            state["generated_response"] = full_response
-            state["final_response"] = full_response
+            state["generated_response"] = answer_text
+            state["final_response"] = answer_text
             state["final_citations"] = citations
             state["generation_metadata"] = {
                 "model": self.config.model,
@@ -257,7 +263,7 @@ class GenerationAgent:
                 "context_size": len(context_str),
                 "documents_used": len(documents),
                 "streaming": True,
-                "generated_at": datetime.utcnow().isoformat()
+                "generated_at": datetime.now(timezone.utc).isoformat()
             }
 
             # Yield final metadata
@@ -266,7 +272,7 @@ class GenerationAgent:
                 "data": {
                     "citations": [c.model_dump() for c in citations],
                     "documents_used": len(documents),
-                    "response_length": len(full_response)
+                    "response_length": len(answer_text),
                 }
             }
 
@@ -276,7 +282,7 @@ class GenerationAgent:
                 status=AgentStatus.COMPLETED,
                 execution_time_ms=execution_time,
                 metadata={
-                    "response_length": len(full_response),
+                    "response_length": len(answer_text),
                     "citations_count": len(citations),
                     "streaming": True
                 }
@@ -284,7 +290,7 @@ class GenerationAgent:
 
             state = update_state_with_agent_result(state, result)
 
-            logger.info(f"GenerationAgent streaming completed: {len(full_response)} chars")
+            logger.info(f"GenerationAgent streaming completed: {len(answer_text)} chars")
             return
 
         except Exception as e:
@@ -362,7 +368,7 @@ class GenerationAgent:
                 content = content[:1000] + "..."
 
             context_parts.append(
-                f"[Document {idx}] (Source: {source}, Relevance: {doc.score:.2f})\n{content}\n"
+                f"Document {idx}: {source} (relevance: {doc.score:.2f})\n{content}\n"
             )
 
         return "\n".join(context_parts)

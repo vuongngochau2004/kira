@@ -5,12 +5,10 @@ import json
 import logging
 import re
 import uuid
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
 
 from src.shared.infrastructure.persistence.database.session import get_session
 from src.shared.infrastructure.persistence.database.query import soft_delete_conversation
@@ -25,7 +23,7 @@ from src.modules.chat.composition import (
 from src.modules.chat.application.dto import ChatQuery
 from src.shared.infrastructure.auth.dependencies import get_current_user
 from src.shared.infrastructure.persistence.database.models import User
-from src.modules.chat.api.requests import ConversationCreate
+from src.modules.chat.api.requests import ChatStreamRequest, ConversationCreate
 from src.constants import (
     DEFAULT_TEMPERATURE,
     DEFAULT_MAX_TOKENS,
@@ -37,14 +35,12 @@ from src.constants import (
 router = APIRouter()
 logger = logging.getLogger(__name__)
 MAX_STREAM_TEXT_PART_CHARS = 48
-
-
-# Request model for JSON body parsing
-class ChatStreamRequest(BaseModel):
-    message: str
-    conversation_id: Optional[str] = None
-    evaluate: bool = False
-    evaluation_metrics: Optional[list[str]] = None
+PERSISTED_METADATA_KEYS = (
+    "attachments",
+    "drafting",
+    "document_type",
+    "documents_used",
+)
 
 
 async def _get_or_create_conversation_id(
@@ -183,7 +179,6 @@ def _content_sse_event(text: str) -> str:
     return f"data: {json.dumps({'type': 'content', 'data': {'text': text}})}\n\n"
 
 
-
 async def _ensure_conversation_exists(
     conversation_id: uuid.UUID | None,
     user_id: uuid.UUID,
@@ -241,9 +236,9 @@ async def _resolve_citation_filenames(citations: list[dict], db: AsyncSession) -
         return citations
 
     doc_ids: list[str] = [
-        c["document_id"]
+        c.get("document_id") or (c.get("metadata") or {}).get("document_id")
         for c in citations
-        if c.get("document_id")
+        if c.get("document_id") or (c.get("metadata") or {}).get("document_id")
     ]
     if not doc_ids:
         return citations
@@ -254,7 +249,7 @@ async def _resolve_citation_filenames(citations: list[dict], db: AsyncSession) -
         doc_mapping = await get_documents_batch(doc_ids, db=db)
 
         for c in citations:
-            doc_id = c.get("document_id")
+            doc_id = c.get("document_id") or (c.get("metadata") or {}).get("document_id")
             if doc_id and str(doc_id) in doc_mapping:
                 filename = doc_mapping[str(doc_id)]
                 c["filename"] = filename
@@ -311,9 +306,7 @@ async def _save_streamed_messages(
         Tuple of conversation UUID and created message UUID
     """
     # Ensure conversation exists
-    conv_id = await _ensure_conversation_exists(
-        conversation_id, user_id, query, db
-    )
+    conv_id = await _ensure_conversation_exists(conversation_id, user_id, query, db)
 
     # Save user message
     await create_message(
@@ -323,7 +316,11 @@ async def _save_streamed_messages(
         db=db,
     )
 
-    content_str = _clean_rejection_content("".join(full_content))
+    is_rejection = metadata.get("rejection_detected", False) if metadata else False
+    if is_rejection:
+        content_str = _clean_rejection_content("".join(full_content))
+    else:
+        content_str = "".join(full_content)
     resolved_citations = await _resolve_citation_filenames(citations, db)
 
     # Save assistant message with metadata
@@ -341,7 +338,7 @@ async def _save_streamed_messages(
 async def _save_messages(
     conversation_id: uuid.UUID,
     user_message: str,
-    response: dict,
+    response,
     db: AsyncSession,
 ) -> uuid.UUID:
     """Save user and assistant messages."""
@@ -352,23 +349,43 @@ async def _save_messages(
         db=db,
     )
 
-    # Extract metadata if available
-    metadata = response.get("metadata") or {}
-    
+    # Extract metadata if available. ChatUseCase returns a ChatResult dataclass,
+    # while older callers may still pass dict-like responses.
+    if isinstance(response, dict):
+        metadata = response.get("metadata") or {}
+        response_content = response.get("content", "")
+        citations = response.get("citations") or response.get("sources") or []
+    else:
+        metadata = getattr(response, "metadata", {}) or {}
+        response_content = getattr(response, "content", "")
+        citations = getattr(response, "citations", []) or []
+
     db_metadata = {}
     router_name = metadata.get("handler")
     if router_name:
         db_metadata["router"] = router_name
-    
+
+    for key in PERSISTED_METADATA_KEYS:
+        if key in metadata:
+            db_metadata[key] = metadata[key]
+
+    is_rejection = False
     if metadata.get("rejection_detected"):
         db_metadata["rejection_detected"] = True
-        db_metadata["rejection_reasoning"] = _clean_rejection_content(metadata.get("rejection_reasoning") or "")
+        db_metadata["rejection_reasoning"] = _clean_rejection_content(
+            metadata.get("rejection_reasoning") or ""
+        )
+        is_rejection = True
     elif metadata.get("relevance_filtering", {}).get("is_rejection"):
         db_metadata["rejection_detected"] = True
-        db_metadata["rejection_reasoning"] = _clean_rejection_content(response["content"])
+        db_metadata["rejection_reasoning"] = _clean_rejection_content(response_content)
+        is_rejection = True
 
-    content_str = _clean_rejection_content(response["content"])
-    citations = response.get("citations") or response.get("sources") or []
+    if is_rejection:
+        content_str = _clean_rejection_content(response_content)
+    else:
+        content_str = response_content
+    citations = [c.to_dict() if hasattr(c, "to_dict") else c for c in citations]
     resolved_citations = await _resolve_citation_filenames(citations, db)
 
     msg = await create_message(
@@ -392,9 +409,7 @@ async def chat_completion(
     db: AsyncSession = Depends(get_session),
 ) -> dict:
     """Non-streaming chat completion."""
-    conv_id = await _get_or_create_conversation_id(
-        conversation_id, current_user.id, message, db
-    )
+    conv_id = await _get_or_create_conversation_id(conversation_id, current_user.id, message, db)
 
     # Load conversation history if continuing conversation
     conversation_history = []
@@ -417,26 +432,39 @@ async def chat_completion(
     )
     result = await chat_use_case.execute(chat_query)
 
-    await _save_messages(conv_id, message, result, db)
+    msg_id = await _save_messages(conv_id, message, result, db)
 
     # Return backward-compatible response structure
-    raw_citations = [
-        {
-            "filename": c.filename,
-            "text": c.text,
-            "page": c.page,
-            "confidence": c.confidence,
-            "document_id": str(c.document_id) if getattr(c, "document_id", None) else None,
-        }
-        for c in result.citations
-    ] if result.citations else []
+    raw_citations = (
+        [
+            {
+                "filename": c.filename,
+                "text": c.text,
+                "page": c.page,
+                "confidence": c.confidence,
+                "document_id": (
+                    str(getattr(c, "document_id"))
+                    if getattr(c, "document_id", None)
+                    else c.metadata.get("document_id")
+                    if getattr(c, "metadata", None)
+                    else None
+                ),
+                "metadata": c.metadata if getattr(c, "metadata", None) else {},
+            }
+            for c in result.citations
+        ]
+        if result.citations
+        else []
+    )
     resolved_citations = await _resolve_citation_filenames(raw_citations, db)
 
+    is_rejection = result.metadata.get("rejection_detected", False) if result.metadata else False
+    content_str = _clean_rejection_content(result.content) if is_rejection else result.content
     return {
-        "content": _clean_rejection_content(result.content),
+        "content": content_str,
         "citations": resolved_citations,
         "conversation_id": str(conv_id),
-        "message_id": str(uuid.uuid4()),
+        "message_id": str(msg_id),
         "metadata": result.metadata,
     }
 
@@ -473,9 +501,7 @@ async def _stream_generator(
     done_sent = False
 
     # Load conversation history if continuing conversation
-    conversation_history = await _load_conversation_history_if_exists(
-        conversation_id, db
-    )
+    conversation_history = await _load_conversation_history_if_exists(conversation_id, db)
 
     try:
         chat_query = ChatQuery(
@@ -520,16 +546,23 @@ async def _stream_generator(
                 chunk_data["sources"] = citations
 
                 # Build message metadata
-                metadata = _build_message_metadata(
-                    router_name, retrieval_stages
-                )
+                metadata = _build_message_metadata(router_name, retrieval_stages)
                 if metadata is None:
                     metadata = {}
+                for key in PERSISTED_METADATA_KEYS:
+                    if key in chunk_data:
+                        metadata[key] = chunk_data[key]
                 if chunk_data.get("rejection_detected"):
                     metadata["rejection_detected"] = True
-                    cleaned_reasoning = _clean_rejection_content(chunk_data.get("rejection_reasoning") or "")
+                    cleaned_reasoning = _clean_rejection_content(
+                        chunk_data.get("rejection_reasoning") or ""
+                    )
                     metadata["rejection_reasoning"] = cleaned_reasoning
                     chunk_data["rejection_reasoning"] = cleaned_reasoning
+                    # Clear citations when response is rejected (not grounded in retrieved docs)
+                    citations = []
+                    chunk_data["citations"] = []
+                    chunk_data["sources"] = []
 
                 # Save messages to DB
                 saved_conversation_id, msg_id = await _save_streamed_messages(
@@ -543,11 +576,18 @@ async def _stream_generator(
                 )
 
                 # Emit final metadata
-                yield f"data: {json.dumps({'type': 'metadata', 'data': {
-                    **chunk_data,
-                    'conversation_id': str(saved_conversation_id),
-                    'message_id': str(msg_id),
-                }})}\n\n"
+                yield f"data: {
+                    json.dumps(
+                        {
+                            'type': 'metadata',
+                            'data': {
+                                **chunk_data,
+                                'conversation_id': str(saved_conversation_id),
+                                'message_id': str(msg_id),
+                            },
+                        }
+                    )
+                }\n\n"
 
                 # RAGAS Evaluation (optional)
                 if evaluate:
@@ -559,7 +599,10 @@ async def _stream_generator(
 
                         if contexts:
                             from src.modules.evaluation.domain.service import get_evaluation_service
-                            from src.modules.evaluation.api.schemas import EvaluationRequest, EvaluationMetric
+                            from src.modules.evaluation.api.schemas import (
+                                EvaluationRequest,
+                                EvaluationMetric,
+                            )
 
                             # Map metric names to enum
                             metrics = evaluation_metrics or ["faithfulness", "answer_relevancy"]
@@ -682,7 +725,9 @@ async def get_conversations_list(
                 "id": str(conv.id),
                 "title": conv.title,
                 "message_count": conv.message_count,
-                "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
+                "last_message_at": conv.last_message_at.isoformat()
+                if conv.last_message_at
+                else None,
                 "created_at": conv.created_at.isoformat(),
             }
             for conv in conversations

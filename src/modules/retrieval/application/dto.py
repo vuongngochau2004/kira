@@ -1,13 +1,16 @@
-"""Data transfer objects for retrieval module.
+"""Application-layer DTOs for retrieval use cases.
 
-Defines request/response DTOs for search operations.
+HTTP response schemas live in ``src.modules.retrieval.api.responses``. The
+models here intentionally keep application-specific names so the application
+layer does not duplicate API schema class names or depend on the API layer.
 """
 
-from pydantic import BaseModel, Field
 from typing import Any
 
+from pydantic import BaseModel, Field
 
-class SearchRequest(BaseModel):
+
+class RetrievalSearchRequest(BaseModel):
     """Request for hybrid search."""
 
     query_embedding: list[float] = Field(..., description="Query vector for dense search")
@@ -29,7 +32,7 @@ class SearchRequest(BaseModel):
     ]}}
 
 
-class SearchResult(BaseModel):
+class RetrievedChunk(BaseModel):
     """Single search result with metadata."""
 
     text: str = Field(..., description="Chunk text content")
@@ -57,10 +60,10 @@ class SearchResult(BaseModel):
     ]}}
 
 
-class SearchResponse(BaseModel):
+class RetrievalSearchResponse(BaseModel):
     """Response for hybrid search."""
 
-    results: list[SearchResult] = Field(..., description="List of search results")
+    results: list[RetrievedChunk] = Field(..., description="List of search results")
     total: int = Field(..., description="Total number of results")
     query: str = Field(..., description="Original query text")
     retrieval_method: str = Field(..., description="Method used: hybrid, dense_only, bm25_only")
@@ -77,4 +80,8 @@ class SearchResponse(BaseModel):
     ]}}
 
 
-__all__ = ["SearchRequest", "SearchResult", "SearchResponse"]
+__all__ = [
+    "RetrievalSearchRequest",
+    "RetrievedChunk",
+    "RetrievalSearchResponse",
+]

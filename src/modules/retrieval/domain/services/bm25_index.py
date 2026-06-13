@@ -39,6 +39,11 @@ class BM25Index:
         self.doc_metadata: list[dict] = []
         self.avg_doc_len = 0
 
+    @property
+    def document_count(self) -> int:
+        """Return number of documents currently indexed."""
+        return len(self.doc_texts)
+
     def index_documents(self, documents: list[dict]) -> None:
         """Index documents for BM25 retrieval.
 

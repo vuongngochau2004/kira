@@ -41,7 +41,20 @@ async def create_message(
 
     validated_metadata = {}
     if metadata and isinstance(metadata, dict):
-        allowed_keys = {"steps", "iterations", "router", "agent", "latency_ms", "retrieval", "rejection_detected", "rejection_reasoning"}
+        allowed_keys = {
+            "steps",
+            "iterations",
+            "router",
+            "agent",
+            "latency_ms",
+            "retrieval",
+            "rejection_detected",
+            "rejection_reasoning",
+            "attachments",
+            "drafting",
+            "document_type",
+            "documents_used",
+        }
         validated_metadata = {
             key: value
             for key, value in metadata.items()

@@ -5,6 +5,7 @@ from uuid import UUID
 
 from src.modules.rag.orchestration.graph.langgraph_pipeline import LangGraphRAGPipeline
 from src.modules.rag.orchestration.state.rag_state import RAGState
+from src.shared.ports.llm import LLMPort
 
 
 class RAGPipelineService:
@@ -13,6 +14,11 @@ class RAGPipelineService:
     def __init__(self, pipeline: LangGraphRAGPipeline):
         """Initialize with a composed domain pipeline."""
         self.pipeline = pipeline
+
+    @property
+    def llm(self) -> LLMPort | None:
+        """Return the pipeline LLM dependency when available."""
+        return getattr(self.pipeline, "llm", None)
 
     async def run(
         self,

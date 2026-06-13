@@ -27,14 +27,10 @@ export default function ConversationsPage() {
     enabled: true, // AuthGuard ensures auth before render
   })
 
-  const createMutation = useMutation({
-    mutationFn: () => conversationsAPI.create(),
-    onSuccess: (conversation) => {
-      setActiveConversation(conversation.id)
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      router.push('/conversation')
-    },
-  })
+  const handleNewConversation = () => {
+    setActiveConversation(null)
+    router.push('/conversation')
+  }
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => conversationsAPI.delete(id),
@@ -148,7 +144,7 @@ export default function ConversationsPage() {
                     </Button>
                   </>
                 )}
-                <Button onClick={() => createMutation.mutate()}>
+                <Button onClick={handleNewConversation}>
                   Cuộc trò chuyện mới
                 </Button>
               </div>
@@ -177,7 +173,7 @@ export default function ConversationsPage() {
                     {searchQuery ? 'Thử từ khóa khác' : 'Bắt đầu cuộc trò chuyện đầu tiên của bạn'}
                   </p>
                   {!searchQuery && (
-                    <Button onClick={() => createMutation.mutate()}>
+                    <Button onClick={handleNewConversation}>
                       Tạo cuộc trò chuyện mới
                     </Button>
                   )}

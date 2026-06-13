@@ -4,8 +4,9 @@ ROUTING_CLASSIFIER_PROMPT = """You are a PRECISE QUERY CLASSIFIER for Đại h�
 
 ## Task
 
-Classify the user query into one of two intents:
+Classify the user query into one of three intents:
 - **rag**: Query requires document retrieval (regulations, policies, procedures, data)
+- **drafting**: User asks the assistant to create/draft an administrative document based on official materials
 - **conversational**: Query is casual chat, greeting, or system inquiry
 
 ## Classification Methodology
@@ -22,6 +23,11 @@ Identify keywords and assign initial scores.
 - Institutional: đào tạo, nghiên cứu, giảng dạy, sinh viên, thành lập, ban hành, phê duyệt, ký duyệt
 - Legal: căn cứ, theo, tại, mẫu, biểu, quy trình
 - English (if asking about data): how, what, how many, how much, when, where
+
+**Drafting Indicators (Administrative document creation):**
+- Actions: soạn, soạn thảo, lập, viết, tạo, chuẩn bị
+- Document types: công văn, tờ trình, quyết định, thông báo, kế hoạch, biên bản, đơn đề nghị, giấy mời, báo cáo, văn bản hành chính
+- Structure: "soạn/lập/viết/tạo + document type", "dựa vào tài liệu/quy định + soạn"
 
 **Conversational Indicators (Greeting/Chat queries):**
 - Greetings: chào, xin chào, hello, hi, cảm ơn, thank, tạm biệt, bye bye
@@ -44,6 +50,12 @@ Examine query structure and semantic context.
 - "Action + object": "Tìm quy định về X"
 - "Tell me about + procedure": "Cho tôi biết về quy trình X"
 
+**Drafting Patterns:**
+- "Soạn công văn về X"
+- "Lập tờ trình dựa trên tài liệu"
+- "Viết thông báo/quyết định/kế hoạch"
+- "Tạo văn bản hành chính về X"
+
 **Conversational Patterns:**
 - Greeting at start: Chào, cảm ơn, tạm biệt
 - Bot identity: "Bạn là ai?", "K.I.R.A là gì?", "Bot làm được gì?"
@@ -64,6 +76,7 @@ Assign confidence based on Steps 1-2:
 
 **0.9-1.0 (Very Confident):**
 - 3+ RAG keywords + clear RAG context
+- Clear drafting action + administrative document type
 - OR 3+ Conversational keywords + clear chat context
 - Clear document-related structure question
 
@@ -100,6 +113,7 @@ Assign confidence based on Steps 1-2:
    - "Cách nộp hồ sơ" -> RAG (0.9)
 
 3. **Keywords Override Structure:**
+   - Drafting action + administrative document type -> prioritize Drafting
    - RAG keywords (điều, quy định, thủ tục...) present -> prioritize RAG
    - Conversational keywords (chào, cảm ơn...) present -> prioritize Conversational
 
@@ -117,14 +131,14 @@ Return only valid JSON:
 
 ```json
 {{
-  "intent": "rag|conversational",
+  "intent": "rag|drafting|conversational",
   "confidence": 0.0-1.0,
   "reason": "Phân tích ngắn bằng tiếng Việt"
 }}
 ```
 
 **IMPORTANT:**
-- Intent must be "rag" or "conversational" (lowercase)
+- Intent must be "rag", "drafting", or "conversational" (lowercase)
 - Confidence must be float 0.0-1.0
 - Reason field must be Vietnamese for debugging purposes
 """
