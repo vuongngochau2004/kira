@@ -139,9 +139,11 @@ export class SSEClient {
    */
   async *stream(
     endpoint: string,
-    body: any
+    body: any,
+    signal?: AbortSignal
   ): AsyncGenerator<SSEChunk, void, unknown> {
     this.controller = new AbortController()
+    const requestSignal = signal || this.controller.signal
 
     try {
       const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -150,7 +152,7 @@ export class SSEClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-        signal: this.controller.signal,
+        signal: requestSignal,
         credentials: 'include',
       })
 
@@ -247,13 +249,14 @@ export const chatAPI = {
    */
   streamMessage: (
     message: string,
-    conversationId?: string
+    conversationId?: string,
+    signal?: AbortSignal
   ): AsyncGenerator<SSEChunk, void, unknown> => {
     const client = new SSEClient()
     return client.stream('/api/v1/chat/stream', {
       message,
       conversation_id: conversationId,
-    })
+    }, signal)
   },
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useState, useEffect, useRef } from 'react'
+import { memo, useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
@@ -40,9 +40,7 @@ interface CitationRichTextProps {
  * Streaming content with cursor animation
  */
 const StreamingContent = memo(({ content }: { content: string }) => {
-  const [visibleContent, setVisibleContent] = useState(content)
   const [cursorVisible, setCursorVisible] = useState(true)
-  const prevContentRef = useRef(content)
 
   // Smooth cursor blink
   useEffect(() => {
@@ -52,19 +50,8 @@ const StreamingContent = memo(({ content }: { content: string }) => {
     return () => clearInterval(interval)
   }, [])
 
-  // Update visible content when streaming
-  useEffect(() => {
-    if (content !== prevContentRef.current) {
-      const timer = setTimeout(() => {
-        setVisibleContent(content)
-        prevContentRef.current = content
-      }, 10)
-      return () => clearTimeout(timer)
-    }
-  }, [content])
-
   // Clean up inline [source:...] citations along with any leading spaces as requested by user
-  const cleanedContent = visibleContent.replace(/\s*\[source:[^\]]*\]/g, '')
+  const cleanedContent = content.replace(/\s*\[source:[^\]]*\]/g, '')
 
   return (
     <div className={cn(

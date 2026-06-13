@@ -27,7 +27,7 @@ reranking:
 citations:
   max_citations: 10            # Maximum citations to return (was hard-coded 5)
   min_score_threshold: 0.3     # Minimum score for citations
-  snippet_length: 200           # Character length for citation snippets
+  snippet_length: 900           # Character length for citation snippets with surrounding context
 
 # Citation Verification (New: Hybrid Citation System)
 citation_verification:

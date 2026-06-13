@@ -15,9 +15,10 @@ interface CollapsibleSidebarProps {
 }
 
 function getPageFromPath(pathname: string): SidebarPage {
+  if (pathname === '/conversation' || pathname.startsWith('/conversation/')) return 'conversation'
   if (pathname === '/conversations') return 'conversations'
   if (pathname === '/uploads') return 'uploads'
-  return 'chat'
+  return 'conversation'
 }
 
 export function CollapsibleSidebar({ customContent }: CollapsibleSidebarProps) {
@@ -43,7 +44,7 @@ export function CollapsibleSidebar({ customContent }: CollapsibleSidebarProps) {
     onSuccess: (conversation) => {
       setActiveConversation(conversation.id)
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      router.push('/chat')
+      router.push('/conversation')
     },
   })
 

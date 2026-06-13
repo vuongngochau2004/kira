@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
-import { Send, Loader2, X, Paperclip } from 'lucide-react'
+import { Check, Copy, Paperclip, Pencil, Send, Square, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { SourceCitation } from '@/components/streaming/SourceCitation'
@@ -44,6 +44,7 @@ interface SimpleChatProps {
   optimisticMessages?: Message[]  // NEW: Optimistic messages for first-message UX
   isLoading: boolean
   onSendMessage: (content: string) => void
+  onStopGenerating?: () => void
   onClearChat: () => void
   error?: string | null
   className?: string
@@ -114,16 +115,21 @@ AssistantMessage.displayName = 'AssistantMessage'
  * Message row component
  */
 const MessageRow = memo((
-  { message, isLoading, isLast, onCitationClick }: {
+  { message, isLoading, isLast, copiedMessageId, onCitationClick, onCopyMessage, onEditMessage }: {
     message: Message
     isLoading: boolean
     isLast: boolean
+    copiedMessageId: string | null
     onCitationClick: (index: number, source: SourceChunk) => void
+    onCopyMessage: (message: Message) => void
+    onEditMessage: (message: Message) => void
   }
 ) => (
   <div
+    data-message-id={message.id}
+    data-message-role={message.role}
     className={cn(
-      'flex gap-3 mb-6',
+      'group/message flex gap-3 mb-6',
       message.role === 'user' ? 'justify-end' : 'justify-start',
       // NEW: Optimistic indicator - slight opacity for optimistic messages
       message.isOptimistic && 'opacity-70'
@@ -175,6 +181,38 @@ const MessageRow = memo((
           </button>
         </div>
       )}
+
+      <div
+        className={cn(
+          'mt-2 flex items-center gap-1 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/message:opacity-100 focus-within:opacity-100',
+          message.role === 'user' ? 'justify-end' : 'justify-start'
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => onCopyMessage(message)}
+          className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Sao chép tin nhắn"
+          title="Sao chép"
+        >
+          {copiedMessageId === message.id ? (
+            <Check className="h-3.5 w-3.5 text-primary" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
+          <span>{copiedMessageId === message.id ? 'Đã copy' : 'Copy'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onEditMessage(message)}
+          className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Sửa tin nhắn"
+          title="Sửa"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          <span>Sửa</span>
+        </button>
+      </div>
     </div>
   </div>
 ))
@@ -187,6 +225,7 @@ export function SimpleChat({
   optimisticMessages,
   isLoading,
   onSendMessage,
+  onStopGenerating,
   onClearChat,
   error,
   className,
@@ -201,6 +240,7 @@ export function SimpleChat({
   const [sourcePanelOpen, setSourcePanelOpen] = useState(false)
   const [citationPanelOpen, setCitationPanelOpen] = useState(false)
   const [activeCitationChunkId, setActiveCitationChunkId] = useState<string | null>(null)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -242,6 +282,7 @@ export function SimpleChat({
   const hasNewCitationFormat = latestAssistantMessage?.use_new_citation_format
   const citationSources = hasNewCitationFormat ? (latestAssistantMessage?.sources as unknown as CitationSource[]) : undefined
   const verificationStats = latestAssistantMessage?.citation_verification
+  const scrollAnchorSpacerHeight = (isLoading || isOptimistic) ? 'calc(100dvh - 220px)' : 0
 
   // ==================== Effects ====================
 
@@ -250,7 +291,44 @@ export function SimpleChat({
    * Scrolls smoothly when new messages arrive or content updates during streaming
    */
   const prevMessagesLengthRef = useRef<number>(0)
+  const prevLatestUserMessageIdRef = useRef<string | null>(null)
+  const didInitializeScrollTrackingRef = useRef<boolean>(false)
   const isUserScrolledRef = useRef<boolean>(false)
+  const topAlignedUserMessageIdRef = useRef<string | null>(null)
+  const pendingTopScrollMessageIdRef = useRef<string | null>(null)
+
+  const scrollMessageToTop = useCallback((messageId: string, behavior: ScrollBehavior = 'smooth') => {
+    const container = messagesContainerRef.current
+    if (!container) {
+      pendingTopScrollMessageIdRef.current = messageId
+      return
+    }
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const target = container.querySelector<HTMLElement>(
+          `[data-message-id="${CSS.escape(messageId)}"]`
+        )
+
+        if (!target) {
+          pendingTopScrollMessageIdRef.current = messageId
+          return
+        }
+
+        const containerRect = container.getBoundingClientRect()
+        const targetRect = target.getBoundingClientRect()
+        const nextTop = container.scrollTop + targetRect.top - containerRect.top - 16
+
+        container.scrollTo({
+          top: Math.max(nextTop, 0),
+          behavior,
+        })
+        pendingTopScrollMessageIdRef.current = null
+        topAlignedUserMessageIdRef.current = messageId
+        isUserScrolledRef.current = false
+      })
+    })
+  }, [])
 
   useEffect(() => {
     const container = messagesContainerRef.current
@@ -270,9 +348,33 @@ export function SimpleChat({
     const container = messagesContainerRef.current
     if (!container) return
 
-    // Scroll if: new message arrived OR (loading and user hasn't scrolled up)
-    const isNewMessage = messages.length > prevMessagesLengthRef.current
-    const shouldAutoScroll = isNewMessage || (isLoading && !isUserScrolledRef.current)
+    const latestUserMessage = [...displayMessages].reverse().find((message) => message.role === 'user')
+    const isNewMessage = displayMessages.length > prevMessagesLengthRef.current
+    const isNewUserMessage =
+      !!latestUserMessage &&
+      latestUserMessage.id !== prevLatestUserMessageIdRef.current
+
+    if (!didInitializeScrollTrackingRef.current) {
+      didInitializeScrollTrackingRef.current = true
+      prevMessagesLengthRef.current = displayMessages.length
+      prevLatestUserMessageIdRef.current = latestUserMessage?.id ?? null
+      return
+    }
+
+    if (isNewUserMessage && (isLoading || isOptimistic)) {
+      pendingTopScrollMessageIdRef.current = latestUserMessage.id
+      scrollMessageToTop(latestUserMessage.id)
+      prevMessagesLengthRef.current = displayMessages.length
+      prevLatestUserMessageIdRef.current = latestUserMessage.id
+      return
+    }
+
+    const shouldKeepUserMessageAtTop =
+      (isLoading || isOptimistic) &&
+      (topAlignedUserMessageIdRef.current || pendingTopScrollMessageIdRef.current)
+    const shouldAutoScroll =
+      (isNewMessage && !shouldKeepUserMessageAtTop) ||
+      (isLoading && !isUserScrolledRef.current && !shouldKeepUserMessageAtTop)
 
     if (shouldAutoScroll) {
       container.scrollTo({
@@ -281,14 +383,27 @@ export function SimpleChat({
       })
     }
 
-    prevMessagesLengthRef.current = messages.length
-  }, [messages, isLoading])
+    if (!isLoading) {
+      topAlignedUserMessageIdRef.current = null
+    }
+
+    prevMessagesLengthRef.current = displayMessages.length
+    prevLatestUserMessageIdRef.current = latestUserMessage?.id ?? null
+  }, [displayMessages, isLoading, isOptimistic, scrollMessageToTop])
+
+  useEffect(() => {
+    if (welcomeVisible) return
+    const pendingMessageId = pendingTopScrollMessageIdRef.current
+    if (pendingMessageId) {
+      scrollMessageToTop(pendingMessageId)
+    }
+  }, [welcomeVisible, displayMessages, scrollMessageToTop])
 
   /**
    * Handle welcome screen fade-out
    */
   useEffect(() => {
-    if (messages.length > 0 && welcomeVisible) {
+    if (displayMessages.length > 0 && welcomeVisible) {
       setWelcomeExiting(true)
       const timer = setTimeout(() => {
         setWelcomeVisible(false)
@@ -296,7 +411,7 @@ export function SimpleChat({
       }, 300)
       return () => clearTimeout(timer)
     }
-  }, [messages.length, welcomeVisible])
+  }, [displayMessages.length, welcomeVisible])
 
   // ==================== Handlers ====================
 
@@ -316,6 +431,10 @@ export function SimpleChat({
     })
   }, [input, isLoading, onSendMessage])
 
+  const handleStopGenerating = useCallback(() => {
+    onStopGenerating?.()
+  }, [onStopGenerating])
+
   /**
    * Handle keyboard events
    */
@@ -331,6 +450,27 @@ export function SimpleChat({
    */
   const handleFileAttach = useCallback(() => {
     fileInputRef.current?.click()
+  }, [])
+
+  const handleCopyMessage = useCallback(async (message: Message) => {
+    try {
+      await navigator.clipboard.writeText(message.content || '')
+      setCopiedMessageId(message.id)
+      window.setTimeout(() => {
+        setCopiedMessageId((current) => current === message.id ? null : current)
+      }, 1600)
+    } catch (err) {
+      console.error('Failed to copy message:', err)
+    }
+  }, [])
+
+  const handleEditMessage = useCallback((message: Message) => {
+    setInput(message.content || '')
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+      const length = message.content.length
+      textareaRef.current?.setSelectionRange(length, length)
+    })
   }, [])
 
   /**
@@ -382,11 +522,19 @@ export function SimpleChat({
                   message={message}
                   isLoading={isLoading}
                   isLast={index === visibleMessages.length - 1}
+                  copiedMessageId={copiedMessageId}
                   onCitationClick={(idx, src) => handleCitationClick(idx, src, message.sources)}
+                  onCopyMessage={handleCopyMessage}
+                  onEditMessage={handleEditMessage}
                 />
               ))}
 
               <div ref={bottomRef} />
+              <div
+                aria-hidden="true"
+                className="shrink-0 transition-[height] duration-200"
+                style={{ height: scrollAnchorSpacerHeight }}
+              />
             </>
           )}
         </div>
@@ -488,8 +636,9 @@ export function SimpleChat({
 
               {/* Send Button - Prominent primary action */}
               <button
-                type="submit"
-                disabled={!input.trim() || isLoading}
+                type={isLoading ? 'button' : 'submit'}
+                onClick={isLoading ? handleStopGenerating : undefined}
+                disabled={!isLoading && !input.trim()}
                 className={cn(
                   'shrink-0 h-10 px-4 rounded-xl flex items-center justify-center gap-2',
                   'bg-primary text-primary-foreground font-medium text-sm',
@@ -501,9 +650,11 @@ export function SimpleChat({
                   // Disabled states
                   'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-md'
                 )}
+                title={isLoading ? 'Dừng sinh câu trả lời' : 'Gửi tin nhắn'}
+                aria-label={isLoading ? 'Dừng sinh câu trả lời' : 'Gửi tin nhắn'}
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Square className="w-4 h-4 fill-current" />
                 ) : (
                   <>
                     <Send className="w-4 h-4" />

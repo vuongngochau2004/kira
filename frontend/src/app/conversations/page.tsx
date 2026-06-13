@@ -32,7 +32,7 @@ export default function ConversationsPage() {
     onSuccess: (conversation) => {
       setActiveConversation(conversation.id)
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      router.push('/chat')
+      router.push('/conversation')
     },
   })
 
@@ -103,7 +103,7 @@ export default function ConversationsPage() {
             variant="ghost"
             size="sm"
             className="gap-2"
-            onClick={() => router.push('/chat')}
+            onClick={() => router.push('/conversation')}
           >
             <ArrowLeft className="w-4 h-4" />
             Quay lại chat

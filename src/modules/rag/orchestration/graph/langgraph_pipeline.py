@@ -367,16 +367,48 @@ class LangGraphRAGPipeline:
             f"Query: \"{query[:50] + '...' if len(query) > 50 else query}\", user_id='{user_id}'"
         )
 
-        # Create initial state
         initial_state = create_initial_state(query, user_id, conversation_id)
 
-        # Stream graph execution
         try:
-            async for mode, chunk in self.graph.astream(
+            state = await self.orchestrator_agent.handle(
                 initial_state,
-                stream_mode=["updates", "messages"],
+                context={"langgraph_node": True, "streaming": True},
+            )
+            yield {"mode": "updates", "chunk": {"orchestrator": state}}
+
+            if state.get("should_fallback"):
+                yield {"mode": "updates", "chunk": {"fallback": state}}
+                return
+
+            state = await self.retrieval_agent.handle(
+                state,
+                context={"langgraph_node": True, "streaming": True},
+            )
+            yield {"mode": "updates", "chunk": {"retrieval": state}}
+
+            async for generation_chunk in self.generation_agent.handle_stream(
+                state,
+                context={"langgraph_node": True, "streaming": True},
             ):
-                yield {"mode": mode, "chunk": chunk}
+                chunk_type = generation_chunk.get("type")
+                chunk_data = generation_chunk.get("data", {})
+
+                if chunk_type == "content":
+                    text = chunk_data.get("text", "")
+                    if text:
+                        yield {"mode": "messages", "chunk": text}
+                elif chunk_type == "error":
+                    yield {"mode": "error", "chunk": chunk_data}
+
+            if state.get("generated_response") and not state.get("final_response"):
+                state["final_response"] = state["generated_response"]
+            yield {"mode": "updates", "chunk": {"generation": state}}
+
+            state = await self.quality_agent.handle(
+                state,
+                context={"langgraph_node": True, "streaming": True},
+            )
+            yield {"mode": "updates", "chunk": {"quality": state}}
 
         except Exception as e:
             logger.error(f"❌ <red>[RAG PIPELINE STREAM ERROR]</red> LangGraph streaming failed: {e}", exc_info=True)

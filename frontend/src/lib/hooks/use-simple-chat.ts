@@ -35,7 +35,19 @@ export interface Message {
 
 // ==================== Constants ====================
 
+const STREAM_PAINT_INTERVAL_CHUNKS = 3
+
 // ==================== Helpers ====================
+
+function waitForNextPaint(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => resolve())
+  })
+}
 
 // ==================== Custom Hook ====================
 
@@ -155,6 +167,23 @@ export function useSimpleChat() {
     )
   }
 
+  function finishCurrentAssistantMessage() {
+    const assistantMsgId = assistantMsgIdRef.current
+    if (!assistantMsgId) return
+
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === assistantMsgId
+          ? {
+              ...msg,
+              streamingState: 'complete' as const,
+              isStreaming: false,
+            }
+          : msg
+      )
+    )
+  }
+
   async function loadConversation(id: string) {
     try {
       const conversation = await conversationsAPI.get(id)
@@ -238,7 +267,10 @@ export function useSimpleChat() {
         })
 
         try {
-          const stream = chatAPI.streamMessage(queuedMsg.content, conversationId)
+          const abortController = new AbortController()
+          abortControllerRef.current = abortController
+          const stream = chatAPI.streamMessage(queuedMsg.content, conversationId, abortController.signal)
+          let contentChunkCount = 0
 
           for await (const chunk of stream) {
             const { type, data: eventData } = chunk
@@ -262,7 +294,14 @@ export function useSimpleChat() {
 
             stateBuilder.processChunk(type, eventData)
             updateAssistantMessage(assistantMsgId, stateBuilder)
+            if (type === 'content') {
+              contentChunkCount += 1
+              if (contentChunkCount % STREAM_PAINT_INTERVAL_CHUNKS === 0) {
+                await waitForNextPaint()
+              }
+            }
           }
+          abortControllerRef.current = null
 
           // Mark optimistic messages as real
           setMessages((prev) =>
@@ -272,6 +311,11 @@ export function useSimpleChat() {
             )
           )
         } catch (streamErr: any) {
+          if (streamErr?.name === 'AbortError') {
+            finishCurrentAssistantMessage()
+            return
+          }
+
           const errorMsg = streamErr?.message || 'Failed to stream response'
           setMessages((prev) =>
             prev.map((msg) =>
@@ -334,7 +378,10 @@ export function useSimpleChat() {
         const stateBuilder = createStreamingStateBuilder()
         stateBuilderRef.current = stateBuilder
 
-        const stream = chatAPI.streamMessage(content.trim(), activeConversationId)
+        const abortController = new AbortController()
+        abortControllerRef.current = abortController
+        const stream = chatAPI.streamMessage(content.trim(), activeConversationId, abortController.signal)
+        let contentChunkCount = 0
 
         for await (const chunk of stream) {
           const { type, data: eventData } = chunk
@@ -359,21 +406,16 @@ export function useSimpleChat() {
 
           stateBuilder.processChunk(type, eventData)
           updateAssistantMessage(assistantMsgId, stateBuilder)
+          if (type === 'content') {
+            contentChunkCount += 1
+            if (contentChunkCount % STREAM_PAINT_INTERVAL_CHUNKS === 0) {
+              await waitForNextPaint()
+            }
+          }
         }
       } catch (err: any) {
         if (err.name === 'AbortError') {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMsgId
-                ? {
-                    ...msg,
-                    streamingState: 'error' as const,
-                    isStreaming: false,
-                    content: '⚠️ Request cancelled or timed out.',
-                  }
-                : msg
-            )
-          )
+          finishCurrentAssistantMessage()
         } else {
           const errorMsg = err?.message || 'Failed to send message. Please check your connection.'
           setError(errorMsg)
@@ -486,6 +528,13 @@ export function useSimpleChat() {
     }
   }, [sendMessage])
 
+  const stopGenerating = useCallback(() => {
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    finishCurrentAssistantMessage()
+    setIsLoading(false)
+  }, [])
+
   return {
     messages,
     optimisticMessages,
@@ -493,6 +542,7 @@ export function useSimpleChat() {
     error,
     isOptimistic: isPending || isCreatingConversation,
     sendMessage,
+    stopGenerating,
     clearMessages,
     retryMessage,
     activeConversationId,

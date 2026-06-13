@@ -4,7 +4,12 @@ import { useState } from "react"
 import { CollapsibleSidebar } from "@/components/sidebar/CollapsibleSidebar"
 import { MobileNav } from "@/components/mobile/MobileNav"
 import { SourcePanel } from "@/components/sources/SourcePanel"
+import { PanelResizer } from "@/components/sources/components/PanelResizer"
 import { useSourcesStore } from "@/lib/stores/sources-store"
+
+const DEFAULT_SOURCE_PANEL_WIDTH = 420
+const MIN_SOURCE_PANEL_WIDTH = 340
+const MAX_SOURCE_PANEL_WIDTH = 760
 
 export default function ConversationLayout({
   children,
@@ -13,6 +18,8 @@ export default function ConversationLayout({
 }) {
   const { isOpen: sourcePanelOpen, toggleOpen } = useSourcesStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [sourcePanelWidth, setSourcePanelWidth] = useState(DEFAULT_SOURCE_PANEL_WIDTH)
+  const [isResizingSourcePanel, setIsResizingSourcePanel] = useState(false)
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -45,7 +52,26 @@ export default function ConversationLayout({
       </main>
 
       {/* Source Panel - Desktop only */}
-      <div className="hidden lg:block">
+      <div
+        className="hidden lg:block shrink-0 relative h-full"
+        style={{
+          width: sourcePanelOpen ? sourcePanelWidth : 0,
+          transition: isResizingSourcePanel ? "none" : "width 300ms ease-in-out",
+        }}
+      >
+        {sourcePanelOpen && (
+          <PanelResizer
+            direction="horizontal"
+            resizeFrom="start"
+            size={sourcePanelWidth}
+            minSize={MIN_SOURCE_PANEL_WIDTH}
+            maxSize={MAX_SOURCE_PANEL_WIDTH}
+            onResize={setSourcePanelWidth}
+            onResizeStart={() => setIsResizingSourcePanel(true)}
+            onResizeEnd={() => setIsResizingSourcePanel(false)}
+            className="-left-1"
+          />
+        )}
         <SourcePanel
           isOpen={sourcePanelOpen}
           onToggle={toggleOpen}

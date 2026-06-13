@@ -30,7 +30,7 @@ export function useDocumentData(expandedDocumentId: string | null) {
           }))
         })
         .catch((err) => {
-          console.error('Failed to load document chunks:', err)
+          console.warn('[useDocumentData] Failed to load document chunks (will fallback to RAG snippets):', err?.message || err)
           setDocuments((prev) => ({
             ...prev,
             [expandedDocumentId]: {

@@ -11,18 +11,16 @@ import type { GroupedSource } from "../types/source-panel-types";
 interface SourceListProps {
   groupedSources: GroupedSource[];
   expandedDocument: string | null;
-  copiedId: string | null;
   onDocumentExpand: (documentId: string) => void;
-  onCopy: (id: string, text: string) => Promise<boolean>;
+  onDocumentPreview: (documentId: string, filename: string) => void;
 }
 
 export const SourceList = memo<SourceListProps>(
   ({
     groupedSources,
     expandedDocument,
-    copiedId,
     onDocumentExpand,
-    onCopy,
+    onDocumentPreview,
   }) => {
     if (groupedSources.length === 0) {
       return (
@@ -36,9 +34,9 @@ export const SourceList = memo<SourceListProps>(
     }
 
     return (
-      <div className="flex flex-col h-full">
-        <div className="h-14 border-b flex items-center justify-between px-4 shrink-0 bg-background/95 backdrop-blur">
-          <div className="flex items-center gap-2">
+      <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
+        <div className="h-14 border-b flex items-center justify-between px-4 shrink-0 bg-background/95 backdrop-blur min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <BookOpen className="w-4 h-4 text-primary" />
             <h2 className="text-sm font-semibold">Nguồn</h2>
             <span className="text-xs text-muted-foreground">
@@ -47,8 +45,8 @@ export const SourceList = memo<SourceListProps>(
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+          <div className="w-full min-w-0 p-4 space-y-3">
             {groupedSources.map((group, index) => {
               const groupKey = group.document_id || group.title;
               const isExpanded = expandedDocument === groupKey;
@@ -60,8 +58,7 @@ export const SourceList = memo<SourceListProps>(
                   index={index}
                   isSelected={isExpanded}
                   onExpand={onDocumentExpand}
-                  onCopy={onCopy}
-                  copiedId={copiedId}
+                  onPreview={onDocumentPreview}
                 />
               );
             })}

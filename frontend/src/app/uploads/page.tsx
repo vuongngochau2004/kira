@@ -145,7 +145,7 @@ export default function UploadsPage() {
             variant="ghost"
             size="sm"
             className="gap-2"
-            onClick={() => router.push('/chat')}
+            onClick={() => router.push('/conversation')}
           >
             <ArrowLeft className="w-4 h-4" />
             Quay lại chat

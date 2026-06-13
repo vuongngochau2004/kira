@@ -194,7 +194,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
             setDocChunks(prev => ({ ...prev, [docId]: chunks }))
           })
           .catch(err => {
-            console.error('Failed to load document chunks:', err)
+            console.warn('[SourcePanel] Failed to load document chunks (will fallback to RAG snippets):', err?.message || err)
             setDocChunks(prev => ({ ...prev, [docId]: null as any }))
           })
           .finally(() => {

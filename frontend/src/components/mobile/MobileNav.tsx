@@ -13,7 +13,7 @@ export function MobileNav({ onMenuClick }: MobileNavProps) {
   const pathname = usePathname()
 
   const navItems = [
-    { icon: MessageSquare, label: 'Chat', path: '/chat' },
+    { icon: MessageSquare, label: 'Chat', path: '/conversation' },
     { icon: Search, label: 'Tìm kiếm', path: '/conversations' },
     { icon: Upload, label: 'Tải lên', path: '/uploads' },
   ]
@@ -23,7 +23,7 @@ export function MobileNav({ onMenuClick }: MobileNavProps) {
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.path
+          const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`)
 
           return (
             <button

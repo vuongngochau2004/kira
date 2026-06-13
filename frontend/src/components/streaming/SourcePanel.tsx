@@ -196,7 +196,7 @@ export function SourcePanel({ sources, isOpen, onClose, activeSourceId, classNam
             setDocChunks(prev => ({ ...prev, [docId]: chunks }))
           })
           .catch(err => {
-            console.error('Failed to load chunks for mobile source panel:', err)
+            console.warn('[SourcePanel] Failed to load chunks (will fallback to RAG snippets):', err?.message || err)
             // Mark as null to prevent infinite loop of retries on failure
             setDocChunks(prev => ({ ...prev, [docId]: null as any }))
           })

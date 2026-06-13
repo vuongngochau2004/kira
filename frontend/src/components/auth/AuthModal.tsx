@@ -26,11 +26,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     router.push('/register')
   }
 
-  // Redirect to chat if already authenticated
+  // Redirect to conversation if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       onClose()
-      router.push('/chat')
+      router.push('/conversation')
     }
   }, [isAuthenticated, onClose, router])
 

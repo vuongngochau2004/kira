@@ -28,7 +28,7 @@ import { ThemeToggleDropdown } from '@/components/common/ThemeToggle'
 import { documentsAPI } from '@/lib/api/simple-client'
 import { cn } from '@/lib/utils'
 
-export type SidebarPage = 'chat' | 'conversations' | 'uploads'
+export type SidebarPage = 'conversation' | 'conversations' | 'uploads'
 
 interface SidebarExpandedProps {
   page: SidebarPage
@@ -146,7 +146,7 @@ export function SidebarExpanded({
         <div className="space-y-2">
           {/* New Chat Button */}
           <Button
-            variant={page === 'chat' ? 'default' : 'outline'}
+            variant={page === 'conversation' ? 'default' : 'outline'}
             className="w-full justify-start"
             onClick={() => {
               onCreateConversation?.()

@@ -31,7 +31,7 @@ export function usePostLoginRedirect() {
       sessionStorage.removeItem('returnUrl')
       router.push(returnUrl)
     } else {
-      router.push('/chat')
+      router.push('/conversation')
     }
   }, [router])
 

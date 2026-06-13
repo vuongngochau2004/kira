@@ -115,7 +115,7 @@ class Settings(BaseSettings):
     # ----- Citations (from settings.yaml) -----
     max_citations: int = _static_config.get("citations", {}).get("max_citations", 10)
     min_score_threshold: float = _static_config.get("citations", {}).get("min_score_threshold", 0.3)
-    snippet_length: int = _static_config.get("citations", {}).get("snippet_length", 200)
+    snippet_length: int = _static_config.get("citations", {}).get("snippet_length", 900)
 
     # ----- Citation Verification (from settings.yaml) -----
     citation_verification_enabled: bool = _static_config.get("citation_verification", {}).get("enabled", True)

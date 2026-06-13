@@ -5,17 +5,21 @@
 
 "use client";
 
-import { useMemo, useCallback, useEffect } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
 
 import { useSourcePanelState } from "./hooks/use-source-panel-state";
 import { SourceList } from "./components/SourceList";
+import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
 
 import type { GroupedSource } from "./types/source-panel-types";
 
 export function SourcePanel({ isOpen }: SourcePanelProps) {
-  const { state, store, expandDocument, copyToClipboard } =
-    useSourcePanelState();
+  const { state, store, expandDocument } = useSourcePanelState();
+  const [previewDocument, setPreviewDocument] = useState<{
+    id: string;
+    filename: string;
+  } | null>(null);
 
   const groupedSources = useMemo(() => {
     const groups: Record<string, GroupedSource> = {};
@@ -48,21 +52,16 @@ export function SourcePanel({ isOpen }: SourcePanelProps) {
     return Object.values(groups);
   }, [store.sources]);
 
-  useEffect(() => {
-    if (groupedSources.length === 0) return;
-    if (state.expandedDocument) return;
-
-    const firstGroup = groupedSources[0];
-    expandDocument(firstGroup.document_id || firstGroup.title);
-  }, [groupedSources, state.expandedDocument, expandDocument]);
-
   const handleDocumentExpand = useCallback(
     (documentKey: string) => {
       const wasExpanded = state.expandedDocument === documentKey;
       const nextDocument = wasExpanded ? null : documentKey;
+      if (wasExpanded) {
+        store.setActiveSourceId(null);
+      }
       expandDocument(nextDocument);
     },
-    [state.expandedDocument, expandDocument],
+    [state.expandedDocument, store, expandDocument],
   );
 
   const isExpanded = isOpen !== undefined ? isOpen : store.isOpen;
@@ -70,19 +69,26 @@ export function SourcePanel({ isOpen }: SourcePanelProps) {
   return (
     <aside
       className={cn(
-        "relative flex bg-background border-l transition-all duration-300 ease-in-out shrink-0 h-full overflow-hidden",
-        isExpanded ? "w-85 max-w-[95vw]" : "w-0",
+        "relative flex min-w-0 bg-background border-l transition-all duration-300 ease-in-out shrink-0 h-full overflow-hidden",
+        isExpanded ? "w-full" : "w-0",
       )}
     >
       {isExpanded && (
         <SourceList
           groupedSources={groupedSources}
           expandedDocument={state.expandedDocument}
-          copiedId={state.clipboard.id}
           onDocumentExpand={handleDocumentExpand}
-          onCopy={copyToClipboard}
+          onDocumentPreview={(documentId, filename) => {
+            setPreviewDocument({ id: documentId, filename });
+          }}
         />
       )}
+      <DocumentPreviewDialog
+        documentId={previewDocument?.id ?? null}
+        filename={previewDocument?.filename ?? ""}
+        isOpen={previewDocument !== null}
+        onClose={() => setPreviewDocument(null)}
+      />
     </aside>
   );
 }

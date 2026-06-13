@@ -168,7 +168,7 @@ export function CitationPanel({
         setDocChunks(prev => ({ ...prev, [docId]: chunks }))
       })
       .catch(err => {
-        console.error('Failed to load document chunks for CitationPanel:', err)
+        console.warn('[CitationPanel] Failed to load document chunks (will fallback to citation snippet):', err?.message || err)
         setDocChunks(prev => ({ ...prev, [docId]: [] }))
       })
       .finally(() => {

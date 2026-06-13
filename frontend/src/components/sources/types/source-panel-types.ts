@@ -78,8 +78,7 @@ export interface SourceCardProps {
   index: number;
   isSelected: boolean;
   onExpand: (key: string) => void;
-  onCopy: (id: string, text: string) => Promise<boolean>;
-  copiedId: string | null;
+  onPreview: (documentId: string, filename: string) => void;
 }
 
 export interface DocumentPreviewerProps {

@@ -172,7 +172,10 @@ export const PanelResizer = memo<ResizerProps>(
         className={cn(
           'absolute z-10 flex items-center justify-center bg-transparent hover:bg-primary/10 transition-colors',
           direction === 'horizontal'
-            ? 'top-0 right-0 bottom-0 cursor-col-resize'
+            ? cn(
+                'top-0 bottom-0 cursor-col-resize',
+                resizeFrom === 'start' ? 'left-0' : 'right-0'
+              )
             : 'left-0 right-0 cursor-row-resize',
           isResizing && 'bg-primary/20',
           className
@@ -222,7 +225,10 @@ export const PanelResizer = memo<ResizerProps>(
             className={cn(
               'absolute bg-primary text-primary-foreground text-xs font-mono px-2 py-1 rounded pointer-events-none',
               direction === 'horizontal'
-                ? '-right-16 top-1/2 -translate-y-1/2'
+                ? cn(
+                    'top-1/2 -translate-y-1/2',
+                    resizeFrom === 'start' ? '-left-16' : '-right-16'
+                  )
                 : '-bottom-8 left-1/2 -translate-x-1/2'
             )}
           >

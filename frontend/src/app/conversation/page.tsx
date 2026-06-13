@@ -35,6 +35,7 @@ function ConversationContent() {
         isLoading={chat.isLoading || storeLoading}
         isOptimistic={chat.isOptimistic}
         onSendMessage={chat.sendMessage}
+        onStopGenerating={chat.stopGenerating}
         onClearChat={chat.clearMessages}
         error={chat.error}
         retryMessage={chat.retryMessage}

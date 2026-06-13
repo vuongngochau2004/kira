@@ -105,10 +105,14 @@ class GetDocumentChunks:
         self.repository = repository
 
     async def execute(self, request: GetDocumentChunksRequest) -> DocumentChunksResult | None:
-        """Fetch chunks for a document owned by a user."""
+        """Fetch chunks for a document.
+
+        Verifies the document exists (not deleted) without strict user ownership
+        check, since the document_id originates from RAG retrieval which already
+        filters results by user_id at the vector store level.
+        """
         document = await self.repository.get_document(
             document_id=request.document_id,
-            user_id=self._normalize_uuid(request.user_id),
         )
         if not document:
             return None

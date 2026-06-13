@@ -1,5 +1,6 @@
 """Chat API endpoints - WebSocket and SSE streaming."""
 
+import asyncio
 import json
 import logging
 import re
@@ -35,6 +36,7 @@ from src.constants import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+MAX_STREAM_TEXT_PART_CHARS = 48
 
 
 # Request model for JSON body parsing
@@ -152,6 +154,33 @@ def _process_stream_content_chunk(chunk_data: dict) -> tuple[str, str]:
     text = chunk_data.get("text", "")
     sse_event = f"data: {json.dumps({'type': 'content', 'data': {'text': text}})}\n\n"
     return text, sse_event
+
+
+def _split_stream_text(text: str) -> list[str]:
+    """Split large provider chunks into smaller readable SSE content events."""
+    if not text or len(text) <= MAX_STREAM_TEXT_PART_CHARS:
+        return [text] if text else []
+
+    parts = re.findall(r"\S+\s*|\s+", text)
+    if not parts:
+        return [text]
+
+    result: list[str] = []
+    buffer = ""
+    for part in parts:
+        if buffer and len(buffer) + len(part) > MAX_STREAM_TEXT_PART_CHARS:
+            result.append(buffer)
+            buffer = part
+        else:
+            buffer += part
+    if buffer:
+        result.append(buffer)
+
+    return result
+
+
+def _content_sse_event(text: str) -> str:
+    return f"data: {json.dumps({'type': 'content', 'data': {'text': text}})}\n\n"
 
 
 
@@ -470,9 +499,11 @@ async def _stream_generator(
                 yield sse_event
 
             elif chunk_type == "content":
-                text, sse_event = _process_stream_content_chunk(chunk_data)
+                text, _ = _process_stream_content_chunk(chunk_data)
                 full_content.append(text)
-                yield sse_event
+                for text_part in _split_stream_text(text):
+                    yield _content_sse_event(text_part)
+                    await asyncio.sleep(0)
 
             elif chunk_type == "status":
                 yield f"data: {json.dumps({'type': 'status', 'data': chunk_data})}\n\n"
@@ -622,6 +653,11 @@ async def chat_stream(
             evaluation_metrics=request.evaluation_metrics,
         ),
         media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
