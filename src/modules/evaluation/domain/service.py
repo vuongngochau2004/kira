@@ -48,6 +48,9 @@ class DeepEvalEvaluationService:
 
         for raw_metric in request.metrics:
             metric = raw_metric.canonical
+            if self._should_skip_metric(metric, request):
+                continue
+
             if metric == EvaluationMetric.CITATION_ACCURACY:
                 score, reason = citation_accuracy(
                     expected=request.expected_citations,
@@ -197,6 +200,18 @@ class DeepEvalEvaluationService:
             passed=bounded >= self.threshold,
             reason=reason,
         )
+
+    @staticmethod
+    def _should_skip_metric(metric: EvaluationMetric, request: EvaluationRequest) -> bool:
+        """Skip DeepEval metrics that are not meaningful for refusal samples."""
+        if not request.should_refuse:
+            return False
+
+        return metric in {
+            EvaluationMetric.CONTEXTUAL_PRECISION,
+            EvaluationMetric.CONTEXTUAL_RECALL,
+            EvaluationMetric.CONTEXTUAL_RELEVANCY,
+        }
 
     @staticmethod
     def _aggregate(results: list[EvaluationResponse]) -> dict[str, float]:

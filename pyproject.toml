@@ -54,6 +54,9 @@ dev = [
     "deepeval>=3.0.0",
     "datasets>=2.18.0",
 ]
+docling = [
+    "docling>=2.55.0",
+]
 # Optional ML packages (require PyTorch - install separately for your platform)
 ml = [
     "torch>=2.0.0",

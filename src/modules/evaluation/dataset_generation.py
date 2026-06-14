@@ -33,7 +33,8 @@ Quy tắc bắt buộc:
 - Không dùng kiến thức ngoài context.
 - Câu hỏi phải trả lời được trực tiếp từ context.
 - expected_answer phải chính xác, ngắn gọn, không suy diễn.
-- answer_evidence phải là một đoạn trích ngắn có thật trong context.
+- answer_evidence phải là một đoạn trích NGUYÊN VĂN, liên tục, copy y hệt từ context.
+- Không được tự sửa lỗi OCR/chính tả trong answer_evidence.
 - Ưu tiên câu hỏi về điều kiện, phạm vi áp dụng, trách nhiệm, quy trình, mốc thời gian, tiêu chí.
 - Nếu context không đủ rõ để tạo câu hỏi chất lượng, trả về {"samples": []}.
 - Trả về JSON hợp lệ, không markdown, không giải thích ngoài JSON.
@@ -217,7 +218,10 @@ class IngestedChunkDatasetGenerator:
         for index, raw in enumerate(raw_samples):
             query = str(raw.get("query", "")).strip()
             expected_answer = str(raw.get("expected_answer", "")).strip()
+            answer_evidence = str(raw.get("answer_evidence", "")).strip()
             if not query or not expected_answer:
+                continue
+            if not self._has_exact_evidence(source.content, answer_evidence):
                 continue
 
             question_type = str(raw.get("question_type", "fact")).strip() or "fact"
@@ -243,7 +247,7 @@ class IngestedChunkDatasetGenerator:
                         "source_file": source.filename,
                         "document_id": source.document_id,
                         "chunk_index": source.chunk_index,
-                        "answer_evidence": str(raw.get("answer_evidence", "")).strip(),
+                        "answer_evidence": answer_evidence,
                         "generation_method": "ingested-chunk-llm",
                     },
                 )
@@ -268,7 +272,7 @@ class IngestedChunkDatasetGenerator:
                 GoldenDatasetSample(
                     id=sample_id,
                     query=query,
-                    expected_answer=None,
+                    expected_answer="Không tìm thấy thông tin trong tài liệu được cung cấp.",
                     reference_contexts=[],
                     expected_context_ids=[],
                     expected_citations=[],
@@ -300,6 +304,11 @@ class IngestedChunkDatasetGenerator:
                 return json.loads(match.group(0))
             except json.JSONDecodeError:
                 return {"samples": []}
+
+    @staticmethod
+    def _has_exact_evidence(context: str, evidence: str) -> bool:
+        """Return whether evidence is a useful exact substring of context."""
+        return len(evidence) >= 20 and evidence in context
 
     @staticmethod
     def _sample_id(source: SourceChunk, index: int, question_type: str) -> str:

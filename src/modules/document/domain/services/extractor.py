@@ -77,7 +77,12 @@ def _is_low_quality_text(text: str, lang: str = "vi") -> bool:
 
 
 async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> ExtractionResult:
-    """Extract text from PDF using PyMuPDF with OCR fallback for scanned pages.
+    """Extract text from PDF.
+
+    Docling is preferred for PDFs because it handles document layout and problematic
+    text layers better than plain native extraction. If Docling is not available or
+    fails for a document, the legacy PyMuPDF/PaddleOCR hybrid path is used as a
+    fallback so uploads can continue.
 
     Args:
         file_path: Path to PDF file
@@ -86,6 +91,75 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
     Returns:
         ExtractionResult with text and metadata
     """
+    from src.config.config import settings
+
+    if settings.pdf_extractor.lower() == "docling":
+        docling_result = await _extract_pdf_docling(file_path)
+        if docling_result.success:
+            return docling_result
+        logger.warning(
+            "Docling PDF extraction failed for %s; falling back to PyMuPDF/OCR: %s",
+            file_path,
+            docling_result.error,
+        )
+
+        fallback = await _extract_pdf_pymupdf(
+            file_path,
+            use_ocr_fallback=use_ocr_fallback,
+            force_ocr_all=True,
+        )
+        fallback.metadata["fallback_from"] = "docling"
+        fallback.metadata["docling_error"] = docling_result.error
+        return fallback
+
+    return await _extract_pdf_pymupdf(file_path, use_ocr_fallback=use_ocr_fallback)
+
+
+async def _extract_pdf_docling(file_path: str) -> ExtractionResult:
+    """Extract PDF text using Docling."""
+    logger.info("Extracting PDF using Docling: %s", file_path)
+    try:
+        import fitz
+        from docling.document_converter import DocumentConverter
+
+        converter = DocumentConverter()
+        result = await asyncio.to_thread(converter.convert, file_path)
+        text = result.document.export_to_markdown()
+
+        pages = 0
+        try:
+            doc = fitz.open(file_path)
+            pages = len(doc)
+            doc.close()
+        except Exception:
+            pages = 1
+
+        return ExtractionResult(
+            text=text,
+            pages=pages,
+            page_texts=[(0, text)] if text.strip() else [],
+            metadata={
+                "extractor": "docling",
+                "engine": "docling",
+                "ocr_used": True,
+                "extraction_method": "docling",
+            },
+            success=bool(text.strip()),
+        )
+    except Exception as e:
+        logger.error("Docling PDF extraction failed for %s: %s", file_path, e)
+        return ExtractionResult(
+            success=False,
+            error=f"Docling PDF extraction failed: {e}",
+        )
+
+
+async def _extract_pdf_pymupdf(
+    file_path: str,
+    use_ocr_fallback: bool = True,
+    force_ocr_all: bool = False,
+) -> ExtractionResult:
+    """Extract text from PDF using PyMuPDF with PaddleOCR fallback for scanned pages."""
     logger.info("Extracting PDF using PyMuPDF (native text): %s", file_path)
     try:
         import fitz
@@ -102,6 +176,11 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
         # First pass: extract text with PyMuPDF
         for page_num, page in enumerate(doc):
             page_text = page.get_text()
+            if force_ocr_all:
+                text_parts.append(page_text)
+                pages_needing_ocr.append(page_num)
+                continue
+
             # If the page has text and it is of acceptable quality, keep it.
             # Otherwise, route the page to OCR.
             if page_text.strip() and not _is_low_quality_text(page_text, lang=ocr_lang):
@@ -147,6 +226,8 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
                     # Update placeholder with OCR text
                     text_parts[page_num] = ocr_result.text
                     page_texts.append((page_num, ocr_result.text))  # Track OCR pages too
+                elif text_parts[page_num].strip():
+                    page_texts.append((page_num, text_parts[page_num]))
 
         doc.close()
 
@@ -162,6 +243,7 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
                 "ocr_used": True,
                 "ocr_pages": len(pages_needing_ocr),
                 "extraction_method": "ocr",
+                "force_ocr_all": force_ocr_all,
             },
             success=bool(full_text.strip()),
         )
@@ -392,7 +474,7 @@ async def extract_content(file_path: str, file_type: str) -> ExtractionResult:
         )
 
     if file_type == "pdf":
-        method_name = "PDF (native/OCR hybrid)"
+        method_name = "PDF (Docling preferred)"
     elif file_type in OCR_TYPES:
         method_name = "OCR image"
     else:

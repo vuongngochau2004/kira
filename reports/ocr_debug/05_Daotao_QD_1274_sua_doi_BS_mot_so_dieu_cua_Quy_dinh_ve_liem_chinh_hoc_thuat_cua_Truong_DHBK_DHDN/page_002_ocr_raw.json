@@ -1,0 +1,885 @@
+{
+  "lines": [
+    {
+      "text": "2",
+      "score": 1.0,
+      "box": [
+        [
+          904.0,
+          2370.0
+        ],
+        [
+          936.0,
+          2370.0
+        ],
+        [
+          936.0,
+          2407.0
+        ],
+        [
+          904.0,
+          2407.0
+        ]
+      ]
+    },
+    {
+      "text": "xã dụng phương tiện kỹ thuật mang tin hoặc truyền - nhận tin trong thời gian thi, trừ",
+      "score": 1.0,
+      "box": [
+        [
+          204.0,
+          2289.0
+        ],
+        [
+          1639.0,
+          2286.0
+        ],
+        [
+          1639.0,
+          2331.0
+        ],
+        [
+          204.0,
+          2333.0
+        ]
+      ]
+    },
+    {
+      "text": "vàiếngười khác thi hộ, làm bài hộ đối với trường hợp vi phạm lần thứ nhất; người học sử",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          2234.0
+        ],
+        [
+          1636.0,
+          2234.0
+        ],
+        [
+          1636.0,
+          2278.0
+        ],
+        [
+          207.0,
+          2278.0
+        ]
+      ]
+    },
+    {
+      "text": "200 - Đình chỉ học tập 12 tháng: áp dụng đôi với thí sinh đi thi hộ hoặc nhờ ngin",
+      "score": 1.0,
+      "box": [
+        [
+          316.0,
+          2181.0
+        ],
+        [
+          1636.0,
+          2181.0
+        ],
+        [
+          1636.0,
+          2218.0
+        ],
+        [
+          316.0,
+          2218.0
+        ]
+      ]
+    },
+    {
+      "text": "gian bị đình chỉ học tập.6 tháng.",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          2118.0
+        ],
+        [
+          751.0,
+          2121.0
+        ],
+        [
+          750.0,
+          2166.0
+        ],
+        [
+          207.0,
+          2163.0
+        ]
+      ]
+    },
+    {
+      "text": "Thời gian tối đa người học được phép học chương trình đào tạo bao gồm cả thời",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          2064.0
+        ],
+        [
+          1639.0,
+          2061.0
+        ],
+        [
+          1639.0,
+          2105.0
+        ],
+        [
+          207.0,
+          2108.0
+        ]
+      ]
+    },
+    {
+      "text": "người học có đủ điều kiện đề xét tốt nghiệp theo quy định của chương trình đào tạo.",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          2009.0
+        ],
+        [
+          1636.0,
+          2009.0
+        ],
+        [
+          1636.0,
+          2053.0
+        ],
+        [
+          207.0,
+          2053.0
+        ]
+      ]
+    },
+    {
+      "text": "Thường đày đào tạo mà vi phạm với hành vi này thì bị đình chỉ xét tôt nghiệp 6 tháng, kê từ khinhing",
+      "score": 1.0,
+      "box": [
+        [
+          209.0,
+          1956.0
+        ],
+        [
+          1636.0,
+          1956.0
+        ],
+        [
+          1636.0,
+          1993.0
+        ],
+        [
+          209.0,
+          1993.0
+        ]
+      ]
+    },
+    {
+      "text": "Cá t lý kỷ luật, Trường hợp người học đã học xong tấtát cả các học phân của chương trìnhoànhâu",
+      "score": 1.0,
+      "box": [
+        [
+          212.0,
+          1901.0
+        ],
+        [
+          1634.0,
+          1901.0
+        ],
+        [
+          1634.0,
+          1938.0
+        ],
+        [
+          212.0,
+          1938.0
+        ]
+      ]
+    },
+    {
+      "text": "các c đinh chỉ học là thời điêm tính từ khi thí sinh/người học vi phạm bị lập biên bản xử ch ch",
+      "score": 1.0,
+      "box": [
+        [
+          209.0,
+          1846.0
+        ],
+        [
+          1636.0,
+          1846.0
+        ],
+        [
+          1636.0,
+          1883.0
+        ],
+        [
+          209.0,
+          1883.0
+        ]
+      ]
+    },
+    {
+      "text": "được dự thi và phải nhận điểm O các môn còn lại trong học kỳ. Thời điểm bắt đầu",
+      "score": 1.0,
+      "box": [
+        [
+          204.0,
+          1786.0
+        ],
+        [
+          1636.0,
+          1783.0
+        ],
+        [
+          1636.0,
+          1828.0
+        ],
+        [
+          204.0,
+          1831.0
+        ]
+      ]
+    },
+    {
+      "text": "vàiến t bộ c coi thi công bố hình thức kỷ luật thi; phải nhận điểm 0 đối với môn thi; không nhành",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          1731.0
+        ],
+        [
+          1636.0,
+          1731.0
+        ],
+        [
+          1636.0,
+          1776.0
+        ],
+        [
+          207.0,
+          1776.0
+        ]
+      ]
+    },
+    {
+      "text": "thưnhười siê sin sinh và người học bị kỷ luật ở hình thức này phải ra khỏi phòng thi ngay sau khi cán n",
+      "score": 1.0,
+      "box": [
+        [
+          209.0,
+          1679.0
+        ],
+        [
+          1636.0,
+          1679.0
+        ],
+        [
+          1636.0,
+          1715.0
+        ],
+        [
+          209.0,
+          1715.0
+        ]
+      ]
+    },
+    {
+      "text": "Cám công tác sinh viên làm các thủ tục theo trình tự đề trình Hiệu trưởng quyết định. Thí",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          1621.0
+        ],
+        [
+          1636.0,
+          1621.0
+        ],
+        [
+          1636.0,
+          1666.0
+        ],
+        [
+          207.0,
+          1666.0
+        ]
+      ]
+    },
+    {
+      "text": "Nhưới triện công tác thi. Hình thức kỷ luật này do cán bộ coi thi lập biên bản và gửi về phòng trang th",
+      "score": 1.0,
+      "box": [
+        [
+          209.0,
+          1569.0
+        ],
+        [
+          1634.0,
+          1569.0
+        ],
+        [
+          1634.0,
+          1605.0
+        ],
+        [
+          209.0,
+          1605.0
+        ]
+      ]
+    },
+    {
+      "text": "vàunh thội thi; thi; người học không có tên trong danh sách thi nhưng vào phòng thi gây ảnh hưởng tranh",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          1514.0
+        ],
+        [
+          1634.0,
+          1514.0
+        ],
+        [
+          1634.0,
+          1550.0
+        ],
+        [
+          207.0,
+          1550.0
+        ]
+      ]
+    },
+    {
+      "text": "xãi thì có ghi rồ cho phép thí sinh sử dụng tài liệu, phương tiện kỹ thuật trong thời gian đờ c giang",
+      "score": 1.0,
+      "box": [
+        [
+          209.0,
+          1459.0
+        ],
+        [
+          1636.0,
+          1459.0
+        ],
+        [
+          1636.0,
+          1495.0
+        ],
+        [
+          209.0,
+          1495.0
+        ]
+      ]
+    },
+    {
+      "text": "2000",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          1404.0
+        ],
+        [
+          1634.0,
+          1404.0
+        ],
+        [
+          1634.0,
+          1440.0
+        ],
+        [
+          207.0,
+          1440.0
+        ]
+      ]
+    },
+    {
+      "text": "xã thuật mang tin, truyên - nhận tin (như: điện thoại, máy ảnh, đồng hô thông minh nhinh ng c",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          1349.0
+        ],
+        [
+          1628.0,
+          1349.0
+        ],
+        [
+          1628.0,
+          1385.0
+        ],
+        [
+          207.0,
+          1385.0
+        ]
+      ]
+    },
+    {
+      "text": "- Đình chỉ học tập 6 tháng: áp dụng đối với thí sinh mang phương tiện kỹ",
+      "score": 1.0,
+      "box": [
+        [
+          302.0,
+          1283.0
+        ],
+        [
+          1636.0,
+          1281.0
+        ],
+        [
+          1636.0,
+          1333.0
+        ],
+        [
+          302.0,
+          1336.0
+        ]
+      ]
+    },
+    {
+      "text": "phải nhận điểm 0 đối với môn học đó.",
+      "score": 1.0,
+      "box": [
+        [
+          204.0,
+          1226.0
+        ],
+        [
+          851.0,
+          1223.0
+        ],
+        [
+          851.0,
+          1267.0
+        ],
+        [
+          204.0,
+          1270.0
+        ]
+      ]
+    },
+    {
+      "text": "phải ra khỏi phòng thi ngay sau khi cán bộ coi thi công bố hình thức kỷ luật thi và",
+      "score": 1.0,
+      "box": [
+        [
+          204.0,
+          1171.0
+        ],
+        [
+          1639.0,
+          1168.0
+        ],
+        [
+          1639.0,
+          1212.0
+        ],
+        [
+          204.0,
+          1215.0
+        ]
+      ]
+    },
+    {
+      "text": "Trương Trưởng ban coi thi quyết định hình thức đình chỉ thi. Thí sinh bị kỷ luật đình chỉ thi thiểuậngiang",
+      "score": 1.0,
+      "box": [
+        [
+          209.0,
+          1118.0
+        ],
+        [
+          1634.0,
+          1118.0
+        ],
+        [
+          1634.0,
+          1155.0
+        ],
+        [
+          209.0,
+          1155.0
+        ]
+      ]
+    },
+    {
+      "text": "Triện thành lập Ban coi thi, cản bộ coi thi lập biên bản, thu tang vật (nêu có) và báo cáo t vinh",
+      "score": 1.0,
+      "box": [
+        [
+          209.0,
+          1063.0
+        ],
+        [
+          1634.0,
+          1063.0
+        ],
+        [
+          1634.0,
+          1100.0
+        ],
+        [
+          209.0,
+          1100.0
+        ]
+      ]
+    },
+    {
+      "text": "\"đề nghị vào biên bản và mục \"\"Ghi chứ\"\" trong \"\"Danh sách thi\"\" Đối với các kỳ thi có",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          1003.0
+        ],
+        [
+          1639.0,
+          1003.0
+        ],
+        [
+          1639.0,
+          1047.0
+        ],
+        [
+          207.0,
+          1047.0
+        ]
+      ]
+    },
+    {
+      "text": "Triếnhưới Hình thức kỳ luật đình chỉ thi do cán bộ coi thi lập biên bản, ghi rõ hình thức kỷ luật nhậnh",
+      "score": 1.0,
+      "box": [
+        [
+          209.0,
+          953.0
+        ],
+        [
+          1634.0,
+          953.0
+        ],
+        [
+          1634.0,
+          990.0
+        ],
+        [
+          209.0,
+          990.0
+        ]
+      ]
+    },
+    {
+      "text": "có p phòng thi; đưa đề thi ra ngoài khu vực thi hoặc nhận bài giải từ ngoài vào phòng thi.",
+      "score": 1.0,
+      "box": [
+        [
+          204.0,
+          893.0
+        ],
+        [
+          1631.0,
+          890.0
+        ],
+        [
+          1631.0,
+          935.0
+        ],
+        [
+          204.0,
+          938.0
+        ]
+      ]
+    },
+    {
+      "text": "vàiề các cáo một lân nhưng trong giờ thi môn đó vân tiếp tục vì phạm; mang tài liệu vào tệ vi n nàong",
+      "score": 1.0,
+      "box": [
+        [
+          209.0,
+          841.0
+        ],
+        [
+          1634.0,
+          841.0
+        ],
+        [
+          1634.0,
+          877.0
+        ],
+        [
+          209.0,
+          877.0
+        ]
+      ]
+    },
+    {
+      "text": "Ngường 1 - Đình chỉ thi: áp dụng đối với thí sinh vi phạm một trong các lối: đã bị cảnh nh nh",
+      "score": 1.0,
+      "box": [
+        [
+          310.0,
+          786.0
+        ],
+        [
+          1634.0,
+          786.0
+        ],
+        [
+          1634.0,
+          822.0
+        ],
+        [
+          310.0,
+          822.0
+        ]
+      ]
+    },
+    {
+      "text": "thể xem xét giảm từ mức kỷ luật cảnh cáo xuống mức khiển trách.",
+      "score": 1.0,
+      "box": [
+        [
+          201.0,
+          720.0
+        ],
+        [
+          1328.0,
+          717.0
+        ],
+        [
+          1329.0,
+          762.0
+        ],
+        [
+          202.0,
+          765.0
+        ]
+      ]
+    },
+    {
+      "text": "nhưng người bị xử lý có đủ bằng chứng chứng minh mình bị quay cóp thì Nhà trường có",
+      "score": 1.0,
+      "box": [
+        [
+          204.0,
+          665.0
+        ],
+        [
+          1639.0,
+          665.0
+        ],
+        [
+          1639.0,
+          710.0
+        ],
+        [
+          204.0,
+          710.0
+        ]
+      ]
+    },
+    {
+      "text": "\"Danh sách thi\". Những bài thi đã có kết luận là giống nhau thì xử lý như nhau, Nều",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          610.0
+        ],
+        [
+          1636.0,
+          610.0
+        ],
+        [
+          1636.0,
+          655.0
+        ],
+        [
+          207.0,
+          655.0
+        ]
+      ]
+    },
+    {
+      "text": "Thọ lập biên bản, ghi rõ hình thức kỷ luật đề nghị vào biên bản và mục ?Ghi chứ\" trong",
+      "score": 1.0,
+      "box": [
+        [
+          202.0,
+          553.0
+        ],
+        [
+          1636.0,
+          555.0
+        ],
+        [
+          1636.0,
+          600.0
+        ],
+        [
+          202.0,
+          597.0
+        ]
+      ]
+    },
+    {
+      "text": "trừ 50% số điểm của bài thi tương ứng. Hình thức kỷ luật cảnh cáo do cán bộ coi thi",
+      "score": 1.0,
+      "box": [
+        [
+          202.0,
+          495.0
+        ],
+        [
+          1636.0,
+          498.0
+        ],
+        [
+          1636.0,
+          542.0
+        ],
+        [
+          202.0,
+          539.0
+        ]
+      ]
+    },
+    {
+      "text": "Cáiếnh ch hoặc giây nháp cho bạn; chép bài của người khác. Thí sinh bị kỷ luật cảnh cáo sẽ bị t t n",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          448.0
+        ],
+        [
+          1634.0,
+          448.0
+        ],
+        [
+          1634.0,
+          484.0
+        ],
+        [
+          207.0,
+          484.0
+        ]
+      ]
+    },
+    {
+      "text": "vàungiến t t trách một lần nhưng trong giờ thi môn đó vấn tiếp tục vi phạm; trao đôi bài làm tri",
+      "score": 1.0,
+      "box": [
+        [
+          204.0,
+          388.0
+        ],
+        [
+          1634.0,
+          388.0
+        ],
+        [
+          1634.0,
+          432.0
+        ],
+        [
+          204.0,
+          432.0
+        ]
+      ]
+    },
+    {
+      "text": "- Cảnh cảo: áp dụng đối với thí sinh vi phạm một trong các lỗi: đã bị khiên",
+      "score": 1.0,
+      "box": [
+        [
+          308.0,
+          333.0
+        ],
+        [
+          1633.0,
+          333.0
+        ],
+        [
+          1633.0,
+          377.0
+        ],
+        [
+          308.0,
+          377.0
+        ]
+      ]
+    },
+    {
+      "text": "ứng.",
+      "score": 1.0,
+      "box": [
+        [
+          204.0,
+          275.0
+        ],
+        [
+          281.0,
+          275.0
+        ],
+        [
+          281.0,
+          314.0
+        ],
+        [
+          204.0,
+          314.0
+        ]
+      ]
+    },
+    {
+      "text": "sách thi?. Thí sinh bị kỷ luật khiến trách sẽ bị trừ 25% số điểm của bài thi tương",
+      "score": 1.0,
+      "box": [
+        [
+          199.0,
+          207.0
+        ],
+        [
+          1639.0,
+          212.0
+        ],
+        [
+          1639.0,
+          265.0
+        ],
+        [
+          199.0,
+          259.0
+        ]
+      ]
+    },
+    {
+      "text": "\"Troải bả bản, ghi rò hình thức kỷ luật đê nghị vào biên bản và mục \"Ghi chứ\" troàng\"",
+      "score": 1.0,
+      "box": [
+        [
+          207.0,
+          162.0
+        ],
+        [
+          1631.0,
+          162.0
+        ],
+        [
+          1631.0,
+          199.0
+        ],
+        [
+          207.0,
+          199.0
+        ]
+      ]
+    }
+  ],
+  "text": "2\nxã dụng phương tiện kỹ thuật mang tin hoặc truyền - nhận tin trong thời gian thi, trừ\nvàiếngười khác thi hộ, làm bài hộ đối với trường hợp vi phạm lần thứ nhất; người học sử\n200 - Đình chỉ học tập 12 tháng: áp dụng đôi với thí sinh đi thi hộ hoặc nhờ ngin\ngian bị đình chỉ học tập.6 tháng.\nThời gian tối đa người học được phép học chương trình đào tạo bao gồm cả thời\nngười học có đủ điều kiện đề xét tốt nghiệp theo quy định của chương trình đào tạo.\nThường đày đào tạo mà vi phạm với hành vi này thì bị đình chỉ xét tôt nghiệp 6 tháng, kê từ khinhing\nCá t lý kỷ luật, Trường hợp người học đã học xong tấtát cả các học phân của chương trìnhoànhâu\ncác c đinh chỉ học là thời điêm tính từ khi thí sinh/người học vi phạm bị lập biên bản xử ch ch\nđược dự thi và phải nhận điểm O các môn còn lại trong học kỳ. Thời điểm bắt đầu\nvàiến t bộ c coi thi công bố hình thức kỷ luật thi; phải nhận điểm 0 đối với môn thi; không nhành\nthưnhười siê sin sinh và người học bị kỷ luật ở hình thức này phải ra khỏi phòng thi ngay sau khi cán n\nCám công tác sinh viên làm các thủ tục theo trình tự đề trình Hiệu trưởng quyết định. Thí\nNhưới triện công tác thi. Hình thức kỷ luật này do cán bộ coi thi lập biên bản và gửi về phòng trang th\nvàunh thội thi; thi; người học không có tên trong danh sách thi nhưng vào phòng thi gây ảnh hưởng tranh\nxãi thì có ghi rồ cho phép thí sinh sử dụng tài liệu, phương tiện kỹ thuật trong thời gian đờ c giang\n2000\nxã thuật mang tin, truyên - nhận tin (như: điện thoại, máy ảnh, đồng hô thông minh nhinh ng c\n- Đình chỉ học tập 6 tháng: áp dụng đối với thí sinh mang phương tiện kỹ\nphải nhận điểm 0 đối với môn học đó.\nphải ra khỏi phòng thi ngay sau khi cán bộ coi thi công bố hình thức kỷ luật thi và\nTrương Trưởng ban coi thi quyết định hình thức đình chỉ thi. Thí sinh bị kỷ luật đình chỉ thi thiểuậngiang\nTriện thành lập Ban coi thi, cản bộ coi thi lập biên bản, thu tang vật (nêu có) và báo cáo t vinh\n\"đề nghị vào biên bản và mục \"\"Ghi chứ\"\" trong \"\"Danh sách thi\"\" Đối với các kỳ thi có\nTriếnhưới Hình thức kỳ luật đình chỉ thi do cán bộ coi thi lập biên bản, ghi rõ hình thức kỷ luật nhậnh\ncó p phòng thi; đưa đề thi ra ngoài khu vực thi hoặc nhận bài giải từ ngoài vào phòng thi.\nvàiề các cáo một lân nhưng trong giờ thi môn đó vân tiếp tục vì phạm; mang tài liệu vào tệ vi n nàong\nNgường 1 - Đình chỉ thi: áp dụng đối với thí sinh vi phạm một trong các lối: đã bị cảnh nh nh\nthể xem xét giảm từ mức kỷ luật cảnh cáo xuống mức khiển trách.\nnhưng người bị xử lý có đủ bằng chứng chứng minh mình bị quay cóp thì Nhà trường có\n\"Danh sách thi\". Những bài thi đã có kết luận là giống nhau thì xử lý như nhau, Nều\nThọ lập biên bản, ghi rõ hình thức kỷ luật đề nghị vào biên bản và mục ?Ghi chứ\" trong\ntrừ 50% số điểm của bài thi tương ứng. Hình thức kỷ luật cảnh cáo do cán bộ coi thi\nCáiếnh ch hoặc giây nháp cho bạn; chép bài của người khác. Thí sinh bị kỷ luật cảnh cáo sẽ bị t t n\nvàungiến t t trách một lần nhưng trong giờ thi môn đó vấn tiếp tục vi phạm; trao đôi bài làm tri\n- Cảnh cảo: áp dụng đối với thí sinh vi phạm một trong các lỗi: đã bị khiên\nứng.\nsách thi?. Thí sinh bị kỷ luật khiến trách sẽ bị trừ 25% số điểm của bài thi tương\n\"Troải bả bản, ghi rò hình thức kỷ luật đê nghị vào biên bản và mục \"Ghi chứ\" troàng\""
+}

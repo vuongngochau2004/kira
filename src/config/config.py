@@ -161,6 +161,7 @@ class Settings(BaseSettings):
     ocr_timeout: int = Field(30)  # seconds per request
     ocr_max_retries: int = Field(3)
     ocr_batch_size: int = Field(5)  # concurrent pages
+    pdf_extractor: str = Field("docling")  # docling, pymupdf
 
     # ----- Semantic Routing (from settings.yaml) -----
     semantic_routing_enabled: bool = Field(
