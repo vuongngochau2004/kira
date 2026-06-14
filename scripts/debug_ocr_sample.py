@@ -1,12 +1,21 @@
-"""Render PDF pages and export OCR/native extraction outputs for inspection."""
+"""Debug document extraction using the project's real processing path.
+
+By default this script runs the same extractor path used by document ingestion:
+the configured PDF extractor, quality gates, and fallback chain. Use
+``--mode page-ocr`` to run the older per-page OCR/native debug.
+"""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
+import logging
+import os
 import re
 import sys
+import time
+from dataclasses import asdict
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -18,16 +27,26 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config.config import settings  # noqa: E402
-from src.modules.document.domain.services.extractor import _is_low_quality_text  # noqa: E402
+from src.modules.document.domain.services.extractor import (  # noqa: E402
+    _analyze_vietnamese_text_quality,
+    _is_low_quality_text,
+    extract_content,
+)
 from src.modules.document.infrastructure.ocr.ocr_client import get_ocr_client  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Export PDF page images, OCR text, native text, and OCR overlays.",
+        description="Export document extraction outputs for inspection.",
     )
-    parser.add_argument("pdfs", nargs="+")
+    parser.add_argument("documents", nargs="+")
     parser.add_argument("--output-dir", default="reports/ocr_debug")
+    parser.add_argument(
+        "--mode",
+        choices=["pipeline", "page-ocr"],
+        default="pipeline",
+        help="pipeline runs the project extractor; page-ocr exports per-page OCR/native debug.",
+    )
     parser.add_argument("--pages", default="1-2", help="1-based pages, e.g. 1,3,5 or 1-3")
     parser.add_argument("--zoom", type=float, default=3.0)
     parser.add_argument("--lang", default=None)
@@ -53,6 +72,89 @@ def parse_pages(spec: str, total_pages: int) -> list[int]:
         else:
             pages.add(int(part))
     return [page - 1 for page in sorted(pages) if 1 <= page <= total_pages]
+
+
+def get_file_type(path: Path) -> str:
+    return path.suffix.lower().lstrip(".") or "txt"
+
+
+async def debug_pipeline(document_path: Path, output_root: Path, lang: str | None) -> None:
+    """Run the same extraction path used by the ingestion pipeline."""
+    doc_dir = output_root / slugify(document_path.stem)
+    doc_dir.mkdir(parents=True, exist_ok=True)
+    file_type = get_file_type(document_path)
+    ocr_lang = lang or settings.ocr_lang
+
+    start = time.perf_counter()
+    result = await extract_content(str(document_path), file_type)
+    elapsed = time.perf_counter() - start
+
+    text = result.text or ""
+    quality_report = _analyze_vietnamese_text_quality(
+        text,
+        lang=ocr_lang,
+        fallback_score=settings.docling_quality_fallback_score,
+    )
+
+    processed_path = doc_dir / "processed_text.md"
+    metadata_path = doc_dir / "metadata.json"
+    quality_path = doc_dir / "quality.json"
+    summary_path = doc_dir / "summary.md"
+
+    processed_path.write_text(text, encoding="utf-8")
+    metadata_path.write_text(
+        json.dumps(result.metadata, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    quality_path.write_text(
+        json.dumps(asdict(quality_report), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    summary = [
+        f"# Pipeline Debug: {document_path.name}",
+        "",
+        f"- Mode: `pipeline`",
+        f"- File type: `{file_type}`",
+        f"- Success: `{result.success}`",
+        f"- Error: `{result.error or ''}`",
+        f"- Elapsed seconds: `{elapsed:.2f}`",
+        f"- Pages: `{result.pages}`",
+        f"- Output chars: `{len(text)}`",
+        f"- Extractor: `{result.metadata.get('extractor', '')}`",
+        f"- Extraction method: `{result.metadata.get('extraction_method', '')}`",
+        f"- OCR used: `{result.metadata.get('ocr_used', False)}`",
+        f"- OCR pages: `{result.metadata.get('ocr_pages', '')}`",
+        f"- Fallback from: `{result.metadata.get('fallback_from', '')}`",
+        f"- Force OCR all: `{result.metadata.get('force_ocr_all', False)}`",
+        f"- VLM model: `{result.metadata.get('model', '')}`",
+        f"- Render DPI: `{result.metadata.get('render_dpi', '')}`",
+        f"- Page concurrency: `{result.metadata.get('page_concurrency', '')}`",
+        f"- Verify only failed pages: `{result.metadata.get('verify_only_failed_pages', '')}`",
+        f"- Canonicalization: `{result.metadata.get('canonicalization', {})}`",
+        f"- Quality status: `{result.metadata.get('quality_status', '')}`",
+        f"- Page warnings: `{result.metadata.get('page_warnings', [])}`",
+        f"- Audit path: `{result.metadata.get('audit_path', '')}`",
+        f"- Docling quality score: `{result.metadata.get('docling_quality', {}).get('score', '')}`",
+        f"- Docling quality issues: `{', '.join(result.metadata.get('docling_quality', {}).get('issues', []))}`",
+        f"- Final quality score: `{quality_report.score}`",
+        f"- Final quality issues: `{', '.join(quality_report.issues)}`",
+        "",
+        "## Files",
+        "",
+        f"- Processed text: `{processed_path.name}`",
+        f"- Metadata: `{metadata_path.name}`",
+        f"- Final quality: `{quality_path.name}`",
+        "",
+        "## Preview",
+        "",
+        "```text",
+        text[:3000],
+        "```",
+        "",
+    ]
+    summary_path.write_text("\n".join(summary), encoding="utf-8")
+    print(f"Wrote pipeline debug output: {doc_dir}")
 
 
 def draw_overlay(image_bytes: bytes, raw_response: dict[str, Any] | None) -> bytes:
@@ -154,12 +256,25 @@ async def debug_pdf(pdf_path: Path, output_root: Path, pages_spec: str, zoom: fl
 
 
 async def main_async() -> int:
+    log_level = logging.DEBUG if os.getenv("DEBUG", "").lower() == "true" else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
     args = build_parser().parse_args()
     output_root = Path(args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
 
-    for pdf in args.pdfs:
-        await debug_pdf(Path(pdf), output_root, args.pages, args.zoom, args.lang)
+    for document in args.documents:
+        document_path = Path(document)
+        if args.mode == "pipeline":
+            await debug_pipeline(document_path, output_root, args.lang)
+        else:
+            if get_file_type(document_path) != "pdf":
+                print(f"Skipping non-PDF for page OCR mode: {document_path}", file=sys.stderr)
+                continue
+            await debug_pdf(document_path, output_root, args.pages, args.zoom, args.lang)
 
     return 0
 

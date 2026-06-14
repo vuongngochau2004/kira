@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     jwt_audience: str = "kira-clients"
 
     # ----- LLM Provider -----
-    llm_provider: str = "glm"  # glm, gemini, openai
+    llm_provider: str = "glm"  # glm, gemini, openai_compatible, ollama
 
     # Z.ai GLM (Anthropic-compatible, default for Vietnamese)
     glm_api_url: str = "https://api.z.ai/api/anthropic"
@@ -97,6 +97,11 @@ class Settings(BaseSettings):
 
     # OpenAI (optional)
     openai_api_key: str = ""
+
+    # Ollama Cloud / OpenAI-compatible Ollama endpoint
+    ollama_base_url: str = "https://ollama.com"
+    ollama_api_keys: str = ""
+    ollama_model: str = "gemma4:31b-cloud"
 
     # ----- Embedding (from settings.yaml) -----
     embedding_provider: str = "aivn"
@@ -161,7 +166,23 @@ class Settings(BaseSettings):
     ocr_timeout: int = Field(30)  # seconds per request
     ocr_max_retries: int = Field(3)
     ocr_batch_size: int = Field(5)  # concurrent pages
-    pdf_extractor: str = Field("docling")  # docling, pymupdf
+    pdf_extractor: str = Field("vlm")  # vlm, docling, pymupdf
+    docling_quality_gate_enabled: bool = Field(True)
+    docling_quality_fallback_score: int = Field(3)
+    pdf_render_dpi: int = Field(300)
+    vlm_image_max_side: int = Field(2200)
+    vlm_image_jpeg_quality: int = Field(88)
+    vlm_transcription_timeout: int = Field(120)
+    vlm_transcription_max_tokens: int = Field(4096)
+    vlm_page_verification_enabled: bool = Field(True)
+    vlm_verify_only_failed_pages: bool = Field(True)
+    vlm_page_concurrency: int = Field(2)
+    vlm_min_page_coverage_ratio: float = Field(0.7)
+    document_audit_enabled: bool = Field(True)
+    document_audit_dir: str = Field("reports/document_processing")
+    legal_canonicalization_enabled: bool = Field(False)
+    legal_canonicalization_max_chars: int = Field(60000)
+    legal_chunking_enabled: bool = Field(True)
 
     # ----- Semantic Routing (from settings.yaml) -----
     semantic_routing_enabled: bool = Field(

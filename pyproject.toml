@@ -35,10 +35,6 @@ dependencies = [
     "websockets>=12.0",
     "python-magic>=0.4.27",
     "loguru>=0.7.0",
-    # ML packages - install with: uv sync --extra ml
-    # "torch>=2.0.0",  # No macOS x86_64 wheels, install manually
-    # "sentence-transformers>=2.2.2",
-    # "semantic-router>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -56,10 +52,10 @@ dev = [
 ]
 docling = [
     "docling>=2.55.0",
+    "torch>=2.5.0,<2.6.0",
 ]
-# Optional ML packages (require PyTorch - install separately for your platform)
 ml = [
-    "torch>=2.0.0",
+    "torch>=2.5.0,<2.6.0",
     "sentence-transformers>=2.2.2",
     "semantic-router>=0.1.0",
 ]
@@ -75,6 +71,14 @@ include = ["config*", "src*"]
 # Disable package mode for application development
 [tool.uv]
 package = false
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu121" }
 
 [tool.ruff]
 target-version = "py312"
@@ -93,12 +97,3 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 pythonpath = ["src", "."]
-
-# Note: PyTorch with CUDA support can be configured per-platform
-# For Linux/Windows with CUDA, uncomment below:
-# [[tool.uv.index]]
-# name = "pytorch-cu124"
-# url = "https://download.pytorch.org/whl/cu124"
-# explicit = true
-# [tool.uv.sources]
-# torch = { index = "pytorch-cu124" }

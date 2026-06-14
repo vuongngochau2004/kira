@@ -21,6 +21,7 @@ class LLMProvider(str, Enum):
     GLM = "glm"
     GEMINI = "gemini"
     OPENAI_COMPATIBLE = "openai_compatible"
+    OLLAMA = "ollama"
 
 
 class LLMError(Exception):
@@ -113,6 +114,11 @@ async def chat_async(
             return await _chat_gemini_async(
                 messages, model, temperature, max_tokens, timeout
             )
+        elif provider == LLMProvider.OLLAMA:
+            model = model or settings.ollama_model
+            return await _chat_ollama_async(
+                messages, model, temperature, max_tokens, timeout
+            )
         else:
             model = model or settings.bk_llm_model or "gpt-3.5-turbo"
             return await _chat_openai_async(
@@ -170,6 +176,12 @@ async def chat_async_stream(
         elif provider == LLMProvider.GEMINI:
             model = model or settings.gemini_model
             async for chunk in _chat_gemini_stream(
+                messages, model, temperature, max_tokens, timeout
+            ):
+                yield chunk
+        elif provider == LLMProvider.OLLAMA:
+            model = model or settings.ollama_model
+            async for chunk in _chat_ollama_stream(
                 messages, model, temperature, max_tokens, timeout
             ):
                 yield chunk
@@ -510,6 +522,94 @@ async def _chat_openai_stream(
                         yield delta["content"]
                 except (json.JSONDecodeError, KeyError, IndexError) as e:
                     logger.debug(f"[OpenAI Stream] Failed to parse chunk: {e}")
+                    continue
+
+
+def _ollama_api_key() -> str:
+    """Return the first configured Ollama API key."""
+    return settings.ollama_api_keys.split(",", 1)[0].strip()
+
+
+def _ollama_chat_url() -> str:
+    """Return Ollama's OpenAI-compatible chat completions URL."""
+    return f"{settings.ollama_base_url.rstrip('/')}/v1/chat/completions"
+
+
+async def _chat_ollama_async(
+    messages: list[dict[str, str]],
+    model: str,
+    temperature: float,
+    max_tokens: int,
+    timeout: float,
+) -> dict[str, str]:
+    """Async Ollama Cloud chat via its OpenAI-compatible endpoint."""
+    import httpx
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {_ollama_api_key()}",
+    }
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.post(_ollama_chat_url(), json=payload, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
+
+    content = data["choices"][0]["message"]["content"]
+    return {"content": content, "model": model, "provider": LLMProvider.OLLAMA.value}
+
+
+async def _chat_ollama_stream(
+    messages: list[dict[str, str]],
+    model: str,
+    temperature: float,
+    max_tokens: int,
+    timeout: float,
+) -> AsyncIterator[str]:
+    """Stream Ollama Cloud chat via its OpenAI-compatible endpoint."""
+    import httpx
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {_ollama_api_key()}",
+    }
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": True,
+    }
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        async with client.stream(
+            "POST",
+            _ollama_chat_url(),
+            json=payload,
+            headers=headers,
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data: "):
+                    continue
+
+                data_str = line[6:].strip()
+                if data_str == "[DONE]":
+                    break
+
+                try:
+                    data = json.loads(data_str)
+                    delta = data["choices"][0].get("delta", {})
+                    if "content" in delta and delta["content"]:
+                        yield delta["content"]
+                except (json.JSONDecodeError, KeyError, IndexError) as e:
+                    logger.debug(f"[Ollama Stream] Failed to parse chunk: {e}")
                     continue
 
 

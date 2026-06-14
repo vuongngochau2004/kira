@@ -6,10 +6,21 @@ Migrated from src/ingestion/cleaner.py
 import re
 import unicodedata
 
+PAGE_MARKER_PATTERN = re.compile(r"<!--\s*page\s+\d+\s*-->", re.IGNORECASE)
+
 
 def _strip_html(text: str) -> str:
-    """Remove HTML tags from text, preserving content."""
+    """Remove HTML tags while preserving extractor page markers."""
+    page_markers: list[str] = []
+
+    def preserve_page_marker(match: re.Match[str]) -> str:
+        page_markers.append(match.group(0))
+        return f"__KIRA_PAGE_MARKER_{len(page_markers) - 1}__"
+
+    text = PAGE_MARKER_PATTERN.sub(preserve_page_marker, text)
     clean = re.sub(r"<[^>]+>", " ", text)
+    for index, marker in enumerate(page_markers):
+        clean = clean.replace(f"__KIRA_PAGE_MARKER_{index}__", marker)
     return clean
 
 
