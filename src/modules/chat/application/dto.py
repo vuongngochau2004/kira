@@ -31,7 +31,7 @@ class ChatQuery:
         conversation_id: Optional existing conversation ID
         conversation_history: Optional prior messages for context
         context: Optional additional context dict
-        evaluate: Whether to run RAGAS evaluation
+        evaluate: Whether to run DeepEval evaluation
         evaluation_metrics: Optional specific metrics to evaluate
     """
 

@@ -485,7 +485,7 @@ async def _stream_generator(
     - content: Text chunks from LLM
     - thinking: LLM reasoning chunks
     - metadata: Final metadata with citations
-    - evaluation: RAGAS evaluation results (if enabled)
+    - evaluation: DeepEval evaluation results (if enabled)
     - done: Completion signal
     """
     chat_use_case = await get_chat_use_case()
@@ -589,7 +589,7 @@ async def _stream_generator(
                     )
                 }\n\n"
 
-                # RAGAS Evaluation (optional)
+                # DeepEval evaluation (optional)
                 if evaluate:
                     try:
                         yield f"data: {json.dumps({'type': 'evaluation_start', 'data': {}})}\n\n"
@@ -611,7 +611,7 @@ async def _stream_generator(
                                 try:
                                     metric_enums.append(EvaluationMetric(m))
                                 except ValueError:
-                                    logger.warning(f"[RAGAS EVAL] Invalid metric: {m}")
+                                    logger.warning(f"[DEEPEVAL] Invalid metric: {m}")
 
                             if metric_enums:
                                 eval_request = EvaluationRequest(
@@ -631,7 +631,7 @@ async def _stream_generator(
                             yield f"data: {json.dumps({'type': 'evaluation_error', 'data': {'error': 'No contexts to evaluate'}})}\n\n"
 
                     except Exception as e:
-                        logger.error(f"[RAGAS EVAL] Real-time evaluation failed: {e}")
+                        logger.error(f"[DEEPEVAL] Real-time evaluation failed: {e}")
                         yield f"data: {json.dumps({'type': 'evaluation_error', 'data': {'error': str(e)}})}\n\n"
 
                 # Emit done signal

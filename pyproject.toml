@@ -50,8 +50,8 @@ dev = [
     "aiosqlite>=0.19.0",
     "ruff>=0.2.0",
     "mypy>=1.8.0",
-    # RAGAS Evaluation
-    "ragas>=0.1.0",
+    # RAG and agent evaluation
+    "deepeval>=3.0.0",
     "datasets>=2.18.0",
 ]
 # Optional ML packages (require PyTorch - install separately for your platform)

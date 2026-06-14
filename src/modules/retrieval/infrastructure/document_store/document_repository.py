@@ -150,8 +150,6 @@ async def get_documents_batch(
         return {}
 
     try:
-        session = await _get_session(db)
-
         # Convert string IDs to UUID for query
         uuid_ids = []
         for doc_id in document_ids:
@@ -176,14 +174,20 @@ async def get_documents_batch(
         if user_id is not None:
             query = query.where(Document.user_id == user_id)
 
-        result = await session.execute(query)
-        documents = result.scalars().all()
+        async def _execute_query(session: AsyncSession) -> dict[str, str]:
+            result = await session.execute(query)
+            documents = result.scalars().all()
+            return {str(doc.id): doc.filename for doc in documents}
 
-        # Return {document_id: filename} mapping
-        return {str(doc.id): doc.filename for doc in documents}
+        if db is not None:
+            return await _execute_query(db)
+        
+        from src.shared.infrastructure.persistence.database.session import async_session_factory
+        async with async_session_factory() as session:
+            return await _execute_query(session)
 
     except Exception as e:
-        logger.error(f"Batch document query failed: {e}")
+        logger.error(f"Batch document query failed: {e}", exc_info=True)
         return {}
 
 

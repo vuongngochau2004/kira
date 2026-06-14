@@ -19,7 +19,9 @@ Example:
     docs = get_retrieval_docs(state)
 """
 
+import json
 import logging
+import re
 from typing import List, Dict, Any, AsyncIterator, Optional
 import time
 from uuid import UUID
@@ -474,13 +476,9 @@ class RetrievalAgent:
         self, query: str, documents: List[DocumentWithScore]
     ) -> List[DocumentWithScore]:
         """
-        Rerank documents using cross-encoder or content overlap.
+        Rerank documents using structured LLM output or content overlap fallback.
 
         Merged functionality from RerankingAgent.
-
-        TODO: Implement cross-encoder reranking with models like:
-        - BAAI/bge-reranker-v2-m3
-        - cross-encoder/ms-marco-MiniLM-L-6-v2
 
         Args:
             query: Original query
@@ -492,9 +490,174 @@ class RetrievalAgent:
         if not documents or not self.config.enable_reranking:
             return documents
 
-        # TODO: Implement cross-encoder reranking
-        # For now, use content overlap fallback
-        return self._fallback_reranking(query, documents)
+        if self.llm_client is None:
+            logger.warning("LLM reranking skipped because llm_client is not configured")
+            return self._fallback_reranking(query, documents)
+
+        try:
+            return await self._llm_reranking(query, documents)
+        except Exception as e:
+            logger.warning("LLM reranking failed, using content-overlap fallback: %s", e)
+            return self._fallback_reranking(query, documents)
+
+    async def _llm_reranking(
+        self, query: str, documents: List[DocumentWithScore]
+    ) -> List[DocumentWithScore]:
+        """Rerank documents through deterministic structured JSON from the LLM."""
+        prompt = self._build_llm_reranking_prompt(query, documents)
+        raw = await self.llm_client.generate(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=1200,
+        )
+        rankings = self._parse_llm_reranking_response(raw, len(documents))
+        reranked_docs = self._apply_llm_rankings(documents, rankings)
+
+        if not reranked_docs:
+            raise ValueError("LLM reranking returned no valid rankings")
+
+        logger.info(
+            "LLM reranking completed: candidates=%s, returned=%s",
+            len(documents),
+            min(len(reranked_docs), self.config.rerank_top_k),
+        )
+        return reranked_docs[: self.config.rerank_top_k]
+
+    def _build_llm_reranking_prompt(
+        self, query: str, documents: List[DocumentWithScore]
+    ) -> str:
+        """Build a structured-output reranking prompt."""
+        formatted_docs = []
+        for index, doc in enumerate(documents):
+            content = doc.content[:1200]
+            formatted_docs.append(
+                "\n".join(
+                    [
+                        f"[{index}] filename={doc.filename}",
+                        f"page={doc.page_number}, chunk={doc.chunk_index}, retrieval_score={doc.score:.4f}",
+                        f"content={content}",
+                    ]
+                )
+            )
+
+        return f"""Bạn là bộ reranker cho hệ thống RAG tiếng Việt.
+
+Nhiệm vụ: xếp hạng các đoạn tài liệu theo mức độ hữu ích để trả lời câu hỏi.
+
+CÂU HỎI:
+{query}
+
+TÀI LIỆU ỨNG VIÊN:
+{chr(10).join(formatted_docs)}
+
+Trả về DUY NHẤT một JSON object hợp lệ theo schema:
+{{
+  "rankings": [
+    {{"index": ..., "score": ..., "reason": "lý do rất ngắn"}}
+  ]
+}}
+
+Quy tắc:
+- "index" phải là chỉ số tài liệu trong danh sách ứng viên.
+- "score" là độ liên quan từ 0.0 đến 1.0.
+- Sắp xếp "rankings" từ liên quan nhất đến ít liên quan nhất.
+- Ưu tiên đoạn trực tiếp chứa quy định, điều khoản, điều kiện, quy trình, mốc thời gian, đối tượng áp dụng.
+- Không loại bỏ tài liệu chỉ vì retrieval_score thấp nếu nội dung trả lời trực tiếp câu hỏi.
+- Không thêm markdown, không giải thích ngoài JSON."""
+
+    def _parse_llm_reranking_response(
+        self, raw: str, num_documents: int
+    ) -> List[Dict[str, Any]]:
+        """Parse and validate structured LLM reranking output."""
+        text = (raw or "").strip()
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+            if not match:
+                raise
+            parsed = json.loads(match.group(0))
+
+        if not isinstance(parsed, dict):
+            raise ValueError("Expected JSON object from LLM reranking")
+
+        raw_rankings = parsed.get("rankings")
+        if not isinstance(raw_rankings, list):
+            raise ValueError("LLM reranking response missing rankings list")
+
+        rankings: List[Dict[str, Any]] = []
+        seen: set[int] = set()
+        for item in raw_rankings:
+            if not isinstance(item, dict):
+                continue
+            try:
+                index = int(item.get("index"))
+                score = float(item.get("score", 0.0))
+            except (TypeError, ValueError):
+                continue
+            if index < 0 or index >= num_documents or index in seen:
+                continue
+            seen.add(index)
+            rankings.append(
+                {
+                    "index": index,
+                    "score": max(0.0, min(1.0, score)),
+                    "reason": str(item.get("reason") or ""),
+                }
+            )
+
+        return rankings
+
+    def _apply_llm_rankings(
+        self,
+        documents: List[DocumentWithScore],
+        rankings: List[Dict[str, Any]],
+    ) -> List[DocumentWithScore]:
+        """Convert validated LLM rankings back into DocumentWithScore objects."""
+        reranked_docs: List[DocumentWithScore] = []
+        seen: set[int] = set()
+
+        for ranking in rankings:
+            index = int(ranking["index"])
+            original = documents[index]
+            reranked_docs.append(
+                DocumentWithScore(
+                    doc_id=original.doc_id,
+                    content=original.content,
+                    filename=original.filename,
+                    page_number=original.page_number,
+                    chunk_index=original.chunk_index,
+                    score=float(ranking["score"]),
+                    metadata={
+                        **original.metadata,
+                        "original_score": original.score,
+                        "rerank_reason": ranking.get("reason", ""),
+                        "reranker": "llm_structured",
+                    },
+                )
+            )
+            seen.add(index)
+
+        for index, doc in enumerate(documents):
+            if index in seen or len(reranked_docs) >= self.config.rerank_top_k:
+                continue
+            reranked_docs.append(
+                DocumentWithScore(
+                    doc_id=doc.doc_id,
+                    content=doc.content,
+                    filename=doc.filename,
+                    page_number=doc.page_number,
+                    chunk_index=doc.chunk_index,
+                    score=doc.score,
+                    metadata={
+                        **doc.metadata,
+                        "original_score": doc.score,
+                        "reranker": "retrieval_order_fill",
+                    },
+                )
+            )
+
+        return reranked_docs
 
     def _fallback_reranking(
         self, query: str, documents: List[DocumentWithScore]
@@ -535,4 +698,13 @@ class RetrievalAgent:
         reranked_docs.sort(key=lambda x: x.score, reverse=True)
         filtered = [d for d in reranked_docs if d.score >= self.config.rerank_threshold]
 
-        return filtered[: self.config.rerank_top_k]
+        if filtered:
+            return filtered[: self.config.rerank_top_k]
+
+        logger.warning(
+            "Fallback reranking threshold filtered all documents; "
+            f"returning top {self.config.rerank_top_k} by boosted score instead. "
+            f"threshold={self.config.rerank_threshold}, "
+            f"max_score={reranked_docs[0].score if reranked_docs else 0.0:.4f}"
+        )
+        return reranked_docs[: self.config.rerank_top_k]

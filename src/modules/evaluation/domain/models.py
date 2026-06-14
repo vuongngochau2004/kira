@@ -1,9 +1,4 @@
-"""Core evaluation models.
-
-These models describe the evaluation feature itself. API modules may expose
-them as HTTP schemas, but domain/application code should import from here
-instead of depending on the API layer.
-"""
+"""DeepEval-backed evaluation models for RAG benchmarks."""
 
 from datetime import datetime
 from enum import Enum
@@ -13,98 +8,97 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class EvaluationMetric(str, Enum):
-    """RAGAS evaluation metrics."""
+    """Metrics supported by the local DeepEval runner."""
 
-    FAITHFULNESS = "faithfulness"
     ANSWER_RELEVANCY = "answer_relevancy"
+    FAITHFULNESS = "faithfulness"
+    CONTEXTUAL_PRECISION = "contextual_precision"
+    CONTEXTUAL_RECALL = "contextual_recall"
+    CONTEXTUAL_RELEVANCY = "contextual_relevancy"
+    CITATION_ACCURACY = "citation_accuracy"
+    REFUSAL_CORRECTNESS = "refusal_correctness"
+
+    # Backward-compatible spelling used by older evaluation clients.
     CONTEXT_PRECISION = "context_precision"
     CONTEXT_RECALL = "context_recall"
 
+    @property
+    def canonical(self) -> "EvaluationMetric":
+        """Return the DeepEval-oriented canonical metric name."""
+        if self == EvaluationMetric.CONTEXT_PRECISION:
+            return EvaluationMetric.CONTEXTUAL_PRECISION
+        if self == EvaluationMetric.CONTEXT_RECALL:
+            return EvaluationMetric.CONTEXTUAL_RECALL
+        return self
+
+
+DEFAULT_METRICS = [
+    EvaluationMetric.ANSWER_RELEVANCY,
+    EvaluationMetric.FAITHFULNESS,
+    EvaluationMetric.CONTEXTUAL_PRECISION,
+    EvaluationMetric.CONTEXTUAL_RECALL,
+    EvaluationMetric.CITATION_ACCURACY,
+    EvaluationMetric.REFUSAL_CORRECTNESS,
+]
+
 
 class EvaluationRequest(BaseModel):
-    """Request for evaluating RAG output quality."""
+    """Evaluate one already-generated RAG output."""
 
-    query: str = Field(..., min_length=1, max_length=5000, description="User's original query")
-    answer: str = Field(..., min_length=1, max_length=10000, description="Generated answer to evaluate")
-    contexts: list[str] = Field(..., min_length=1, max_length=50, description="Retrieved contexts")
-    retrieval_history: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="Optional retrieval history for debugging",
-    )
-    metrics: list[EvaluationMetric] = Field(
-        default=[
-            EvaluationMetric.FAITHFULNESS,
-            EvaluationMetric.ANSWER_RELEVANCY,
-        ],
-        description="Metrics to evaluate",
-    )
+    query: str = Field(..., min_length=1, max_length=5000)
+    answer: str = Field(..., min_length=1, max_length=20000)
+    contexts: list[str] = Field(default_factory=list, max_length=100)
+    expected_answer: str | None = None
+    reference_contexts: list[str] = Field(default_factory=list)
+    expected_citations: list[str] = Field(default_factory=list)
+    actual_citations: list[str] = Field(default_factory=list)
+    should_refuse: bool = False
+    metrics: list[EvaluationMetric] = Field(default_factory=lambda: DEFAULT_METRICS.copy())
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("contexts")
+    @field_validator("contexts", "reference_contexts")
     @classmethod
-    def validate_contexts_not_empty(cls, value: list[str]) -> list[str]:
-        """Validate that all context strings are non-empty."""
-        for index, context in enumerate(value):
-            if not context or not context.strip():
-                raise ValueError(
-                    f"Context at index {index} is empty. All contexts must be non-empty strings."
-                )
-        return value
+    def strip_empty_contexts(cls, value: list[str]) -> list[str]:
+        """Drop empty context strings before sending data to DeepEval."""
+        return [item.strip() for item in value if item and item.strip()]
 
 
-class EvaluationResult(BaseModel):
-    """Single metric evaluation result."""
+class MetricResult(BaseModel):
+    """Result for one metric on one sample."""
 
     metric: EvaluationMetric
-    score: float = Field(..., ge=0.0, le=1.0, description="Evaluation score from 0 to 1")
-    reasoning: str | None = Field(default=None, description="LLM's reasoning for the score")
-    error: str | None = Field(default=None, description="Error message if evaluation failed")
+    score: float = Field(..., ge=0.0, le=1.0)
+    threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    passed: bool
+    reason: str | None = None
+    error: str | None = None
 
 
 class EvaluationResponse(BaseModel):
-    """Complete evaluation response with all metric scores."""
+    """Evaluation result for one sample."""
 
     evaluation_id: str
+    sample_id: str | None = None
     query: str
-    results: list[EvaluationResult]
-    overall_score: float = Field(..., ge=0.0, le=1.0, description="Average of all metric scores")
-    evaluated_at: datetime
-    evaluation_duration_seconds: float
-    llm_provider: str
-    llm_model: str
+    answer: str
+    results: list[MetricResult]
+    overall_score: float = Field(..., ge=0.0, le=1.0)
+    passed: bool
+    evaluated_at: datetime = Field(default_factory=datetime.utcnow)
+    duration_seconds: float = 0.0
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class BatchEvaluationRequest(BaseModel):
-    """Batch evaluation request for multiple queries."""
+    """Evaluate many already-generated RAG outputs."""
 
-    dataset_id: str | None = Field(
-        default=None,
-        description="Optional dataset ID to load from stored datasets",
-    )
-    queries: list[dict[str, Any]] = Field(
-        ...,
-        min_length=1,
-        max_length=100,
-        description="List of evaluation queries. Each must have 'query', 'answer', 'contexts'",
-    )
-    metrics: list[EvaluationMetric] = Field(
-        default=[
-            EvaluationMetric.FAITHFULNESS,
-            EvaluationMetric.ANSWER_RELEVANCY,
-            EvaluationMetric.CONTEXT_PRECISION,
-            EvaluationMetric.CONTEXT_RECALL,
-        ],
-        description="Metrics to evaluate for all queries",
-    )
-    concurrent_evaluations: int = Field(
-        default=10,
-        ge=1,
-        le=20,
-        description="Number of concurrent evaluations",
-    )
+    queries: list[EvaluationRequest] = Field(..., min_length=1, max_length=200)
+    metrics: list[EvaluationMetric] | None = None
+    threshold: float = Field(default=0.7, ge=0.0, le=1.0)
 
 
 class BatchEvaluationResponse(BaseModel):
-    """Batch evaluation response with aggregated results."""
+    """Batch evaluation response with aggregate scores."""
 
     batch_id: str
     total_queries: int
@@ -118,27 +112,21 @@ class BatchEvaluationResponse(BaseModel):
 
 
 class GoldenDatasetSample(BaseModel):
-    """Single sample in golden dataset."""
+    """One benchmark sample for running the real RAG pipeline."""
 
+    id: str
     query: str
-    answer: str
-    contexts: list[str]
-    reference_answer: str | None = Field(
-        default=None,
-        description="Optional ground truth answer for comparison",
-    )
-    reference_contexts: list[str] | None = Field(
-        default=None,
-        description="Optional ground truth contexts for recall evaluation",
-    )
-    metadata: dict[str, Any] | None = Field(
-        default=None,
-        description="Optional metadata (domain, difficulty, etc.)",
-    )
+    expected_answer: str | None = None
+    reference_contexts: list[str] = Field(default_factory=list)
+    expected_context_ids: list[str] = Field(default_factory=list)
+    expected_citations: list[str] = Field(default_factory=list)
+    should_refuse: bool = False
+    tags: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class GoldenDataset(BaseModel):
-    """Golden dataset for validation."""
+    """Golden dataset stored as JSON."""
 
     dataset_id: str
     name: str
@@ -148,26 +136,39 @@ class GoldenDataset(BaseModel):
     updated_at: datetime | None = None
 
 
+class EvaluationRunConfig(BaseModel):
+    """Runtime configuration for a benchmark run."""
+
+    dataset_path: str
+    output_dir: str = "reports/evaluation"
+    user_id: str
+    metrics: list[EvaluationMetric] = Field(default_factory=lambda: DEFAULT_METRICS.copy())
+    threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    max_samples: int | None = Field(default=None, ge=1)
+    run_name: str | None = None
+
+
 class EvaluationHistory(BaseModel):
-    """Historical evaluation record for tracking."""
+    """Compact history entry used by API compatibility surfaces."""
 
     evaluation_id: str
     query: str
     metrics: dict[str, float]
     overall_score: float
     evaluated_at: datetime
-    llm_provider: str
-    evaluation_duration_seconds: float
+    duration_seconds: float
 
 
 __all__ = [
+    "DEFAULT_METRICS",
     "EvaluationMetric",
     "EvaluationRequest",
     "EvaluationResponse",
-    "EvaluationResult",
+    "MetricResult",
     "BatchEvaluationRequest",
     "BatchEvaluationResponse",
     "GoldenDataset",
     "GoldenDatasetSample",
+    "EvaluationRunConfig",
     "EvaluationHistory",
 ]

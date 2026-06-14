@@ -214,11 +214,6 @@ class ConversationalHandler(QueryHandlerBase):
                     continue
 
                 content_chunk_count += 1
-                if content_chunk_count <= 3 or content_chunk_count % 10 == 0:
-                    logger.debug(
-                        f"[CONVERSATIONAL STREAM] CONTENT "
-                        f"chunk #{content_chunk_count}: {len(chunk_text)} chars"
-                    )
 
                 # Yield content chunks (actual answer)
                 yield {"type": "content", "data": {"text": chunk_text}}

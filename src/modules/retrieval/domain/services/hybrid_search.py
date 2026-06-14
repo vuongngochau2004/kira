@@ -60,8 +60,10 @@ def reciprocal_rank_fusion(
 
 def _make_doc_key(item: dict) -> str:
     """Create unique key from document metadata."""
-    doc_id = item.get("document_id", "")
-    chunk_idx = item.get("chunk_index", item.get("metadata", {}).get("chunk_index", ""))
+    doc_id = item.get("document_id") or item.get("metadata", {}).get("document_id", "")
+    chunk_idx = item.get("chunk_index")
+    if chunk_idx is None:
+        chunk_idx = item.get("metadata", {}).get("chunk_index", "")
     return f"{doc_id}_{chunk_idx}"
 
 
@@ -333,6 +335,8 @@ def _get_bm25_results(
             "content": doc.get("content", ""),
             "metadata": doc.get("metadata", {}),
             "score": doc.get("score", 0),
+            "document_id": doc.get("document_id") or doc.get("metadata", {}).get("document_id"),
+            "chunk_index": doc.get("chunk_index") if doc.get("chunk_index") is not None else doc.get("metadata", {}).get("chunk_index"),
         }
         for doc in bm25_docs
     ]

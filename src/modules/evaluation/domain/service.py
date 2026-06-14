@@ -1,395 +1,229 @@
-"""RAGAS evaluation service using LLM-as-a-judge."""
+"""DeepEval evaluation service."""
+
+from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
-import logging
-import re
 import time
 import uuid
 from datetime import datetime
+from typing import Any
 
-from src.shared.infrastructure.llm.client import LLMProvider, chat_async
-from src.modules.evaluation.domain.prompts import get_evaluation_prompts
+from src.modules.evaluation.adapters import DeepEvalLLMAdapter
 from src.modules.evaluation.domain.models import (
-    EvaluationRequest,
-    EvaluationResponse,
-    EvaluationResult,
-    EvaluationMetric,
     BatchEvaluationRequest,
     BatchEvaluationResponse,
+    EvaluationMetric,
+    EvaluationRequest,
+    EvaluationResponse,
+    MetricResult,
 )
-from src.config.config import settings
-
-logger = logging.getLogger(__name__)
-
-
-# Constants for cache key generation
-CACHE_HASH_PREFIX_LENGTH = 8  # 64 bits (sufficient for collision avoidance)
-QUERY_SNIPPET_LENGTH = 100  # Truncate queries for cache key
+from src.modules.evaluation.metrics import citation_accuracy, refusal_correctness
+from src.shared.ports.llm import LLMPort
 
 
 class EvaluationError(Exception):
-    """Base exception for evaluation errors."""
-    pass
+    """Base exception for evaluation failures."""
 
 
-class EvaluationTimeoutError(EvaluationError):
-    """Raised when LLM evaluation times out."""
-    pass
-
-
-class EvaluationParseError(EvaluationError):
-    """Raised when LLM response cannot be parsed."""
-    pass
-
-
-class LLMProviderError(EvaluationError):
-    """Raised when LLM provider call fails."""
-    pass
-
-
-class RAGASEvaluationService:
-    """Service for RAGAS-style evaluation using LLM-as-a-judge.
-
-    Uses existing LLM infrastructure to evaluate RAG outputs
-    on faithfulness, answer relevancy, context precision, and context recall.
-    """
+class DeepEvalEvaluationService:
+    """Evaluate RAG outputs with DeepEval plus local deterministic metrics."""
 
     def __init__(
         self,
-        cache_enabled: bool | None = None,
-        timeout_seconds: int | None = None,
+        judge_llm: LLMPort | None = None,
+        threshold: float = 0.7,
     ):
-        """Initialize evaluation service.
+        self.judge_llm = judge_llm
+        self.threshold = threshold
+        self._judge_model = (
+            DeepEvalLLMAdapter(judge_llm, model_name="kira-deepeval-judge")
+            if judge_llm is not None
+            else None
+        )
 
-        Args:
-            cache_enabled: Enable result caching
-            timeout_seconds: Timeout per evaluation
-        """
-        self.cache_enabled = cache_enabled if cache_enabled is not None else settings.ragas_cache_enabled
-        self.timeout_seconds = timeout_seconds or settings.ragas_timeout_seconds
-        self._cache: dict[str, EvaluationResult] = {}
+    async def evaluate(self, request: EvaluationRequest) -> EvaluationResponse:
+        """Evaluate one RAG output."""
+        started = time.time()
+        results: list[MetricResult] = []
 
-    async def evaluate(
-        self,
-        request: EvaluationRequest,
-    ) -> EvaluationResponse:
-        """Evaluate a single RAG output.
-
-        Args:
-            request: Evaluation request with query, answer, contexts
-
-        Returns:
-            EvaluationResponse with metric scores
-        """
-        evaluation_id = str(uuid.uuid4())
-        start_time = time.time()
-
-        logger.info(f"[RAGAS EVAL] Starting evaluation {evaluation_id}")
-
-        results = []
-        for metric in request.metrics:
-            try:
-                result = await self._evaluate_metric(
-                    metric=metric,
-                    query=request.query,
-                    answer=request.answer,
-                    contexts=request.contexts,
+        for raw_metric in request.metrics:
+            metric = raw_metric.canonical
+            if metric == EvaluationMetric.CITATION_ACCURACY:
+                score, reason = citation_accuracy(
+                    expected=request.expected_citations,
+                    actual=request.actual_citations,
                 )
+                results.append(self._metric_result(metric, score, reason=reason))
+                continue
+
+            if metric == EvaluationMetric.REFUSAL_CORRECTNESS:
+                score, reason = refusal_correctness(
+                    answer=request.answer,
+                    should_refuse=request.should_refuse,
+                )
+                results.append(self._metric_result(metric, score, reason=reason))
+                continue
+
+            try:
+                result = await asyncio.to_thread(self._run_deepeval_metric, metric, request)
                 results.append(result)
-            except EvaluationTimeoutError as e:
-                # Expected timeout errors - log and continue with error result
-                logger.warning(f"[RAGAS EVAL] Timeout evaluating {metric.value}: {e}")
-                results.append(EvaluationResult(
-                    metric=metric,
-                    score=0.0,
-                    error=f"Evaluation timeout: {e}",
-                ))
-            except EvaluationParseError as e:
-                # Parse errors - LLM returned unparseable response
-                logger.warning(f"[RAGAS EVAL] Parse error for {metric.value}: {e}")
-                results.append(EvaluationResult(
-                    metric=metric,
-                    score=0.0,
-                    error=f"Parse error: {e}",
-                ))
-            except LLMProviderError as e:
-                # LLM provider errors - these are usually transient
-                logger.error(f"[RAGAS EVAL] LLM provider error for {metric.value}: {e}")
-                results.append(EvaluationResult(
-                    metric=metric,
-                    score=0.0,
-                    error=f"LLM error: {e}",
-                ))
-            except Exception as e:
-                # Unexpected errors - should not happen in production
-                logger.exception(f"[RAGAS EVAL] Unexpected error evaluating {metric.value}")
-                raise EvaluationError(f"Unexpected error in {metric.value}: {e}") from e
-
-        duration = time.time() - start_time
-        overall_score = self._calculate_overall_score(results)
-
-        logger.info(
-            f"[RAGAS EVAL] Completed {evaluation_id} "
-            f"in {duration:.2f}s, overall={overall_score:.2f}"
-        )
-
-        return EvaluationResponse(
-            evaluation_id=evaluation_id,
-            query=request.query,
-            results=results,
-            overall_score=overall_score,
-            evaluated_at=datetime.utcnow(),
-            evaluation_duration_seconds=duration,
-            llm_provider=settings.ragas_llm_provider or settings.llm_provider,
-            llm_model=settings.glm_model if settings.ragas_llm_provider == "glm" else "unknown",
-        )
-
-    async def evaluate_batch(
-        self,
-        request: BatchEvaluationRequest,
-    ) -> BatchEvaluationResponse:
-        """Evaluate multiple RAG outputs in batch.
-
-        Args:
-            request: Batch evaluation request
-
-        Returns:
-            BatchEvaluationResponse with aggregated results
-        """
-        batch_id = str(uuid.uuid4())
-        start_time = time.time()
-
-        logger.info(f"[RAGAS BATCH] Starting batch {batch_id} with {len(request.queries)} queries")
-
-        # Process queries concurrently with semaphore
-        semaphore = asyncio.Semaphore(request.concurrent_evaluations)
-
-        async def evaluate_single(query_data: dict) -> EvaluationResponse | None:
-            async with semaphore:
-                try:
-                    eval_request = EvaluationRequest(
-                        query=query_data["query"],
-                        answer=query_data["answer"],
-                        contexts=query_data["contexts"],
-                        metrics=request.metrics,
+            except Exception as exc:
+                results.append(
+                    MetricResult(
+                        metric=metric,
+                        score=0.0,
+                        threshold=self.threshold,
+                        passed=False,
+                        error=str(exc),
                     )
-                    return await self.evaluate(eval_request)
-                except Exception as e:
-                    logger.error(f"[RAGAS BATCH] Failed to evaluate query: {e}")
-                    return None
+                )
 
-        tasks = [evaluate_single(q) for q in request.queries]
-        raw_results = await asyncio.gather(*tasks)
-
-        successful = [r for r in raw_results if r is not None]
-        failed = len(raw_results) - len(successful)
-
-        aggregated = self._aggregate_scores(successful)
-
-        duration = time.time() - start_time
-
-        logger.info(
-            f"[RAGAS BATCH] Completed batch {batch_id}: "
-            f"{len(successful)} successful, {failed} failed, {duration:.2f}s"
+        scored = [result.score for result in results]
+        overall = sum(scored) / len(scored) if scored else 0.0
+        return EvaluationResponse(
+            evaluation_id=str(uuid.uuid4()),
+            sample_id=str(request.metadata.get("sample_id") or "") or None,
+            query=request.query,
+            answer=request.answer,
+            results=results,
+            overall_score=overall,
+            passed=all(item.passed for item in results),
+            evaluated_at=datetime.utcnow(),
+            duration_seconds=time.time() - started,
+            metadata=request.metadata,
         )
+
+    async def evaluate_batch(self, request: BatchEvaluationRequest) -> BatchEvaluationResponse:
+        """Evaluate many RAG outputs sequentially for stable LLM judge usage."""
+        batch_id = str(uuid.uuid4())
+        started = time.time()
+        started_at = datetime.utcnow()
+        results: list[EvaluationResponse] = []
+        failed = 0
+
+        for item in request.queries:
+            if request.metrics is not None:
+                item.metrics = request.metrics
+            try:
+                results.append(await self.evaluate(item))
+            except Exception:
+                failed += 1
 
         return BatchEvaluationResponse(
             batch_id=batch_id,
             total_queries=len(request.queries),
-            successful_evaluations=len(successful),
+            successful_evaluations=len(results),
             failed_evaluations=failed,
-            results=successful,
-            aggregated_scores=aggregated,
-            started_at=datetime.fromtimestamp(start_time),
+            results=results,
+            aggregated_scores=self._aggregate(results),
+            started_at=started_at,
             completed_at=datetime.utcnow(),
-            total_duration_seconds=duration,
+            total_duration_seconds=time.time() - started,
         )
 
-    async def _evaluate_metric(
+    def _run_deepeval_metric(
         self,
         metric: EvaluationMetric,
-        query: str,
-        answer: str,
-        contexts: list[str],
-    ) -> EvaluationResult:
-        """Evaluate a single metric.
+        request: EvaluationRequest,
+    ) -> MetricResult:
+        """Run a DeepEval metric in a worker thread."""
+        deepeval_metric = self._build_deepeval_metric(metric)
+        test_case = self._build_test_case(request)
+        deepeval_metric.measure(test_case)
+        score = float(deepeval_metric.score or 0.0)
+        reason = getattr(deepeval_metric, "reason", None)
+        return self._metric_result(metric, score, reason=reason)
 
-        Args:
-            metric: Metric to evaluate
-            query: Original query
-            answer: Generated answer
-            contexts: Retrieved contexts
+    def _build_deepeval_metric(self, metric: EvaluationMetric) -> Any:
+        try:
+            from deepeval.metrics import (
+                AnswerRelevancyMetric,
+                ContextualPrecisionMetric,
+                ContextualRecallMetric,
+                ContextualRelevancyMetric,
+                FaithfulnessMetric,
+            )
+        except ImportError as exc:
+            raise EvaluationError(
+                "DeepEval is not installed. Run `uv sync --extra dev` or "
+                "`pip install -e '.[dev]'` before running evaluation."
+            ) from exc
 
-        Returns:
-            EvaluationResult with score and reasoning
+        kwargs: dict[str, Any] = {"threshold": self.threshold}
+        if self._judge_model is not None:
+            kwargs["model"] = self._judge_model
 
-        Raises:
-            EvaluationTimeoutError: If LLM call times out
-            EvaluationParseError: If LLM response cannot be parsed
-            LLMProviderError: If LLM provider call fails
-        """
-        # Check cache
-        cache_key = self._get_cache_key(metric, query, answer, contexts)
-        if self.cache_enabled and cache_key in self._cache:
-            logger.debug(f"[RAGAS EVAL] Cache hit for {metric.value}")
-            return self._cache[cache_key]
+        if metric == EvaluationMetric.ANSWER_RELEVANCY:
+            return AnswerRelevancyMetric(**kwargs)
+        if metric == EvaluationMetric.FAITHFULNESS:
+            return FaithfulnessMetric(**kwargs)
+        if metric == EvaluationMetric.CONTEXTUAL_PRECISION:
+            return ContextualPrecisionMetric(**kwargs)
+        if metric == EvaluationMetric.CONTEXTUAL_RECALL:
+            return ContextualRecallMetric(**kwargs)
+        if metric == EvaluationMetric.CONTEXTUAL_RELEVANCY:
+            return ContextualRelevancyMetric(**kwargs)
 
-        # Get evaluation prompt for metric
-        system_prompt, user_prompt = get_evaluation_prompts(
-            metric, query, answer, contexts
+        raise EvaluationError(f"Unsupported DeepEval metric: {metric.value}")
+
+    def _build_test_case(self, request: EvaluationRequest) -> Any:
+        try:
+            from deepeval.test_case import LLMTestCase
+        except ImportError as exc:
+            raise EvaluationError(
+                "DeepEval is not installed. Run `uv sync --extra dev` or "
+                "`pip install -e '.[dev]'` before running evaluation."
+            ) from exc
+
+        return LLMTestCase(
+            input=request.query,
+            actual_output=request.answer,
+            expected_output=request.expected_answer,
+            retrieval_context=request.contexts,
+            context=request.reference_contexts or request.contexts,
         )
 
-        # Call LLM
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-
-        try:
-            provider = LLMProvider(settings.ragas_llm_provider or settings.llm_provider)
-            response = await chat_async(
-                messages=messages,
-                provider=provider,
-                model=settings.glm_model if provider == LLMProvider.GLM else None,
-                temperature=0.1,  # Low temperature for consistent evaluation
-                max_tokens=512,
-                timeout=self.timeout_seconds,
-            )
-        except asyncio.TimeoutError as e:
-            raise EvaluationTimeoutError(f"LLM call timed out after {self.timeout_seconds}s") from e
-        except Exception as e:
-            raise LLMProviderError(f"LLM provider call failed: {e}") from e
-
-        # Parse score from response
-        try:
-            score, reasoning = self._parse_evaluation_response(
-                response["content"], metric
-            )
-        except Exception as e:
-            raise EvaluationParseError(f"Failed to parse LLM response: {e}") from e
-
-        result = EvaluationResult(
+    def _metric_result(
+        self,
+        metric: EvaluationMetric,
+        score: float,
+        reason: str | None = None,
+    ) -> MetricResult:
+        bounded = max(0.0, min(1.0, score))
+        return MetricResult(
             metric=metric,
-            score=score,
-            reasoning=reasoning,
+            score=bounded,
+            threshold=self.threshold,
+            passed=bounded >= self.threshold,
+            reason=reason,
         )
 
-        # Cache result
-        if self.cache_enabled:
-            self._cache[cache_key] = result
-
-        return result
-
-    def _parse_evaluation_response(
-        self,
-        response: str,
-        metric: EvaluationMetric,
-    ) -> tuple[float, str | None]:
-        """Parse score from LLM response."""
-        try:
-            # Try to extract JSON from response
-            json_match = re.search(r'\{[^}]+\}', response, re.DOTALL)
-            if json_match:
-                data = json.loads(json_match.group())
-                score = float(data.get("score", 0.5))
-                reasoning = data.get("reasoning")
-                return max(0.0, min(1.0, score)), reasoning
-        except (json.JSONDecodeError, ValueError, KeyError) as e:
-            logger.debug(f"[RAGAS EVAL] Failed to parse JSON: {e}")
-
-        # Fallback: extract score from text
-        score_match = re.search(r'score["\']?\s*[:=]\s*([0-9.]+)', response, re.IGNORECASE)
-        if score_match:
-            score = float(score_match.group(1))
-            return max(0.0, min(1.0, score)), None
-
-        # Default score if parsing fails
-        logger.warning("[RAGAS EVAL] Could not parse score, defaulting to 0.5")
-        return 0.5, None
-
-    def _get_cache_key(
-        self,
-        metric: EvaluationMetric,
-        query: str,
-        answer: str,
-        contexts: list[str],
-    ) -> str:
-        """Generate cache key for evaluation.
-
-        Uses MD5 hash of contexts (truncated) and query/answer snippets
-        to create a unique cache key. 64-bit prefix provides sufficient
-        collision avoidance for cache usage.
-        """
-        contexts_hash = hashlib.md5(
-            "\n".join(contexts).encode()
-        ).hexdigest()[:CACHE_HASH_PREFIX_LENGTH]
-
-        key_string = f"{metric.value}:{query[:QUERY_SNIPPET_LENGTH]}:{answer[:QUERY_SNIPPET_LENGTH]}:{contexts_hash}"
-        return hashlib.md5(key_string.encode()).hexdigest()
-
-    def _calculate_overall_score(self, results: list[EvaluationResult]) -> float:
-        """Calculate overall score from metric results."""
-        if not results:
-            return 0.0
-
-        valid_scores = [r.score for r in results if r.error is None]
-        if not valid_scores:
-            return 0.0
-
-        return sum(valid_scores) / len(valid_scores)
-
-    def _aggregate_scores(self, evaluations: list[EvaluationResponse]) -> dict[str, float]:
-        """Aggregate scores across batch evaluations."""
-        if not evaluations:
-            return {}
-
-        metric_scores: dict[str, list[float]] = {}
-
-        for eval_response in evaluations:
-            for result in eval_response.results:
-                if result.error is None:
-                    metric_scores.setdefault(result.metric.value, []).append(result.score)
-
-        aggregated = {}
-        for metric, scores in metric_scores.items():
-            aggregated[metric] = sum(scores) / len(scores)
-
-        # Add overall average
-        if aggregated:
-            aggregated["overall"] = sum(aggregated.values()) / len(aggregated)
-
+    @staticmethod
+    def _aggregate(results: list[EvaluationResponse]) -> dict[str, float]:
+        scores: dict[str, list[float]] = {}
+        for result in results:
+            for metric in result.results:
+                scores.setdefault(metric.metric.value, []).append(metric.score)
+        aggregated = {name: sum(values) / len(values) for name, values in scores.items() if values}
+        if results:
+            aggregated["overall_score"] = sum(r.overall_score for r in results) / len(results)
+            aggregated["pass_rate"] = sum(1 for r in results if r.passed) / len(results)
         return aggregated
 
-    def clear_cache(self) -> int:
-        """Clear evaluation cache.
 
-        Returns:
-            Number of cache entries cleared
-        """
-        count = len(self._cache)
-        self._cache.clear()
-        return count
+_evaluation_service: DeepEvalEvaluationService | None = None
 
 
-# Singleton instance
-_evaluation_service: RAGASEvaluationService | None = None
-
-
-def get_evaluation_service() -> RAGASEvaluationService:
-    """Get or create evaluation service singleton."""
+def get_evaluation_service(judge_llm: LLMPort | None = None) -> DeepEvalEvaluationService:
+    """Return a singleton evaluation service for API compatibility."""
     global _evaluation_service
-    if _evaluation_service is None:
-        _evaluation_service = RAGASEvaluationService()
+    if _evaluation_service is None or judge_llm is not None:
+        _evaluation_service = DeepEvalEvaluationService(judge_llm=judge_llm)
     return _evaluation_service
 
 
 __all__ = [
-    "RAGASEvaluationService",
-    "get_evaluation_service",
+    "DeepEvalEvaluationService",
     "EvaluationError",
-    "EvaluationTimeoutError",
-    "EvaluationParseError",
-    "LLMProviderError",
+    "get_evaluation_service",
 ]

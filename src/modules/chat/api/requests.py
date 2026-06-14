@@ -14,7 +14,7 @@ class ChatStreamRequest(BaseModel):
     Attributes:
         message: User's query text
         conversation_id: Optional existing conversation ID
-        evaluate: Whether to run RAGAS evaluation
+        evaluate: Whether to run DeepEval evaluation
         evaluation_metrics: Optional specific metrics to evaluate
     """
 

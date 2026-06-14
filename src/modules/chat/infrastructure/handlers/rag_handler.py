@@ -27,6 +27,9 @@ class RAGHandler(QueryHandlerBase):
                                  [Regenerate] or [END]
     """
 
+    RELEVANCE_CONTEXT_MAX_CHARS = 20000
+    RELEVANCE_CONTEXT_PER_DOC_MAX_CHARS = 4000
+
     def __init__(
         self,
         config: Optional[HandlerConfig] = None,
@@ -100,6 +103,58 @@ class RAGHandler(QueryHandlerBase):
             filename = citation_dict.get("filename", f"Document {idx}")
             if text:
                 parts.append(f"[Document {idx}] {filename}\n{text}")
+        return "\n\n".join(parts)
+
+    @classmethod
+    def _build_relevance_context_from_state(
+        cls,
+        state: dict[str, Any],
+        citations: list[Any],
+    ) -> str:
+        """Build relevance evidence from retrieved chunks, not UI citation snippets."""
+        retrieval_output = state.get("retrieval_agent_output", {})
+        docs = retrieval_output.get("reranked_docs") or retrieval_output.get("retrieved_docs") or []
+
+        if not docs:
+            return cls._build_relevance_context(citations)
+
+        parts: list[str] = []
+        total_chars = 0
+
+        for idx, doc in enumerate(docs, start=1):
+            if not isinstance(doc, dict):
+                continue
+
+            content = str(doc.get("content") or "")
+            if not content:
+                continue
+
+            filename = doc.get("filename") or f"Document {idx}"
+            page = doc.get("page_number") or doc.get("page")
+            chunk_index = doc.get("chunk_index")
+
+            source_bits = [str(filename)]
+            if page:
+                source_bits.append(f"page {page}")
+            if chunk_index is not None:
+                source_bits.append(f"chunk {chunk_index}")
+
+            remaining = cls.RELEVANCE_CONTEXT_MAX_CHARS - total_chars
+            if remaining <= 0:
+                break
+
+            content_limit = min(cls.RELEVANCE_CONTEXT_PER_DOC_MAX_CHARS, remaining)
+            content = content[:content_limit]
+            if len(str(doc.get("content") or "")) > content_limit:
+                content += "..."
+
+            part = f"[Document {idx}] {', '.join(source_bits)}\n{content}"
+            parts.append(part)
+            total_chars += len(part) + 2
+
+        if not parts:
+            return cls._build_relevance_context(citations)
+
         return "\n\n".join(parts)
 
     @classmethod
@@ -191,10 +246,15 @@ class RAGHandler(QueryHandlerBase):
                 is_rejection = True
                 relevance = {"has_relevant_docs": False, "reason": "generation_no_citations", "fallback": False}
             else:
+                relevance_context = self._build_relevance_context_from_state(state, final_citations)
+                metadata["relevance_context_chars"] = len(relevance_context)
+                logger.debug(
+                    f"[RAG FLOW] Relevance context size: {len(relevance_context)} chars"
+                )
                 relevance = await RAGService.evaluate_relevance(
                     query=query,
                     response=final_response,
-                    context=self._build_relevance_context(final_citations),
+                    context=relevance_context,
                     llm=self.rag_service.llm,
                 )
                 is_rejection = not relevance.get("has_relevant_docs", False)
@@ -362,11 +422,17 @@ class RAGHandler(QueryHandlerBase):
                 if not final_citations:
                     is_rejection = True
                     relevance = {"has_relevant_docs": False, "reason": "generation_no_citations", "fallback": False}
+                    relevance_context_chars = 0
                 else:
+                    relevance_context = self._build_relevance_context_from_state(final_state, final_citations)
+                    relevance_context_chars = len(relevance_context)
+                    logger.debug(
+                        f"[RAG STREAM FLOW] Relevance context size: {relevance_context_chars} chars"
+                    )
                     relevance = await RAGService.evaluate_relevance(
                         query=query,
                         response=final_response,
-                        context=self._build_relevance_context(final_citations),
+                        context=relevance_context,
                         llm=self.rag_service.llm,
                     )
                     is_rejection = not relevance.get("has_relevant_docs", False)
@@ -388,6 +454,7 @@ class RAGHandler(QueryHandlerBase):
                     "citations": citations,
                     "sources": citations,
                     "generation_metadata": final_state.get("generation_metadata", {}),
+                    "relevance_context_chars": relevance_context_chars,
                     "quality": final_state.get("quality_agent_output", {}),
                     "total_execution_time_ms": final_state.get("total_execution_time_ms", 0.0),
                 }

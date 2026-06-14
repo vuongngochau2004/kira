@@ -27,7 +27,7 @@ reranking:
 citations:
   max_citations: 10            # Maximum citations to return (was hard-coded 5)
   min_score_threshold: 0.3     # Minimum score for citations
-  snippet_length: 900           # Character length for citation snippets with surrounding context
+  snippet_length: 1000           # Character length for citation snippets with surrounding context
 
 # Citation Verification (New: Hybrid Citation System)
 citation_verification:
@@ -109,15 +109,7 @@ feature_flags:
   enable_semantic_router: true  # Semantic routing (existing feature)
   enable_llmlite_provider: false # Experimental: LLMlite provider
 
-# RAGAS Evaluation
-ragas_evaluation:
-  enabled: false  # Disabled by default, enable per-request or via env var
-  metrics:
-    - faithfulness
-    - answer_relevancy
-    - context_precision
-    - context_recall
-  timeout_seconds: 30
-  cache_enabled: true
-  cache_ttl_seconds: 3600  # 1 hour
-  batch_size: 10  # Concurrent evaluations in batch mode
+# DeepEval benchmark defaults
+evaluation:
+  threshold: 0.7
+  report_dir: reports/evaluation

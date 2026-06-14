@@ -39,6 +39,7 @@ from src.modules.rag.domain.prompts.generation import (
     build_generation_prompt,
     build_regeneration_prompt,
 )
+from src.config.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -358,18 +359,25 @@ class GenerationAgent:
         context_parts = []
 
         for idx, doc in enumerate(documents, 1):
-            source = f"{doc.filename}"
-            if doc.page_number:
-                source += f", page {doc.page_number}"
+            source = ""
+            if doc.filename and doc.filename != "Unknown":
+                source = f" {doc.filename}"
+                if doc.page_number:
+                    source += f", page {doc.page_number}"
 
-            # Truncate very long documents
+            # Truncate very long documents to avoid blowing up context
             content = doc.content
-            if len(content) > 1000:
-                content = content[:1000] + "..."
+            if len(content) > 8000:
+                content = content[:8000] + "..."
 
-            context_parts.append(
-                f"Document {idx}: {source} (relevance: {doc.score:.2f})\n{content}\n"
-            )
+            if source:
+                context_parts.append(
+                    f"Document {idx}:{source}\n{content}\n"
+                )
+            else:
+                context_parts.append(
+                    f"Document {idx}:\n{content}\n"
+                )
 
         return "\n".join(context_parts)
 
@@ -415,12 +423,13 @@ class GenerationAgent:
             List of Citation objects
         """
         citations = []
+        snippet_length = max(settings.snippet_length, 200)
 
         for idx, doc in enumerate(documents, 1):
-            # Truncate citation text
+            # Keep source panel snippets readable while still bounded for payload size.
             text = doc.content
-            if len(text) > 200:
-                text = text[:200] + "..."
+            if len(text) > snippet_length:
+                text = text[:snippet_length].rstrip() + "..."
 
             citation = Citation(
                 filename=doc.filename,

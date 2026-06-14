@@ -1,86 +1,45 @@
-"""
-Data Transfer Objects (DTOs) for evaluation use case.
-
-Defines request/response models for evaluation operations.
-"""
+"""DTOs for evaluation use cases."""
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
 class EvaluationQuery:
-    """
-    Evaluation request DTO.
-
-    Attributes:
-        query: User query
-        context: Retrieved context
-        answer: Generated answer
-        ground_truth: Ground truth answer (optional)
-    """
+    """One generated RAG output to evaluate."""
 
     query: str
     context: str
     answer: str
-    ground_truth: Optional[str] = None
+    expected_answer: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary representation."""
         return {
             "query": self.query,
             "context": self.context,
             "answer": self.answer,
-            "ground_truth": self.ground_truth
+            "expected_answer": self.expected_answer,
         }
 
 
 @dataclass
 class EvaluationResultDTO:
-    """
-    Evaluation result response DTO.
+    """Compact metric view for UI/application callers."""
 
-    Attributes:
-        faithfulness: Faithfulness score (0-1)
-        answer_relevancy: Answer relevancy score (0-1)
-        context_precision: Context precision score (0-1)
-        context_recall: Context recall score (0-1)
-        metadata: Additional metadata
-    """
-
-    faithfulness: float
-    answer_relevancy: float
-    context_precision: float
-    context_recall: float
+    scores: dict[str, float]
+    overall_score: float
+    passed: bool
     metadata: dict[str, Any]
 
     @classmethod
     def from_metrics(cls, metrics: dict[str, float]) -> "EvaluationResultDTO":
-        """Create DTO from metrics dict."""
-        return cls(
-            faithfulness=metrics.get("faithfulness", 0.0),
-            answer_relevancy=metrics.get("answer_relevancy", 0.0),
-            context_precision=metrics.get("context_precision", 0.0),
-            context_recall=metrics.get("context_recall", 0.0),
-            metadata={}
-        )
+        overall = sum(metrics.values()) / len(metrics) if metrics else 0.0
+        return cls(scores=metrics, overall_score=overall, passed=overall >= 0.7, metadata={})
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary representation."""
         return {
-            "faithfulness": self.faithfulness,
-            "answer_relevancy": self.answer_relevancy,
-            "context_precision": self.context_precision,
-            "context_recall": self.context_recall,
-            "metadata": self.metadata
+            "scores": self.scores,
+            "overall_score": self.overall_score,
+            "passed": self.passed,
+            "metadata": self.metadata,
         }
-
-    def get_average_score(self) -> float:
-        """Get average of all scores."""
-        scores = [
-            self.faithfulness,
-            self.answer_relevancy,
-            self.context_precision,
-            self.context_recall
-        ]
-        return sum(scores) / len(scores) if scores else 0.0

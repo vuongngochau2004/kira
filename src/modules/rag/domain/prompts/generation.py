@@ -17,6 +17,7 @@ Instructions:
 4. If information is conflicting, mention the discrepancy
 5. Use Vietnamese language for your response
 6. Be concise but comprehensive
+7. DO NOT rigidly quote Article/Clause numbers (e.g., "Điều 11", "Điều 12") unless explicitly asked by the user. Synthesize and explain the rules naturally.
 
 Answer:"""
 

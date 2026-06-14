@@ -1,46 +1,38 @@
-"""
-Evaluation module for RAG pipeline quality assessment.
+"""Evaluation module for RAG benchmark and regression testing.
 
-This module provides RAGAS-based evaluation for RAG outputs including:
-- Faithfulness scoring
-- Answer relevancy
-- Context precision/recall
-- Batch evaluation
-
-Usage:
-    >>> from src.modules.evaluation import Evaluation
-    >>> use_case = Evaluation()
-    >>> result = await use_case.evaluate(query, context, answer)
-
-Module Structure:
-- application/ - Use cases and DTOs
-- domain/ - Business logic (RAGAS service, framework)
-- infrastructure/ - External adapters (empty for now)
-- api/ - Request/response DTOs
+The previous prompt-based evaluator has been replaced by DeepEval-backed runners.
+Use the CLI with `python -m src.modules.evaluation.cli run ...` for offline
+benchmarking and report generation.
 """
 
 from src.modules.evaluation.application import Evaluation, EvaluationQuery, EvaluationResultDTO
 from src.modules.evaluation.domain import (
-    RAGASEvaluationService,
-    get_evaluation_service,
+    DatasetManager,
+    DeepEvalEvaluationService,
     EvaluationError,
-    RAGEvaluationFramework,
-    MetricType,
+    EvaluationMetric,
+    EvaluationRequest,
+    EvaluationResponse,
+    EvaluationRunConfig,
+    GoldenDataset,
+    GoldenDatasetSample,
+    get_dataset_manager,
+    get_evaluation_service,
 )
-from src.modules.evaluation.api import EvaluationRequest, EvaluationResponse
 
 __all__ = [
-    # Application
+    "DatasetManager",
+    "DeepEvalEvaluationService",
     "Evaluation",
-    "EvaluationQuery",
-    "EvaluationResultDTO",
-    # Domain
-    "RAGASEvaluationService",
-    "get_evaluation_service",
     "EvaluationError",
-    "RAGEvaluationFramework",
-    "MetricType",
-    # API
+    "EvaluationMetric",
+    "EvaluationQuery",
     "EvaluationRequest",
     "EvaluationResponse",
+    "EvaluationResultDTO",
+    "EvaluationRunConfig",
+    "GoldenDataset",
+    "GoldenDatasetSample",
+    "get_dataset_manager",
+    "get_evaluation_service",
 ]

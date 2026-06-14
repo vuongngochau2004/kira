@@ -1,130 +1,62 @@
-"""
-Evaluation use case for RAG pipeline assessment.
+"""Application use case for DeepEval-backed RAG evaluation."""
 
-Orchestrates RAGAS evaluation service for quality assessment.
-"""
-
-import logging
 from typing import Any
 
-from src.modules.evaluation.domain.models import BatchEvaluationRequest, EvaluationRequest
-from src.modules.evaluation.domain.service import RAGASEvaluationService, get_evaluation_service
-from src.modules.evaluation.domain.framework import RAGEvaluationFramework
-
-logger = logging.getLogger(__name__)
+from src.modules.evaluation.domain.models import (
+    BatchEvaluationRequest,
+    EvaluationRequest,
+)
+from src.modules.evaluation.domain.service import (
+    DeepEvalEvaluationService,
+    get_evaluation_service,
+)
 
 
 class Evaluation:
-    """
-    Use case for RAG pipeline evaluation.
+    """Evaluate generated RAG outputs."""
 
-    Orchestrates evaluation service and framework for comprehensive
-    RAG quality assessment using RAGAS metrics.
-
-    Attributes:
-        service: RAGAS evaluation service
-        framework: Evaluation framework (optional)
-
-    Example:
-        >>> use_case = Evaluation()
-        >>> results = await use_case.evaluate_rag_pipeline(
-        ...     queries=test_queries,
-        ...     rag_pipeline=rag_handler
-        ... )
-    """
-
-    def __init__(
-        self,
-        service: RAGASEvaluationService | None = None,
-        framework: RAGEvaluationFramework | None = None
-    ):
-        """
-        Initialize evaluation use case.
-
-        Args:
-            service: Custom evaluation service (creates default if None)
-            framework: Custom evaluation framework (optional)
-        """
+    def __init__(self, service: DeepEvalEvaluationService | None = None):
         self.service = service or get_evaluation_service()
-        self.framework = framework
 
     async def evaluate(
         self,
         query: str,
         context: str,
         answer: str,
-        ground_truth: str | None = None
+        ground_truth: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Evaluate single RAG result.
-
-        Args:
-            query: User query
-            context: Retrieved context
-            answer: Generated answer
-            ground_truth: Ground truth answer (optional)
-
-        Returns:
-            Dict with evaluation metrics
-        """
         request = EvaluationRequest(
             query=query,
             contexts=[context],
             answer=answer,
+            expected_answer=ground_truth,
         )
-
         result = await self.service.evaluate(request)
         scores = {item.metric.value: item.score for item in result.results}
-
         return {
-            "faithfulness": scores.get("faithfulness", 0.0),
-            "answer_relevancy": scores.get("answer_relevancy", 0.0),
-            "context_precision": scores.get("context_precision", 0.0),
-            "context_recall": scores.get("context_recall", 0.0),
+            **scores,
             "overall_score": result.overall_score,
+            "passed": result.passed,
         }
 
-    async def evaluate_batch(
-        self,
-        requests: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        """
-        Evaluate multiple RAG results.
-
-        Args:
-            requests: List of evaluation request dicts
-
-        Returns:
-            List of evaluation result dicts
-        """
-        batch_request = BatchEvaluationRequest(queries=requests)
+    async def evaluate_batch(self, requests: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        batch_request = BatchEvaluationRequest(
+            queries=[EvaluationRequest(**request) for request in requests]
+        )
         result = await self.service.evaluate_batch(batch_request)
-
         return [
             {
-                "query": r.query,
-                "faithfulness": next(
-                    (item.score for item in r.results if item.metric.value == "faithfulness"),
-                    0.0,
-                ),
-                "answer_relevancy": next(
-                    (item.score for item in r.results if item.metric.value == "answer_relevancy"),
-                    0.0,
-                ),
-                "overall_score": r.overall_score,
+                "query": item.query,
+                "overall_score": item.overall_score,
+                "passed": item.passed,
+                "scores": {metric.metric.value: metric.score for metric in item.results},
             }
-            for r in result.results
+            for item in result.results
         ]
 
     def get_service_info(self) -> dict[str, Any]:
-        """
-        Get evaluation service information.
-
-        Returns:
-            Dict with service configuration
-        """
         return {
-            "cache_enabled": self.service.cache_enabled,
-            "timeout_seconds": self.service.timeout_seconds,
-            "cache_size": len(self.service._cache)
+            "framework": "deepeval",
+            "threshold": self.service.threshold,
+            "uses_project_judge_llm": self.service.judge_llm is not None,
         }

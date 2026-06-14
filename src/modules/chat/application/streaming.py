@@ -5,7 +5,7 @@ Handles the streaming chat pipeline with SSE event formatting:
 - Manages conversation persistence (create/restore conversations)
 - Formats streaming chunks into SSE events
 - Handles message persistence after streaming completes
-- Supports optional RAGAS evaluation
+- Supports optional DeepEval evaluation
 
 Extracted from api/chat.py to decouple HTTP concerns from business logic.
 """
@@ -28,7 +28,7 @@ class StreamingUseCase:
     2. Collect content, citations, and thinking data
     3. Persist messages to database
     4. Format SSE events for client consumption
-    5. Optional: Trigger RAGAS evaluation
+    5. Optional: Trigger DeepEval evaluation
 
     Args:
         chat_use_case: ChatUseCase for query classification and routing
@@ -87,11 +87,13 @@ class StreamingUseCase:
                     yield self._format_sse("routing", chunk_data)
 
                 elif chunk_type == "retrieval":
-                    retrieval_stages.append({
-                        "iteration": chunk_data.get("iteration", 1),
-                        "strategy": chunk_data.get("strategy", "Hybrid"),
-                        "docs_retrieved": chunk_data.get("docs_retrieved", 0),
-                    })
+                    retrieval_stages.append(
+                        {
+                            "iteration": chunk_data.get("iteration", 1),
+                            "strategy": chunk_data.get("strategy", "Hybrid"),
+                            "docs_retrieved": chunk_data.get("docs_retrieved", 0),
+                        }
+                    )
                     yield self._format_sse("retrieval", chunk_data)
 
                 elif chunk_type == "content":
@@ -124,7 +126,9 @@ class StreamingUseCase:
                     # Emit metadata event
                     metadata_event = {
                         **chunk_data,
-                        "conversation_id": str(query.conversation_id) if query.conversation_id else None,
+                        "conversation_id": str(query.conversation_id)
+                        if query.conversation_id
+                        else None,
                         "message_id": str(msg_id) if msg_id else None,
                     }
                     yield self._format_sse("metadata", metadata_event)

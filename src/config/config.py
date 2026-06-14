@@ -27,7 +27,12 @@ class Settings(BaseSettings):
         super().__init__(**kwargs)
         # Fail-fast on production with default secrets
         if self.app_env == "production":
-            defaults = ["change-this-jwt-secret", "change-this-in-production", "secret", "your-jwt-secret-change-this"]
+            defaults = [
+                "change-this-jwt-secret",
+                "change-this-in-production",
+                "secret",
+                "your-jwt-secret-change-this",
+            ]
             if any(self.jwt_secret_key == d for d in defaults):
                 raise ValueError(
                     "PRODUCTION ENVIRONMENT DETECTED WITH DEFAULT JWT SECRET! "
@@ -95,21 +100,27 @@ class Settings(BaseSettings):
 
     # ----- Embedding (from settings.yaml) -----
     embedding_provider: str = "aivn"
-    embedding_base_url: str = _static_config.get("embedding", {}).get("base_url", "http://localhost:8888")
+    embedding_base_url: str = _static_config.get("embedding", {}).get(
+        "base_url", "http://localhost:8888"
+    )
     embedding_model: str = "vietnamese-embedding-v2"
     embedding_dim: int = _static_config.get("embedding", {}).get("dim", 1024)
 
     # ----- Retrieval (from settings.yaml) -----
     retrieval_k: int = _static_config.get("retrieval", {}).get("k", 5)
     rrf_k: int = _static_config.get("retrieval", {}).get("rrf_k", 60)
-    retrieval_min_score_threshold: float = _static_config.get("retrieval", {}).get("min_score_threshold", 0.65)
+    retrieval_min_score_threshold: float = _static_config.get("retrieval", {}).get(
+        "min_score_threshold", 0.65
+    )
 
     # ----- Reranking (from settings.yaml) -----
     reranking_enabled: bool = _static_config.get("reranking", {}).get("enabled", False)
     reranking_mode: str = _static_config.get("reranking", {}).get("mode", "llm")
     reranking_top_k_before: int = _static_config.get("reranking", {}).get("top_k_before", 20)
     reranking_top_k_after: int = _static_config.get("reranking", {}).get("top_k_after", 5)
-    reranking_min_score_threshold: float = _static_config.get("reranking", {}).get("min_score_threshold", 0.3)
+    reranking_min_score_threshold: float = _static_config.get("reranking", {}).get(
+        "min_score_threshold", 0.3
+    )
     reranking_timeout_ms: int = _static_config.get("reranking", {}).get("timeout_ms", 10000)
 
     # ----- Citations (from settings.yaml) -----
@@ -118,10 +129,18 @@ class Settings(BaseSettings):
     snippet_length: int = _static_config.get("citations", {}).get("snippet_length", 900)
 
     # ----- Citation Verification (from settings.yaml) -----
-    citation_verification_enabled: bool = _static_config.get("citation_verification", {}).get("enabled", True)
-    grounding_threshold: float = _static_config.get("citation_verification", {}).get("grounding_threshold", 0.7)
-    max_regenerate_attempts: int = _static_config.get("citation_verification", {}).get("max_regenerate_attempts", 2)
-    enable_warnings: bool = _static_config.get("citation_verification", {}).get("enable_warnings", True)
+    citation_verification_enabled: bool = _static_config.get("citation_verification", {}).get(
+        "enabled", True
+    )
+    grounding_threshold: float = _static_config.get("citation_verification", {}).get(
+        "grounding_threshold", 0.7
+    )
+    max_regenerate_attempts: int = _static_config.get("citation_verification", {}).get(
+        "max_regenerate_attempts", 2
+    )
+    enable_warnings: bool = _static_config.get("citation_verification", {}).get(
+        "enable_warnings", True
+    )
 
     # ----- Chunking (from settings.yaml) -----
     chunk_size: int = _static_config.get("chunking", {}).get("size", 2048)
@@ -170,40 +189,32 @@ class Settings(BaseSettings):
     # ----- Feature Flags (from settings.yaml) -----
     # Feature flags for gradual rollout of new architecture
     feature_flags: dict[str, bool | int] = Field(
-        default=_static_config.get("feature_flags", {
-            "use_new_classification": False,  # Phase 02: New classification strategies
-            "use_new_handlers": False,  # Phase 03: New handler architecture
-            "enable_semantic_router": True,  # Semantic routing (existing)
-            "enable_llmlite_provider": False,  # Experimental LLMlite provider
-            "use_multi_agent_rag": False,  # Phase 04: Multi-Agent RAG architecture (custom orchestrator, 2026-06-11)
-            "use_langgraph_rag": False,  # Phase 05: LangGraph-based RAG architecture (2026-06-11)
-        })
+        default=_static_config.get(
+            "feature_flags",
+            {
+                "use_new_classification": False,  # Phase 02: New classification strategies
+                "use_new_handlers": False,  # Phase 03: New handler architecture
+                "enable_semantic_router": True,  # Semantic routing (existing)
+                "enable_llmlite_provider": False,  # Experimental LLMlite provider
+                "use_multi_agent_rag": False,  # Phase 04: Multi-Agent RAG architecture (custom orchestrator, 2026-06-11)
+                "use_langgraph_rag": False,  # Phase 05: LangGraph-based RAG architecture (2026-06-11)
+            },
+        )
     )
 
-    # ----- RAGAS Evaluation -----
-    ragas_evaluation_enabled: bool = Field(
-        default=_static_config.get("ragas_evaluation", {}).get("enabled", False)
+    # ----- Evaluation -----
+    evaluation_threshold: float = Field(
+        default=_static_config.get("evaluation", {}).get("threshold", 0.7)
     )
-    ragas_llm_provider: str = Field(
-        default="glm"
-    )
-    ragas_timeout_seconds: int = Field(
-        default=30
-    )
-    ragas_cache_enabled: bool = Field(
-        default=True
-    )
-    ragas_cache_ttl_seconds: int = Field(
-        default=3600
-    )
-    ragas_batch_size: int = Field(
-        default=10
+    evaluation_report_dir: str = Field(
+        default=_static_config.get("evaluation", {}).get("report_dir", "reports/evaluation")
     )
 
     @property
     def database_url(self) -> str:
         """Async PostgreSQL connection URL."""
         import urllib.parse
+
         user = urllib.parse.quote_plus(self.postgres_user)
         password = urllib.parse.quote_plus(self.postgres_password)
         return (
@@ -215,6 +226,7 @@ class Settings(BaseSettings):
     def database_url_sync(self) -> str:
         """Sync PostgreSQL connection URL (for Alembic)."""
         import urllib.parse
+
         user = urllib.parse.quote_plus(self.postgres_user)
         password = urllib.parse.quote_plus(self.postgres_password)
         return (

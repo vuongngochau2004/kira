@@ -1,9 +1,4 @@
-"""HTTP schemas for the evaluation API.
-
-The evaluation feature keeps its core request/response models in
-``domain.models``. This module re-exports those models as the public API
-schema surface so existing route imports remain stable.
-"""
+"""HTTP schemas for evaluation APIs."""
 
 from src.modules.evaluation.domain.models import (
     BatchEvaluationRequest,
@@ -12,19 +7,24 @@ from src.modules.evaluation.domain.models import (
     EvaluationMetric,
     EvaluationRequest,
     EvaluationResponse,
-    EvaluationResult,
+    EvaluationRunConfig,
     GoldenDataset,
     GoldenDatasetSample,
+    MetricResult,
 )
+
+EvaluationResult = MetricResult
 
 __all__ = [
     "EvaluationMetric",
     "EvaluationRequest",
     "EvaluationResponse",
     "EvaluationResult",
+    "MetricResult",
     "BatchEvaluationRequest",
     "BatchEvaluationResponse",
     "GoldenDataset",
     "GoldenDatasetSample",
+    "EvaluationRunConfig",
     "EvaluationHistory",
 ]

@@ -1,5 +1,5 @@
 # K.I.R.A Simplified - Makefile
-.PHONY: help dev backend frontend infra infra-stop infra-restart test install clean lint
+.PHONY: help dev backend frontend infra infra-stop infra-restart test install clean lint eval-rag
 
 # Default target
 .DEFAULT_GOAL := help
@@ -108,6 +108,10 @@ test: ## Run all tests
 test-backend: ## Run backend tests
 	@echo "$(BLUE)Running backend tests...$(NC)"
 	@cd $(BACKEND_DIR) && source .venv/bin/activate && pytest tests/ -v
+
+eval-rag: ## Run DeepEval RAG benchmark. Usage: make eval-rag USER_ID=<uuid> DATASET=docs/examples/evaluation/golden_sample.json
+	@echo "$(BLUE)Running DeepEval RAG benchmark...$(NC)"
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.modules.evaluation.cli run --dataset $${DATASET:-docs/examples/evaluation/golden_sample.json} --user-id $$USER_ID --output-dir reports/evaluation
 
 test-frontend: ## Run frontend tests
 	@echo "$(BLUE)Running frontend tests...$(NC)"

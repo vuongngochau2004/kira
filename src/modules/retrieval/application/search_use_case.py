@@ -95,6 +95,31 @@ class SearchUseCase:
             dense_search_fn=self._dense_search,
         )
 
+        # Resolve filenames from PostgreSQL database to replace "Unknown" values
+        doc_ids = list(
+            {
+                str(r.get("document_id") or (r.get("metadata") or {}).get("document_id"))
+                for r in results
+                if r.get("document_id") or (r.get("metadata") or {}).get("document_id")
+            }
+        )
+        if doc_ids:
+            try:
+                logger.info(f"[SearchUseCase] Resolving filenames for doc_ids: {doc_ids}")
+                from src.modules.retrieval.infrastructure.document_store.document_repository import get_documents_batch
+                doc_mapping = await get_documents_batch(doc_ids)
+                logger.info(f"[SearchUseCase] doc_mapping resolved to: {doc_mapping}")
+                for r in results:
+                    doc_id = str(r.get("document_id") or (r.get("metadata") or {}).get("document_id") or "")
+                    if doc_id in doc_mapping:
+                        filename = doc_mapping[doc_id]
+                        r["filename"] = filename
+                        if "metadata" in r and isinstance(r["metadata"], dict):
+                            r["metadata"]["title"] = filename
+                            r["metadata"]["filename"] = filename
+            except Exception as e:
+                logger.error(f"Failed to resolve search result filenames in SearchUseCase: {e}", exc_info=True)
+
         return results
 
     async def _ensure_bm25_index(self, user_id: str) -> None:

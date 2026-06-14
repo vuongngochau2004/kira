@@ -1,4 +1,4 @@
-"""RAGAS evaluation API endpoints."""
+"""DeepEval evaluation API endpoints."""
 
 import logging
 
@@ -6,15 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.modules.evaluation.composition import dataset_manager, evaluation_service
 from src.modules.evaluation.api.schemas import (
-    EvaluationRequest,
-    EvaluationResponse,
     BatchEvaluationRequest,
     BatchEvaluationResponse,
+    EvaluationRequest,
+    EvaluationResponse,
     GoldenDataset,
 )
 from src.shared.infrastructure.auth.dependencies import get_current_user
 from src.shared.infrastructure.persistence.database.models import User
-from src.config.config import settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -25,42 +24,22 @@ async def evaluate_rag_output(
     request: EvaluationRequest,
     current_user: User = Depends(get_current_user),
 ) -> EvaluationResponse:
-    """Evaluate a single RAG output.
-
-    Request body:
-    {
-        "query": "user question",
-        "answer": "generated answer",
-        "contexts": ["context1", "context2", ...],
-        "metrics": ["faithfulness", "answer_relevancy"]
-    }
-
-    Returns:
-        EvaluationResponse with scores for each metric
-    """
-    if not settings.ragas_evaluation_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="RAGAS evaluation is disabled",
-        )
-
+    """Evaluate one generated RAG answer with DeepEval metrics."""
     try:
-        service = evaluation_service()
-        result = await service.evaluate(request)
-
+        result = await evaluation_service().evaluate(request)
         logger.info(
-            f"[EVAL API] User {current_user.id} evaluated query "
-            f"'{request.query[:50]}...', score={result.overall_score:.2f}"
+            "[DEEPEVAL] user=%s query='%s...' overall=%.2f",
+            current_user.id,
+            request.query[:50],
+            result.overall_score,
         )
-
         return result
-
-    except Exception as e:
-        logger.error(f"[EVAL API] Evaluation failed: {e}")
+    except Exception as exc:
+        logger.error("DeepEval single evaluation failed: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
 
 @router.post("/evaluate/batch", response_model=BatchEvaluationResponse)
@@ -68,158 +47,49 @@ async def evaluate_batch(
     request: BatchEvaluationRequest,
     current_user: User = Depends(get_current_user),
 ) -> BatchEvaluationResponse:
-    """Evaluate multiple RAG outputs in batch.
-
-    Request body:
-    {
-        "queries": [
-            {"query": "...", "answer": "...", "contexts": [...]},
-            ...
-        ],
-        "metrics": ["faithfulness", "answer_relevancy"],
-        "concurrent_evaluations": 10
-    }
-
-    Returns:
-        BatchEvaluationResponse with aggregated scores
-    """
-    if not settings.ragas_evaluation_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="RAGAS evaluation is disabled",
-        )
-
+    """Evaluate multiple already-generated RAG answers."""
     try:
-        service = evaluation_service()
-        result = await service.evaluate_batch(request)
-
+        result = await evaluation_service().evaluate_batch(request)
         logger.info(
-            f"[EVAL API] User {current_user.id} completed batch {result.batch_id}: "
-            f"{result.successful_evaluations}/{result.total_queries} successful"
+            "[DEEPEVAL] user=%s batch=%s pass_rate=%.2f",
+            current_user.id,
+            result.batch_id,
+            result.aggregated_scores.get("pass_rate", 0.0),
         )
-
         return result
-
-    except Exception as e:
-        logger.error(f"[EVAL API] Batch evaluation failed: {e}")
+    except Exception as exc:
+        logger.error("DeepEval batch evaluation failed: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
 
-@router.get("/evaluate/datasets", response_model=list[GoldenDataset])
+@router.get("/datasets", response_model=list[GoldenDataset])
 async def list_golden_datasets(
     current_user: User = Depends(get_current_user),
 ) -> list[GoldenDataset]:
-    """List available golden datasets for validation."""
+    """List local golden datasets."""
     try:
-        manager = dataset_manager()
-        datasets = manager.list_datasets()
-        return datasets
-    except Exception as e:
-        logger.error(f"[EVAL API] Failed to list datasets: {e}")
+        return dataset_manager().list_datasets()
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
 
-@router.post("/evaluate/datasets", response_model=GoldenDataset, status_code=status.HTTP_201_CREATED)
+@router.post("/datasets", response_model=GoldenDataset, status_code=status.HTTP_201_CREATED)
 async def create_golden_dataset(
     dataset: GoldenDataset,
     current_user: User = Depends(get_current_user),
 ) -> GoldenDataset:
-    """Create a new golden dataset."""
+    """Save a local golden dataset."""
     try:
-        manager = dataset_manager()
-        result = manager.save_dataset(dataset, user_id=str(current_user.id))
-        return result
-    except Exception as e:
-        logger.error(f"[EVAL API] Failed to create dataset: {e}")
+        dataset_manager().save_dataset(dataset)
+        return dataset
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
-
-
-@router.get("/evaluate/datasets/{dataset_id}/evaluate", response_model=BatchEvaluationResponse)
-async def evaluate_dataset(
-    dataset_id: str,
-    metrics: list[str] | None = None,
-    current_user: User = Depends(get_current_user),
-) -> BatchEvaluationResponse:
-    """Evaluate a golden dataset.
-
-    Args:
-        dataset_id: Dataset ID to evaluate
-        metrics: Optional list of metrics (defaults to all)
-        current_user: Authenticated user
-
-    Returns:
-        BatchEvaluationResponse with dataset evaluation results
-    """
-    try:
-        manager = dataset_manager()
-        dataset = manager.load_dataset(dataset_id)
-
-        if not dataset:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Dataset {dataset_id} not found",
-            )
-
-        # Convert dataset samples to evaluation queries
-        queries = [
-            {
-                "query": sample.query,
-                "answer": sample.answer,
-                "contexts": sample.contexts,
-            }
-            for sample in dataset.samples
-        ]
-
-        batch_request = BatchEvaluationRequest(
-            dataset_id=dataset_id,
-            queries=queries,
-            metrics=metrics or ["faithfulness", "answer_relevancy", "context_precision"],
-        )
-
-        service = evaluation_service()
-        result = await service.evaluate_batch(batch_request)
-
-        logger.info(
-            f"[EVAL API] Evaluated dataset {dataset_id}: "
-            f"{result.successful_evaluations}/{result.total_queries} successful"
-        )
-
-        return result
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"[EVAL API] Dataset evaluation failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
-
-
-@router.delete("/evaluate/cache")
-async def clear_evaluation_cache(
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Clear evaluation result cache."""
-    try:
-        service = evaluation_service()
-        cleared = service.clear_cache()
-        return {"cleared_entries": cleared}
-    except Exception as e:
-        logger.error(f"[EVAL API] Failed to clear cache: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
-
-
-__all__ = ["router"]
+            detail=str(exc),
+        ) from exc

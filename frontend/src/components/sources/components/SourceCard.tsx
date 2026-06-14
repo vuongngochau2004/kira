@@ -6,7 +6,7 @@
 import React, { memo } from "react";
 import { ChevronDown, Eye, FileText, Globe, Quote } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { SourceCardProps } from "../types/source-panel-types";
+import type { SourceCardProps, SourceChunk } from "../types/source-panel-types";
 
 const FILE_ICONS = {
   pdf: FileText,
@@ -161,9 +161,7 @@ export const SourceCard = memo<SourceCardProps>((props) => {
                       </div>
 
                       {isCitationExpanded && (
-                        <p className="mt-2 max-h-72 overflow-y-auto pr-2 text-[13px] leading-6 text-foreground/90 whitespace-pre-line break-words text-justify custom-scrollbar">
-                          {chunk.snippet.trim()}
-                        </p>
+                        <CitationExcerpt citation={chunk} />
                       )}
                     </div>
                   );
@@ -182,5 +180,23 @@ export const SourceCard = memo<SourceCardProps>((props) => {
 });
 
 SourceCard.displayName = "SourceCard";
+
+interface CitationExcerptProps {
+  citation: SourceChunk;
+}
+
+function CitationExcerpt({ citation }: CitationExcerptProps) {
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="border-b pb-1 text-[11px] font-medium text-muted-foreground">
+        <span>{citation.page ? `Trang ${citation.page}` : "Đoạn trích"}</span>
+      </div>
+
+      <blockquote className="max-h-80 overflow-y-auto rounded-lg border border-zinc-200 border-l-4 border-l-orange-600 bg-[#ffffff] p-3 pr-2 text-[13px] font-medium leading-6 text-[#111111] whitespace-pre-line break-words text-justify custom-scrollbar">
+        {citation.snippet.trim()}
+      </blockquote>
+    </div>
+  );
+}
 
 export default SourceCard;
