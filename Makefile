@@ -1,5 +1,5 @@
 # K.I.R.A Simplified - Makefile
-.PHONY: help dev backend frontend infra infra-stop infra-restart test install clean lint eval-rag
+.PHONY: help dev backend frontend dev-worker infra infra-stop infra-restart test install clean lint eval-rag
 
 # Default target
 .DEFAULT_GOAL := help
@@ -31,13 +31,18 @@ help: ## Show this help message
 dev: ## Start both backend and frontend (requires tmux)
 	@echo "$(BLUE)Starting K.I.R.A Simplified...$(NC)"
 	@tmux new-session -d -s kira -n backend "cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.server.main"
-	@tmux new-window -t kira:1 -n frontend "cd $(FRONTEND_DIR) && npm run dev"
+	@tmux new-window -t kira:1 -n worker "cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-2}"
+	@tmux new-window -t kira:2 -n frontend "cd $(FRONTEND_DIR) && npm run dev"
 	@tmux attach-session -t kira
 	@echo "$(GREEN)Both services started in tmux session 'kira'$(NC)"
 
 dev-backend: ## Start backend only
 	@echo "$(BLUE)Starting backend on port $(BACKEND_PORT)...$(NC)"
 	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.server.main
+
+dev-worker: ## Start Celery document worker
+	@echo "$(BLUE)Starting Celery worker...$(NC)"
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-2}
 
 dev-frontend: ## Start frontend only
 	@echo "$(BLUE)Starting frontend on port $(FRONTEND_PORT)...$(NC)"

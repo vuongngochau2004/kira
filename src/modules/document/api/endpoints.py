@@ -6,7 +6,6 @@ from typing import Any
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     File,
     HTTPException,
@@ -24,7 +23,7 @@ from src.constants import (
     DocumentStatus,
     ERR_DOC_NOT_FOUND,
 )
-from src.shared.infrastructure.persistence.database.session import async_session_factory, get_session
+from src.shared.infrastructure.persistence.database.session import get_session
 from src.shared.infrastructure.persistence.database.models import User
 from src.modules.document.application import (
     DeleteDocumentRequest,
@@ -36,13 +35,11 @@ from src.modules.document.application import (
     GetDocumentRequest,
     ListDocuments,
     ListDocumentsRequest,
-    ProcessDocumentRequest,
     UploadDocumentRequest,
 )
 from src.modules.document.composition import (
     delete_document_service,
     document_repository,
-    process_document_service,
     storage_adapter,
     upload_document_service,
 )
@@ -50,15 +47,20 @@ from src.modules.document.composition import (
 router = APIRouter()
 
 
-async def _process_document_background(request: ProcessDocumentRequest) -> None:
-    """Run document processing with a fresh background DB session."""
-    async with async_session_factory() as session:
-        await process_document_service(session).execute(request)
+def _enqueue_document_processing(
+    document_id: uuid.UUID,
+    user_id: uuid.UUID,
+    storage_path: str,
+) -> str:
+    """Enqueue document processing without importing Celery at app startup."""
+    from src.worker.document_tasks import process_document_task
+
+    task = process_document_task.delay(str(document_id), str(user_id), storage_path)
+    return str(task.id)
 
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_document(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
@@ -83,17 +85,22 @@ async def upload_document(
             detail=upload_result.message,
         )
 
-    if background_tasks:
-        background_tasks.add_task(
-            _process_document_background,
-            ProcessDocumentRequest(
-                document_id=upload_result.document_id,
-                user_id=current_user.id,
-                storage_path=upload_result.storage_path or "",
-            ),
+    try:
+        task_id = _enqueue_document_processing(
+            upload_result.document_id,
+            current_user.id,
+            upload_result.storage_path or "",
         )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to enqueue document processing task: {exc}",
+        ) from exc
 
-    return _serialize_document(upload_result.document)
+    serialized = _serialize_document(upload_result.document)
+    serialized["processing_task_id"] = task_id
+    return serialized
+
 
 
 def _get_file_extension(filename: str) -> str:
@@ -292,7 +299,6 @@ async def _authenticate_and_get_user(
 @router.post("/{document_id}/process")
 async def trigger_processing(
     document_id: str,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ):
@@ -314,16 +320,15 @@ async def trigger_processing(
     if doc.status == DocumentStatus.COMPLETED.value:
         return {"message": "Document already processed"}
 
-    background_tasks.add_task(
-        _process_document_background,
-        ProcessDocumentRequest(
-            document_id=doc.id,
-            user_id=current_user.id,
-            storage_path=doc.storage_path,
-        ),
-    )
+    try:
+        task_id = _enqueue_document_processing(doc.id, current_user.id, doc.storage_path)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to enqueue document processing task: {exc}",
+        ) from exc
 
-    return {"message": "Processing triggered"}
+    return {"message": "Processing triggered", "processing_task_id": task_id}
 
 
 @router.get("/{document_id}/download")

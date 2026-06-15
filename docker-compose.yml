@@ -58,7 +58,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # ===== Redis (Celery broker/result backend) =====
+  redis:
+    image: redis:7-alpine
+    container_name: kira-simple-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   qdrant_data:
   minio_data:
+  redis_data:

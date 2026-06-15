@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import yaml
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,6 +45,18 @@ class Settings(BaseSettings):
     debug: bool = True
     secret_key: str = "change-this-in-production"
 
+    @field_validator("debug", mode="before")
+    @classmethod
+    def parse_debug_value(cls, value):
+        """Accept common DEBUG values from shells and process managers."""
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "prod", "production"}:
+                return False
+            if normalized in {"debug", "dev", "development"}:
+                return True
+        return value
+
     # ----- Database -----
     postgres_host: str = "localhost"
     postgres_port: int = 5433
@@ -62,6 +74,15 @@ class Settings(BaseSettings):
     qdrant_port: int = 6333
     qdrant_collection: str = _static_config.get("qdrant", {}).get("collection", "document_chunks")
     qdrant_vector_dim: int = _static_config.get("qdrant", {}).get("vector_dim", 1024)
+
+    # ----- Redis / Celery -----
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    celery_broker_url: str = "redis://localhost:6379/0"
+    celery_result_backend: str = "redis://localhost:6379/1"
+    celery_task_always_eager: bool = False
+    celery_worker_concurrency: int = 2
 
     # ----- MinIO -----
     minio_endpoint: str = "localhost:9000"
