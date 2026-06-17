@@ -26,6 +26,7 @@ export interface Document {
   status: 'uploading' | 'processing' | 'completed' | 'failed' | string
   chunk_count?: number
   error_message?: string
+  processing_task_id?: string
   created_at: string
   updated_at?: string
 }
@@ -269,7 +270,7 @@ export const documentsAPI = {
     return data.documents || data.items || []
   },
 
-  upload: async (file: File): Promise<Document> => {
+  upload: async (file: File, signal?: AbortSignal): Promise<Document> => {
     const formData = new FormData()
     formData.append('file', file)
 
@@ -277,6 +278,7 @@ export const documentsAPI = {
       method: 'POST',
       credentials: 'include',  // CRITICAL: Send httpOnly cookies
       body: formData,
+      signal,
     })
 
     if (!response.ok) {
@@ -291,6 +293,12 @@ export const documentsAPI = {
   delete: async (id: string): Promise<void> => {
     await fetchAPI<void>(`/api/v1/documents/${id}`, {
       method: 'DELETE',
+    })
+  },
+
+  cancel: async (id: string): Promise<{ document_id: string; success: boolean; message: string; status?: string }> => {
+    return fetchAPI<{ document_id: string; success: boolean; message: string; status?: string }>(`/api/v1/documents/${id}/cancel`, {
+      method: 'POST',
     })
   },
 

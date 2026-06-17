@@ -63,6 +63,19 @@ async def process_document(
             vector_store,
         )
 
+        document = await repository.get_document(document_id=document_id, user_id=user_id)
+        if not document or document.status == DocumentStatus.CANCELLED.value:
+            logger.info("Document %s was cancelled before final persistence; cleaning vectors.", document_id)
+            try:
+                await vector_store.delete_document(document_id)
+            except Exception:
+                logger.warning(
+                    "Failed to clean vector entries for cancelled document %s",
+                    document_id,
+                    exc_info=True,
+                )
+            return {"success": False, "error": "Document processing cancelled", "cancelled": True}
+
         await _update_document_status_result(document_id, result, repository)
 
         return result

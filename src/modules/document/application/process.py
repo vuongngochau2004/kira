@@ -39,10 +39,28 @@ class ProcessDocument:
         user_id = self._normalize_uuid(request.user_id)
 
         try:
-            await self.repository.update_document_status(
+            document = await self.repository.get_document(document_id=document_id, user_id=user_id)
+            if not document or document.status == DocumentStatus.CANCELLED.value:
+                logger.info("Skipping cancelled/missing document before processing: %s", document_id)
+                return DocumentProcessResult(
+                    document_id=document_id,
+                    success=False,
+                    error="Document processing cancelled",
+                    metadata={"storage_path": request.storage_path, "cancelled": True},
+                )
+
+            processing_document = await self.repository.update_document_status(
                 document_id=document_id,
                 status=DocumentStatus.PROCESSING.value,
             )
+            if not processing_document:
+                logger.info("Skipping document after processing status update was rejected: %s", document_id)
+                return DocumentProcessResult(
+                    document_id=document_id,
+                    success=False,
+                    error="Document processing cancelled",
+                    metadata={"storage_path": request.storage_path, "cancelled": True},
+                )
 
             result = await process_document(
                 document_id=document_id,
@@ -54,6 +72,24 @@ class ProcessDocument:
                 repository=self.repository,
                 timeout_seconds=request.timeout_seconds,
             )
+
+            document = await self.repository.get_document(document_id=document_id, user_id=user_id)
+            if not document or document.status == DocumentStatus.CANCELLED.value:
+                logger.info("Skipping keyword index for cancelled document: %s", document_id)
+                try:
+                    await self.vector_store.delete_document(document_id)
+                except Exception:
+                    logger.warning(
+                        "Failed to clean vector entries after cancellation for document %s",
+                        document_id,
+                        exc_info=True,
+                    )
+                return DocumentProcessResult(
+                    document_id=document_id,
+                    success=False,
+                    error="Document processing cancelled",
+                    metadata={"storage_path": request.storage_path, "cancelled": True},
+                )
 
             if result["success"]:
                 await self.keyword_index.add_document_bulk(

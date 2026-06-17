@@ -92,7 +92,55 @@ async def update_document_status(
         update(Document)
         .where(Document.id == document_id)
         .where(Document.deleted_at.is_(None))
+        .where(Document.status != "cancelled")
         .values(**values)
+        .returning(Document)
+    )
+    await session.commit()
+    return result.scalar_one_or_none()
+
+
+async def update_document_processing_task(
+    document_id: UUID,
+    task_id: str | None,
+    db: AsyncSession | None = None,
+) -> Any | None:
+    """Store the Celery task ID used to process a document."""
+    from src.shared.infrastructure.persistence.database.models import Document
+
+    session = await _get_session(db)
+    result = await session.execute(
+        update(Document)
+        .where(Document.id == document_id)
+        .where(Document.deleted_at.is_(None))
+        .values(processing_task_id=task_id, updated_at=datetime.utcnow())
+        .returning(Document)
+    )
+    await session.commit()
+    return result.scalar_one_or_none()
+
+
+async def cancel_document(
+    document_id: UUID,
+    user_id: UUID,
+    reason: str | None = None,
+    db: AsyncSession | None = None,
+) -> Any | None:
+    """Mark an in-progress document as cancelled."""
+    from src.shared.infrastructure.persistence.database.models import Document
+
+    session = await _get_session(db)
+    result = await session.execute(
+        update(Document)
+        .where(Document.id == document_id)
+        .where(Document.user_id == user_id)
+        .where(Document.deleted_at.is_(None))
+        .where(Document.status.in_(["uploading", "processing", "failed"]))
+        .values(
+            status="cancelled",
+            error_message=reason or "Processing cancelled by user",
+            updated_at=datetime.utcnow(),
+        )
         .returning(Document)
     )
     await session.commit()
@@ -420,6 +468,8 @@ async def list_completed_chunks_for_user(
 __all__ = [
     "create_document",
     "update_document_status",
+    "update_document_processing_task",
+    "cancel_document",
     "get_document",
     "get_documents_batch",
     "list_documents",

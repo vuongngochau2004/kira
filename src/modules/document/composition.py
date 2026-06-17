@@ -2,7 +2,7 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.document.application import DeleteDocument, ProcessDocument, UploadDocument
+from src.modules.document.application import CancelDocument, DeleteDocument, ProcessDocument, UploadDocument
 from src.modules.document.infrastructure.document_repository import SqlAlchemyDocumentRepository
 from src.modules.retrieval.infrastructure.keyword.bm25_adapter import BM25KeywordIndexAdapter
 from src.modules.retrieval.infrastructure.keyword.bm25_manager import get_bm25_manager
@@ -65,7 +65,18 @@ def delete_document_service(db: AsyncSession) -> DeleteDocument:
     )
 
 
+def cancel_document_service(db: AsyncSession) -> CancelDocument:
+    """Compose cancellation application service."""
+    return CancelDocument(
+        repository=document_repository(db),
+        keyword_index=keyword_index_adapter(),
+        vector_store=vector_store_adapter(),
+        storage=storage_adapter(),
+    )
+
+
 __all__ = [
+    "cancel_document_service",
     "delete_document_service",
     "document_repository",
     "embedding_adapter",

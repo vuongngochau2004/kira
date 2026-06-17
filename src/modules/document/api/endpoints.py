@@ -26,6 +26,7 @@ from src.constants import (
 from src.shared.infrastructure.persistence.database.session import get_session
 from src.shared.infrastructure.persistence.database.models import User
 from src.modules.document.application import (
+    CancelDocumentRequest,
     DeleteDocumentRequest,
     DownloadDocument,
     DownloadDocumentRequest,
@@ -38,6 +39,7 @@ from src.modules.document.application import (
     UploadDocumentRequest,
 )
 from src.modules.document.composition import (
+    cancel_document_service,
     delete_document_service,
     document_repository,
     storage_adapter,
@@ -90,6 +92,10 @@ async def upload_document(
             upload_result.document_id,
             current_user.id,
             upload_result.storage_path or "",
+        )
+        await document_repository(db).update_document_processing_task(
+            document_id=upload_result.document_id,
+            task_id=task_id,
         )
     except Exception as exc:
         raise HTTPException(
@@ -145,6 +151,7 @@ def _serialize_document(doc: Any) -> dict:
         "chunk_count": doc.chunk_count,
         "created_at": doc.created_at.isoformat(),
         "updated_at": doc.updated_at.isoformat(),
+        "processing_task_id": getattr(doc, "processing_task_id", None),
     }
 
 
@@ -179,7 +186,36 @@ async def get_document_info(
         "error_message": doc.error_message,
         "created_at": doc.created_at.isoformat(),
         "updated_at": doc.updated_at.isoformat(),
+        "processing_task_id": getattr(doc, "processing_task_id", None),
     }
+
+
+@router.post("/{document_id}/cancel")
+async def cancel_user_document(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
+    """Cancel an uploaded document that is still being processed."""
+    result = await cancel_document_service(db).execute(
+        CancelDocumentRequest(
+            document_id=uuid.UUID(document_id),
+            user_id=current_user.id,
+        )
+    )
+
+    if not result.success:
+        if result.message == "Document not found":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ERR_DOC_NOT_FOUND,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=result.message,
+        )
+
+    return result.to_dict()
 
 
 @router.delete("/{document_id}")
@@ -322,6 +358,10 @@ async def trigger_processing(
 
     try:
         task_id = _enqueue_document_processing(doc.id, current_user.id, doc.storage_path)
+        await document_repository(db).update_document_processing_task(
+            document_id=doc.id,
+            task_id=task_id,
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

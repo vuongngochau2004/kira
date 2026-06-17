@@ -3,7 +3,17 @@
 import { useState, useCallback, useEffect, type ElementType } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDocumentsUpload } from '@/lib/hooks/use-documents-upload'
-import { Activity, AlertCircle, ArrowLeft, CheckCircle2, Clock3, Download, Eye, File, FileImage, FileText, Layers3, Loader2, Presentation, Trash2, Upload as UploadIcon } from 'lucide-react'
+import { Activity, AlertCircle, ArrowLeft, CheckCircle2, Clock3, Download, Eye, File, FileImage, FileText, Layers3, Loader2, Presentation, Trash2, Upload as UploadIcon, XCircle } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
@@ -90,6 +100,7 @@ function getDocumentTracking(
   const isActiveUpload = isUploading || doc.status === 'uploading'
   const isProcessing = doc.status === 'processing'
   const isFailed = doc.status === 'failed'
+  const isCancelled = doc.status === 'cancelled'
   const isCompleted = doc.status === 'completed'
   const startTime = isActiveUpload
     ? activeUploadStarts[doc.filename]
@@ -126,6 +137,19 @@ function getDocumentTracking(
     return {
       label: doc.error_message || 'Xử lý tài liệu thất bại',
       tone: 'text-rose-600 dark:text-rose-400',
+      elapsedSeconds,
+      steps: [
+        { label: 'Tải lên', state: 'done' as TrackingStepState },
+        { label: 'Đọc nội dung', state: 'failed' as TrackingStepState },
+        { label: 'Sẵn sàng tra cứu', state: 'pending' as TrackingStepState },
+      ],
+    }
+  }
+
+  if (isCancelled) {
+    return {
+      label: 'Đã dừng xử lý theo yêu cầu của bạn',
+      tone: 'text-zinc-600 dark:text-zinc-400',
       elapsedSeconds,
       steps: [
         { label: 'Tải lên', state: 'done' as TrackingStepState },
@@ -182,6 +206,10 @@ export default function UploadsPage() {
   const [previewDocId, setPreviewDocId] = useState<string | null>(null)
   const [previewFilename, setPreviewFilename] = useState<string>('')
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null)
+  const [isDeletingDocument, setIsDeletingDocument] = useState(false)
+  const [documentToCancel, setDocumentToCancel] = useState<Document | null>(null)
+  const [isCancellingDocument, setIsCancellingDocument] = useState(false)
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -244,16 +272,42 @@ export default function UploadsPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
+  const handleConfirmDelete = async () => {
+    if (!documentToDelete) return
+
+    setIsDeletingDocument(true)
+    try {
+      await documents.deleteDocument(documentToDelete.id)
+      setDocumentToDelete(null)
+    } finally {
+      setIsDeletingDocument(false)
+    }
+  }
+
+  const handleConfirmCancel = async () => {
+    if (!documentToCancel) return
+
+    setIsCancellingDocument(true)
+    try {
+      await documents.cancelDocument(documentToCancel.id)
+      setDocumentToCancel(null)
+    } finally {
+      setIsCancellingDocument(false)
+    }
+  }
+
   const totalDocuments = documents.documents.length
-  const uploadingCount = documents.documents.filter(
+  const activeUploadItems = Object.values(documents.activeUploads)
+  const uploadingCount = activeUploadItems.length + documents.documents.filter(
     (doc) => documents.isUploading(doc.filename) || doc.status === 'uploading'
   ).length
   const processingCount = documents.documents.filter((doc) => doc.status === 'processing').length
   const completedCount = documents.documents.filter((doc) => doc.status === 'completed').length
   const failedCount = documents.documents.filter((doc) => doc.status === 'failed').length
+  const cancelledCount = documents.documents.filter((doc) => doc.status === 'cancelled').length
   const activeCount = uploadingCount + processingCount
   const indexedChunks = documents.documents.reduce((total, doc) => total + (doc.chunk_count ?? 0), 0)
-  const shouldShowTrackingPanel = totalDocuments > 0 && (activeCount > 0 || failedCount > 0)
+  const shouldShowTrackingPanel = totalDocuments > 0 && (activeCount > 0 || failedCount > 0 || cancelledCount > 0)
   const latestUpdatedAt = documents.documents
     .map((doc) => parseDocumentTime(doc.updated_at || doc.created_at))
     .filter((timestamp): timestamp is number => timestamp !== null)
@@ -349,7 +403,7 @@ export default function UploadsPage() {
                       {latestUpdatedAt ? ` Cập nhật gần nhất: ${new Date(latestUpdatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}.` : ''}
                     </p>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <div className="rounded-lg border bg-background px-3 py-2">
                         <p className="text-[11px] text-muted-foreground">Đang tải</p>
                         <p className="mt-1 text-lg font-semibold text-sky-600 dark:text-sky-400">{uploadingCount}</p>
@@ -361,6 +415,10 @@ export default function UploadsPage() {
                       <div className="rounded-lg border bg-background px-3 py-2">
                         <p className="text-[11px] text-muted-foreground">Lỗi</p>
                         <p className="mt-1 text-lg font-semibold text-rose-600 dark:text-rose-400">{failedCount}</p>
+                      </div>
+                      <div className="rounded-lg border bg-background px-3 py-2">
+                        <p className="text-[11px] text-muted-foreground">Đã dừng</p>
+                        <p className="mt-1 text-lg font-semibold text-zinc-600 dark:text-zinc-400">{cancelledCount}</p>
                       </div>
                     </div>
                   </div>
@@ -411,11 +469,11 @@ export default function UploadsPage() {
                 {/* Documents List */}
                 <div className="flex-1 overflow-y-auto">
                   <div className="p-6">
-                    {documents.isLoading && documents.documents.length === 0 ? (
+                {documents.isLoading && documents.documents.length === 0 && activeUploadItems.length === 0 ? (
                   <div className="flex items-center justify-center h-48">
                     <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                   </div>
-                ) : documents.documents.length === 0 ? (
+                ) : documents.documents.length === 0 && activeUploadItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-48 text-center">
                     <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mb-2">
                       <FileText className="w-5 h-5 text-muted-foreground" />
@@ -429,11 +487,74 @@ export default function UploadsPage() {
                   </div>
                 ) : (
                   <div className="space-y-1.5">
+                    {activeUploadItems.map((upload) => {
+                      const fileType = FILE_TYPES[upload.file_type.toLowerCase()] || FILE_TYPES.default
+                      const Icon = fileType.icon
+                      const elapsedSeconds = Math.max(0, (now - upload.started_at) / 1000)
+
+                      return (
+                        <div
+                          key={upload.filename}
+                          className="flex flex-col gap-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border",
+                              fileType.bgColor
+                            )}>
+                              <Icon className={cn('w-5 h-5', fileType.color)} />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate text-foreground">
+                                {upload.filename}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <span>{formatFileSize(upload.file_size)}</span>
+                                <span className="text-[10px] opacity-40">•</span>
+                                <span>Đang tải lên {formatElapsedTime(elapsedSeconds)}</span>
+                              </p>
+                            </div>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 gap-1.5 text-sky-700 hover:bg-sky-500/10 hover:text-sky-800 dark:text-sky-300 dark:hover:text-sky-200"
+                              onClick={() => documents.cancelUpload(upload.filename)}
+                            >
+                              <XCircle className="h-4 w-4" />
+                              Dừng
+                            </Button>
+                          </div>
+
+                          <div className="space-y-2 border-t pt-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="truncate text-xs font-medium text-sky-600 dark:text-sky-400">
+                                Đang tải file lên máy chủ
+                              </p>
+                              <span className="shrink-0 text-[11px] text-muted-foreground">
+                                Có thể dừng
+                              </span>
+                            </div>
+                            <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-muted">
+                              <div className="h-full w-1/3 animate-pulse rounded-full bg-sky-500" />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                              <TrackingStep label="Tải lên" state="active" />
+                              <TrackingStep label="Đọc nội dung" state="pending" />
+                              <TrackingStep label="Sẵn sàng tra cứu" state="pending" />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+
                     {documents.documents.map((doc) => {
                       const fileType = FILE_TYPES[doc.file_type.toLowerCase()] || FILE_TYPES.default
                       const Icon = fileType.icon
                       const uploading = documents.isUploading(doc.filename)
                       const isCompleted = doc.status === 'completed'
+                      const isCancelled = doc.status === 'cancelled'
                       const uploadDuration = documents.uploadDurations[doc.id] || documents.uploadDurations[doc.filename]
                       const tracking = getDocumentTracking(
                         doc,
@@ -524,6 +645,11 @@ export default function UploadsPage() {
                                 >
                                   Thất bại
                                 </span>
+                              ) : isCancelled ? (
+                                <span className="flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  Đã dừng
+                                </span>
                               ) : isCompleted ? (
                                 <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                                   <CheckCircle2 className="h-3.5 w-3.5" />
@@ -547,17 +673,35 @@ export default function UploadsPage() {
                                 </div>
                               )}
 
+                              {(doc.status === 'uploading' || doc.status === 'processing') && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={cn(
+                                    "h-8 shrink-0 gap-1.5",
+                                    doc.status === 'uploading'
+                                      ? "text-sky-700 hover:bg-sky-500/10 hover:text-sky-800 dark:text-sky-300 dark:hover:text-sky-200"
+                                      : "text-amber-700 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200"
+                                  )}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setDocumentToCancel(doc)
+                                  }}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                  Dừng
+                                </Button>
+                              )}
+
                               {/* Delete Button */}
-                              {!uploading && doc.status !== 'processing' && (
+                              {!uploading && doc.status !== 'uploading' && doc.status !== 'processing' && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="w-8 h-8 rounded-lg shrink-0 relative z-10 opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all md:opacity-0 md:group-hover:opacity-100"
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    if (confirm(`Bạn có chắc chắn muốn xóa tài liệu "${doc.filename}"?`)) {
-                                      documents.deleteDocument(doc.id)
-                                    }
+                                    setDocumentToDelete(doc)
                                   }}
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -566,7 +710,7 @@ export default function UploadsPage() {
                             </div>
                           </div>
 
-                          {(isActivelyTracked || doc.status === 'failed') && (
+                          {(isActivelyTracked || doc.status === 'failed' || doc.status === 'cancelled') && (
                             <div className="space-y-2 border-t pt-3">
                               <div className="flex items-center justify-between gap-3">
                                 <p className={cn("truncate text-xs font-medium", tracking.tone)}>
@@ -582,13 +726,15 @@ export default function UploadsPage() {
                                 aria-hidden="true"
                                 className={cn(
                                   'h-1.5 overflow-hidden rounded-full bg-muted',
-                                  doc.status === 'failed' && 'bg-rose-500/15'
+                                  doc.status === 'failed' && 'bg-rose-500/15',
+                                  doc.status === 'cancelled' && 'bg-zinc-500/15'
                                 )}
                               >
                                 <div
                                   className={cn(
                                     'h-full rounded-full',
                                     doc.status === 'failed' && 'w-full bg-rose-500',
+                                    doc.status === 'cancelled' && 'w-full bg-zinc-500',
                                     (uploading || doc.status === 'uploading') && 'w-1/3 animate-pulse bg-sky-500',
                                     doc.status === 'processing' && 'w-2/3 animate-pulse bg-amber-500'
                                   )}
@@ -620,6 +766,82 @@ export default function UploadsPage() {
           isOpen={isPreviewOpen}
           onClose={() => setIsPreviewOpen(false)}
         />
+
+        <AlertDialog
+          open={documentToDelete !== null}
+          onOpenChange={(open) => {
+            if (!open && !isDeletingDocument) {
+              setDocumentToDelete(null)
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Xoá tài liệu?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tài liệu “{documentToDelete?.filename}” sẽ bị xoá khỏi thư viện và không còn được dùng để tra cứu trong chat.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingDocument}>Huỷ</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={isDeletingDocument}
+                onClick={(event) => {
+                  event.preventDefault()
+                  handleConfirmDelete()
+                }}
+              >
+                {isDeletingDocument ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang xoá
+                  </>
+                ) : (
+                  'Xoá tài liệu'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog
+          open={documentToCancel !== null}
+          onOpenChange={(open) => {
+            if (!open && !isCancellingDocument) {
+              setDocumentToCancel(null)
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Dừng xử lý tài liệu?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Hệ thống sẽ dừng tác vụ xử lý của “{documentToCancel?.filename}” và xoá dữ liệu tạm đã tạo trong quá trình lập chỉ mục.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isCancellingDocument}>Huỷ</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-400"
+                disabled={isCancellingDocument}
+                onClick={(event) => {
+                  event.preventDefault()
+                  handleConfirmCancel()
+                }}
+              >
+                {isCancellingDocument ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang dừng
+                  </>
+                ) : (
+                  'Dừng xử lý'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AuthGuard>
   )

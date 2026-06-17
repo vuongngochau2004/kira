@@ -5,7 +5,9 @@ Provides database operations for document metadata and chunks.
 
 from .document_repository import (
     create_document,
+    cancel_document,
     update_document_status,
+    update_document_processing_task,
     get_document,
     get_documents_batch,
     list_documents,
@@ -17,7 +19,9 @@ from .document_repository import (
 
 __all__ = [
     "create_document",
+    "cancel_document",
     "update_document_status",
+    "update_document_processing_task",
     "get_document",
     "get_documents_batch",
     "list_documents",

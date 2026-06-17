@@ -21,12 +21,22 @@ import {
   ChevronRight,
   ShieldCheck
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { useDocumentsUpload } from '@/lib/hooks/use-documents-upload'
 import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
 import { KiraLogoIcon } from '@/components/common/KiraLogo'
 import { ThemeToggleDropdown } from '@/components/common/ThemeToggle'
-import { documentsAPI } from '@/lib/api/simple-client'
+import { documentsAPI, type Document } from '@/lib/api/simple-client'
 import { cn } from '@/lib/utils'
 
 export type SidebarPage = 'conversation' | 'conversations' | 'uploads' | 'admin'
@@ -112,6 +122,8 @@ export function SidebarExpanded({
   const [previewDocId, setPreviewDocId] = useState<string | null>(null)
   const [previewFilename, setPreviewFilename] = useState<string>('')
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null)
+  const [isDeletingDocument, setIsDeletingDocument] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -119,6 +131,18 @@ export function SidebarExpanded({
 
   // Filter completed documents
   const completedDocs = documents.filter((doc) => doc.status === 'completed')
+
+  const handleConfirmDeleteDocument = async () => {
+    if (!documentToDelete) return
+
+    setIsDeletingDocument(true)
+    try {
+      await deleteDocument(documentToDelete.id)
+      setDocumentToDelete(null)
+    } finally {
+      setIsDeletingDocument(false)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full w-[280px] bg-background border-r">
@@ -296,11 +320,10 @@ export function SidebarExpanded({
                           
                           <button
                             className="p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all shrink-0"
+                            title="Xoá tài liệu"
                             onClick={(e) => {
                               e.stopPropagation()
-                              if (confirm(`Bạn có chắc chắn muốn xóa tài liệu "${doc.filename}"?`)) {
-                                deleteDocument(doc.id)
-                              }
+                              setDocumentToDelete(doc)
                             }}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -352,6 +375,44 @@ export function SidebarExpanded({
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
       />
+
+      <AlertDialog
+        open={documentToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingDocument) {
+            setDocumentToDelete(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xoá tài liệu?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tài liệu “{documentToDelete?.filename}” sẽ bị xoá khỏi thư viện và không còn được dùng để tra cứu trong chat.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingDocument}>Huỷ</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeletingDocument}
+              onClick={(event) => {
+                event.preventDefault()
+                handleConfirmDeleteDocument()
+              }}
+            >
+              {isDeletingDocument ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Đang xoá
+                </>
+              ) : (
+                'Xoá tài liệu'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

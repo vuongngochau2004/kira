@@ -28,6 +28,14 @@ class DeleteDocumentRequest:
 
 
 @dataclass(frozen=True)
+class CancelDocumentRequest:
+    """Request DTO for document cancellation."""
+
+    document_id: UUID
+    user_id: UUID | str
+
+
+@dataclass(frozen=True)
 class ProcessDocumentRequest:
     """Request DTO for document processing."""
 
@@ -107,6 +115,27 @@ class DocumentDeleteResult:
             "document_id": str(self.document_id),
             "success": self.success,
             "message": self.message,
+        }
+
+
+@dataclass(frozen=True)
+class DocumentCancelResult:
+    """Result DTO for document cancellation."""
+
+    document_id: UUID
+    success: bool
+    message: str
+    status: str | None = None
+    cleanup_errors: dict[str, str] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API responses."""
+        return {
+            "document_id": str(self.document_id),
+            "success": self.success,
+            "message": self.message,
+            "status": self.status,
+            "cleanup_errors": self.cleanup_errors,
         }
 
 
@@ -195,6 +224,7 @@ class DocumentMetadata:
 
 __all__ = [
     "UploadDocumentRequest",
+    "CancelDocumentRequest",
     "DeleteDocumentRequest",
     "ProcessDocumentRequest",
     "ListDocumentsRequest",
@@ -202,6 +232,7 @@ __all__ = [
     "DownloadDocumentRequest",
     "GetDocumentChunksRequest",
     "DocumentUploadResult",
+    "DocumentCancelResult",
     "DocumentDeleteResult",
     "DocumentProcessResult",
     "DocumentListResult",

@@ -1,8 +1,15 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { documentsAPI, Document } from '@/lib/api/simple-client'
 import { useAuthStore } from '@/lib/stores/auth-store'
+
+interface ActiveUpload {
+  filename: string
+  file_size: number
+  file_type: string
+  started_at: number
+}
 
 const parseUtcDate = (dateStr?: string) => {
   if (!dateStr) return null
@@ -21,6 +28,8 @@ export function useDocumentsUpload() {
   const [uploadDurations, setUploadDurations] = useState<Record<string, number>>({})
   const [documentStarts, setDocumentStarts] = useState<Record<string, number>>({})
   const [activeUploadStarts, setActiveUploadStarts] = useState<Record<string, number>>({})
+  const [activeUploads, setActiveUploads] = useState<Record<string, ActiveUpload>>({})
+  const uploadControllers = useRef<Record<string, AbortController>>({})
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -137,10 +146,21 @@ export function useDocumentsUpload() {
     // Add to uploading set & record active upload start time
     setUploadingFiles((prev) => new Set(prev).add(file.name))
     const startTime = Date.now()
+    const controller = new AbortController()
+    uploadControllers.current[file.name] = controller
     setActiveUploadStarts((prev) => ({ ...prev, [file.name]: startTime }))
+    setActiveUploads((prev) => ({
+      ...prev,
+      [file.name]: {
+        filename: file.name,
+        file_size: file.size,
+        file_type: file.name.split('.').pop()?.toLowerCase() || 'file',
+        started_at: startTime,
+      },
+    }))
 
     try {
-      const doc = await documentsAPI.upload(file)
+      const doc = await documentsAPI.upload(file, controller.signal)
 
       // Record start time mapped by document ID in state & localStorage
       setDocumentStarts((prev) => {
@@ -160,11 +180,16 @@ export function useDocumentsUpload() {
 
       return doc
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw err
+      }
+
       const errorMessage = err instanceof Error ? err.message : `Không thể tải lên ${file.name}`
       setError(errorMessage)
       throw err
     } finally {
       // Remove from uploading set & active starts
+      delete uploadControllers.current[file.name]
       setUploadingFiles((prev) => {
         const newSet = new Set(prev)
         newSet.delete(file.name)
@@ -175,7 +200,33 @@ export function useDocumentsUpload() {
         delete next[file.name]
         return next
       })
+      setActiveUploads((prev) => {
+        const next = { ...prev }
+        delete next[file.name]
+        return next
+      })
     }
+  }, [])
+
+  const cancelUpload = useCallback((filename: string) => {
+    uploadControllers.current[filename]?.abort()
+    delete uploadControllers.current[filename]
+
+    setUploadingFiles((prev) => {
+      const newSet = new Set(prev)
+      newSet.delete(filename)
+      return newSet
+    })
+    setActiveUploadStarts((prev) => {
+      const next = { ...prev }
+      delete next[filename]
+      return next
+    })
+    setActiveUploads((prev) => {
+      const next = { ...prev }
+      delete next[filename]
+      return next
+    })
   }, [])
 
   const deleteDocument = useCallback(async (id: string) => {
@@ -193,6 +244,28 @@ export function useDocumentsUpload() {
     }
   }, [])
 
+  const cancelDocument = useCallback(async (id: string) => {
+    setError(null)
+
+    try {
+      await documentsAPI.cancel(id)
+      setDocuments((prev) => prev.map((doc) => (
+        doc.id === id
+          ? {
+              ...doc,
+              status: 'cancelled',
+              error_message: 'Processing cancelled by user',
+              updated_at: new Date().toISOString(),
+            }
+          : doc
+      )))
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Không thể dừng xử lý tài liệu'
+      setError(errorMessage)
+      throw err
+    }
+  }, [])
+
   const isUploading = useCallback((filename: string) => {
     return uploadingFiles.has(filename)
   }, [uploadingFiles])
@@ -202,6 +275,8 @@ export function useDocumentsUpload() {
     isLoading,
     error,
     uploadDocument,
+    cancelUpload,
+    cancelDocument,
     deleteDocument,
     loadDocuments,
     isUploading,
@@ -209,5 +284,6 @@ export function useDocumentsUpload() {
     uploadDurations,
     documentStarts,
     activeUploadStarts,
+    activeUploads,
   }
 }

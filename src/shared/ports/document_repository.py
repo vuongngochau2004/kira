@@ -32,6 +32,25 @@ class DocumentRepositoryPort(ABC):
         ...
 
     @abstractmethod
+    async def update_document_processing_task(
+        self,
+        document_id: UUID,
+        task_id: str | None,
+    ) -> Any | None:
+        """Store or clear the background processing task ID."""
+        ...
+
+    @abstractmethod
+    async def cancel_document(
+        self,
+        document_id: UUID,
+        user_id: UUID,
+        reason: str | None = None,
+    ) -> Any | None:
+        """Mark a document as cancelled."""
+        ...
+
+    @abstractmethod
     async def get_document(self, document_id: UUID, user_id: UUID | None = None) -> Any | None:
         """Fetch a document by ID, optionally scoped to a user."""
         ...

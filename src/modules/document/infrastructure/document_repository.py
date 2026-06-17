@@ -50,6 +50,32 @@ class SqlAlchemyDocumentRepository(DocumentRepositoryPort):
             db=self.db,
         )
 
+    async def update_document_processing_task(
+        self,
+        document_id: UUID,
+        task_id: str | None,
+    ) -> Any | None:
+        """Store or clear the Celery task ID for a document."""
+        return await document_repository.update_document_processing_task(
+            document_id=document_id,
+            task_id=task_id,
+            db=self.db,
+        )
+
+    async def cancel_document(
+        self,
+        document_id: UUID,
+        user_id: UUID,
+        reason: str | None = None,
+    ) -> Any | None:
+        """Mark a document as cancelled."""
+        return await document_repository.cancel_document(
+            document_id=document_id,
+            user_id=user_id,
+            reason=reason,
+            db=self.db,
+        )
+
     async def get_document(self, document_id: UUID, user_id: UUID | None = None) -> Any | None:
         """Fetch a document by ID, optionally scoped to a user."""
         return await document_repository.get_document(

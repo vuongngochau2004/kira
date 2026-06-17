@@ -23,6 +23,7 @@ class DocumentStatus(str, Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class MessageRole(str, Enum):
@@ -96,6 +97,7 @@ class Document(Base):
     status: Mapped[str] = mapped_column(
         String(50), default=DocumentStatus.UPLOADING, server_default=text("'uploading'"),
     )
+    processing_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     chunk_count: Mapped[int] = mapped_column(  # Denormalized for performance
         default=0, server_default=text("0"),
