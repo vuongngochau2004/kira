@@ -352,7 +352,6 @@ export function SourcePanel({ sources, isOpen, onClose, activeSourceId, classNam
                         >
                           <div className="text-[10px] font-sans font-semibold text-primary/70 mb-1 select-none flex items-center justify-between">
                             <span>Trích dẫn #{chunkIdx + 1}</span>
-                            {c.chunk_index !== undefined && <span>Trang {c.chunk_index + 1}</span>}
                           </div>
                           <p className="text-justify font-sans">{c.content}</p>
                         </div>

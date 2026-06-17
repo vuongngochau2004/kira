@@ -413,15 +413,10 @@ export function CitationPanel({
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-xs text-foreground bg-muted px-2 py-0.5 rounded-md">
-                                Trích dẫn #{index + 1}
-                              </span>
-                              {citation.page_number !== undefined && (
-                                <span className="text-xs text-muted-foreground font-medium">
-                                  Trang {citation.page_number}
-                                </span>
-                              )}
-                              {isActive && (
+	                              <span className="font-medium text-xs text-foreground bg-muted px-2 py-0.5 rounded-md">
+	                                Trích dẫn #{index + 1}
+	                              </span>
+	                              {isActive && (
                                 <span className={cn(
                                   'inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full',
                                   'bg-primary text-primary-foreground font-semibold'
@@ -522,9 +517,8 @@ export function CitationPanel({
                                       
                                       return (
                                         <div className="space-y-2">
-                                          <div className="flex items-center justify-between text-[11px] text-muted-foreground border-b pb-1 select-none font-sans font-medium">
-                                            <span>Trang {targetPage}</span>
-                                            <button
+	                                          <div className="flex items-center justify-end text-[11px] text-muted-foreground border-b pb-1 select-none font-sans font-medium">
+	                                            <button
                                               onClick={() => {
                                                 setPreviewDocId(citation.document_id!)
                                                 setPreviewFilename(citation.title || citation.source || 'Tài liệu')

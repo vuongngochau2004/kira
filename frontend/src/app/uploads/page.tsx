@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils'
 import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
 import { documentsAPI, type Document } from '@/lib/api/simple-client'
 import { AuthGuard } from '@/components/auth/auth-guard'
+import { useSourcesStore } from '@/lib/stores/sources-store'
+import { useConversationStore } from '@/lib/stores/conversation-store'
 
 // Modern, minimal colored file icons
 const FILE_TYPES: Record<string, { icon: ElementType; color: string; bgColor: string }> = {
@@ -198,6 +200,8 @@ function TrackingStep({ label, state }: { label: string; state: TrackingStepStat
 
 export default function UploadsPage() {
   const router = useRouter()
+  const resetSources = useSourcesStore((state) => state.reset)
+  const clearActiveConversation = useConversationStore((state) => state.clearActiveConversation)
   const documents = useDocumentsUpload()
   const [isDragging, setIsDragging] = useState(false)
   const [now, setNow] = useState<number>(Date.now())
@@ -313,6 +317,12 @@ export default function UploadsPage() {
     .filter((timestamp): timestamp is number => timestamp !== null)
     .sort((a, b) => b - a)[0]
 
+  const handleBackToChat = () => {
+    clearActiveConversation()
+    resetSources()
+    router.push('/conversation')
+  }
+
   return (
     <AuthGuard>
       <div className="flex flex-col h-screen bg-background">
@@ -322,7 +332,7 @@ export default function UploadsPage() {
             variant="ghost"
             size="sm"
             className="gap-2"
-            onClick={() => router.push('/conversation')}
+            onClick={handleBackToChat}
           >
             <ArrowLeft className="w-4 h-4" />
             Quay lại chat

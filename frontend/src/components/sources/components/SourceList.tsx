@@ -24,9 +24,9 @@ export const SourceList = memo<SourceListProps>(
   }) => {
     if (groupedSources.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center h-48 text-center px-4">
+        <div className="flex h-full min-h-0 w-full flex-col items-center justify-center px-6 text-center">
           <BookOpen className="w-8 h-8 text-muted-foreground/40 mb-2" />
-          <p className="text-xs text-muted-foreground">
+          <p className="max-w-xs text-sm leading-6 text-muted-foreground">
             Chưa có nguồn trích xuất cho cuộc hội thoại này.
           </p>
         </div>

@@ -109,16 +109,21 @@ export function useSimpleChat() {
     if (!activeConversationId || !mounted || !isAuthenticated || isCreatingConversation) {
       return
     }
+    setMessages([])
+    sourcesStore.replaceForConversation(activeConversationId, [])
     loadConversation(activeConversationId)
   }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation])
 
   useEffect(() => {
     if (!activeConversationId && mounted && isAuthenticated && !isCreatingConversation) {
+      cleanup()
+      queueRef.current = new MessageQueue()
+      failedMessageRef.current = null
+      conversationError.current = null
+      setError(null)
       setMessages([])
       // Reset sources panel when switching to new chat
-      sourcesStore.setSources([])
-      sourcesStore.setIsOpen(false)
-      sourcesStore.setActiveSourceId(null)
+      sourcesStore.reset()
     }
   }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation])
 
@@ -503,9 +508,7 @@ export function useSimpleChat() {
     setActiveConversation(null)
     setError(null)
     // Reset sources panel
-    sourcesStore.setSources([])
-    sourcesStore.setIsOpen(false)
-    sourcesStore.setActiveSourceId(null)
+    sourcesStore.reset()
   }, [setActiveConversation, cleanup])
 
   const retryMessage = useCallback(() => {

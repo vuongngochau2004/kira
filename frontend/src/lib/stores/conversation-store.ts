@@ -25,10 +25,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
   // Basic actions
   setActiveConversation: (id: string | null) =>
-    set({ activeConversationId: id, error: null }),
+    set({ activeConversationId: id, isLoading: false, error: null }),
 
   clearActiveConversation: () =>
-    set({ activeConversationId: null, error: null }),
+    set({ activeConversationId: null, isLoading: false, error: null }),
 
   setLoading: (loading: boolean) =>
     set({ isLoading: loading }),
@@ -49,7 +49,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
   syncFromURL: (id: string | null) => {
     if (!id) {
-      set({ activeConversationId: null })
+      set({ activeConversationId: null, isLoading: false, error: null })
       return false
     }
 
@@ -61,7 +61,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       return true
     }
 
-    set({ activeConversationId: null, error: 'Invalid conversation ID' })
+    set({ activeConversationId: null, isLoading: false, error: 'Invalid conversation ID' })
     return false
   },
 }))

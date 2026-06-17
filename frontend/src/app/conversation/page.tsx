@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSimpleChat } from '@/lib/hooks/use-simple-chat'
 import { useConversationStore } from '@/lib/stores/conversation-store'
+import { useSourcesStore } from '@/lib/stores/sources-store'
 import { SimpleChat } from '@/components/simple/SimpleChat'
 import { AuthGuard } from '@/components/auth/auth-guard'
 import { isValidUUID } from '@/lib/utils/uuid'
@@ -13,10 +14,17 @@ function ConversationContent() {
   const conversationId = searchParams.get('id')
   const chat = useSimpleChat()
   const { syncFromURL, isLoading: storeLoading } = useConversationStore()
-  const prevConversationIdRef = useRef<string | null>(null)
+  const resetSources = useSourcesStore((state) => state.reset)
+  const prevConversationIdRef = useRef<string | null | undefined>(undefined)
 
   // Sync conversation state from URL
   const isNewChat = !conversationId || !isValidUUID(conversationId)
+
+  useEffect(() => {
+    if (isNewChat) {
+      resetSources()
+    }
+  }, [isNewChat, resetSources])
 
   // FIX: Smooth URL sync without jarring re-render
   useEffect(() => {
@@ -41,6 +49,7 @@ function ConversationContent() {
         retryMessage={chat.retryMessage}
         isRetryable={chat.isRetryable}
         errorType={chat.errorType}
+        activeConversationId={isNewChat ? null : conversationId}
         isNewChat={isNewChat}
       />
     </div>

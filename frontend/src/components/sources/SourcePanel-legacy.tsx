@@ -493,10 +493,9 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
                                         : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted hover:text-foreground"
                                     )}
                                   >
-                                    <div className="text-[10px] font-sans font-semibold text-primary/70 mb-1 select-none flex items-center justify-between">
-                                      <span>Trích dẫn #{chunkIdx + 1}</span>
-                                      {c.page !== undefined && <span>Trang {c.page}</span>}
-                                    </div>
+	                                    <div className="text-[10px] font-sans font-semibold text-primary/70 mb-1 select-none flex items-center justify-between">
+	                                      <span>Trích dẫn #{chunkIdx + 1}</span>
+	                                    </div>
                                     <p className="text-justify font-sans">{c.snippet}</p>
                                   </div>
                                 )
@@ -616,12 +615,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
                   </button>
                 </div>
 
-                {/* Pagination / Chunk context info */}
-                {activeChunkInfo && (
-                  <span className="text-[10px] bg-primary/10 text-primary font-medium px-2.5 py-0.5 rounded-full font-mono">
-                    Trang {activeChunkInfo.page} {activeChunkInfo.searchPhrase ? `• Tìm: "${activeChunkInfo.searchPhrase}"` : ''}
-                  </span>
-                )}
+	                {/* Chunk context is already present in extracted chunk content. */}
               </div>
 
               {/* Preview Container */}
@@ -655,10 +649,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
                           <div className="space-y-6">
                             {Object.entries(chunksByPage).map(([pageNum, pageChunks]) => (
                               <div key={pageNum} className="space-y-2">
-                                <h4 className="text-xs font-sans font-semibold text-muted-foreground select-none border-b pb-1">
-                                  Trang {pageNum}
-                                </h4>
-                                <p className="indent-6 text-justify leading-relaxed">
+	                                <p className="indent-6 text-justify leading-relaxed">
                                   {pageChunks.map((chunk) => {
                                     const isSelected = activeChunkInfo?.dbChunkId === chunk.id || activeChunkInfo?.id === chunk.id
                                     return (
@@ -705,9 +696,9 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
                                   isSelected && "bg-primary/10 border-primary"
                                 )}
                               >
-                                <div className="text-[10px] text-muted-foreground mb-1 font-sans select-none">
-                                  Trích dẫn #{chunkIdx + 1} {c.page ? `• Trang ${c.page}` : ''}
-                                </div>
+	                                <div className="text-[10px] text-muted-foreground mb-1 font-sans select-none">
+	                                  Trích dẫn #{chunkIdx + 1}
+	                                </div>
                                 <p className="indent-4 font-semibold text-foreground">
                                   {c.snippet}
                                 </p>

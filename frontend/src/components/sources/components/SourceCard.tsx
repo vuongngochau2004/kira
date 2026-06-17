@@ -142,7 +142,6 @@ export const SourceCard = memo<SourceCardProps>((props) => {
                           <Quote className="w-3 h-3 shrink-0" />
                           <span className="truncate">
                             Trích dẫn {chunkIndex + 1}
-                            {chunk.page ? ` · Trang ${chunk.page}` : ""}
                           </span>
                         </div>
 
@@ -189,7 +188,7 @@ function CitationExcerpt({ citation }: CitationExcerptProps) {
   return (
     <div className="mt-2 space-y-2">
       <div className="border-b pb-1 text-[11px] font-medium text-muted-foreground">
-        <span>{citation.page ? `Trang ${citation.page}` : "Đoạn trích"}</span>
+        <span>Đoạn trích</span>
       </div>
 
       <blockquote className="max-h-80 overflow-y-auto rounded-lg border border-zinc-200 border-l-4 border-l-orange-600 bg-[#ffffff] p-3 pr-2 text-[13px] font-medium leading-6 text-[#111111] whitespace-pre-line break-words text-justify custom-scrollbar">

@@ -69,6 +69,20 @@ export function useSourcePanelState() {
     }
   }, [store.activeSourceId, store.sources, expandDocument, selectChunk, state.selectedChunk])
 
+  useEffect(() => {
+    if (!state.expandedDocument) return
+
+    const expandedDocumentExists = store.sources.some((source) => {
+      const docKey = source.document_id || source.title
+      return docKey === state.expandedDocument
+    })
+
+    if (!expandedDocumentExists) {
+      expandDocument(null)
+      selectChunk(null)
+    }
+  }, [store.sources, state.expandedDocument, expandDocument, selectChunk])
+
   return {
     state,
     store,

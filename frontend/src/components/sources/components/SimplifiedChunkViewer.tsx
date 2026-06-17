@@ -145,8 +145,8 @@ export const SimplifiedChunkViewer = memo<SimplifiedChunkViewerProps>(
                 )}>
                   Trích đoạn #{idx + 1}
                 </span>
-                <div className="flex items-center gap-2">
-                  {seg.relevance > 0 && (
+	                <div className="flex items-center gap-2">
+	                  {seg.relevance > 0 && (
                     <span className={cn(
                       'font-mono text-[10px] px-2 py-0.5 rounded-full',
                       seg.relevance >= 0.8
@@ -158,10 +158,7 @@ export const SimplifiedChunkViewer = memo<SimplifiedChunkViewerProps>(
                       {Math.round(seg.relevance * 100)}% liên quan
                     </span>
                   )}
-                  <span className="font-mono text-muted-foreground">
-                    Trang {seg.page}
-                  </span>
-                </div>
+	                </div>
               </div>
 
               {/* Segment Content with Highlight */}

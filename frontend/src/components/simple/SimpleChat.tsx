@@ -23,6 +23,12 @@ export interface SourceChunk {
   score: number
   document_id?: string
   chunk_index?: number
+  title?: string
+  source?: string
+  snippet?: string
+  page_number?: number
+  grounding_score?: number
+  type?: 'pdf' | 'docx' | 'web'
 }
 
 export interface Message {
@@ -48,6 +54,7 @@ interface SimpleChatProps {
   onClearChat: () => void
   error?: string | null
   className?: string
+  activeConversationId?: string | null
   isNewChat?: boolean
   isOptimistic?: boolean  // NEW: Show optimistic state indicator
   retryMessage?: () => void  // NEW: Retry failed message
@@ -148,8 +155,15 @@ const AssistantMessage = memo((
             className="text-[15px] md:text-base leading-relaxed"
             citations={message.sources as unknown as CitationSource[]}
             onCitationClick={(chunkId, citation) => {
-              // Handle citation click - will open CitationPanel
-              onCitationClick?.(parseInt(chunkId, 36), message.sources?.[0] || citation as any)
+              const citationIndex = message.sources?.findIndex((source) => {
+                const sourceId = source.chunk_id || source.id
+                return sourceId === chunkId
+              }) ?? -1
+
+              onCitationClick?.(
+                citationIndex >= 0 ? citationIndex : 0,
+                (citation || message.sources?.[0]) as SourceChunk
+              )
             }}
           />
         ) : (
@@ -278,6 +292,47 @@ const MessageRow = memo((
 ))
 MessageRow.displayName = 'MessageRow'
 
+function collectConversationSources(messages: Message[]): SourceChunk[] {
+  const seen = new Set<string>()
+  const sources: SourceChunk[] = []
+
+  messages.forEach((message) => {
+    if (message.role !== 'assistant' || !message.sources?.length) return
+
+    message.sources.forEach((rawSource, index) => {
+      const source = rawSource as SourceChunk & CitationSource
+      const sourceId =
+        source.chunk_id ||
+        source.id ||
+        `${message.id}-source-${index}`
+      const dedupeKey =
+        sourceId ||
+        `${source.document_id || source.title || source.source || 'source'}-${source.content || source.snippet || index}`
+
+      if (seen.has(dedupeKey)) return
+      seen.add(dedupeKey)
+
+      sources.push({
+        ...source,
+        id: sourceId,
+        chunk_id: source.chunk_id || sourceId,
+        content: source.content || source.snippet || '',
+        score: typeof source.score === 'number'
+          ? source.score
+          : typeof source.grounding_score === 'number'
+            ? source.grounding_score
+            : 0.9,
+        document_id: source.document_id,
+        chunk_index: source.chunk_index,
+        title: source.title || source.source || 'Tài liệu',
+        type: source.type,
+      })
+    })
+  })
+
+  return sources
+}
+
 // ==================== Main Component ====================
 
 export function SimpleChat({
@@ -289,6 +344,7 @@ export function SimpleChat({
   onClearChat,
   error,
   className,
+  activeConversationId = null,
   isNewChat = true,
   isOptimistic = false,
   retryMessage,
@@ -296,6 +352,8 @@ export function SimpleChat({
   errorType
 }: SimpleChatProps) {
   const store = useSourcesStore()
+  const replaceSourcesForConversation = useSourcesStore((state) => state.replaceForConversation)
+  const resetSources = useSourcesStore((state) => state.reset)
   const [input, setInput] = useState('')
   const [sourcePanelOpen, setSourcePanelOpen] = useState(false)
   const [citationPanelOpen, setCitationPanelOpen] = useState(false)
@@ -332,6 +390,10 @@ export function SimpleChat({
 
     return merged
   }, [messages, optimisticMessages])
+  const conversationSources = useMemo(
+    () => collectConversationSources(displayMessages),
+    [displayMessages]
+  )
 
   // Welcome screen state
   const [welcomeVisible, setWelcomeVisible] = useState(isNewChat)
@@ -345,6 +407,21 @@ export function SimpleChat({
   const scrollAnchorSpacerHeight = (isLoading || isOptimistic) ? 'calc(100dvh - 220px)' : 0
 
   // ==================== Effects ====================
+
+  useEffect(() => {
+    if (isNewChat || !activeConversationId) {
+      resetSources()
+      return
+    }
+
+    replaceSourcesForConversation(activeConversationId, conversationSources)
+  }, [
+    activeConversationId,
+    conversationSources,
+    isNewChat,
+    replaceSourcesForConversation,
+    resetSources,
+  ])
 
   /**
    * Auto-scroll to bottom on new messages
@@ -554,8 +631,8 @@ export function SimpleChat({
 
     if (useNewFormat) {
       // Use new CitationPanel
-      const citation = (allSources || message?.sources || [])[citationIndex] as unknown as CitationSource
-      setActiveCitationChunkId(citation?.chunk_id || null)
+      const citation = (source || (allSources || message?.sources || [])[citationIndex]) as unknown as CitationSource
+      setActiveCitationChunkId(citation?.chunk_id || (citation as any)?.id || null)
       setCitationPanelOpen(true)
     } else {
       // Use old SourcePanel

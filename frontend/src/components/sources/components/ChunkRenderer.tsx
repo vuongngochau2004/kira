@@ -17,7 +17,7 @@ interface ChunkRendererProps {
 
 export const ChunkRenderer = memo<ChunkRendererProps>(
   ({ chunks, activeChunkId, onChunkClick, documentChunks }) => {
-    // Group chunks by page for structured display
+    // Keep page grouping for order, but do not render separate page labels.
     const chunksByPage = useMemo(() => groupChunksByPage(chunks), [chunks])
 
     // Auto-scroll to active chunk
@@ -63,9 +63,6 @@ export const ChunkRenderer = memo<ChunkRendererProps>(
       <div className="space-y-6">
         {Object.entries(chunksByPage).map(([pageNum, pageChunks]) => (
           <div key={pageNum} className="space-y-2">
-            <h4 className="text-xs font-sans font-semibold text-muted-foreground select-none border-b pb-1">
-              Trang {pageNum}
-            </h4>
             <p className="indent-6 text-justify leading-relaxed">
               {pageChunks.map((chunk, idx) => {
                 const isSelected = activeChunkId === chunk.id
