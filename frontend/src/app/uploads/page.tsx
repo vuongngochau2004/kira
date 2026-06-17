@@ -1,17 +1,17 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, type ElementType } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDocumentsUpload } from '@/lib/hooks/use-documents-upload'
-import { Sparkles, ArrowLeft, Upload as UploadIcon, FileText, File, Trash2, Loader2, Eye, Download, FileImage, Presentation } from 'lucide-react'
+import { Activity, AlertCircle, ArrowLeft, CheckCircle2, Clock3, Download, Eye, File, FileImage, FileText, Layers3, Loader2, Presentation, Trash2, Upload as UploadIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
-import { documentsAPI } from '@/lib/api/simple-client'
+import { documentsAPI, type Document } from '@/lib/api/simple-client'
 import { AuthGuard } from '@/components/auth/auth-guard'
 
 // Modern, minimal colored file icons
-const FILE_TYPES: Record<string, { icon: any; color: string; bgColor: string }> = {
+const FILE_TYPES: Record<string, { icon: ElementType; color: string; bgColor: string }> = {
   pdf: {
     icon: FileText,
     color: 'text-rose-500 dark:text-rose-400',
@@ -62,6 +62,114 @@ const FILE_TYPES: Record<string, { icon: any; color: string; bgColor: string }> 
     color: 'text-zinc-400 dark:text-zinc-500',
     bgColor: 'bg-zinc-100 border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700'
   },
+}
+
+const parseDocumentTime = (value?: string) => {
+  if (!value) return null
+  const normalized = value.endsWith('Z') ? value : `${value}Z`
+  const parsed = Date.parse(normalized)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+const formatElapsedTime = (seconds: number) => {
+  if (seconds < 60) return `${Math.max(0, seconds).toFixed(0)}s`
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = Math.floor(seconds % 60)
+  return `${minutes}m ${remainingSeconds}s`
+}
+
+type TrackingStepState = 'done' | 'active' | 'pending' | 'failed'
+
+function getDocumentTracking(
+  doc: Document,
+  isUploading: boolean,
+  now: number,
+  activeUploadStarts: Record<string, number>,
+  documentStarts: Record<string, number>
+) {
+  const isActiveUpload = isUploading || doc.status === 'uploading'
+  const isProcessing = doc.status === 'processing'
+  const isFailed = doc.status === 'failed'
+  const isCompleted = doc.status === 'completed'
+  const startTime = isActiveUpload
+    ? activeUploadStarts[doc.filename]
+    : documentStarts[doc.id] || parseDocumentTime(doc.created_at)
+  const elapsedSeconds = startTime ? Math.max(0, (now - startTime) / 1000) : 0
+
+  if (isActiveUpload) {
+    return {
+      label: 'Đang tải file lên máy chủ',
+      tone: 'text-sky-600 dark:text-sky-400',
+      elapsedSeconds,
+      steps: [
+        { label: 'Tải lên', state: 'active' as TrackingStepState },
+        { label: 'Trích xuất', state: 'pending' as TrackingStepState },
+        { label: 'Lập chỉ mục', state: 'pending' as TrackingStepState },
+      ],
+    }
+  }
+
+  if (isProcessing) {
+    return {
+      label: 'Đang đọc nội dung và lập chỉ mục để có thể tra cứu',
+      tone: 'text-amber-600 dark:text-amber-400',
+      elapsedSeconds,
+      steps: [
+        { label: 'Tải lên', state: 'done' as TrackingStepState },
+        { label: 'Đọc nội dung', state: 'active' as TrackingStepState },
+        { label: 'Sẵn sàng tra cứu', state: 'pending' as TrackingStepState },
+      ],
+    }
+  }
+
+  if (isFailed) {
+    return {
+      label: doc.error_message || 'Xử lý tài liệu thất bại',
+      tone: 'text-rose-600 dark:text-rose-400',
+      elapsedSeconds,
+      steps: [
+        { label: 'Tải lên', state: 'done' as TrackingStepState },
+        { label: 'Đọc nội dung', state: 'failed' as TrackingStepState },
+        { label: 'Sẵn sàng tra cứu', state: 'pending' as TrackingStepState },
+      ],
+    }
+  }
+
+  return {
+    label: isCompleted ? 'Sẵn sàng để tra cứu' : 'Chờ xử lý',
+    tone: isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
+    elapsedSeconds,
+    steps: [
+      { label: 'Tải lên', state: isCompleted ? 'done' as TrackingStepState : 'pending' as TrackingStepState },
+      { label: 'Đọc nội dung', state: isCompleted ? 'done' as TrackingStepState : 'pending' as TrackingStepState },
+      { label: 'Sẵn sàng tra cứu', state: isCompleted ? 'done' as TrackingStepState : 'pending' as TrackingStepState },
+    ],
+  }
+}
+
+function TrackingStep({ label, state }: { label: string; state: TrackingStepState }) {
+  return (
+    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <span
+        className={cn(
+          'flex h-4 w-4 items-center justify-center rounded-full border',
+          state === 'done' && 'border-emerald-500 bg-emerald-500 text-white',
+          state === 'active' && 'border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+          state === 'failed' && 'border-rose-500 bg-rose-500 text-white',
+          state === 'pending' && 'border-border bg-background'
+        )}
+      >
+        {state === 'done' ? (
+          <CheckCircle2 className="h-3 w-3" />
+        ) : state === 'failed' ? (
+          <AlertCircle className="h-3 w-3" />
+        ) : state === 'active' ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : null}
+      </span>
+      <span className={cn(state === 'active' && 'font-medium text-foreground')}>{label}</span>
+    </div>
+  )
 }
 
 export default function UploadsPage() {
@@ -136,6 +244,21 @@ export default function UploadsPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
+  const totalDocuments = documents.documents.length
+  const uploadingCount = documents.documents.filter(
+    (doc) => documents.isUploading(doc.filename) || doc.status === 'uploading'
+  ).length
+  const processingCount = documents.documents.filter((doc) => doc.status === 'processing').length
+  const completedCount = documents.documents.filter((doc) => doc.status === 'completed').length
+  const failedCount = documents.documents.filter((doc) => doc.status === 'failed').length
+  const activeCount = uploadingCount + processingCount
+  const indexedChunks = documents.documents.reduce((total, doc) => total + (doc.chunk_count ?? 0), 0)
+  const shouldShowTrackingPanel = totalDocuments > 0 && (activeCount > 0 || failedCount > 0)
+  const latestUpdatedAt = documents.documents
+    .map((doc) => parseDocumentTime(doc.updated_at || doc.created_at))
+    .filter((timestamp): timestamp is number => timestamp !== null)
+    .sort((a, b) => b - a)[0]
+
   return (
     <AuthGuard>
       <div className="flex flex-col h-screen bg-background">
@@ -154,72 +277,141 @@ export default function UploadsPage() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-hidden">
-          <div className="max-w-4xl mx-auto h-full flex flex-col">
+          <div className="mx-auto grid h-full max-w-7xl grid-rows-[auto_1fr] lg:grid-cols-[360px_minmax(0,1fr)] lg:grid-rows-1">
             {/* Page Header */}
-            <div className="p-6 border-b">
-              <h1 className="text-2xl font-bold mb-1">Tài liệu</h1>
-              <p className="text-sm text-muted-foreground">
-                Quản lý tài liệu của bạn. Nhấp để xem hoặc tải xuống.
-              </p>
-            </div>
-
-            {/* Upload Zone */}
-            <div className="p-6 border-b">
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={cn(
-                  'relative border-2 border-dashed rounded-xl p-10 text-center transition-all',
-                  isDragging
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50 hover:bg-muted/30'
-                )}
-              >
-                <input
-                  type="file"
-                  id="file-upload"
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  onChange={handleFileSelect}
-                  accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.tiff,.pptx,.ppt"
-                />
-                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                  <UploadIcon className={cn(
-                    'w-7 h-7',
-                    isDragging ? 'text-primary' : 'text-muted-foreground'
-                  )} />
-                </div>
-                <h3 className="text-base font-semibold mb-0.5">
-                  {isDragging ? 'Thả file vào đây' : 'Kéo thả file để tải lên'}
-                </h3>
-                <p className="text-xs text-muted-foreground mb-3">
-                  hoặc click để chọn file từ máy tính
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  Hỗ trợ: PDF, DOCX, DOC, TXT, PNG, JPG, JPEG, TIFF, PPTX, PPT (tối đa 50MB)
+            <aside className="border-b lg:border-b-0 lg:border-r">
+              <div className="p-6 border-b">
+                <h1 className="text-2xl font-bold mb-1">Tài liệu</h1>
+                <p className="text-sm text-muted-foreground">
+                  Tải lên, theo dõi xử lý và dùng tài liệu để tra cứu trong chat.
                 </p>
               </div>
-            </div>
 
-            {/* Error */}
-            {documents.error && (
-              <div className="px-6 py-2">
-                <div className="bg-destructive/10 text-destructive text-xs px-4 py-2.5 rounded-lg">
-                  {documents.error}
+              {/* Upload Zone */}
+              <div className="p-6 border-b">
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={cn(
+                    'relative border-2 border-dashed rounded-xl text-center transition-all',
+                    'p-6 lg:p-8',
+                    isDragging
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                  )}
+                >
+                  <input
+                    type="file"
+                    id="file-upload"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={handleFileSelect}
+                    accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.tiff,.pptx,.ppt"
+                  />
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                    <UploadIcon className={cn(
+                      'h-6 w-6',
+                      isDragging ? 'text-primary' : 'text-muted-foreground'
+                    )} />
+                  </div>
+                  <h3 className="text-base font-semibold mb-0.5">
+                    {isDragging ? 'Thả file vào đây' : totalDocuments > 0 ? 'Tải thêm tài liệu' : 'Kéo thả file để tải lên'}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    hoặc click để chọn file từ máy tính
+                  </p>
+                  <p className="text-[10px] leading-4 text-muted-foreground">
+                    PDF, DOCX, DOC, TXT, PNG, JPG, JPEG, TIFF, PPTX, PPT. Tối đa 50MB.
+                  </p>
                 </div>
               </div>
-            )}
 
-            {/* Documents List */}
-            <div className="flex-1 overflow-y-auto">
+              {/* Error */}
+              {documents.error && (
+                <div className="px-6 py-3 border-b">
+                  <div className="bg-destructive/10 text-destructive text-xs px-4 py-2.5 rounded-lg">
+                    {documents.error}
+                  </div>
+                </div>
+              )}
+
+              {/* Processing Tracking */}
               <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                    Danh sách tài liệu ({documents.documents.length})
-                  </h2>
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-primary" />
+                  <h2 className="text-sm font-semibold">Tiến trình xử lý</h2>
                 </div>
 
-                {documents.isLoading && documents.documents.length === 0 ? (
+                {shouldShowTrackingPanel ? (
+                  <div className="mt-3 space-y-4">
+                    <p className="text-xs text-muted-foreground">
+                      Bạn có thể rời trang này; hệ thống vẫn tiếp tục xử lý tài liệu.
+                      {latestUpdatedAt ? ` Cập nhật gần nhất: ${new Date(latestUpdatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}.` : ''}
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-lg border bg-background px-3 py-2">
+                        <p className="text-[11px] text-muted-foreground">Đang tải</p>
+                        <p className="mt-1 text-lg font-semibold text-sky-600 dark:text-sky-400">{uploadingCount}</p>
+                      </div>
+                      <div className="rounded-lg border bg-background px-3 py-2">
+                        <p className="text-[11px] text-muted-foreground">Đang xử lý</p>
+                        <p className="mt-1 text-lg font-semibold text-amber-600 dark:text-amber-400">{processingCount}</p>
+                      </div>
+                      <div className="rounded-lg border bg-background px-3 py-2">
+                        <p className="text-[11px] text-muted-foreground">Lỗi</p>
+                        <p className="mt-1 text-lg font-semibold text-rose-600 dark:text-rose-400">{failedCount}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-lg border bg-muted/20 px-3 py-3">
+                    <p className="text-xs text-muted-foreground">
+                      {totalDocuments === 0
+                        ? 'Chưa có tài liệu nào đang xử lý.'
+                        : 'Không có tài liệu nào đang xử lý.'}
+                    </p>
+                  </div>
+                )}
+
+                {totalDocuments > 0 && (
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-lg border bg-background px-3 py-2">
+                      <p className="text-[11px] text-muted-foreground">Sẵn sàng</p>
+                      <p className="mt-1 text-lg font-semibold text-emerald-600 dark:text-emerald-400">{completedCount}</p>
+                    </div>
+                    <div className="rounded-lg border bg-background px-3 py-2">
+                      <p className="text-[11px] text-muted-foreground">Đã lập chỉ mục</p>
+                      <p className="mt-1 text-lg font-semibold">{indexedChunks}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </aside>
+
+            <section className="min-h-0 overflow-hidden">
+              <div className="flex h-full flex-col">
+                <div className="border-b p-6">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold">Danh sách tài liệu</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {totalDocuments} tài liệu trong thư viện của bạn.
+                      </p>
+                    </div>
+                    {totalDocuments > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {completedCount} sẵn sàng
+                        {indexedChunks > 0 ? ` · ${indexedChunks} đoạn đã lập chỉ mục` : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Documents List */}
+                <div className="flex-1 overflow-y-auto">
+                  <div className="p-6">
+                    {documents.isLoading && documents.documents.length === 0 ? (
                   <div className="flex items-center justify-center h-48">
                     <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                   </div>
@@ -243,6 +435,14 @@ export default function UploadsPage() {
                       const uploading = documents.isUploading(doc.filename)
                       const isCompleted = doc.status === 'completed'
                       const uploadDuration = documents.uploadDurations[doc.id] || documents.uploadDurations[doc.filename]
+                      const tracking = getDocumentTracking(
+                        doc,
+                        uploading,
+                        now,
+                        documents.activeUploadStarts,
+                        documents.documentStarts
+                      )
+                      const isActivelyTracked = uploading || doc.status === 'uploading' || doc.status === 'processing'
 
                       const ext = doc.file_type.toLowerCase()
                       const isWordOrPpt = ext === 'doc' || ext === 'docx' || ext === 'ppt' || ext === 'pptx'
@@ -268,99 +468,148 @@ export default function UploadsPage() {
                             }
                           }}
                           className={cn(
-                            'flex items-center gap-3 p-3 rounded-xl border transition-all select-none group',
+                            'flex flex-col gap-3 rounded-lg border p-3 transition-all select-none group',
                             uploading && 'bg-primary/5 border-primary/20',
                             !uploading && isCompleted && 'hover:bg-muted/50 border-border cursor-pointer hover:border-primary/20',
                             !uploading && !isCompleted && 'border-border bg-muted/10 opacity-70'
                           )}
                         >
-                          {/* File Icon Container */}
-                          <div className={cn(
-                            "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border transition-transform duration-200 group-hover:scale-105",
-                            fileType.bgColor
-                          )}>
-                            <Icon className={cn('w-5 h-5', fileType.color)} />
-                          </div>
+                          <div className="flex items-center gap-3">
+                            {/* File Icon Container */}
+                            <div className={cn(
+                              "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border transition-transform duration-200 group-hover:scale-105",
+                              fileType.bgColor
+                            )}>
+                              <Icon className={cn('w-5 h-5', fileType.color)} />
+                            </div>
 
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate text-foreground group-hover:text-primary transition-colors">
-                              {doc.filename}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
-                              <span>{formatFileSize(doc.file_size)}</span>
-                              {uploadDuration !== undefined && (
-                                <>
-                                  <span className="text-[10px] opacity-40">•</span>
-                                  <span>Tải lên: {uploadDuration.toFixed(1)}s</span>
-                                </>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate text-foreground group-hover:text-primary transition-colors">
+                                {doc.filename}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <span>{formatFileSize(doc.file_size)}</span>
+                                {doc.chunk_count !== undefined && doc.chunk_count > 0 && (
+                                  <>
+                                    <span className="text-[10px] opacity-40">•</span>
+                                    <span className="inline-flex items-center gap-1">
+                                      <Layers3 className="h-3 w-3" />
+                                      {doc.chunk_count} đoạn đã lập chỉ mục
+                                    </span>
+                                  </>
+                                )}
+                                {uploadDuration !== undefined && (
+                                  <>
+                                    <span className="text-[10px] opacity-40">•</span>
+                                    <span>Hoàn tất sau {uploadDuration.toFixed(1)}s</span>
+                                  </>
+                                )}
+                              </p>
+                            </div>
+
+                            {/* Status/Actions Container */}
+                            <div className="shrink-0 flex items-center gap-3">
+
+                              {/* Active Loaders & Error states */}
+                              {(uploading || doc.status === 'uploading' || doc.status === 'processing') ? (
+                                <span className={cn("flex items-center gap-1.5 text-xs font-medium", tracking.tone)}>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  {doc.status === 'processing' ? 'Đang xử lý' : 'Đang tải'}
+                                  {tracking.elapsedSeconds ? ` (${formatElapsedTime(tracking.elapsedSeconds)})` : ''}
+                                </span>
+                              ) : doc.status === 'failed' ? (
+                                <span
+                                  className="text-xs text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full font-medium cursor-help"
+                                  title={doc.error_message || "Lỗi xử lý tài liệu"}
+                                >
+                                  Thất bại
+                                </span>
+                              ) : isCompleted ? (
+                                <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Sẵn sàng
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                  <Clock3 className="h-3.5 w-3.5" />
+                                  Chờ xử lý
+                                </span>
                               )}
-                            </p>
+
+                              {/* Action Hover Helper Icons */}
+                              {isCompleted && !uploading && (
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center text-muted-foreground mr-1">
+                                  {isWordOrPpt ? (
+                                    <Download className="w-4 h-4 hover:text-foreground" />
+                                  ) : (
+                                    <Eye className="w-4 h-4 hover:text-foreground" />
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Delete Button */}
+                              {!uploading && doc.status !== 'processing' && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="w-8 h-8 rounded-lg shrink-0 relative z-10 opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all md:opacity-0 md:group-hover:opacity-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (confirm(`Bạn có chắc chắn muốn xóa tài liệu "${doc.filename}"?`)) {
+                                      documents.deleteDocument(doc.id)
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
 
-                          {/* Status/Actions Container */}
-                          <div className="shrink-0 flex items-center gap-3">
-
-                            {/* Active Loaders & Error states */}
-                            {(uploading || doc.status === 'uploading') ? (
-                              <span className="flex items-center gap-1.5 text-xs text-blue-500 font-medium">
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                Đang tải {(() => {
-                                  const startTime = documents.activeUploadStarts[doc.filename]
-                                  return startTime ? `(${Math.max(0, (now - startTime) / 1000).toFixed(1)}s)` : ''
-                                })()}
-                              </span>
-                            ) : doc.status === 'processing' ? (
-                              <span className="flex items-center gap-1.5 text-xs text-amber-500 font-medium">
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                Đang xử lý {(() => {
-                                  const startTime = documents.documentStarts[doc.id] || (doc.created_at ? (doc.created_at.endsWith('Z') ? Date.parse(doc.created_at) : Date.parse(doc.created_at + 'Z')) : null)
-                                  return startTime ? `(${Math.max(0, (now - startTime) / 1000).toFixed(1)}s)` : ''
-                                })()}
-                              </span>
-                            ) : doc.status === 'failed' ? (
-                              <span
-                                className="text-xs text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full font-medium cursor-help"
-                                title={doc.error_message || "Lỗi xử lý tài liệu"}
-                              >
-                                Thất bại
-                              </span>
-                            ) : null}
-
-                            {/* Action Hover Helper Icons */}
-                            {isCompleted && !uploading && (
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center text-muted-foreground mr-1">
-                                {isWordOrPpt ? (
-                                  <Download className="w-4 h-4 hover:text-foreground" />
-                                ) : (
-                                  <Eye className="w-4 h-4 hover:text-foreground" />
+                          {(isActivelyTracked || doc.status === 'failed') && (
+                            <div className="space-y-2 border-t pt-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className={cn("truncate text-xs font-medium", tracking.tone)}>
+                                  {tracking.label}
+                                </p>
+                                {tracking.elapsedSeconds > 0 && (
+                                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                                    {formatElapsedTime(tracking.elapsedSeconds)}
+                                  </span>
                                 )}
                               </div>
-                            )}
-
-                            {/* Delete Button */}
-                            {!uploading && doc.status !== 'processing' && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="w-8 h-8 rounded-lg shrink-0 relative z-10 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (confirm(`Bạn có chắc chắn muốn xóa tài liệu "${doc.filename}"?`)) {
-                                    documents.deleteDocument(doc.id)
-                                  }
-                                }}
+                              <div
+                                aria-hidden="true"
+                                className={cn(
+                                  'h-1.5 overflow-hidden rounded-full bg-muted',
+                                  doc.status === 'failed' && 'bg-rose-500/15'
+                                )}
                               >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
+                                <div
+                                  className={cn(
+                                    'h-full rounded-full',
+                                    doc.status === 'failed' && 'w-full bg-rose-500',
+                                    (uploading || doc.status === 'uploading') && 'w-1/3 animate-pulse bg-sky-500',
+                                    doc.status === 'processing' && 'w-2/3 animate-pulse bg-amber-500'
+                                  )}
+                                />
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                                {tracking.steps.map((step) => (
+                                  <TrackingStep key={step.label} label={step.label} state={step.state} />
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })}
                   </div>
-                )}
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            </section>
           </div>
         </div>
 
