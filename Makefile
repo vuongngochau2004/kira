@@ -1,4 +1,4 @@
-# K.I.R.A Simplified - Makefile
+# KIRA - Makefile
 .PHONY: help dev backend frontend dev-worker infra infra-stop infra-restart test install clean lint eval-rag
 
 # Default target
@@ -21,7 +21,7 @@ FRONTEND_PORT := 3001
 ##@ General
 
 help: ## Show this help message
-	@echo "$(BLUE)K.I.R.A Simplified - Available commands:$(NC)"
+	@echo "$(BLUE)KIRA - Available commands:$(NC)"
 	@echo ""
 	@grep -E '^##@|^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2}' | sed 's/^##@//'
 	@echo ""
@@ -29,9 +29,9 @@ help: ## Show this help message
 ##@ Development
 
 dev: ## Start both backend and frontend (requires tmux)
-	@echo "$(BLUE)Starting K.I.R.A Simplified...$(NC)"
+	@echo "$(BLUE)Starting KIRA...$(NC)"
 	@tmux new-session -d -s kira -n backend "cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.server.main"
-	@tmux new-window -t kira:1 -n worker "cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-2}"
+	@tmux new-window -t kira:1 -n worker "cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-4}"
 	@tmux new-window -t kira:2 -n frontend "cd $(FRONTEND_DIR) && npm run dev"
 	@tmux attach-session -t kira
 	@echo "$(GREEN)Both services started in tmux session 'kira'$(NC)"
@@ -42,7 +42,7 @@ dev-backend: ## Start backend only
 
 dev-worker: ## Start Celery document worker
 	@echo "$(BLUE)Starting Celery worker...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-2}
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-4}
 
 dev-frontend: ## Start frontend only
 	@echo "$(BLUE)Starting frontend on port $(FRONTEND_PORT)...$(NC)"

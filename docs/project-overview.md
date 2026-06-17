@@ -1,336 +1,131 @@
-# Tổng quan Dự án
+# Project Overview
 
-## Thông tin Project
+## Summary
 
-- **Tên**: K.I.R.A Simplified
-- **Mô tả**: Knowledge-based Intelligent Retrieval Assistant - Production-ready RAG system with Hexagonal Modular Monolith Architecture
-- **Loại**: Backend API + Frontend Web (Full-stack)
-- **Giai đoạn**: Production-ready with Hexagonal Architecture Migration (Complete)
-- **Version**: 1.0.0
+KIRA is a full-stack Retrieval-Augmented Generation application for Vietnamese-first document workflows. Users can register, upload documents, wait for background ingestion, and ask questions that are answered with retrieved context and citations.
 
-## Tech Stack
-
-### Backend
-- **Runtime**: Python 3.12+
-- **Framework**: FastAPI
-- **Architecture**: Hexagonal Modular Monolith
-  - Modules: chat, classification, document, evaluation, rag, retrieval
-  - Shared Layer: ports, adapters, infrastructure, kernel, domain
-  - Serving Layer: server with API v1 endpoints
-- **LLM**: GLM-4.5 (Zhipu AI), Anthropic Claude, OpenAI GPT
-- **LangGraph**: Multi-agent RAG orchestration
-
-### Frontend
-- **Framework**: Next.js 16 (App Router)
-- **UI Library**: React 19
-- **Styling**: Tailwind CSS, shadcn/ui (Radix UI)
-- **State Management**: Zustand
-- **Data Fetching**: TanStack Query
-- **i18n**: next-intl (Vietnamese, English)
-
-### Database
-- **PostgreSQL**: 16 + pgvector extension
-- **Vector DB**: Qdrant (1024-dim vectors)
-- **Object Storage**: MinIO
-- **Search**: Hybrid (Dense + BM25 with RRF)
-
-### Development
-- **Testing**: Pytest, pytest-asyncio, pytest-cov
-- **Linting**: Ruff, MyPy
-- **Build**: Docker Compose
+The repository is organized as a hexagonal modular monolith on the backend and a Next.js App Router frontend.
 
 ## Core Capabilities
 
-### 1. Multi-User Document Management
-- PDF/DOCX/PPTX/TXT upload support
-- Per-user document isolation
-- Background ingestion pipeline
-- Intelligent OCR fallback (PyMuPDF → PaddleOCR)
-- Vietnamese text preservation
+- Multi-user authentication with JWT and httpOnly cookies
+- Document upload, download, deletion, chunk inspection, and processing status
+- Background document ingestion through Celery and Redis
+- File storage in MinIO and metadata storage in PostgreSQL
+- Dense retrieval through Qdrant
+- Keyword retrieval through BM25
+- Hybrid search through Reciprocal Rank Fusion
+- Optional LLM reranking and citation verification behavior
+- Streaming chat over Server-Sent Events
+- Conversation persistence with soft delete
+- DeepEval-based RAG evaluation APIs and CLI helpers
 
-### 2. Hybrid Retrieval System
-- **Dense Retrieval**: Vector similarity search via Qdrant
-- **Keyword Retrieval**: BM25 per-user indexes
-- **RRF Fusion**: Reciprocal Rank Fusion for result merging
-- **Optional Reranking**: LLM-based document reranking
-- **Citation Generation**: With verification and grounding
+## Tech Stack
 
-### 3. Intelligent Query Classification
-- **Strategy Pattern**: Pluggable classification strategies
-- **Fallback Chain**: Keyword → Cached → LLM
-- **Intent Detection**: RAG vs Conversational routing
-- **LRU Cache**: Performance optimization
+| Area | Stack |
+| --- | --- |
+| Backend runtime | Python 3.12, FastAPI, Pydantic Settings |
+| Backend data | SQLAlchemy asyncio, PostgreSQL 16 + pgvector |
+| Retrieval | Qdrant, BM25, RRF fusion |
+| Background jobs | Celery, Redis |
+| File storage | MinIO |
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
+| UI/state | Radix UI/shadcn-style components, Zustand, TanStack Query |
+| AI services | GLM/Z.ai default, Gemini/OpenAI-compatible/Ollama options, external embedding API |
+| Quality | Pytest, Ruff, MyPy, ESLint, Vitest, DeepEval |
 
-### 4. Agentic RAG
-- **LangGraph Integration**: Multi-agent orchestration
-- **Thinking Visualization**: Claude-style thinking display
-- **Citation Verification**: Grounding checks
-- **Context Building**: Intelligent context assembly
-
-### 5. Streaming Chat Experience
-- **SSE Streaming**: Real-time response chunks
-- **Structured Events**: routing, retrieval, thinking, content, citations
-- **Conversation Persistence**: With soft delete
-- **Multi-turn Context**: Message history management
-
-### 6. Evaluation System
-- **RAGAS Integration**: Faithfulness, relevancy, precision, recall
-- **Golden Datasets**: Custom evaluation datasets
-- **Batch Evaluation**: Efficient batch processing
-- **Caching**: Evaluation result caching
-
-### 7. Authentication & Security
-- **JWT Authentication**: With httpOnly cookies
-- **Per-User Isolation**: All data scoped by user_id
-- **Soft Delete**: Conversations marked with deleted_at
-- **CORS**: Configurable allowed origins
-
-## Architecture Highlights
-
-### Hexagonal Modular Monolith
+## Backend Architecture
 
 ```text
 src/
-├── server/                   # Serving Layer - HTTP only
-│   ├── main.py              # FastAPI app
-│   └── api/v1/              # API endpoints
-│       ├── auth/
-│       ├── chat/
-│       ├── documents/
-│       ├── evaluation/
-│       └── metrics/
-├── modules/                 # Application Modules
-│   ├── chat/                # Chat use cases
-│   ├── classification/      # Query routing
-│   ├── document/            # Document management
-│   ├── evaluation/          # RAGAS evaluation
-│   ├── rag/                 # Agentic RAG
-│   └── retrieval/           # Hybrid retrieval
-├── shared/                  # Shared Layer
-│   ├── ports/               # External interfaces
-│   ├── adapters/            # Implementations
-│   ├── infrastructure/      # Technical concerns
-│   ├── kernel/              # DI container
-│   └── domain/              # Shared entities
-├── config/                  # Configuration
-└── constants/               # Constants
+├── server/                   # FastAPI app setup, middleware, server-owned API routes
+├── modules/                  # Application modules
+│   ├── chat/                 # Chat orchestration, streaming, persistence
+│   ├── classification/       # Query intent routing
+│   ├── document/             # Upload, processing, storage workflow
+│   ├── evaluation/           # DeepEval services and dataset management
+│   ├── rag/                  # Agentic/LangGraph RAG orchestration
+│   └── retrieval/            # Dense, BM25, hybrid search, reranking
+├── shared/                   # Ports, adapters, infrastructure, kernel, shared domain
+├── config/                   # Runtime and static configuration
+├── tools/                    # Retrieval and ingestion initialization
+└── worker/                   # Celery app and document tasks
 ```
 
-**Key Principles:**
-- **Inside (Application Core)**: Business logic in modules
-- **Outside (Infrastructure)**: External services in adapters
-- **Ports**: Interfaces defined by core, implemented by infrastructure
-- **DI Container**: Service wiring and lifecycle management
-
-## Request Flow Examples
-
-### Chat Request Flow
+The dependency direction should stay inward:
 
 ```text
-User Query
-  ↓
-POST /api/v1/chat/stream
-  ↓
-JWT Authentication
-  ↓
-Chat Module (chat.py)
-  ↓
-Classification Module
-  - CompositeClassifier tries strategies
-  - Returns ClassificationResult
-  ↓
-Handler Selection (via DI)
-  - RAGHandler or ConversationalHandler
-  ↓
-Retrieval Module (if RAG)
-  - Dense + BM25 → RRF → Rerank
-  ↓
-RAG Module (if RAG)
-  - Context building → LLM generation
-  ↓
-SSE Streaming
-  - routing → retrieval → thinking → content → citations
-  ↓
-Persistence
-  - Save messages to PostgreSQL
+HTTP/API -> application use cases -> domain rules -> shared ports -> adapters/infrastructure
 ```
 
-### Document Upload Flow
+## Runtime Services
 
-```text
-File Upload
-  ↓
-POST /api/v1/documents/upload
-  ↓
-MinIO Storage
-  ↓
-PostgreSQL Document Row
-  ↓
-Background Ingestion
-  ↓
-Extraction → Cleaning → Chunking → Embedding
-  ↓
-Qdrant Upsert (vectors)
-  ↓
-BM25 Index Update
-  ↓
-Status Update (complete)
-```
+Local Docker Compose starts:
 
-## Configuration
+- PostgreSQL on host port `5433`
+- Qdrant on host port `6333`
+- MinIO on host ports `9000` and `9001`
+- Redis on host port `6379`
 
-### Environment Variables
+Development servers:
 
-```text
-# Required
-JWT_SECRET_KEY=<random-secret>
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5433
-QDRANT_HOST=localhost
-QDRANT_PORT=6333
-MINIO_ENDPOINT=localhost:9000
+- Backend: http://localhost:8006
+- Frontend: http://localhost:3001
+- API docs: http://localhost:8006/docs
 
-# LLM Provider
-LLM_PROVIDER=glm
-GLM_API_KEY=<your-key>
-
-# Embedding
-EMBEDDING_BASE_URL=http://localhost:8001
-EMBEDDING_MODEL=vietnamese-embedding
-```
-
-### Static Settings (settings.yaml)
-
-```text
-embedding:
-  dim: 1024
-
-retrieval:
-  k: 5
-  rrf_k: 60
-  min_score_threshold: 0.65
-
-reranking:
-  enabled: true
-  mode: "llm"
-  top_k_before: 20
-  top_k_after: 5
-
-citations:
-  max_citations: 10
-  min_score_threshold: 0.3
-
-chunking:
-  size: 2048
-  overlap: 256
-
-semantic_routing:
-  enabled: true
-  threshold: 0.75
-
-feature_flags:
-  use_new_classification: false
-  use_new_handlers: false
-  enable_semantic_router: true
-
-ragas_evaluation:
-  enabled: false
-```
-
-## Development Setup
-
-### Quick Start
-
-```bash
-# 1. Clone repository
-git clone <repository-url>
-cd kira-simple
-
-# 2. Start infrastructure
-docker compose up -d
-
-# 3. Backend setup
-pip install -e ".[dev]"
-python -m src.server.main
-
-# 4. Frontend setup
-cd frontend
-npm install --legacy-peer-deps
-npm run dev
-```
-
-### Access Points
-
-- **Backend API**: http://localhost:8006
-- **API Docs**: http://localhost:8006/docs
-- **Frontend**: http://localhost:3001
-- **Qdrant Dashboard**: http://localhost:6333/dashboard
-- **MinIO Console**: http://localhost:9001
-
-## API Endpoints
-
-### Authentication
-- `POST /api/v1/auth/register` - User registration
-- `POST /api/v1/auth/login` - User login
-- `POST /api/v1/auth/logout` - User logout
-- `POST /api/v1/auth/refresh` - Refresh token
-- `GET /api/v1/auth/me` - Get current user
-
-### Documents
-- `POST /api/v1/documents/upload` - Upload document
-- `GET /api/v1/documents` - List user documents
-- `GET /api/v1/documents/{id}` - Get document detail
-- `DELETE /api/v1/documents/{id}` - Delete document
+## Main Request Flows
 
 ### Chat
-- `POST /api/v1/chat/stream` - Streaming chat
-- `GET /api/v1/chat/conversations` - List conversations
-- `GET /api/v1/chat/conversations/{id}` - Get conversation
-- `DELETE /api/v1/chat/conversations/{id}` - Soft delete conversation
 
-### Evaluation
-- `POST /api/v1/evaluation/evaluate` - Single evaluation
-- `POST /api/v1/evaluation/evaluate/batch` - Batch evaluation
+```text
+Frontend message
+  -> POST /api/v1/chat/stream
+  -> JWT authentication
+  -> conversation load/create
+  -> query classification
+  -> conversational/RAG/drafting handler selection
+  -> retrieval and generation when needed
+  -> SSE response events
+  -> message persistence
+```
 
-### Metrics
-- `GET /api/v1/metrics/routing/summary` - Routing metrics
-- `GET /api/v1/metrics/routing/analysis` - Routing analysis
+### Document Upload
 
-## Team & Process
+```text
+File upload
+  -> POST /api/v1/documents/upload
+  -> MinIO original-file storage
+  -> PostgreSQL document row
+  -> Celery task enqueue
+  -> extraction, cleaning, chunking, embedding
+  -> Qdrant upsert and search index update
+  -> document status update
+```
 
-- **Development**: Feature branch workflow
-- **Code Review**: Required for all changes
-- **Testing**: Pytest for backend, npm test for frontend
-- **Linting**: Ruff (Python), ESLint (TypeScript)
-- **Documentation**: Markdown in docs/ directory
+## Important Configuration
 
-## Roadmap
+Runtime settings are defined in `src/config/config.py`; static defaults are defined in `src/config/settings.yaml`.
 
-Current status: **Production-ready**
+High-impact values:
 
-**Near-term Priorities:**
-1. Complete test coverage (target: 70%+)
-2. Performance optimization
-3. CI/CD pipeline setup
-4. Monitoring & alerting
+- `JWT_SECRET_KEY`
+- `POSTGRES_*`
+- `QDRANT_*`
+- `MINIO_*`
+- `REDIS_*` and `CELERY_*`
+- `LLM_PROVIDER` and provider API keys
+- `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL`, `EMBEDDING_DIM`
+- `qdrant.vector_dim` in `settings.yaml`
 
-**Long-term Goals:**
-1. Advanced RAG techniques
-2. Multi-modal support
-3. Export/import conversations
-4. Advanced search filters
+The embedding dimension and Qdrant vector dimension must match. The default is `1024`.
 
-## Liên kết nhanh
+## Documentation Map
 
-- [Kiến trúc Hệ thống](./system-architecture.md) - Architecture chi tiết với diagrams
-- [Tiêu chuẩn Code](./code-standards.md) - Quy tắc đặt tên, tổ chức file, conventions
-- [Hướng dẫn Thiết kế](./design-guidelines.md) - System design principles, patterns, UI/UX guidelines
-- [Hướng dẫn Deployment](./deployment-guide.md) - Local setup, production deployment, monitoring
-- [Lộ trình Phát triển](./project-roadmap.md) - Milestones, technical debt, changelog
-- [CLAUDE.md](../CLAUDE.md) - Development guidelines chi tiết cho AI assistants
-
----
-
-*Last Updated: 2026-06-12*
-*Architecture: Hexagonal Modular Monolith*
-*Status: Production-ready*
+- `README.md`: product-facing overview, setup, API summary, image guidance
+- `CLAUDE.md`: AI/developer operating guide
+- `docs/system-architecture.md`: architecture diagrams and module breakdown
+- `docs/deployment-guide.md`: local and production deployment notes
+- `docs/high-accuracy-document-processing-pipeline.md`: document extraction pipeline details
+- `docs/docling-document-processing.md`: Docling-specific document processing notes
+- `docs/code-standards.md`: coding conventions and structure guidance
+- `docs/project-roadmap.md`: roadmap and priorities

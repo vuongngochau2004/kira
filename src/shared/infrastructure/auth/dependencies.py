@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.shared.infrastructure.auth.security import decode_token
 from src.shared.infrastructure.persistence.database import get_session
-from src.shared.infrastructure.persistence.database.models import User
+from src.shared.infrastructure.persistence.database.models import User, UserRole
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -97,6 +97,18 @@ async def require_auth(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> User:
     """Require authenticated user (alias for get_current_active_user)."""
+    return current_user
+
+
+async def require_admin(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    """Require an active administrator account."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
     return current_user
 
 

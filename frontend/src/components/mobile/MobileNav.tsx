@@ -1,8 +1,9 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
-import { MessageSquare, Search, Upload, Menu } from 'lucide-react'
+import { MessageSquare, Search, Upload, Menu, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/lib/stores/auth-store'
 
 interface MobileNavProps {
   onMenuClick?: () => void
@@ -11,12 +12,17 @@ interface MobileNavProps {
 export function MobileNav({ onMenuClick }: MobileNavProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const { user } = useAuthStore()
 
   const navItems = [
     { icon: MessageSquare, label: 'Chat', path: '/conversation' },
     { icon: Search, label: 'Tìm kiếm', path: '/conversations' },
     { icon: Upload, label: 'Tải lên', path: '/uploads' },
   ]
+
+  if (user?.role === 'admin') {
+    navItems.push({ icon: ShieldCheck, label: 'Admin', path: '/admin' })
+  }
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t z-50">

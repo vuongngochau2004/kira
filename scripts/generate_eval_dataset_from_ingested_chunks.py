@@ -22,6 +22,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--user-id", required=True)
     parser.add_argument("--output", default="data/evaluation/generated_dataset.json")
+    parser.add_argument(
+        "--summary-output",
+        default=None,
+        help="Optional path for dataset summary JSON. Defaults to <output>.summary.json.",
+    )
     parser.add_argument("--dataset-id", default="generated-rag-eval")
     parser.add_argument("--name", default="Generated RAG evaluation dataset")
     parser.add_argument("--max-documents", type=int, default=40)
@@ -42,6 +47,7 @@ def main() -> int:
         DatasetGenerationConfig(
             user_id=args.user_id,
             output_path=args.output,
+            summary_output_path=args.summary_output,
             dataset_id=args.dataset_id,
             name=args.name,
             max_documents=args.max_documents,

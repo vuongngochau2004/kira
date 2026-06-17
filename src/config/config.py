@@ -187,7 +187,7 @@ class Settings(BaseSettings):
     ocr_timeout: int = Field(30)  # seconds per request
     ocr_max_retries: int = Field(3)
     ocr_batch_size: int = Field(5)  # concurrent pages
-    pdf_extractor: str = Field("vlm")  # vlm, docling, pymupdf
+    pdf_extractor: str = Field("vlm")  # vlm, progressive, docling, pymupdf
     docling_quality_gate_enabled: bool = Field(True)
     docling_quality_fallback_score: int = Field(3)
     pdf_render_dpi: int = Field(300)
@@ -199,6 +199,17 @@ class Settings(BaseSettings):
     vlm_verify_only_failed_pages: bool = Field(True)
     vlm_page_concurrency: int = Field(2)
     vlm_min_page_coverage_ratio: float = Field(0.7)
+
+    # ----- Progressive extraction (native-first + sampled VLM verification) -----
+    # Progressive enhancement: try cheap native extraction first, then verify a
+    # sample of pages with the VLM, and only escalate to a full VLM pass when the
+    # sample disagrees with the native text. Bounds VLM cost/latency for text-based
+    # PDFs while keeping the VLM as the source of truth for image-only documents.
+    progressive_sample_rate: float = Field(0.15)  # fraction of pages to verify (0.0-1.0)
+    progressive_min_sample_pages: int = Field(3)  # minimum pages to verify regardless of rate
+    progressive_max_sample_pages: int = Field(20)  # cap to bound VLM cost
+    progressive_accuracy_threshold: float = Field(0.85)  # min char-level match ratio to accept native text
+    progressive_skip_simple_docs: bool = Field(True)  # skip VLM verify for short, clean native text
     document_audit_enabled: bool = Field(True)
     document_audit_dir: str = Field("reports/document_processing")
     legal_canonicalization_enabled: bool = Field(False)

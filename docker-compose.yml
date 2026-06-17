@@ -1,4 +1,4 @@
-# K.I.R.A Simplified Development Environment
+# KIRA Development Environment
 # Usage: docker compose up -d
 
 services:

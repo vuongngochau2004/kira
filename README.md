@@ -1,68 +1,95 @@
-# K.I.R.A Simplified
+# KIRA
 
-Knowledge-based Intelligent Retrieval Assistant - a production-ready RAG application with hexagonal modular monolith architecture, hybrid retrieval, document ingestion, and evaluation tooling.
+KIRA is a full-stack Retrieval-Augmented Generation application for private document question answering, citation-aware chat, and retrieval quality evaluation. The project combines a FastAPI modular monolith, a Next.js chat interface, hybrid search, background document ingestion, and LLM-powered answer generation.
 
-## What This Project Is
+> Knowledge-based Intelligent Retrieval Assistant for Vietnamese-first document workflows.
 
-K.I.R.A Simplified lets users upload documents, index their content, and answer questions with retrieved context and citations. The backend is a Python modular monolith following hexagonal architecture principles. The frontend is a Next.js chat and document-management UI.
+![KIRA chat interface](docs/assets/kira-chat.svg)
 
-**Core Capabilities:**
+## Highlights
 
-- Authenticated multi-user document upload and chat
-- PDF/DOCX/PPTX/TXT extraction pipeline with OCR support
-- Dense vector retrieval through Qdrant
-- Keyword retrieval through BM25
-- Hybrid search with Reciprocal Rank Fusion (RRF)
-- Optional LLM reranking and citation verification
-- Streaming chat responses over Server-Sent Events
-- Conversation persistence with soft delete
-- RAGAS-based evaluation endpoints and golden datasets
-- Routing metrics for query classification analysis
-- Agentic RAG with LangGraph integration
-- Thinking visualization (Claude-style)
+- Authenticated multi-user workspace with JWT and httpOnly cookies
+- Document upload, storage, processing, chunking, and indexing
+- PDF/DOCX/PPTX/TXT extraction with OCR/VLM-oriented processing options
+- Dense vector search with Qdrant and keyword search with BM25
+- Hybrid retrieval with Reciprocal Rank Fusion and optional LLM reranking
+- Streaming chat over Server-Sent Events with routing, retrieval, thinking, content, and citation events
+- Conversation persistence, soft delete, source panels, and citation previews
+- Celery + Redis background worker for document processing
+- DeepEval/RAG evaluation endpoints, datasets, and CLI helpers
+- Hexagonal modular monolith architecture with ports, adapters, and module boundaries
 
-## Architecture Overview
+## Product Preview
 
-The system follows a **hexagonal modular monolith** architecture:
+Add real screenshots after running the app locally. Recommended image files:
+
+| Screenshot | Suggested path | What to capture |
+| --- | --- | --- |
+| Chat with citations | `docs/assets/kira-chat.png` or `.svg` | Conversation page with a document-grounded answer and source citations open |
+| Document upload | `docs/assets/kira-upload.png` or `.svg` | Upload page after a PDF/DOCX file has been processed |
+| Source panel | `docs/assets/kira-sources.png` | Citation/source panel showing matched chunks |
+| Architecture diagram | `docs/assets/kira-architecture.png` or `.svg` | Diagram exported from Mermaid/Figma/FigJam |
+
+Suggested commands after creating the images:
+
+```bash
+mkdir -p docs/assets
+# Save screenshots with the filenames above, then commit them with the docs.
+```
+
+You can also generate the architecture image from this Mermaid sketch:
+
+```mermaid
+flowchart LR
+    UI[Next.js UI] --> API[FastAPI API]
+    API --> Auth[JWT Auth]
+    API --> Chat[Chat Module]
+    API --> Docs[Document Module]
+    Chat --> Classifier[Classification]
+    Chat --> Retrieval[Hybrid Retrieval]
+    Retrieval --> Qdrant[(Qdrant)]
+    Retrieval --> BM25[BM25 Index]
+    Docs --> MinIO[(MinIO)]
+    Docs --> Worker[Celery Worker]
+    Worker --> Extract[Extract/Clean/Chunk]
+    Worker --> Embed[Embedding API]
+    Worker --> Qdrant
+    API --> Postgres[(PostgreSQL)]
+    Chat --> LLM[LLM Provider]
+```
+
+![KIRA architecture](docs/assets/kira-architecture.svg)
+
+![Document upload workflow](docs/assets/kira-upload.svg)
+
+## Architecture
+
+The backend follows a hexagonal modular monolith. Business behavior lives in modules, external systems are accessed through ports/adapters, and HTTP concerns stay at the server edge.
 
 ```text
-Frontend (Next.js)
-      ↓
+Frontend (Next.js 16 / React 19)
+        |
+        v
 FastAPI serving layer (src/server/)
-      ↓
+        |
+        v
 Application modules (src/modules/)
-      ↓
-Shared contracts (src/shared/ports/ & src/shared/kernel/)
-      ↓
-Adapters & infrastructure (src/shared/adapters/, PostgreSQL, Qdrant, MinIO, OCR, LLM APIs)
+        |
+        v
+Shared ports, kernel, and domain contracts (src/shared/)
+        |
+        v
+Adapters and infrastructure (PostgreSQL, Qdrant, MinIO, Redis, LLM, OCR, Embedding)
 ```
 
-**Key Architectural Principles:**
+Main modules:
 
-- **Inside (Application Core)**: `src/modules/` - Business logic, use cases, domain services
-- **Outside (Infrastructure)**: `src/shared/adapters/`, `src/shared/infrastructure/` - External services, technical concerns
-- **Ports**: `src/shared/ports/` - Interfaces defined by core, implemented by infrastructure
-- **DI Container**: `src/shared/kernel/di/` - Service wiring and lifecycle management
-
-**Module Structure:**
-
-```text
-src/modules/<context>/
-├── api/              # Request/Response DTOs
-├── application/      # Use cases and orchestration
-├── domain/           # Business logic, strategies, services
-└── infrastructure/   # Module-specific persistence/integration
-```
-
-**Current Modules:**
-- **chat**: Chat use cases, handlers, streaming
-- **classification**: Query routing strategies (Keyword → Cached → LLM)
-- **document**: Document upload and ingestion pipeline
-- **retrieval**: Dense, BM25, hybrid search with RRF
-- **rag**: Agentic RAG with LangGraph
-- **evaluation**: RAGAS evaluation services
-
-See [docs/system-architecture.md](docs/system-architecture.md) for detailed architecture documentation.
+- `chat`: chat orchestration, SSE streaming, handlers, conversation persistence
+- `classification`: intent routing with keyword, cache, and LLM strategies
+- `document`: upload, storage, deletion, download, chunks, ingestion pipeline
+- `retrieval`: dense retrieval, BM25, hybrid search, reranking support
+- `rag`: LangGraph/agentic RAG orchestration and generation flow
+- `evaluation`: DeepEval/RAG evaluation services, datasets, and CLI runner
 
 ## Repository Layout
 
@@ -70,311 +97,253 @@ See [docs/system-architecture.md](docs/system-architecture.md) for detailed arch
 kira-simple/
 ├── src/
 │   ├── server/                  # FastAPI app, routers, middleware
-│   │   ├── main.py              # Main backend entrypoint
-│   │   └── api/v1/              # Auth, chat, documents, evaluation, metrics APIs
-│   ├── modules/                 # Modular monolith application contexts
-│   │   ├── chat/                # Chat use cases, handlers, prompts, streaming
-│   │   ├── classification/      # Query routing strategies and cache
-│   │   ├── document/            # Upload and ingestion pipeline
-│   │   ├── evaluation/          # RAGAS evaluation services and datasets
-│   │   ├── rag/                 # Agentic RAG, LangGraph flow, prompts, state
-│   │   └── retrieval/           # Dense, BM25, hybrid search, repositories
-│   ├── shared/                  # Shared ports, adapters, infra, kernel, domain
-│   │   ├── ports/               # LLM, vector store, embedding, OCR, storage contracts
-│   │   ├── adapters/            # GLM, Qdrant, MinIO, PaddleOCR, embedding adapters
-│   │   ├── infrastructure/      # Auth, DB, monitoring, logging, LLM clients
-│   │   ├── kernel/              # DI container, registry, base interfaces
-│   │   └── domain/              # Shared entities and value objects
-│   ├── config/                  # Pydantic settings and static YAML config
-│   ├── constants/               # Shared constants
-│   └── tools/                   # Retrieval, ingestion, reranking tools
-├── frontend/                    # Next.js 16 / React 19 frontend
-├── tests/                       # Unit, integration, retrieval, evaluation tests
-├── docs/                        # Architecture, roadmap, deployment docs
-├── migrations/                  # Database initialization SQL
-├── docker-compose.yml           # PostgreSQL + Qdrant + MinIO
-├── Makefile                     # Common local commands
-├── CLAUDE.md                    # AI assistant development guide
+│   ├── modules/                 # chat, classification, document, retrieval, rag, evaluation
+│   ├── shared/                  # ports, adapters, infrastructure, kernel, shared domain
+│   ├── config/                  # Pydantic env settings and static YAML settings
+│   ├── tools/                   # ingestion and retrieval initializers/tools
+│   └── worker/                  # Celery app and document processing tasks
+├── frontend/                    # Next.js 16 frontend
+├── docs/                        # architecture, deployment, pipeline, roadmap docs
+├── migrations/                  # SQL init migrations for local PostgreSQL
+├── scripts/                     # ingestion, crawling, evaluation, debugging utilities
+├── tests/                       # backend tests
+├── docker-compose.yml           # PostgreSQL, Qdrant, MinIO, Redis
+├── Makefile                     # common local commands
+├── CLAUDE.md                    # AI/developer operating guide
 └── pyproject.toml               # Python package and tooling config
 ```
 
-**Important**: The backend entrypoint is `src/server/main.py`. Use `src.server.main` for imports and ASGI references.
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Backend | Python 3.12, FastAPI, SQLAlchemy asyncio, Pydantic Settings |
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, Radix UI/shadcn-style components |
+| Storage | PostgreSQL 16 + pgvector, Qdrant, MinIO |
+| Background jobs | Celery, Redis |
+| Retrieval | Dense vector search, BM25, RRF fusion, optional LLM reranking |
+| LLM/AI | GLM/Z.ai by default, Gemini/OpenAI-compatible/Ollama options, external embedding API |
+| Quality | Pytest, Ruff, MyPy, ESLint, Vitest, DeepEval |
+
+## Prerequisites
+
+- Python 3.12+
+- Node.js 20+
+- Docker and Docker Compose
+- An LLM provider key or compatible local/provider endpoint
+- An embedding API compatible with the configured `EMBEDDING_BASE_URL`
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.12+
-- Docker and Docker Compose
-- Node.js 20+ (for frontend development)
-- A valid `JWT_SECRET_KEY`
-- LLM/embedding services configured
-
-### 1. Clone and Setup
-
-```bash
-git clone <repository-url>
-cd kira-simple
-```
-
-### 2. Start Infrastructure
+### 1. Start infrastructure
 
 ```bash
 docker compose up -d
 ```
 
 This starts:
-- PostgreSQL 16 + pgvector (port 5433)
-- Qdrant (ports 6333 HTTP, 6334 gRPC)
-- MinIO (ports 9000 API, 9001 console)
 
-### 3. Backend Setup
+- PostgreSQL on `localhost:5433`
+- Qdrant on `localhost:6333`
+- MinIO API on `localhost:9000` and console on `localhost:9001`
+- Redis on `localhost:6379`
+
+### 2. Configure environment
+
+Create `.env` in the project root:
 
 ```bash
-# Install dependencies
-pip install -e ".[dev]"
-
-# Create .env file
-cat > .env << EOF
 JWT_SECRET_KEY=$(openssl rand -hex 32)
+
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5433
 POSTGRES_USER=kira
 POSTGRES_PASSWORD=kira_secret
 POSTGRES_DB=kira_dev
+
 QDRANT_HOST=localhost
 QDRANT_PORT=6333
+
 MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=kira_minio
 MINIO_SECRET_KEY=kira_minio_secret
+MINIO_BUCKET=kira-documents
+MINIO_SECURE=false
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/1
+
 LLM_PROVIDER=glm
 GLM_API_KEY=your-glm-api-key
-EMBEDDING_BASE_URL=http://localhost:8001
-EOF
+GLM_MODEL=glm-4.5
 
-# Run backend
+EMBEDDING_BASE_URL=http://localhost:8001
+EMBEDDING_MODEL=vietnamese-embedding-v2
+EMBEDDING_DIM=1024
+
+CORS_ORIGINS=http://localhost:3001,http://localhost:3000,http://localhost:8006
+```
+
+### 3. Install and run backend
+
+```bash
+pip install -e ".[dev]"
 python -m src.server.main
 ```
 
-Backend runs on http://localhost:8006
+Backend URL: http://localhost:8006
 
-### 4. Frontend Setup
+API docs: http://localhost:8006/docs
+
+### 4. Run document worker
+
+Document upload enqueues a Celery task. Keep a worker running during local development:
+
+```bash
+celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
+```
+
+### 5. Install and run frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install --legacy-peer-deps
-
-# Run dev server
 npm run dev
 ```
 
-Frontend runs on http://localhost:3001
+Frontend URL: http://localhost:3001
 
-### 5. Verify Setup
+### 6. Health checks
 
-Check health endpoints:
 ```bash
 curl http://localhost:8006/health
 curl http://localhost:8006/health/ready
 curl http://localhost:8006/health/live
 ```
 
-Access API docs: http://localhost:8006/docs
-
 ## Common Commands
-
-### Using Makefile
 
 ```bash
 make help              # Show available commands
-make infra             # Start infrastructure
-make dev-backend       # Run backend (assumes .venv exists)
+make infra             # Start PostgreSQL, Qdrant, MinIO, Redis
+make dev-backend       # Run backend through .venv
+make dev-worker        # Run Celery document worker through .venv
 make dev-frontend      # Run frontend
 make test-backend      # Run backend tests
 make test-frontend     # Run frontend tests
 make lint              # Run backend and frontend lint
-make format            # Format backend and frontend
+make format            # Format backend and run frontend lint fix
+make eval-rag USER_ID=<uuid> DATASET=<path>
 ```
 
-### Direct Commands
+Direct commands:
 
-**Backend:**
 ```bash
-# Install
-pip install -e ".[dev]"
-
-# Run
-python -m src.server.main
-
-# Test
 pytest tests/ -v
-
-# Lint/Format
 ruff check src/ tests/
 ruff format src/ tests/
-```
 
-**Frontend:**
-```bash
 cd frontend
-
-# Install
-npm install --legacy-peer-deps
-
-# Run
-npm run dev
-
-# Lint
 npm run lint
-
-# Build
 npm run build
-
-# Test
 npm test
 ```
 
-**Infrastructure:**
-```bash
-docker compose up -d      # Start
-docker compose ps         # Status
-docker compose logs -f    # Logs
-docker compose down       # Stop
-```
+## API Overview
 
-## API Summary
+All application endpoints are mounted under `/api/v1`.
 
 ### Authentication
-- `POST /api/v1/auth/register` - User registration
-- `POST /api/v1/auth/login` - User login
-- `POST /api/v1/auth/logout` - User logout
-- `POST /api/v1/auth/refresh` - Refresh token
-- `GET /api/v1/auth/me` - Get current user
 
-### Documents
-- `POST /api/v1/documents/upload` - Upload document
-- `GET /api/v1/documents` - List user documents
-- `GET /api/v1/documents/{id}` - Get document detail
-- `DELETE /api/v1/documents/{id}` - Delete document
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/refresh-with-token`
+- `GET /api/v1/auth/me`
 
 ### Chat
-- `POST /api/v1/chat/stream` - Streaming chat (SSE)
-- `GET /api/v1/chat/conversations` - List conversations
-- `GET /api/v1/chat/conversations/{id}` - Get conversation
-- `DELETE /api/v1/chat/conversations/{id}` - Soft delete conversation
+
+- `POST /api/v1/chat/completions`
+- `POST /api/v1/chat/stream`
+- `GET /api/v1/chat/conversations`
+- `POST /api/v1/chat/conversations`
+- `GET /api/v1/chat/conversations/{conversation_id}`
+- `DELETE /api/v1/chat/conversations/{conversation_id}`
+
+### Documents
+
+- `POST /api/v1/documents/upload`
+- `GET /api/v1/documents`
+- `GET /api/v1/documents/{document_id}`
+- `DELETE /api/v1/documents/{document_id}`
+- `POST /api/v1/documents/{document_id}/process`
+- `GET /api/v1/documents/{document_id}/download`
+- `GET /api/v1/documents/{document_id}/chunks`
 
 ### Evaluation
-- `POST /api/v1/evaluation/evaluate` - Single evaluation
-- `POST /api/v1/evaluation/evaluate/batch` - Batch evaluation
+
+- `POST /api/v1/evaluation/evaluate`
+- `POST /api/v1/evaluation/evaluate/batch`
+- `GET /api/v1/evaluation/datasets`
+- `POST /api/v1/evaluation/datasets`
 
 ### Metrics
-- `GET /api/v1/metrics/routing/summary` - Routing metrics
-- `GET /api/v1/metrics/routing/analysis` - Routing analysis
+
+- `GET /api/v1/metrics/routing/summary`
+- `GET /api/v1/metrics/routing/analysis`
+- `GET /api/v1/metrics/routing/problematic`
+- `GET /api/v1/metrics/routing/hourly`
+- `POST /api/v1/metrics/routing/clear`
 
 ## Configuration
 
-### Environment Variables
+Runtime environment variables are defined in `src/config/config.py`. Static retrieval, chunking, reranking, citation, and feature-flag defaults are defined in `src/config/settings.yaml`.
 
-**Required:**
-- `JWT_SECRET_KEY` - JWT signing secret
-- `POSTGRES_*` - Database connection
-- `QDRANT_*` - Vector store connection
-- `MINIO_*` - Object storage connection
+Important settings:
 
-**LLM Provider:**
-- `LLM_PROVIDER` - glm, gemini, or openai
-- `GLM_API_KEY`, `GEMINI_API_KEY`, or `OPENAI_API_KEY`
-
-**Embedding:**
-- `EMBEDDING_BASE_URL` - Embedding service URL
-- `EMBEDDING_MODEL` - Model name
-- `EMBEDDING_DIM` - Vector dimension (default: 1024)
-
-### Static Configuration (src/config/settings.yaml)
-
-Controls:
-- Retrieval parameters (top-k, RRF constant, score threshold)
-- Reranking settings (mode, limits)
-- Citation behavior (limits, verification, snippet length)
-- Chunking parameters (size, overlap)
-- Qdrant settings (collection, vector dimension)
-- Semantic routing (threshold)
-- Feature flags (classification, handlers, semantic router)
-- RAGAS evaluation (enabled flag, metrics, timeout)
+- `JWT_SECRET_KEY` is required.
+- `APP_ENV=production` rejects known default JWT secrets.
+- `QDRANT_VECTOR_DIM`, `EMBEDDING_DIM`, and `qdrant.vector_dim` must match.
+- Frontend development uses port `3001`.
+- Backend development uses port `8006`.
+- Upload processing needs Redis and a running Celery worker.
 
 ## Documentation
 
-- **[System Architecture](docs/system-architecture.md)** - Detailed architecture with diagrams
-- **[Project Overview](docs/project-overview.md)** - Tech stack, capabilities, configuration
-- **[Project Roadmap](docs/project-roadmap.md)** - Milestones, technical debt, priorities
-- **[Code Standards](docs/code-standards.md)** - Naming conventions, file organization, patterns
-- **[Design Guidelines](docs/design-guidelines.md)** - Design principles, API patterns, UI/UX
-- **[Deployment Guide](docs/deployment-guide.md)** - Local setup, production deployment, monitoring
-- **[CLAUDE.md](CLAUDE.md)** - Development guide for AI assistants
+- [System Architecture](docs/system-architecture.md)
+- [Project Overview](docs/project-overview.md)
+- [Deployment Guide](docs/deployment-guide.md)
+- [Document Processing Pipeline](docs/high-accuracy-document-processing-pipeline.md)
+- [Docling Document Processing](docs/docling-document-processing.md)
+- [Project Roadmap](docs/project-roadmap.md)
+- [Code Standards](docs/code-standards.md)
+- [AI Assistant Guide](CLAUDE.md)
 
-## Tech Stack
+## Development Notes
 
-**Backend:**
-- Python 3.12, FastAPI
-- Hexagonal modular monolith architecture
-- GLM-4.5 (primary LLM), Claude, GPT (backup)
-- LangGraph for agentic RAG
+- Keep HTTP behavior in `src/server/` or module `api/` files.
+- Keep orchestration in `application/`.
+- Keep domain decisions in `domain/`.
+- Put concrete integrations in `infrastructure/` or `src/shared/adapters/`.
+- Use contracts from `src/shared/ports/` when adding external service boundaries.
+- Do not bypass per-user filtering in document, retrieval, or conversation flows.
+- Prefer focused tests near the changed behavior and broader tests for shared contracts.
 
-**Frontend:**
-- Next.js 16 (App Router), React 19
-- TypeScript, Tailwind CSS, shadcn/ui
-- Zustand (state), TanStack Query (data fetching)
+## Image Suggestions
 
-**Database:**
-- PostgreSQL 16 + pgvector
-- Qdrant (vector DB)
-- MinIO (object storage)
+For a professional README, use real product screenshots instead of generic illustrations:
 
-**Development:**
-- Pytest, Ruff, MyPy
-- Docker Compose
-- ESLint, Prettier
+1. Open http://localhost:3001 and capture the login screen or authenticated chat shell.
+2. Upload one representative university PDF/DOCX and wait for processing to complete.
+3. Ask a question that produces citations, then capture the chat and source panel.
+4. Save images under `docs/assets/` with the filenames used above.
+5. Keep screenshots clean: hide test credentials, browser bookmarks, and unrelated desktop UI.
 
-## Current Status
-
-**Phase:** Production-ready with Hexagonal Architecture ✅
-
-**Completed:**
-- ✅ Hexagonal modular monolith structure (6 modules)
-- ✅ Shared layer (ports, adapters, infrastructure, kernel, domain)
-- ✅ Hybrid retrieval (Dense + BM25 with RRF)
-- ✅ Per-user data isolation
-- ✅ Query classification (Strategy pattern)
-- ✅ Agentic RAG with LangGraph
-- ✅ SSE streaming responses
-- ✅ JWT authentication with httpOnly cookies
-- ✅ Frontend (Next.js 16 + React 19)
-
-**Next Priorities:**
-- 🔴 Testing & Quality (target: 70%+ coverage)
-- 🟡 Performance optimization
-- 🟢 Production deployment setup
-
-## Contributing
-
-See [docs/code-standards.md](docs/code-standards.md) for coding conventions and [CLAUDE.md](CLAUDE.md) for development guidelines.
-
-**Quick Start:**
-1. Follow hexagonal architecture principles
-2. Respect module boundaries
-3. Use ports/adapters for external services
-4. Wire services through DI container
-5. Keep HTTP concerns in `src/server/`
-6. Add tests for new features
+For diagrams, export the Mermaid architecture diagram as PNG/SVG from GitHub, Mermaid Live Editor, Figma, or FigJam and save it as `docs/assets/kira-architecture.png` or `docs/assets/kira-architecture.svg`.
 
 ## License
 
-[Specify your license here]
-
----
-
-*Last Updated: 2026-06-12*
-*Architecture: Hexagonal Modular Monolith*
-*Python: 3.12 | Next.js: 16 | React: 19*
+Add the project license here before publishing publicly.

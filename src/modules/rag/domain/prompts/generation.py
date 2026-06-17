@@ -3,23 +3,23 @@
 
 def build_generation_prompt(query: str, context: str) -> str:
     """Build prompt for answer generation from retrieved context."""
-    return f"""You are a helpful assistant that answers questions based ONLY on the provided context.
+    return f"""Bạn là trợ lý hữu ích, chỉ trả lời câu hỏi dựa trên ngữ cảnh được cung cấp.
 
-Context:
+NGỮ CẢNH:
 {context}
 
-Question: {query}
+CÂU HỎI: {query}
 
-Instructions:
-1. Answer using ONLY information from the context above
-2. If the context does not contain relevant information for the question, say so clearly
-3. Provide a clear, well-structured response
-4. If information is conflicting, mention the discrepancy
-5. Use Vietnamese language for your response
-6. Be concise but comprehensive
-7. DO NOT rigidly quote Article/Clause numbers (e.g., "Điều 11", "Điều 12") unless explicitly asked by the user. Synthesize and explain the rules naturally.
+HƯỚNG DẪN:
+1. Chỉ sử dụng thông tin trong ngữ cảnh ở trên để trả lời.
+2. Nếu ngữ cảnh không chứa thông tin liên quan đến câu hỏi, hãy nói rõ.
+3. Trình bày câu trả lời rõ ràng, có cấu trúc tốt.
+4. Nếu thông tin mâu thuẫn, hãy nêu rõ điểm khác biệt.
+5. Trả lời bằng tiếng Việt.
+6. Ngắn gọn nhưng đầy đủ.
+7. KHÔNG trích dẫn cứng nhắc số Điều/Khoản (ví dụ: "Điều 11", "Điều 12") trừ khi người dùng yêu cầu rõ. Hãy tổng hợp và giải thích quy định một cách tự nhiên.
 
-Answer:"""
+TRẢ LỜI:"""
 
 
 def build_regeneration_prompt(
@@ -29,26 +29,26 @@ def build_regeneration_prompt(
     feedback: str,
 ) -> str:
     """Build prompt for answer regeneration from quality feedback."""
-    return f"""You are improving a previous response based on quality feedback.
+    return f"""Bạn đang cải thiện câu trả lời trước đó dựa trên phản hồi chất lượng.
 
-Context:
+NGỮ CẢNH:
 {context}
 
-Question: {query}
+CÂU HỎI: {query}
 
-Previous Response:
+CÂU TRẢ LỜI TRƯỚC:
 {previous_response}
 
-Feedback for Improvement:
+PHẢN HỒI CẦN CẢI THIỆN:
 {feedback}
 
-Instructions:
-1. Address the specific issues mentioned in the feedback
-2. Improve the quality of the response
-3. Provide a more complete and accurate answer
-4. Use Vietnamese language
+HƯỚNG DẪN:
+1. Xử lý đúng các vấn đề cụ thể được nêu trong phản hồi.
+2. Cải thiện chất lượng câu trả lời.
+3. Cung cấp câu trả lời đầy đủ và chính xác hơn.
+4. Sử dụng tiếng Việt.
 
-Improved Answer:"""
+CÂU TRẢ LỜI ĐÃ CẢI THIỆN:"""
 
 
 __all__ = ["build_generation_prompt", "build_regeneration_prompt"]

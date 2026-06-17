@@ -21,12 +21,10 @@
 
 ```text
 src/
-├── server/                   # SERVING LAYER - HTTP endpoints only
+├── server/                   # SERVING LAYER - app setup and server-owned HTTP routes
 │   ├── main.py              # FastAPI app entrypoint
-│   └── api/v1/              # API v1 endpoints
+│   └── api/v1/              # Server-owned API v1 endpoints
 │       ├── auth/            # Authentication endpoints
-│       ├── chat/            # Chat streaming endpoints
-│       ├── documents/       # Document endpoints
 │       ├── evaluation/      # Evaluation endpoints
 │       └── metrics/         # Metrics endpoints
 │
@@ -37,7 +35,7 @@ src/
 │   │   ├── domain/         # Domain services, strategies, prompts
 │   │   └── infrastructure/ # Module-specific persistence/integration
 │   │
-│   ├── chat/               # Chat module
+│   ├── chat/               # Chat module, including chat API endpoints
 │   │   ├── api/
 │   │   │   ├── requests.py
 │   │   │   └── responses.py
@@ -47,7 +45,7 @@ src/
 │   │   │   └── streaming.py     # SSE streaming logic
 │   │   ├── domain/
 │   │   │   ├── services/         # Chat domain services
-│   │   │   └── rag.py            # RAG domain service
+│   │   │   └── prompts/          # Chat prompts
 │   │   └── infrastructure/
 │   │       └── handlers/         # Chat handlers
 │   │           ├── conversational.py
@@ -64,13 +62,14 @@ src/
 │   │           ├── keyword.py
 │   │           └── llm.py
 │   │
-│   ├── document/            # Document module
+│   ├── document/            # Document module, including document API endpoints
 │   │   ├── api/
 │   │   ├── application/
 │   │   │   ├── upload.py
 │   │   │   ├── delete.py
-│   │   │   └── ingestion.py
-│   │   └── domain/
+│   │   │   └── process.py
+│   │   ├── domain/
+│   │   └── infrastructure/
 │   │
 │   ├── retrieval/           # Retrieval module
 │   │   ├── api/
@@ -78,9 +77,9 @@ src/
 │   │   ├── domain/
 │   │   │   └── services/
 │   │   └── infrastructure/
-│   │       ├── dense.py
-│   │       ├── bm25.py
-│   │       └── hybrid.py
+│   │       ├── vector/
+│   │       ├── keyword/
+│   │       └── document_store/
 │   │
 │   ├── evaluation/          # Evaluation module
 │   │   ├── api/
@@ -90,9 +89,10 @@ src/
 │   └── rag/                 # RAG module
 │       ├── application/
 │       ├── domain/
-│       │   ├── agents/
+│       │   ├── services/
 │       │   ├── prompts/
-│       │   └── state.py
+│       │   └── __init__.py
+│       ├── orchestration/
 │       └── infrastructure/
 │
 ├── shared/                  # SHARED LAYER - Cross-cutting concerns
@@ -166,16 +166,15 @@ src/
 ```text
 frontend/src/
 ├── app/                    # Next.js App Router
-│   ├── (auth)/            # Auth routes group
-│   │   ├── login/
-│   │   │   └── page.tsx
-│   │   └── register/
-│   │       └── page.tsx
-│   ├── chat/
+│   ├── login/
+│   │   └── page.tsx
+│   ├── register/
 │   │   └── page.tsx
 │   ├── conversation/
 │   │   └── [id]/
 │   │       └── page.tsx
+│   ├── conversations/
+│   │   └── page.tsx
 │   ├── uploads/
 │   │   └── page.tsx
 │   ├── layout.tsx
@@ -185,8 +184,9 @@ frontend/src/
 ├── components/             # UI components
 │   ├── ui/                # shadcn/ui components
 │   ├── auth/              # Auth-specific components
-│   ├── chat/              # Chat components
-│   ├── documents/         # Document components
+│   ├── simple/            # Simple chat and document panel components
+│   ├── streaming/         # Streaming and citation components
+│   ├── sources/           # Source panel components
 │   ├── sidebar/           # Sidebar components
 │   └── common/            # Shared components
 │
@@ -199,14 +199,13 @@ frontend/src/
 │   ├── stores/            # Zustand stores
 │   │   ├── auth-store.ts
 │   │   ├── conversation-store.ts
-│   │   └── source-store.ts
+│   │   └── sources-store.ts
 │   ├── streaming/         # Streaming helpers
-│   │   ├── parser.ts
-│   │   └── state.ts
+│   │   ├── index.ts
+│   │   └── streaming-state-builder.ts
 │   ├── locales/           # Locale files
 │   └── utils/             # Utility functions
 │
-└── middleware.ts          # Next.js middleware
 ```
 
 ## Architecture Patterns
@@ -652,7 +651,7 @@ repos:
 ## Related Documentation
 
 - [Kiến trúc Hệ thống](./system-architecture.md) - Architecture patterns
-- [Hướng dẫn Thiết kế](./design-guidelines.md) - Design principles
+- [Tổng quan Dự án](./project-overview.md) - Project structure and runtime overview
 - [CLAUDE.md](../CLAUDE.md) - Development guidelines
 
 ---

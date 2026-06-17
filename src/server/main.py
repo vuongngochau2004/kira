@@ -17,6 +17,7 @@ from src.modules.document.api.endpoints import router as documents_router
 from src.server.api.v1.auth.endpoints import router as auth_router
 from src.server.api.v1.evaluation.endpoints import router as evaluation_router
 from src.server.api.v1.metrics.endpoints import router as metrics_router
+from src.server.api.v1.admin.endpoints import router as admin_router
 
 from .api.middleware.cors_middleware import setup_cors
 from .api.middleware.error_handler_middleware import setup_exception_handlers
@@ -73,6 +74,7 @@ def _setup_routes(app: FastAPI) -> None:
     app.include_router(chat_router, prefix="/api/v1/chat", tags=["chat"])
     app.include_router(evaluation_router, prefix="/api/v1/evaluation", tags=["evaluation"])
     app.include_router(metrics_router, prefix="/api/v1/metrics", tags=["metrics"])
+    app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
 
 
 def _setup_health_checks(app: FastAPI) -> None:

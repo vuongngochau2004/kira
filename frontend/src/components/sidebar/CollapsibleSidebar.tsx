@@ -16,6 +16,7 @@ function getPageFromPath(pathname: string): SidebarPage {
   if (pathname === '/conversation' || pathname.startsWith('/conversation/')) return 'conversation'
   if (pathname === '/conversations') return 'conversations'
   if (pathname === '/uploads') return 'uploads'
+  if (pathname === '/admin') return 'admin'
   return 'conversation'
 }
 

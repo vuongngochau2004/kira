@@ -12,7 +12,7 @@ import asyncio
 import json
 import re
 import uuid
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -27,39 +27,39 @@ from src.shared.infrastructure.persistence.database.session import async_session
 
 
 DEFAULT_SYSTEM_PROMPT = """Bạn là chuyên gia tạo bộ dữ liệu đánh giá RAG cho văn bản pháp quy đại học.
-Nhiệm vụ của bạn là tạo câu hỏi kiểm thử CHỈ dựa trên context được cung cấp.
+Nhiệm vụ của bạn là tạo câu hỏi kiểm thử CHỈ dựa trên ngữ cảnh được cung cấp.
 
 Quy tắc bắt buộc:
-- Không dùng kiến thức ngoài context.
-- Câu hỏi phải trả lời được trực tiếp từ context.
+- Không dùng kiến thức ngoài ngữ cảnh.
+- Câu hỏi phải trả lời được trực tiếp từ ngữ cảnh.
 - expected_answer phải chính xác, ngắn gọn, không suy diễn.
-- answer_evidence phải là một đoạn trích NGUYÊN VĂN, liên tục, copy y hệt từ context.
+- answer_evidence phải là một đoạn trích NGUYÊN VĂN, liên tục, sao chép y hệt từ ngữ cảnh.
 - Không được tự sửa lỗi OCR/chính tả trong answer_evidence.
 - Ưu tiên câu hỏi về điều kiện, phạm vi áp dụng, trách nhiệm, quy trình, mốc thời gian, tiêu chí.
-- Nếu context không đủ rõ để tạo câu hỏi chất lượng, trả về {"samples": []}.
+- Nếu ngữ cảnh không đủ rõ để tạo câu hỏi chất lượng, trả về {"samples": []}.
 - Trả về JSON hợp lệ, không markdown, không giải thích ngoài JSON.
 """
 
 
-USER_PROMPT_TEMPLATE = """Tạo tối đa {questions_per_chunk} mẫu đánh giá RAG từ context dưới đây.
+USER_PROMPT_TEMPLATE = """Tạo tối đa {questions_per_chunk} mẫu đánh giá RAG từ ngữ cảnh dưới đây.
 
 Thông tin nguồn:
 - document_id: {document_id}
 - filename: {filename}
 - chunk_index: {chunk_index}
 
-Context:
+Ngữ cảnh:
 \"\"\"
 {context}
 \"\"\"
 
-Schema JSON bắt buộc:
+Lược đồ JSON bắt buộc:
 {{
   "samples": [
     {{
       "query": "câu hỏi tiếng Việt",
-      "expected_answer": "câu trả lời chuẩn dựa trên context",
-      "answer_evidence": "đoạn bằng chứng ngắn trích từ context",
+      "expected_answer": "câu trả lời chuẩn dựa trên ngữ cảnh",
+      "answer_evidence": "đoạn bằng chứng ngắn trích từ ngữ cảnh",
       "question_type": "fact|condition|procedure|definition|responsibility|summary",
       "difficulty": "easy|medium"
     }}
@@ -85,6 +85,7 @@ class DatasetGenerationConfig:
 
     user_id: str
     output_path: str = "data/evaluation/generated_dataset.json"
+    summary_output_path: str | None = None
     dataset_id: str = "generated-rag-eval"
     name: str = "Generated RAG evaluation dataset"
     description: str = "LLM-generated from chunks produced by the app ingestion pipeline."
@@ -132,6 +133,7 @@ class IngestedChunkDatasetGenerator:
             json.dumps(dataset.model_dump(mode="json"), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        self._write_summary(dataset=dataset, chunks=chunks, output_path=output_path)
         return dataset
 
     async def _load_sampled_chunks(self) -> list[SourceChunk]:
@@ -164,7 +166,8 @@ class IngestedChunkDatasetGenerator:
             by_document[str(document.id)].append(source)
 
         sampled: list[SourceChunk] = []
-        for _, doc_chunks in list(by_document.items())[: self.config.max_documents]:
+        eligible_documents = self._stratified_documents(by_document)
+        for doc_chunks in eligible_documents[: self.config.max_documents]:
             sampled.extend(
                 self._pick_representative_chunks(doc_chunks, self.config.chunks_per_document)
             )
@@ -263,6 +266,16 @@ class IngestedChunkDatasetGenerator:
             "Các tài liệu này có công bố danh sách mật khẩu tài khoản sinh viên không?",
             "Có quy định nào trong các tài liệu này yêu cầu sinh viên mua một mẫu laptop cụ thể không?",
             "Các văn bản này có nêu điểm chuẩn tuyển sinh năm 2099 không?",
+            "Có văn bản nào quy định danh sách tài khoản và mật khẩu hệ thống nội bộ của giảng viên không?",
+            "Các tài liệu này có nêu lịch thi chi tiết của học kỳ 3 năm 2099 không?",
+            "Có quy định nào bắt buộc sinh viên sử dụng một thương hiệu điện thoại cụ thể không?",
+            "Các văn bản này có công bố danh sách thông tin sức khỏe cá nhân của sinh viên không?",
+            "Có tài liệu nào nêu quyết định bổ nhiệm hiệu trưởng cho năm 2099 không?",
+            "Các văn bản này có quy định mức phạt tiền cho việc đi học muộn từng buổi không?",
+            "Có quy định nào yêu cầu người học cung cấp mật khẩu email cá nhân cho nhà trường không?",
+            "Các tài liệu này có nêu danh sách câu hỏi thi cuối kỳ của tất cả học phần không?",
+            "Có văn bản nào quy định lịch nghỉ hè của toàn trường trong năm 2099 không?",
+            "Các văn bản này có cho biết điểm rèn luyện cá nhân của từng sinh viên không?",
         ]
         samples = []
         for index in range(self.config.no_answer_count):
@@ -285,6 +298,144 @@ class IngestedChunkDatasetGenerator:
                 )
             )
         return samples
+
+    def _write_summary(
+        self,
+        dataset: GoldenDataset,
+        chunks: list[SourceChunk],
+        output_path: Path,
+    ) -> None:
+        """Write a compact dataset summary for thesis reporting and QA."""
+        summary_path = (
+            Path(self.config.summary_output_path)
+            if self.config.summary_output_path
+            else output_path.with_suffix(".summary.json")
+        )
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+
+        answerable = [sample for sample in dataset.samples if not sample.should_refuse]
+        no_answer = [sample for sample in dataset.samples if sample.should_refuse]
+        source_document_ids = {chunk.document_id for chunk in chunks}
+        represented_document_ids = {
+            str((sample.metadata or {}).get("document_id"))
+            for sample in answerable
+            if (sample.metadata or {}).get("document_id")
+        }
+        question_types = Counter(
+            tag
+            for sample in answerable
+            for tag in sample.tags
+            if tag
+            not in {
+                "llm-generated",
+                "answerable",
+                "no-answer",
+                "refusal",
+                "easy",
+                "medium",
+            }
+        )
+        difficulty = Counter(
+            tag for sample in answerable for tag in sample.tags if tag in {"easy", "medium"}
+        )
+
+        summary = {
+            "dataset_id": dataset.dataset_id,
+            "name": dataset.name,
+            "created_at": dataset.created_at.isoformat(),
+            "generation_config": {
+                "max_documents": self.config.max_documents,
+                "chunks_per_document": self.config.chunks_per_document,
+                "questions_per_chunk": self.config.questions_per_chunk,
+                "no_answer_count": self.config.no_answer_count,
+                "min_chunk_chars": self.config.min_chunk_chars,
+                "max_context_chars": self.config.max_context_chars,
+            },
+            "corpus_sampling": {
+                "sampled_documents": len(source_document_ids),
+                "sampled_chunks": len(chunks),
+                "documents_with_answerable_samples": len(represented_document_ids),
+                "document_answerable_coverage": self._ratio(
+                    len(represented_document_ids),
+                    len(source_document_ids),
+                ),
+            },
+            "samples": {
+                "total": len(dataset.samples),
+                "answerable": len(answerable),
+                "no_answer": len(no_answer),
+                "answerable_ratio": self._ratio(len(answerable), len(dataset.samples)),
+                "no_answer_ratio": self._ratio(len(no_answer), len(dataset.samples)),
+            },
+            "question_types": dict(sorted(question_types.items())),
+            "difficulty": dict(sorted(difficulty.items())),
+            "source_documents": self._source_document_summary(chunks, answerable),
+        }
+        summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    @classmethod
+    def _stratified_documents(
+        cls,
+        by_document: dict[str, list[SourceChunk]],
+    ) -> list[list[SourceChunk]]:
+        """Select documents round-robin across filename-derived groups."""
+        groups: dict[str, list[list[SourceChunk]]] = defaultdict(list)
+        for doc_chunks in by_document.values():
+            groups[cls._document_group_key(doc_chunks[0])].append(doc_chunks)
+
+        for doc_chunks_group in groups.values():
+            doc_chunks_group.sort(key=lambda chunks: chunks[0].filename.lower())
+
+        ordered: list[list[SourceChunk]] = []
+        group_names = sorted(groups)
+        while True:
+            before = len(ordered)
+            for group_name in group_names:
+                if groups[group_name]:
+                    ordered.append(groups[group_name].pop(0))
+            if len(ordered) == before:
+                return ordered
+
+    @staticmethod
+    def _document_group_key(source: SourceChunk) -> str:
+        """Infer a coarse document group from common filename conventions."""
+        stem = Path(source.filename).stem.lower()
+        normalized = re.sub(r"[^a-zA-ZÀ-ỹ0-9]+", " ", stem)
+        tokens = [token for token in normalized.split() if token]
+        for token in tokens[:4]:
+            if token.isdigit():
+                continue
+            if re.fullmatch(r"\d{4}m\d+", token):
+                return "legal-crawl"
+            if len(token) >= 3:
+                return token[:16]
+        return "other"
+
+    @staticmethod
+    def _ratio(numerator: int, denominator: int) -> float:
+        return round(numerator / denominator, 4) if denominator else 0.0
+
+    @staticmethod
+    def _source_document_summary(
+        chunks: list[SourceChunk],
+        answerable_samples: list[GoldenDatasetSample],
+    ) -> list[dict[str, Any]]:
+        chunks_by_document = Counter(chunk.document_id for chunk in chunks)
+        filenames = {chunk.document_id: chunk.filename for chunk in chunks}
+        samples_by_document = Counter(
+            str((sample.metadata or {}).get("document_id"))
+            for sample in answerable_samples
+            if (sample.metadata or {}).get("document_id")
+        )
+        return [
+            {
+                "document_id": document_id,
+                "filename": filenames[document_id],
+                "sampled_chunks": chunks_by_document[document_id],
+                "answerable_samples": samples_by_document[document_id],
+            }
+            for document_id in sorted(filenames, key=lambda doc_id: filenames[doc_id].lower())
+        ]
 
     @staticmethod
     def _parse_json(content: str) -> dict[str, Any]:

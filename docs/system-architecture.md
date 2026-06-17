@@ -2,7 +2,7 @@
 
 ## Tổng quan Architecture
 
-K.I.R.A Simplified theo **Hexagonal Modular Monolith Architecture** với tách biệt rõ ràng giữa các lớp:
+KIRA theo **Hexagonal Modular Monolith Architecture** với tách biệt rõ ràng giữa các lớp:
 
 ```mermaid
 graph TB
@@ -26,7 +26,7 @@ graph TB
         ChatMod[Chat Module<br/>Handlers, Streaming, DTOs]
         ClassMod[Classification Module<br/>Routing Strategies]
         DocMod[Document Module<br/>Upload, Ingestion]
-        EvalMod[Evaluation Module<br/>RAGAS Services]
+        EvalMod[Evaluation Module<br/>DeepEval Services]
         RAGMod[RAG Module<br/>Agents, LangGraph]
         RetMod[Retrieval Module<br/>Dense, BM25, Hybrid]
     end
@@ -73,17 +73,15 @@ graph TB
 src/
 ├── server/                   # Serving Layer - HTTP endpoints only
 │   ├── main.py              # FastAPI app entrypoint
-│   └── api/v1/              # API v1 endpoints
+│   └── api/v1/              # Server-owned API v1 endpoints
 │       ├── auth/            # Authentication endpoints
-│       ├── chat/            # Chat streaming endpoints
-│       ├── documents/       # Document endpoints
-│       ├── evaluation/      # RAGAS evaluation endpoints
+│       ├── evaluation/      # DeepEval evaluation endpoints
 │       └── metrics/         # Routing metrics endpoints
 ├── modules/                 # Application Modules - Business logic
-│   ├── chat/                # Chat use cases, handlers, streaming
+│   ├── chat/                # Chat API, use cases, handlers, streaming
 │   ├── classification/      # Query routing strategies
-│   ├── document/            # Document upload and ingestion
-│   ├── evaluation/          # RAGAS evaluation services
+│   ├── document/            # Document API, upload, ingestion
+│   ├── evaluation/          # DeepEval evaluation services
 │   ├── rag/                 # Agentic RAG, LangGraph
 │   └── retrieval/           # Dense, BM25, hybrid search
 ├── shared/                  # Shared Layer - Cross-cutting concerns
@@ -260,11 +258,13 @@ src/modules/evaluation/
 ├── api/                    # Evaluation DTOs
 ├── application/            # Evaluation use cases
 └── domain/                # Evaluation services
-    └── ragas/            # RAGAS services
+    ├── dataset.py        # Golden dataset model/helpers
+    ├── models.py         # Evaluation domain models
+    └── service.py        # Evaluation service
 ```
 
 **Responsibilities:**
-- RAGAS-based evaluation
+- DeepEval-based RAG evaluation
 - Golden dataset management
 - Batch evaluation
 - Evaluation caching
@@ -385,7 +385,7 @@ Persistence
 ```text
 POST /api/v1/documents/upload
   ↓
-Server Layer (src/server/api/v1/documents/)
+Module API Layer (src/modules/document/api/endpoints.py)
   ↓
 Document Module (src/modules/document/application/upload.py)
   - Validate file
@@ -550,13 +550,9 @@ feature_flags:
   enable_semantic_router: true
   enable_llmlite_provider: false
 
-ragas_evaluation:
-  enabled: false
-  metrics:
-    - faithfulness
-    - answer_relevancy
-    - context_precision
-    - context_recall
+evaluation:
+  threshold: 0.7
+  report_dir: reports/evaluation
 ```
 
 ## Per-User Isolation
@@ -696,7 +692,7 @@ Infrastructure:
 - [CLAUDE.md](../CLAUDE.md) - Development guidelines for AI assistants
 - [README.md](../README.md) - Project overview and setup
 - [deployment-guide.md](./deployment-guide.md) - Deployment instructions
-- [design-guidelines.md](./design-guidelines.md) - Design principles
+- [project-overview.md](./project-overview.md) - Runtime and project overview
 - [code-standards.md](./code-standards.md) - Code conventions
 
 ---

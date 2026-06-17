@@ -18,7 +18,8 @@ import {
   FileImage,
   Presentation,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDocumentsUpload } from '@/lib/hooks/use-documents-upload'
@@ -28,7 +29,7 @@ import { ThemeToggleDropdown } from '@/components/common/ThemeToggle'
 import { documentsAPI } from '@/lib/api/simple-client'
 import { cn } from '@/lib/utils'
 
-export type SidebarPage = 'conversation' | 'conversations' | 'uploads'
+export type SidebarPage = 'conversation' | 'conversations' | 'uploads' | 'admin'
 
 interface SidebarExpandedProps {
   page: SidebarPage
@@ -181,6 +182,20 @@ export function SidebarExpanded({
             <Upload className="w-4 h-4 mr-2" />
             Tài liệu
           </Button>
+
+          {user?.role === 'admin' && (
+            <Button
+              variant={page === 'admin' ? 'default' : 'outline'}
+              className="w-full justify-start"
+              onClick={() => {
+                onPageChange?.('admin')
+                router.push('/admin')
+              }}
+            >
+              <ShieldCheck className="w-4 h-4 mr-2" />
+              Admin
+            </Button>
+          )}
         </div>
       </div>
 

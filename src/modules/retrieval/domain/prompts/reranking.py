@@ -1,6 +1,6 @@
 """LLM reranking and scoring prompts."""
 
-RERANKING_SYSTEM_PROMPT = "Bạn là assistant chuyên gia phân tích và xếp hạng thông tin."
+RERANKING_SYSTEM_PROMPT = "Bạn là trợ lý chuyên gia phân tích và xếp hạng thông tin."
 SCORING_SYSTEM_PROMPT = "Bạn là chuyên gia đánh giá độ liên quan của thông tin."
 
 

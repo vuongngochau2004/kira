@@ -239,6 +239,9 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
     """
     from src.config.config import settings
 
+    if settings.pdf_extractor.lower() == "progressive":
+        return await _extract_pdf_progressive(file_path, use_ocr_fallback=use_ocr_fallback)
+
     if settings.pdf_extractor.lower() == "vlm":
         vlm_result = await _extract_pdf_vlm(file_path)
         if vlm_result.success:
@@ -313,6 +316,353 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True) -> Extracti
         return fallback
 
     return await _extract_pdf_pymupdf(file_path, use_ocr_fallback=use_ocr_fallback)
+
+
+async def _extract_pdf_progressive(
+    file_path: str,
+    use_ocr_fallback: bool = True,
+) -> ExtractionResult:
+    """Progressive PDF extraction: native-first + sampled VLM verification.
+
+    Progressive enhancement escalation ladder:
+        1. Try cheap native extraction (Docling). If it fails, escalate to VLM.
+        2. If native text is short/clean and skip-simple is enabled, accept it directly.
+        3. Otherwise render a sample of pages and ask the VLM to transcribe them,
+           then compare VLM output against the native text for the same pages.
+        4. If the sample agrees (>= accuracy threshold), trust the native text and
+           avoid a full VLM pass over every page.
+        5. If the sample disagrees (or any sampled page is empty), escalate to a
+           full VLM transcription so quality is preserved.
+
+    This bounds VLM cost/latency for text-based PDFs while still using the VLM as
+    the source of truth for image-only or broken-text-layer documents.
+
+    Args:
+        file_path: Path to PDF file
+        use_ocr_fallback: Kept for interface parity; progressive routes failures to VLM
+
+    Returns:
+        ExtractionResult with text and metadata describing the chosen path
+    """
+    from src.config.config import settings
+
+    logger.info("Progressive extraction starting for %s", file_path)
+
+    # Step 1: native extraction via Docling (fast, free, no external calls)
+    native_result = await _extract_pdf_docling(file_path)
+    if not native_result.success or not native_result.text.strip():
+        logger.info("Progressive: native extraction empty, escalating to full VLM")
+        vlm_result = await _extract_pdf_vlm(file_path)
+        vlm_result.metadata["progressive_path"] = "vlm_full_no_native"
+        return vlm_result
+
+    native_text = native_result.text
+    total_pages = max(native_result.pages, 1)
+
+    # Step 2: short, clean native text can be trusted without VLM verification
+    if settings.progressive_skip_simple_docs and _is_simple_native_doc(native_text, total_pages):
+        quality = _analyze_vietnamese_text_quality(
+            native_text,
+            lang=settings.ocr_lang,
+            fallback_score=settings.docling_quality_fallback_score,
+        )
+        if not quality.should_fallback:
+            logger.info(
+                "Progressive: simple document accepted without VLM verify (chars=%d, pages=%d)",
+                len(native_text),
+                total_pages,
+            )
+            native_result.metadata.update(
+                {
+                    "progressive_path": "native_trusted_simple",
+                    "progressive_quality": asdict(quality),
+                    "progressive_verified_pages": 0,
+                }
+            )
+            return native_result
+
+    # Step 3: pick pages to verify and re-render them for the VLM
+    sample_pages = _select_sample_pages(total_pages, settings.progressive_sample_rate)
+    if not sample_pages:
+        logger.info("Progressive: no pages selected for verification, trusting native text")
+        native_result.metadata["progressive_path"] = "native_no_sample"
+        return native_result
+
+    logger.info(
+        "Progressive: verifying %d/%d pages with VLM (pages=%s)",
+        len(sample_pages),
+        total_pages,
+        sample_pages,
+    )
+
+    try:
+        verification = await _verify_pages_with_vlm(
+            file_path=file_path,
+            sample_pages=sample_pages,
+            native_result=native_result,
+        )
+    except Exception as e:
+        logger.warning("Progressive verification error (%s); escalating to full VLM", e)
+        vlm_result = await _extract_pdf_vlm(file_path)
+        vlm_result.metadata["progressive_path"] = "vlm_full_verify_error"
+        vlm_result.metadata["progressive_verify_error"] = f"{type(e).__name__}: {e}"
+        return vlm_result
+
+    # Step 4: sample agrees -> trust native text, skip full VLM pass
+    if verification["is_accurate"]:
+        logger.info(
+            "Progressive: sample verification passed (accuracy=%.3f), trusting native text",
+            verification["accuracy"],
+        )
+        native_result.metadata.update(
+            {
+                "progressive_path": "native_verified",
+                "progressive_verified_pages": len(sample_pages),
+                "progressive_sample_pages": sample_pages,
+                "progressive_accuracy": verification["accuracy"],
+                "progressive_page_matches": verification["page_matches"],
+                "progressive_extractor": "vlm-ollama-verify",
+                "extraction_method": "normal",
+                "ocr_used": False,
+            }
+        )
+        return native_result
+
+    # Step 5: sample disagrees -> full VLM transcription
+    logger.warning(
+        "Progressive: sample verification failed (accuracy=%.3f < %.2f), escalating to full VLM",
+        verification["accuracy"],
+        settings.progressive_accuracy_threshold,
+    )
+    vlm_result = await _extract_pdf_vlm(file_path)
+    vlm_result.metadata.update(
+        {
+            "progressive_path": "vlm_full_verify_failed",
+            "progressive_verified_pages": len(sample_pages),
+            "progressive_sample_pages": sample_pages,
+            "progressive_accuracy": verification["accuracy"],
+            "progressive_page_matches": verification["page_matches"],
+        }
+    )
+    return vlm_result
+
+
+def _is_simple_native_doc(text: str, total_pages: int) -> bool:
+    """Heuristic: a short, well-populated text layer rarely needs VLM verification.
+
+    A document is "simple" when it has a healthy amount of text per page and is
+    not too long, so a full VLM pass would be expensive for little benefit.
+    """
+    if not text.strip():
+        return False
+    if total_pages <= 0:
+        return False
+    chars_per_page = len(text) / total_pages
+    # >= 800 chars/page means a real text layer; cap total pages so we never
+    # skip verification on very long documents where errors compound.
+    return chars_per_page >= 800 and total_pages <= 25
+
+
+def _select_sample_pages(total_pages: int, sample_rate: float) -> list[int]:
+    """Choose which page indices to verify with the VLM.
+
+    Deterministic spread: always include the first page (titles/headers are
+    error-prone in native extraction), then take an even stride across the rest,
+    bounded by configured min/max sample sizes. Deterministic on purpose so the
+    same document always verifies the same pages.
+    """
+    from src.config.config import settings
+
+    if total_pages <= 0:
+        return []
+
+    # Derive an even stride across page indices (no randomness).
+    desired = int(round(total_pages * sample_rate))
+    desired = max(settings.progressive_min_sample_pages, desired)
+    desired = min(desired, settings.progressive_max_sample_pages, total_pages)
+
+    if desired >= total_pages:
+        return list(range(total_pages))
+
+    # Always include page 0, then evenly space the rest
+    selected = {0}
+    if desired > 1:
+        # Even stride across remaining pages, skipping 0
+        stride = (total_pages - 1) / (desired - 1)
+        for i in range(desired):
+            idx = round(i * stride)
+            if idx >= total_pages:
+                idx = total_pages - 1
+            selected.add(idx)
+
+    return sorted(selected)
+
+
+async def _verify_pages_with_vlm(
+    file_path: str,
+    sample_pages: list[int],
+    native_result: ExtractionResult,
+) -> dict:
+    """Render sampled pages, transcribe them with the VLM, compare to native text.
+
+    Args:
+        file_path: Source PDF path (for rendering)
+        sample_pages: Zero-based page indices to verify
+        native_result: Native extraction result to compare against
+
+    Returns:
+        Dict with is_accurate flag, overall accuracy ratio and per-page matches
+    """
+    from src.config.config import settings
+
+    import fitz
+
+    # Render the sampled pages to images
+    doc = fitz.open(file_path)
+    zoom = settings.pdf_render_dpi / 72
+    rendered: list[dict] = []
+    for page_num in sample_pages:
+        if page_num >= len(doc):
+            continue
+        page = doc[page_num]
+        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+        image_bytes = pix.tobytes("png")
+        rendered.append(
+            {
+                "page_index": page_num,
+                "page_number": page_num + 1,
+                "image_data_url": _prepare_vlm_image_data_url(image_bytes),
+            }
+        )
+    doc.close()
+
+    if not rendered:
+        return {"is_accurate": False, "accuracy": 0.0, "page_matches": []}
+
+    # Transcribe each sampled page through the VLM
+    semaphore = asyncio.Semaphore(max(1, settings.vlm_page_concurrency))
+
+    async def transcribe(rendered_page: dict) -> dict:
+        async with semaphore:
+            vlm_text = await _transcribe_page_with_ollama_vlm(
+                image_data_url=rendered_page["image_data_url"],
+                page_number=rendered_page["page_number"],
+            )
+            return {
+                "page_index": rendered_page["page_index"],
+                "page_number": rendered_page["page_number"],
+                "vlm_text": _clean_vlm_markdown(vlm_text),
+            }
+
+    transcribed = await asyncio.gather(
+        *(transcribe(rp) for rp in rendered)
+    )
+    transcribed.sort(key=lambda item: item["page_index"])
+
+    # Slice native text into per-page blocks to compare against the VLM pages
+    native_pages = _native_text_by_page(native_result)
+
+    page_matches: list[dict] = []
+    ratios: list[float] = []
+    for entry in transcribed:
+        page_index = entry["page_index"]
+        native_chunk = native_pages.get(page_index, "")
+        ratio = _text_similarity(native_chunk, entry["vlm_text"])
+        ratios.append(ratio)
+        page_matches.append(
+            {
+                "page": entry["page_number"],
+                "page_index": page_index,
+                "similarity": ratio,
+                "native_chars": len(native_chunk),
+                "vlm_chars": len(entry["vlm_text"]),
+            }
+        )
+
+    accuracy = sum(ratios) / len(ratios) if ratios else 0.0
+    is_accurate = accuracy >= settings.progressive_accuracy_threshold
+
+    return {
+        "is_accurate": is_accurate,
+        "accuracy": round(accuracy, 4),
+        "page_matches": page_matches,
+    }
+
+
+def _native_text_by_page(native_result: ExtractionResult) -> dict[int, str]:
+    """Return a {page_index: text} map from a native extraction result.
+
+    Native Docling extraction does not always emit reliable page markers, so when
+    page_texts is missing we approximate by splitting the full text into roughly
+    equal blocks proportional to the page count. This is only used for similarity
+    scoring against VLM pages, so exact boundaries are not critical.
+    """
+    if native_result.page_texts:
+        return {page_index: text for page_index, text in native_result.page_texts}
+
+    text = native_result.text or ""
+    total_pages = max(native_result.pages, 1)
+    if total_pages <= 1:
+        return {0: text}
+
+    # Approximate equal-length blocks. Good enough for similarity comparison.
+    avg_len = len(text) // total_pages
+    blocks: dict[int, str] = {}
+    for i in range(total_pages):
+        start = i * avg_len
+        end = (i + 1) * avg_len if i < total_pages - 1 else len(text)
+        blocks[i] = text[start:end]
+    return blocks
+
+
+def _text_similarity(a: str, b: str) -> float:
+    """Character-level similarity ratio between two text blocks.
+
+    Uses the normalized Levenshtein distance so the score stays in [0.0, 1.0]
+    and is robust to whitespace/length differences. Falls back to a simple
+    overlap ratio if either side is empty.
+    """
+    a_norm = _normalize_for_compare(a)
+    b_norm = _normalize_for_compare(b)
+
+    if not a_norm and not b_norm:
+        return 1.0
+    if not a_norm or not b_norm:
+        return 0.0
+
+    max_len = max(len(a_norm), len(b_norm))
+    distance = _levenshtein(a_norm, b_norm)
+    return round(1.0 - (distance / max_len), 4)
+
+
+def _normalize_for_compare(text: str) -> str:
+    """Lowercase, collapse whitespace and strip non-essential punctuation."""
+    cleaned = html.unescape(text or "").replace("\xa0", " ").lower()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    # Drop markdown/code-fence artifacts that the VLM may add but native text won't
+    cleaned = re.sub(r"```(?:markdown|md|text)?|```", "", cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
+
+
+def _levenshtein(a: str, b: str) -> int:
+    """Classic iterative Levenshtein edit distance (no external dependency)."""
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+
+    previous = list(range(len(b) + 1))
+    for i, char_a in enumerate(a, start=1):
+        current = [i]
+        for j, char_b in enumerate(b, start=1):
+            insert = current[j - 1] + 1
+            delete = previous[j] + 1
+            substitute = previous[j - 1] + (char_a != char_b)
+            current.append(min(insert, delete, substitute))
+        previous = current
+    return previous[-1]
 
 
 async def _extract_pdf_vlm(file_path: str) -> ExtractionResult:

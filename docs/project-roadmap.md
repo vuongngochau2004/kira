@@ -16,7 +16,7 @@ Dự án đã hoàn thành core features và major architectural refactoring:
 - ✅ SSE streaming responses
 - ✅ JWT authentication with httpOnly cookies
 - ✅ Frontend (Next.js 16 + React 19 + shadcn/ui)
-- ✅ Evaluation system (RAGAS integration)
+- ✅ Evaluation system (DeepEval integration)
 
 ## Recent Achievements (2026)
 
@@ -35,7 +35,7 @@ src/modules/
 ├── chat/           # Chat use cases, handlers, streaming
 ├── classification/ # Query routing strategies
 ├── document/       # Document upload and ingestion
-├── evaluation/     # RAGAS evaluation services
+├── evaluation/     # DeepEval evaluation services
 ├── rag/            # Agentic RAG, LangGraph
 └── retrieval/      # Dense, BM25, hybrid search
 
@@ -283,7 +283,7 @@ src/server/
 
 - [Kiến trúc Hệ thống](./system-architecture.md) - Architecture chi tiết
 - [Tiêu chuẩn Code](./code-standards.md) - Code conventions
-- [Hướng dẫn Thiết kế](./design-guidelines.md) - Design principles
+- [Tổng quan Dự án](./project-overview.md) - Project overview
 - [Hướng dẫn Deployment](./deployment-guide.md) - Deployment guide
 - [CLAUDE.md](../CLAUDE.md) - Development guidelines
 

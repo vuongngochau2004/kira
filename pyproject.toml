@@ -1,7 +1,7 @@
 [project]
 name = "kira-simple"
 version = "1.0.0"
-description = "K.I.R.A Simplified - Single FastAPI Service with Hybrid Retrieval"
+description = "KIRA - Single FastAPI Service with Hybrid Retrieval"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.109.0",
