@@ -351,7 +351,12 @@ export function SimpleChat({
   isRetryable = false,
   errorType
 }: SimpleChatProps) {
-  const store = useSourcesStore()
+  const sources = useSourcesStore((state) => state.sources)
+  const isSourcesOpen = useSourcesStore((state) => state.isOpen)
+  const activeSourceId = useSourcesStore((state) => state.activeSourceId)
+  const setSources = useSourcesStore((state) => state.setSources)
+  const setSourcesOpen = useSourcesStore((state) => state.setIsOpen)
+  const setActiveSourceId = useSourcesStore((state) => state.setActiveSourceId)
   const replaceSourcesForConversation = useSourcesStore((state) => state.replaceForConversation)
   const resetSources = useSourcesStore((state) => state.reset)
   const [input, setInput] = useState('')
@@ -636,13 +641,13 @@ export function SimpleChat({
       setCitationPanelOpen(true)
     } else {
       // Use old SourcePanel
-      const sources = allSources || messages.find(m => m.id === source.id)?.sources || []
-      store.setSources(sources)
-      store.setIsOpen(true)
+      const citationSources = allSources || messages.find(m => m.id === source.id)?.sources || []
+      setSources(citationSources)
+      setSourcesOpen(true)
       const targetId = source.chunk_id || source.id || `source-${citationIndex}`
-      store.setActiveSourceId(targetId)
+      setActiveSourceId(targetId)
     }
-  }, [store, messages])
+  }, [messages, setActiveSourceId, setSources, setSourcesOpen])
 
   // ==================== Render ====================
 
@@ -826,19 +831,19 @@ export function SimpleChat({
 
       {/* Source Panel - Mobile/Tablet only */}
       <SourcePanel
-        sources={store.sources.map((s) => ({
+        sources={sources.map((s) => ({
           id: s.id,
           content: s.snippet,
           score: s.score,
           document_id: s.document_id || undefined,
           chunk_index: s.page !== undefined ? s.page - 1 : undefined,
         }))}
-        isOpen={store.isOpen || sourcePanelOpen}
+        isOpen={isSourcesOpen || sourcePanelOpen}
         onClose={() => {
-          store.setIsOpen(false)
+          setSourcesOpen(false)
           setSourcePanelOpen(false)
         }}
-        activeSourceId={store.activeSourceId}
+        activeSourceId={activeSourceId}
         className="lg:hidden"
       />
 

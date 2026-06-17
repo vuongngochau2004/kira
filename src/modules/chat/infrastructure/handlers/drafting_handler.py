@@ -11,6 +11,7 @@ from loguru import logger
 
 from src.config.config import settings
 from src.modules.drafting.application.docx_renderer import render_administrative_docx
+from src.modules.drafting.application.postprocess import clean_administrative_draft
 from src.modules.drafting.domain.prompts.administrative import build_administrative_drafting_prompt
 from src.modules.retrieval.application.search_use_case import SearchUseCase
 from src.modules.retrieval.composition import create_search_use_case
@@ -315,7 +316,7 @@ class AdministrativeDraftingHandler(QueryHandlerBase):
         elif not isinstance(parsed, dict):
             parsed = {"can_draft": False, "reason": raw}
 
-        draft = str(parsed.get("draft") or "").strip()
+        draft = clean_administrative_draft(str(parsed.get("draft") or ""))
         can_draft = bool(parsed.get("can_draft", False)) and bool(draft)
         missing_info = parsed.get("missing_info") or []
         if not isinstance(missing_info, list):

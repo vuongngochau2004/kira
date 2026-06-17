@@ -102,6 +102,30 @@ function mapSources(rawSources: any[] | null | undefined): SourceItem[] {
   })
 }
 
+function areSourcesEqual(left: SourceItem[], right: SourceItem[]): boolean {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  return left.every((source, index) => {
+    const candidate = right[index]
+    return (
+      source.id === candidate.id &&
+      source.type === candidate.type &&
+      source.title === candidate.title &&
+      source.snippet === candidate.snippet &&
+      source.page === candidate.page &&
+      source.score === candidate.score &&
+      source.document_id === candidate.document_id &&
+      source.content_length === candidate.content_length &&
+      source.parent_document?.document_id === candidate.parent_document?.document_id &&
+      source.parent_document?.filename === candidate.parent_document?.filename &&
+      source.parent_document?.total_chunks === candidate.parent_document?.total_chunks &&
+      source.parent_document?.relevance_score === candidate.parent_document?.relevance_score
+    )
+  })
+}
+
 export const useSourcesStore = create<SourcesState>((set) => ({
   sources: [],
   conversationId: null,
@@ -114,6 +138,10 @@ export const useSourcesStore = create<SourcesState>((set) => ({
       const activeSourceId = state.activeSourceId && sources.some((source) => source.id === state.activeSourceId)
         ? state.activeSourceId
         : null
+
+      if (areSourcesEqual(state.sources, sources) && state.activeSourceId === activeSourceId) {
+        return state
+      }
 
       return { sources, activeSourceId }
     }),
@@ -128,6 +156,14 @@ export const useSourcesStore = create<SourcesState>((set) => ({
           ? state.activeSourceId
           : null
 
+      if (
+        state.conversationId === conversationId &&
+        state.activeSourceId === activeSourceId &&
+        areSourcesEqual(state.sources, sources)
+      ) {
+        return state
+      }
+
       return {
         conversationId,
         sources,
@@ -141,5 +177,17 @@ export const useSourcesStore = create<SourcesState>((set) => ({
 
   setActiveSourceId: (activeSourceId) => set({ activeSourceId }),
 
-  reset: () => set({ sources: [], conversationId: null, isOpen: false, activeSourceId: null }),
+  reset: () =>
+    set((state) => {
+      if (
+        state.sources.length === 0 &&
+        state.conversationId === null &&
+        !state.isOpen &&
+        state.activeSourceId === null
+      ) {
+        return state
+      }
+
+      return { sources: [], conversationId: null, isOpen: false, activeSourceId: null }
+    }),
 }))
