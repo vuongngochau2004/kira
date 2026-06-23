@@ -73,20 +73,6 @@ class ServiceRegistry:
             # Fallback if classification module not available
             print(f"Warning: Could not import classification strategies: {e}")
 
-        # Query handlers
-        try:
-            from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
-            from src.modules.chat.infrastructure.handlers.conversational import ConversationalHandler
-            from src.modules.chat.infrastructure.handlers.drafting_handler import AdministrativeDraftingHandler
-
-            # Register handlers as singletons (stateless) under concrete classes
-            await container.register_singleton(RAGHandler, RAGHandler())
-            await container.register_singleton(ConversationalHandler, ConversationalHandler())
-            await container.register_singleton(AdministrativeDraftingHandler, AdministrativeDraftingHandler())
-
-        except ImportError as e:
-            print(f"Warning: Could not import handlers: {e}")
-
         # Hexagonal Ports & Adapters wiring
         try:
             from src.shared.ports.llm import LLMPort
@@ -116,6 +102,43 @@ class ServiceRegistry:
 
         except ImportError as e:
             print(f"Warning: Could not import Hexagonal Ports/Adapters: {e}")
+
+        # Query handlers are composed only after their ports are available.
+        try:
+            from src.modules.chat.infrastructure.handlers.conversational import ConversationalHandler
+            from src.modules.chat.infrastructure.handlers.drafting_handler import AdministrativeDraftingHandler
+            from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
+            from src.modules.rag.composition import create_default_rag_pipeline_service
+            from src.modules.retrieval.composition import create_search_use_case
+            from src.shared.ports.embedding import EmbeddingPort
+            from src.shared.ports.llm import LLMPort
+            from src.shared.ports.storage import StoragePort
+
+            llm = await container.get(LLMPort)
+            embedding = await container.get(EmbeddingPort)
+            storage = await container.get(StoragePort)
+            await container.register_singleton(
+                RAGHandler,
+                RAGHandler(
+                    rag_service=create_default_rag_pipeline_service(
+                        embedding=embedding,
+                        search=create_search_use_case(llm_client=llm),
+                        llm=llm,
+                    )
+                ),
+            )
+            await container.register_singleton(ConversationalHandler, ConversationalHandler(llm=llm))
+            await container.register_singleton(
+                AdministrativeDraftingHandler,
+                AdministrativeDraftingHandler(
+                    embedding=embedding,
+                    search=create_search_use_case(llm_client=llm),
+                    llm=llm,
+                    storage=storage,
+                ),
+            )
+        except ImportError as e:
+            print(f"Warning: Could not import handlers: {e}")
 
         return container
 

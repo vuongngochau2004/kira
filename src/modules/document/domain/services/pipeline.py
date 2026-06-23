@@ -9,9 +9,6 @@ import tempfile
 import uuid
 from pathlib import Path
 from uuid import UUID
-
-logger = logging.getLogger(__name__)
-
 from src.modules.document.domain.services.extractor import extract_content_sync
 from src.modules.document.domain.services.cleaner import clean_document
 from src.modules.document.domain.services.chunker import chunk_document
@@ -24,8 +21,11 @@ from src.constants import (
 )
 from src.shared.ports.document_repository import DocumentRepositoryPort
 from src.shared.ports.embedding import EmbeddingPort
+from src.shared.ports.ocr import OCRPort
 from src.shared.ports.storage import StoragePort
 from src.shared.ports.vector_store import VectorDocument, VectorStorePort
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS = 600
 
@@ -37,6 +37,7 @@ async def process_document(
     storage: StoragePort,
     embedding: EmbeddingPort,
     vector_store: VectorStorePort,
+    ocr: OCRPort,
     repository: DocumentRepositoryPort,
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> dict:
@@ -61,6 +62,7 @@ async def process_document(
             await storage.download(storage_path),
             embedding,
             vector_store,
+            ocr,
         )
 
         document = await repository.get_document(document_id=document_id, user_id=user_id)
@@ -98,6 +100,7 @@ def _process_sync(
     file_bytes: bytes,
     embedding: EmbeddingPort,
     vector_store: VectorStorePort,
+    ocr: OCRPort,
 ) -> dict:
     """Synchronous document processing."""
     temp_file = None
@@ -111,7 +114,7 @@ def _process_sync(
         logger.info("File saved to temp path.")
 
         logger.info("[Step 2/7] Extracting content (format: %s)...", file_type)
-        extraction_result = extract_content_sync(temp_file.name, file_type)
+        extraction_result = extract_content_sync(temp_file.name, file_type, ocr=ocr)
         if not extraction_result.success:
             logger.error("Extraction failed: %s", extraction_result.error)
             return {"success": False, "error": extraction_result.error or ERR_EXTRACTION_FAILED}

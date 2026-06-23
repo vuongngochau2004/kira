@@ -15,11 +15,10 @@ from typing import Any, AsyncIterator
 
 from src.shared.ports.classification import ClassificationResult, Intent
 from src.shared.ports.handlers import QueryHandlerBase, HandlerResult, HandlerConfig
+from src.shared.ports.llm import LLMPort
 
 from src.modules.chat.domain.services import ConversationService, ConversationContext
 
-# Import from infrastructure and shared modules
-from src.shared.infrastructure.llm.client import chat_async, chat_async_stream
 # Import from chat domain prompts
 from src.modules.chat.domain.prompts.conversational import CONVERSATIONAL_SYSTEM_PROMPT, CONVERSATIONAL_USER_PROMPT
 
@@ -36,6 +35,7 @@ class ConversationalHandler(QueryHandlerBase):
 
     def __init__(
         self,
+        llm: LLMPort,
         config: HandlerConfig | None = None,
         max_retries: int = 2,
     ):
@@ -47,6 +47,7 @@ class ConversationalHandler(QueryHandlerBase):
         """
         self.config = config or HandlerConfig()
         self.max_retries = max_retries
+        self.llm = llm
         self._conversation_service = ConversationService()
 
     def can_handle(self, classification: ClassificationResult) -> bool:
@@ -104,7 +105,7 @@ class ConversationalHandler(QueryHandlerBase):
 
         for attempt in range(self.max_retries + 1):
             try:
-                response = await chat_async(
+                content = await self.llm.generate(
                     messages=messages,
                     temperature=self.config.temperature,
                     max_tokens=self.config.max_tokens,
@@ -113,11 +114,11 @@ class ConversationalHandler(QueryHandlerBase):
                 latency_ms = (time.perf_counter() - t0) * 1000
                 logger.info(
                     f"✅ <green>[CONVERSATIONAL FLOW COMPLETED]</green> Conversational response generated. "
-                    f"Content size: {len(response['content'])} chars, Latency: <yellow>{latency_ms:.2f}ms</yellow>"
+                    f"Content size: {len(content)} chars, Latency: <yellow>{latency_ms:.2f}ms</yellow>"
                 )
 
                 return HandlerResult(
-                    content=response["content"],
+                    content=content,
                     citations=[],
                     metadata={
                         "handler": self.get_name(),
@@ -203,7 +204,7 @@ class ConversationalHandler(QueryHandlerBase):
             content_chunk_count = 0
             logger.debug("[CONVERSATIONAL STREAM] Starting stream")
 
-            raw_stream = chat_async_stream(
+            raw_stream = self.llm.stream(
                 messages=messages,
                 temperature=self.config.temperature,
                 max_tokens=self.config.max_tokens,

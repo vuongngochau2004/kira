@@ -9,8 +9,8 @@ from src.modules.document.application.dto import CancelDocumentRequest, Document
 from src.shared.ports.document_repository import DocumentRepositoryPort
 from src.shared.ports.keyword_index import KeywordIndexPort
 from src.shared.ports.storage import StoragePort
+from src.shared.ports.task_queue import TaskQueuePort
 from src.shared.ports.vector_store import VectorStorePort
-from src.worker.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +24,14 @@ class CancelDocument:
         keyword_index: KeywordIndexPort,
         vector_store: VectorStorePort,
         storage: StoragePort,
+        task_queue: TaskQueuePort,
     ):
         """Initialize document cancellation service."""
         self.repository = repository
         self.keyword_index = keyword_index
         self.vector_store = vector_store
         self.storage = storage
+        self.task_queue = task_queue
 
     async def execute(self, request: CancelDocumentRequest) -> DocumentCancelResult:
         """Cancel a document processing task and clean partial resources."""
@@ -108,7 +110,7 @@ class CancelDocument:
     def _revoke_processing_task(self, task_id: str) -> None:
         """Ask Celery to revoke a queued/running processing task."""
         try:
-            celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")
+            self.task_queue.revoke(task_id)
         except Exception as exc:
             logger.warning("Failed to revoke document task %s: %s", task_id, exc, exc_info=True)
 

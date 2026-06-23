@@ -9,6 +9,7 @@ from src.modules.document.domain.services.pipeline import process_document
 from src.shared.ports.document_repository import DocumentRepositoryPort
 from src.shared.ports.embedding import EmbeddingPort
 from src.shared.ports.keyword_index import KeywordIndexPort
+from src.shared.ports.ocr import OCRPort
 from src.shared.ports.storage import StoragePort
 from src.shared.ports.vector_store import VectorStorePort
 
@@ -25,6 +26,7 @@ class ProcessDocument:
         embedding: EmbeddingPort,
         vector_store: VectorStorePort,
         keyword_index: KeywordIndexPort,
+        ocr: OCRPort,
     ):
         """Initialize document processing service."""
         self.repository = repository
@@ -32,6 +34,7 @@ class ProcessDocument:
         self.embedding = embedding
         self.vector_store = vector_store
         self.keyword_index = keyword_index
+        self.ocr = ocr
 
     async def execute(self, request: ProcessDocumentRequest) -> DocumentProcessResult:
         """Run document processing and update keyword indexes."""
@@ -69,6 +72,7 @@ class ProcessDocument:
                 storage=self.storage,
                 embedding=self.embedding,
                 vector_store=self.vector_store,
+                ocr=self.ocr,
                 repository=self.repository,
                 timeout_seconds=request.timeout_seconds,
             )

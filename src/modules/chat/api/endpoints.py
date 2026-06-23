@@ -15,6 +15,7 @@ from src.shared.infrastructure.persistence.database.query import soft_delete_con
 from src.modules.chat.composition import (
     create_conversation,
     create_message,
+    citation_enricher,
     get_chat_use_case,
     get_conversation,
     get_conversation_messages,
@@ -244,17 +245,7 @@ async def _resolve_citation_filenames(citations: list[dict], db: AsyncSession) -
         return citations
 
     try:
-        from src.modules.retrieval.infrastructure.document_store import get_documents_batch
-
-        doc_mapping = await get_documents_batch(doc_ids, db=db)
-
-        for c in citations:
-            doc_id = c.get("document_id") or (c.get("metadata") or {}).get("document_id")
-            if doc_id and str(doc_id) in doc_mapping:
-                filename = doc_mapping[str(doc_id)]
-                c["filename"] = filename
-                c["source"] = filename
-                c["title"] = filename
+        return await citation_enricher().execute(citations)
     except Exception as e:
         logger.warning(f"Failed to resolve citation filenames: {e}")
 

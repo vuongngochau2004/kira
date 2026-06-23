@@ -16,14 +16,14 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
-
-from sqlalchemy import select
+from typing import Any, Protocol
 
 from src.modules.evaluation.domain.models import GoldenDataset, GoldenDatasetSample
 from src.shared.infrastructure.llm.client import LLMProvider, chat_async
-from src.shared.infrastructure.persistence.database.models import Document, DocumentChunk
-from src.shared.infrastructure.persistence.database.session import async_session_factory
+
+
+class IngestedChunkPort(Protocol):
+    async def list_completed_chunks(self, user_id: uuid.UUID) -> list[dict[str, Any]]: ...
 
 
 DEFAULT_SYSTEM_PROMPT = """Bạn là chuyên gia tạo bộ dữ liệu đánh giá RAG cho văn bản pháp quy đại học.
@@ -104,8 +104,13 @@ class DatasetGenerationConfig:
 class IngestedChunkDatasetGenerator:
     """Generate a golden dataset from chunks already stored by the app."""
 
-    def __init__(self, config: DatasetGenerationConfig):
+    def __init__(
+        self,
+        config: DatasetGenerationConfig,
+        repository: IngestedChunkPort,
+    ):
         self.config = config
+        self._repository = repository
 
     async def generate(self) -> GoldenDataset:
         """Generate and save a dataset."""
@@ -140,30 +145,21 @@ class IngestedChunkDatasetGenerator:
         """Load chunks from DB and sample evenly across documents."""
         user_uuid = uuid.UUID(self.config.user_id)
 
-        async with async_session_factory() as session:
-            result = await session.execute(
-                select(Document, DocumentChunk)
-                .join(DocumentChunk, DocumentChunk.document_id == Document.id)
-                .where(Document.user_id == user_uuid)
-                .where(Document.deleted_at.is_(None))
-                .where(Document.status == "completed")
-                .order_by(Document.created_at.desc(), Document.filename, DocumentChunk.chunk_index)
-            )
-            rows = result.all()
+        rows = await self._repository.list_completed_chunks(user_uuid)
 
         by_document: dict[str, list[SourceChunk]] = defaultdict(list)
-        for document, chunk in rows:
-            content = (chunk.content or "").strip()
+        for row in rows:
+            content = str(row["content"]).strip()
             if len(content) < self.config.min_chunk_chars:
                 continue
             source = SourceChunk(
-                document_id=str(document.id),
-                filename=document.filename,
-                chunk_index=chunk.chunk_index,
+                document_id=str(row["document_id"]),
+                filename=str(row["filename"]),
+                chunk_index=int(row["chunk_index"]),
                 content=content,
-                metadata=chunk.meta_data or {},
+                metadata=dict(row["metadata"]),
             )
-            by_document[str(document.id)].append(source)
+            by_document[source.document_id].append(source)
 
         sampled: list[SourceChunk] = []
         eligible_documents = self._stratified_documents(by_document)
@@ -469,14 +465,14 @@ class IngestedChunkDatasetGenerator:
         return f"{filename_slug}_chunk_{source.chunk_index:04d}_{question_type}_{index + 1}"
 
 
-async def generate_dataset(config: DatasetGenerationConfig) -> GoldenDataset:
+async def generate_dataset(config: DatasetGenerationConfig, repository: IngestedChunkPort) -> GoldenDataset:
     """Convenience async entry point."""
-    return await IngestedChunkDatasetGenerator(config).generate()
+    return await IngestedChunkDatasetGenerator(config, repository=repository).generate()
 
 
-def generate_dataset_sync(config: DatasetGenerationConfig) -> GoldenDataset:
+def generate_dataset_sync(config: DatasetGenerationConfig, repository: IngestedChunkPort) -> GoldenDataset:
     """Sync entry point for scripts."""
-    return asyncio.run(generate_dataset(config))
+    return asyncio.run(generate_dataset(config, repository=repository))
 
 
 __all__ = [

@@ -1,6 +1,7 @@
 """Dependency composition for the chat module."""
 
 from src.modules.chat.application.chat import ChatUseCase
+from src.modules.chat.application.citations import EnrichCitations
 from src.modules.chat.infrastructure.handlers.conversational import ConversationalHandler
 from src.modules.chat.infrastructure.handlers.drafting_handler import AdministrativeDraftingHandler
 from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
@@ -12,6 +13,7 @@ from src.modules.chat.infrastructure.persistence.conversation_repository import 
     list_conversations,
 )
 from src.shared.ports.classification import Intent
+from src.modules.retrieval.infrastructure.retrieval_adapters import PostgresRetrievalDocumentAdapter
 
 
 _chat_use_case: ChatUseCase | None = None
@@ -42,9 +44,15 @@ async def get_chat_use_case() -> ChatUseCase:
     return _chat_use_case
 
 
+def citation_enricher() -> EnrichCitations:
+    """Compose the citation enrichment application service."""
+    return EnrichCitations(documents=PostgresRetrievalDocumentAdapter())
+
+
 __all__ = [
     "create_conversation",
     "create_message",
+    "citation_enricher",
     "get_chat_use_case",
     "get_conversation",
     "get_conversation_messages",

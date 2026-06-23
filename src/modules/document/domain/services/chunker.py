@@ -99,7 +99,11 @@ def _split_large_text_by_blocks(
                 current_parts = []
                 current_tokens = 0
 
-            sub_chunks.extend(_split_large_text(block, chunk_size, chunk_overlap, encoding))
+            # Legal clauses and list items are atomic retrieval units. Splitting
+            # a single paragraph by tokens creates fragments without a subject
+            # or legal context (and makes citations misleading). Preserve the
+            # boundary and allow this exceptional chunk to exceed the target.
+            sub_chunks.append(block)
             continue
 
         if current_parts and current_tokens + block_tokens > chunk_size:

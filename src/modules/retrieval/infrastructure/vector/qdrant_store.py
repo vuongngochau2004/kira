@@ -5,9 +5,6 @@ import uuid
 from uuid import UUID
 
 from qdrant_client import QdrantClient
-
-
-logger = logging.getLogger(__name__)
 from qdrant_client.models import (
     Distance,
     PointStruct,
@@ -18,6 +15,8 @@ from qdrant_client.models import (
 )
 
 from src.config.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 # Singleton client

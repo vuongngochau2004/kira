@@ -14,10 +14,6 @@ from src.modules.drafting.application.docx_renderer import render_administrative
 from src.modules.drafting.application.postprocess import clean_administrative_draft
 from src.modules.drafting.domain.prompts.administrative import build_administrative_drafting_prompt
 from src.modules.retrieval.application.search_use_case import SearchUseCase
-from src.modules.retrieval.composition import create_search_use_case
-from src.shared.adapters.embedding.api_adapter import EmbeddingAPIAdapter
-from src.shared.adapters.llm.glm_adapter import GLMAdapter
-from src.shared.adapters.storage.minio_adapter import MinIOAdapter
 from src.shared.domain.value_objects.citation import Citation
 from src.shared.ports.classification import ClassificationResult, Intent
 from src.shared.ports.embedding import EmbeddingPort
@@ -35,18 +31,18 @@ class AdministrativeDraftingHandler(QueryHandlerBase):
 
     def __init__(
         self,
+        embedding: EmbeddingPort,
+        search: SearchUseCase,
+        llm: LLMPort,
+        storage: StoragePort,
         config: HandlerConfig | None = None,
-        embedding: EmbeddingPort | None = None,
-        search: SearchUseCase | None = None,
-        llm: LLMPort | None = None,
-        storage: StoragePort | None = None,
     ):
         """Initialize drafting handler dependencies."""
         self.config = config or HandlerConfig(max_retrieved_docs=8, max_tokens=3000, temperature=0.2)
-        self.embedding = embedding or EmbeddingAPIAdapter()
-        self.search = search or create_search_use_case()
-        self.llm = llm or GLMAdapter()
-        self.storage = storage or MinIOAdapter()
+        self.embedding = embedding
+        self.search = search
+        self.llm = llm
+        self.storage = storage
 
     async def handle(
         self,

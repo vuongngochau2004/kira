@@ -122,7 +122,7 @@ class RoutingMetricsCollector:
 
         for method, latencies in self._latencies.items():
             if latencies:
-                recent_latencies = [l for l in latencies if l > 0]
+                recent_latencies = [latency for latency in latencies if latency > 0]
                 if recent_latencies:
                     metrics.avg_latency_ms[method] = sum(recent_latencies) / len(recent_latencies)
                     sorted_latencies = sorted(recent_latencies)

@@ -281,7 +281,7 @@ def llm_rerank(
         try:
             doc_list = json.loads(documents)
             return json.dumps(doc_list[:top_k], ensure_ascii=False)
-        except:
+        except (TypeError, ValueError, json.JSONDecodeError):
             return json.dumps([], ensure_ascii=False)
 
 
@@ -351,7 +351,7 @@ def score_and_rerank(
         try:
             doc_list = json.loads(documents)
             return json.dumps(doc_list[:top_k], ensure_ascii=False)
-        except:
+        except (TypeError, ValueError, json.JSONDecodeError):
             return json.dumps([], ensure_ascii=False)
 
 

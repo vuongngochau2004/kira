@@ -371,53 +371,15 @@ class LangGraphRAGPipeline:
         initial_state = create_initial_state(query, user_id, conversation_id)
 
         try:
-            state = await self.orchestrator_agent.handle(
+            # A previous implementation manually invoked each agent here. That
+            # duplicated graph behaviour and, critically, skipped the quality
+            # gate's ``generation -> quality -> generation`` regeneration loop.
+            # Streaming must execute the same compiled workflow as ``run``.
+            async for mode, chunk in self.graph.astream(
                 initial_state,
-                context={"langgraph_node": True, "streaming": True},
-            )
-            yield {"mode": "updates", "chunk": {"orchestrator": state}}
-
-            if state.get("should_fallback"):
-                yield {"mode": "updates", "chunk": {"fallback": state}}
-                return
-
-            state = await self.retrieval_agent.handle(
-                state,
-                context={"langgraph_node": True, "streaming": True},
-            )
-            yield {"mode": "updates", "chunk": {"retrieval": state}}
-
-            generation_final_state = state
-            async for generation_chunk in self.generation_agent.handle_stream(
-                state,
-                context={"langgraph_node": True, "streaming": True},
+                stream_mode=["updates", "messages"],
             ):
-                chunk_type = generation_chunk.get("type")
-                chunk_data = generation_chunk.get("data", {})
-
-                if chunk_type == "content":
-                    text = chunk_data.get("text", "")
-                    if text:
-                        yield {"mode": "messages", "chunk": text}
-                elif chunk_type == "metadata":
-                    # handle_stream mutates state in-place and stores the final state
-                    # The state object itself is updated, so we just need to track it
-                    generation_final_state = state
-                elif chunk_type == "error":
-                    yield {"mode": "error", "chunk": chunk_data}
-
-            # Use the state that was updated in-place by handle_stream
-            state = generation_final_state
-            if state.get("generated_response") and not state.get("final_response"):
-                state["final_response"] = state["generated_response"]
-            yield {"mode": "updates", "chunk": {"generation": state}}
-
-            state = await self.quality_agent.handle(
-                state,
-                context={"langgraph_node": True, "streaming": True},
-            )
-            yield {"mode": "updates", "chunk": {"quality": state}}
-
+                yield {"mode": mode, "chunk": chunk}
         except Exception as e:
             logger.error(f"❌ <red>[RAG PIPELINE STREAM ERROR]</red> LangGraph streaming failed: {e}", exc_info=True)
             yield {"mode": "error", "chunk": {"error": str(e)}}

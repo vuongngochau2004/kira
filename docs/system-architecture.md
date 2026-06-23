@@ -69,6 +69,29 @@ graph TB
 
 ## Module Structure
 
+## Dependency Boundaries
+
+The system is a modular monolith: modules communicate through application
+services and ports, not through each other's infrastructure implementations.
+
+```text
+Chat API/handler
+    -> RAG application service (RAGExecutionResult)
+    -> RAG workflow port
+    -> LangGraph workflow adapter
+
+RAG workflow
+    -> Retrieval application service
+    -> retrieval ports
+    -> Qdrant / BM25 / PostgreSQL adapters
+```
+
+The LangGraph state is internal to the RAG module. Chat code must not inspect
+agent state or run relevance checks. Likewise, retrieval application code must
+not import Postgres repositories or the BM25 manager directly; those are wired
+in the retrieval composition root. Both streaming and non-streaming RAG calls
+execute the same compiled graph, including the quality-gate regeneration edge.
+
 ```text
 src/
 ├── server/                   # Serving Layer - HTTP endpoints only

@@ -14,6 +14,7 @@ from src.modules.evaluation.dataset_generation import (  # noqa: E402
     DatasetGenerationConfig,
     generate_dataset_sync,
 )
+from src.modules.evaluation.composition import ingested_chunk_repository  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -59,7 +60,8 @@ def main() -> int:
             llm_provider=args.llm_provider,
             llm_model=args.llm_model,
             timeout=args.timeout,
-        )
+        ),
+        repository=ingested_chunk_repository(),
     )
     print(f"Generated {len(dataset.samples)} samples")
     print(f"Output: {args.output}")

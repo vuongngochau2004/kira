@@ -227,7 +227,7 @@ class LangSmithTracer:
             logger.warning("[LANGSMITH] No active trace to end")
             return
 
-        current = self._trace_stack.pop()
+        self._trace_stack.pop()
         metadata.latency_ms = (datetime.utcnow() - metadata.timestamp).total_seconds() * 1000
         self._trace_history.append(metadata.to_dict())
 

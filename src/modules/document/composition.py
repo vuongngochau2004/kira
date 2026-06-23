@@ -9,6 +9,8 @@ from src.modules.retrieval.infrastructure.keyword.bm25_manager import get_bm25_m
 from src.shared.adapters.embedding.api_adapter import EmbeddingAPIAdapter
 from src.shared.adapters.storage.minio_adapter import MinIOAdapter
 from src.shared.adapters.vector.qdrant_adapter import QdrantAdapter
+from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
+from src.worker.task_queue_adapter import CeleryTaskQueueAdapter
 
 
 def document_repository(db: AsyncSession) -> SqlAlchemyDocumentRepository:
@@ -31,9 +33,18 @@ def vector_store_adapter() -> QdrantAdapter:
     return QdrantAdapter()
 
 
+def ocr_adapter() -> PaddleOCRAdapter:
+    return PaddleOCRAdapter()
+
+
 def keyword_index_adapter() -> BM25KeywordIndexAdapter:
     """Create keyword index adapter."""
     return BM25KeywordIndexAdapter(manager=get_bm25_manager())
+
+
+def task_queue_adapter() -> CeleryTaskQueueAdapter:
+    """Create the background-job adapter used by document use cases."""
+    return CeleryTaskQueueAdapter()
 
 
 def upload_document_service(db: AsyncSession) -> UploadDocument:
@@ -51,6 +62,7 @@ def process_document_service(db: AsyncSession) -> ProcessDocument:
         storage=storage_adapter(),
         embedding=embedding_adapter(),
         vector_store=vector_store_adapter(),
+        ocr=ocr_adapter(),
         keyword_index=keyword_index_adapter(),
     )
 
@@ -72,6 +84,7 @@ def cancel_document_service(db: AsyncSession) -> CancelDocument:
         keyword_index=keyword_index_adapter(),
         vector_store=vector_store_adapter(),
         storage=storage_adapter(),
+        task_queue=task_queue_adapter(),
     )
 
 
@@ -81,8 +94,10 @@ __all__ = [
     "document_repository",
     "embedding_adapter",
     "keyword_index_adapter",
+    "ocr_adapter",
     "process_document_service",
     "storage_adapter",
+    "task_queue_adapter",
     "upload_document_service",
     "vector_store_adapter",
 ]

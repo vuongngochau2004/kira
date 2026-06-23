@@ -20,23 +20,16 @@ dependencies = [
     "qdrant-client>=1.7.0",
     "minio>=7.2.0",
     "anthropic>=0.40.0",
-    "openai>=1.12.0",
     "google-genai>=1.0.0",
     "pymupdf>=1.23.0",
     "python-docx>=1.1.0",
     "python-pptx>=0.6.0",
-    "numpy>=1.26.0,<2.0",
     "tiktoken>=0.6.0",
-    "rank-bm25>=0.2.2",
-    "jieba>=0.42.1",
-    "jinja2>=3.1.0",
     "langchain-core>=0.3",
     "langgraph>=0.2.28",
-    "websockets>=12.0",
-    "python-magic>=0.4.27",
     "loguru>=0.7.0",
     "celery[redis]>=5.4.0",
-    "redis>=5.0.0",
+    "deepeval>=3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -48,20 +41,11 @@ dev = [
     "aiosqlite>=0.19.0",
     "ruff>=0.2.0",
     "mypy>=1.8.0",
-    # RAG and agent evaluation
-    "deepeval>=3.0.0",
-    "datasets>=2.18.0",
 ]
 docling = [
     "docling>=2.55.0",
     "torch>=2.5.0,<2.6.0",
 ]
-ml = [
-    "torch>=2.5.0,<2.6.0",
-    "sentence-transformers>=2.2.2",
-    "semantic-router>=0.1.0",
-]
-
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
@@ -99,3 +83,6 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 pythonpath = ["src", "."]
+markers = [
+    "integration: requires running Postgres, Qdrant, Redis, and MinIO services",
+]
