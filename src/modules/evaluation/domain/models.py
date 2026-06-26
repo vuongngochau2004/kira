@@ -15,6 +15,9 @@ class EvaluationMetric(str, Enum):
     CONTEXTUAL_PRECISION = "contextual_precision"
     CONTEXTUAL_RECALL = "contextual_recall"
     CONTEXTUAL_RELEVANCY = "contextual_relevancy"
+    HIT_RATE_AT_K = "hit_rate_at_k"
+    MRR = "mrr"
+    RECALL_AT_K = "recall_at_k"
     CITATION_ACCURACY = "citation_accuracy"
     REFUSAL_CORRECTNESS = "refusal_correctness"
 
@@ -35,8 +38,9 @@ class EvaluationMetric(str, Enum):
 DEFAULT_METRICS = [
     EvaluationMetric.ANSWER_RELEVANCY,
     EvaluationMetric.FAITHFULNESS,
-    EvaluationMetric.CONTEXTUAL_PRECISION,
-    EvaluationMetric.CONTEXTUAL_RECALL,
+    EvaluationMetric.CONTEXTUAL_RELEVANCY,
+    EvaluationMetric.MRR,
+    EvaluationMetric.RECALL_AT_K,
     EvaluationMetric.CITATION_ACCURACY,
     EvaluationMetric.REFUSAL_CORRECTNESS,
 ]
@@ -53,6 +57,7 @@ class EvaluationRequest(BaseModel):
     expected_citations: list[str] = Field(default_factory=list)
     actual_citations: list[str] = Field(default_factory=list)
     should_refuse: bool = False
+    retrieval_k: int = Field(default=5, ge=1, le=100)
     metrics: list[EvaluationMetric] = Field(default_factory=lambda: DEFAULT_METRICS.copy())
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -144,6 +149,7 @@ class EvaluationRunConfig(BaseModel):
     user_id: str
     metrics: list[EvaluationMetric] = Field(default_factory=lambda: DEFAULT_METRICS.copy())
     threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    retrieval_k: int = Field(default=5, ge=1, le=100)
     max_samples: int | None = Field(default=None, ge=1)
     run_name: str | None = None
 

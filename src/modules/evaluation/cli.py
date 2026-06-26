@@ -36,6 +36,7 @@ async def _run(args: argparse.Namespace) -> int:
         user_id=args.user_id,
         metrics=_parse_metrics(args.metrics),
         threshold=args.threshold,
+        retrieval_k=args.retrieval_k,
         max_samples=args.max_samples,
         run_name=args.run_name,
     )
@@ -75,6 +76,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--metrics", default=None, help="Comma-separated metric names. Defaults to all."
     )
     run.add_argument("--threshold", type=float, default=0.7, help="Metric pass threshold.")
+    run.add_argument(
+        "--retrieval-k",
+        type=int,
+        default=5,
+        help="Top-k cutoff for deterministic retrieval metrics.",
+    )
     run.add_argument(
         "--min-pass-rate", type=float, default=0.0, help="Exit non-zero below this pass rate."
     )

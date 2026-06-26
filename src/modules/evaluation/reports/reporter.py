@@ -9,6 +9,38 @@ from pathlib import Path
 from src.modules.evaluation.domain.models import BatchEvaluationResponse
 
 
+METRIC_DIAGNOSTICS = {
+    "answer_relevancy": (
+        "Generation answers the wrong question or omits key information.",
+        "Review intent routing, answer prompt, and generation model.",
+    ),
+    "faithfulness": (
+        "Generation makes claims not supported by retrieved context.",
+        "Strengthen grounding instructions, citation use, or generation model.",
+    ),
+    "contextual_relevancy": (
+        "Retrieved context contains too much irrelevant content.",
+        "Tune chunking, embedding, reranking, or lower retrieval top-k.",
+    ),
+    "mrr": (
+        "The first relevant chunk is ranked too low.",
+        "Tune hybrid-search weights, reranker, or query rewriting.",
+    ),
+    "recall_at_k": (
+        "Top-k retrieval misses required evidence.",
+        "Increase top-k, improve chunk coverage, indexing, or query rewriting.",
+    ),
+    "citation_accuracy": (
+        "Answer citations do not identify the expected evidence.",
+        "Fix citation extraction, source-to-answer mapping, or citation formatting.",
+    ),
+    "refusal_correctness": (
+        "The system answers without evidence or refuses answerable questions.",
+        "Tune no-answer threshold and refusal policy/prompt.",
+    ),
+}
+
+
 class EvaluationReporter:
     """Persist JSON and Markdown benchmark reports."""
 
@@ -48,6 +80,19 @@ class EvaluationReporter:
         ]
         for name, score in sorted(report.aggregated_scores.items()):
             lines.append(f"| {name} | {score:.3f} |")
+
+        lines.extend(["", "## Improvement Guide", ""])
+        lines.extend(
+            [
+                "| Metric | Low score means | Improve |",
+                "| --- | --- | --- |",
+            ]
+        )
+        for metric in sorted(
+            name for name in report.aggregated_scores if name in METRIC_DIAGNOSTICS
+        ):
+            symptom, action = METRIC_DIAGNOSTICS[metric]
+            lines.append(f"| {metric} | {symptom} | {action} |")
 
         lines.extend(["", "## Samples", ""])
         for result in report.results:

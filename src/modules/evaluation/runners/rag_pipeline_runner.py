@@ -94,6 +94,7 @@ class RAGPipelineEvaluationRunner:
             expected_citations=sample.expected_citations or sample.expected_context_ids,
             actual_citations=actual_citations,
             should_refuse=sample.should_refuse,
+            retrieval_k=config.retrieval_k,
             metrics=config.metrics,
             metadata={
                 "sample_id": sample.id,
@@ -137,12 +138,14 @@ class RAGPipelineEvaluationRunner:
 
     @staticmethod
     def _retrieved_context_ids(docs: list) -> list[str]:
-        ids = []
+        """Return one rank-preserving identifier per retrieved context."""
+        ids: list[str] = []
         for doc in docs:
             document_id = str(doc.doc_id)
             if doc.chunk_index is not None:
                 ids.append(f"{document_id}:{doc.chunk_index}")
-            ids.append(document_id)
+            else:
+                ids.append(document_id)
         return ids
 
     @staticmethod

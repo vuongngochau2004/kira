@@ -17,7 +17,13 @@ from src.modules.evaluation.domain.models import (
     EvaluationResponse,
     MetricResult,
 )
-from src.modules.evaluation.metrics import citation_accuracy, refusal_correctness
+from src.modules.evaluation.metrics import (
+    citation_accuracy,
+    hit_rate_at_k,
+    mean_reciprocal_rank,
+    recall_at_k,
+    refusal_correctness,
+)
 from src.shared.ports.llm import LLMPort
 
 
@@ -27,6 +33,14 @@ class EvaluationError(Exception):
 
 class DeepEvalEvaluationService:
     """Evaluate RAG outputs with DeepEval plus local deterministic metrics."""
+
+    _RETRIEVAL_METRICS = frozenset(
+        {
+            EvaluationMetric.HIT_RATE_AT_K,
+            EvaluationMetric.MRR,
+            EvaluationMetric.RECALL_AT_K,
+        }
+    )
 
     def __init__(
         self,
@@ -64,6 +78,11 @@ class DeepEvalEvaluationService:
                     answer=request.answer,
                     should_refuse=request.should_refuse,
                 )
+                results.append(self._metric_result(metric, score, reason=reason))
+                continue
+
+            if metric in self._RETRIEVAL_METRICS:
+                score, reason = self._retrieval_metric(metric, request)
                 results.append(self._metric_result(metric, score, reason=reason))
                 continue
 
@@ -202,16 +221,39 @@ class DeepEvalEvaluationService:
         )
 
     @staticmethod
+    def _retrieval_metric(
+        metric: EvaluationMetric,
+        request: EvaluationRequest,
+    ) -> tuple[float, str]:
+        expected = request.metadata.get("expected_context_ids", [])
+        retrieved = request.metadata.get("retrieved_context_ids", [])
+        if metric == EvaluationMetric.HIT_RATE_AT_K:
+            return hit_rate_at_k(expected, retrieved, request.retrieval_k)
+        if metric == EvaluationMetric.MRR:
+            return mean_reciprocal_rank(expected, retrieved)
+        if metric == EvaluationMetric.RECALL_AT_K:
+            return recall_at_k(expected, retrieved, request.retrieval_k)
+        raise EvaluationError(f"Unsupported retrieval metric: {metric.value}")
+
+    @staticmethod
     def _should_skip_metric(metric: EvaluationMetric, request: EvaluationRequest) -> bool:
         """Skip DeepEval metrics that are not meaningful for refusal samples."""
+        if metric in DeepEvalEvaluationService._RETRIEVAL_METRICS and not request.metadata.get(
+            "expected_context_ids"
+        ):
+            return True
+
         if not request.should_refuse:
             return False
 
-        return metric in {
+        if metric in {
             EvaluationMetric.CONTEXTUAL_PRECISION,
             EvaluationMetric.CONTEXTUAL_RECALL,
             EvaluationMetric.CONTEXTUAL_RELEVANCY,
-        }
+        }:
+            return True
+
+        return False
 
     @staticmethod
     def _aggregate(results: list[EvaluationResponse]) -> dict[str, float]:
