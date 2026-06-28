@@ -35,13 +35,27 @@ Quy tắc bắt buộc:
 - expected_answer phải chính xác, ngắn gọn, không suy diễn.
 - answer_evidence phải là một đoạn trích NGUYÊN VĂN, liên tục, sao chép y hệt từ ngữ cảnh.
 - Không được tự sửa lỗi OCR/chính tả trong answer_evidence.
-- Ưu tiên câu hỏi về điều kiện, phạm vi áp dụng, trách nhiệm, quy trình, mốc thời gian, tiêu chí.
+- Tránh tình trạng mất cân bằng (skewed) dữ liệu: Không lạm dụng loại câu hỏi "fact" và độ khó "easy".
+- Yêu cầu đối với question_type:
+  + fact: câu hỏi tra cứu thông tin thực tế đơn giản, trực tiếp.
+  + definition: định nghĩa, giải thích khái niệm hoặc thuật ngữ.
+  + condition: điều kiện áp dụng, đối tượng áp dụng, điều khoản loại trừ.
+  + procedure: quy trình, trình tự thực hiện, các bước thực hiện một công việc.
+  + responsibility: quyền hạn, nghĩa vụ, trách nhiệm của các bên liên quan.
+  + summary: tóm tắt ý chính hoặc tổng hợp thông tin từ nhiều câu/ý trong ngữ cảnh.
+- Yêu cầu đối với difficulty:
+  + easy: câu hỏi đơn giản, có thể trả lời trực tiếp bằng một câu ngắn gọn có sẵn trong văn bản.
+  + medium: câu hỏi đòi hỏi tư duy tổng hợp thông tin từ nhiều câu, so sánh, hoặc quy trình nhiều bước, điều kiện ràng buộc phức tạp trong ngữ cảnh.
 - Nếu ngữ cảnh không đủ rõ để tạo câu hỏi chất lượng, trả về {"samples": []}.
 - Trả về JSON hợp lệ, không markdown, không giải thích ngoài JSON.
 """
 
 
-USER_PROMPT_TEMPLATE = """Tạo tối đa {questions_per_chunk} mẫu đánh giá RAG từ ngữ cảnh dưới đây.
+USER_PROMPT_TEMPLATE = """Tạo đúng {questions_per_chunk} mẫu đánh giá RAG từ ngữ cảnh dưới đây.
+
+Quy tắc phân bổ bắt buộc để tránh lệch dữ liệu (Skewed Dataset):
+1. Đa dạng hóa loại câu hỏi: Trong {questions_per_chunk} câu hỏi được sinh ra, KHÔNG ĐƯỢC phép tất cả đều thuộc loại "fact". Hãy cố gắng sinh ít nhất 1 câu hỏi thuộc các nhóm phức tạp hơn như "condition", "procedure", hoặc "responsibility".
+2. Cân bằng độ khó: Cố gắng sinh ít nhất 1 câu hỏi có độ khó "medium" (đòi hỏi liên kết thông tin hoặc tổng hợp điều kiện/quy trình) và 1 câu hỏi độ khó "easy". Tránh việc toàn bộ câu hỏi sinh ra đều là "easy".
 
 Thông tin nguồn:
 - document_id: {document_id}
@@ -57,7 +71,7 @@ Lược đồ JSON bắt buộc:
 {{
   "samples": [
     {{
-      "query": "câu hỏi tiếng Việt",
+      "query": "câu hỏi tiếng Việt tự nhiên, rõ ràng, cụ thể",
       "expected_answer": "câu trả lời chuẩn dựa trên ngữ cảnh",
       "answer_evidence": "đoạn bằng chứng ngắn trích từ ngữ cảnh",
       "question_type": "fact|condition|procedure|definition|responsibility|summary",
@@ -465,12 +479,16 @@ class IngestedChunkDatasetGenerator:
         return f"{filename_slug}_chunk_{source.chunk_index:04d}_{question_type}_{index + 1}"
 
 
-async def generate_dataset(config: DatasetGenerationConfig, repository: IngestedChunkPort) -> GoldenDataset:
+async def generate_dataset(
+    config: DatasetGenerationConfig, repository: IngestedChunkPort
+) -> GoldenDataset:
     """Convenience async entry point."""
     return await IngestedChunkDatasetGenerator(config, repository=repository).generate()
 
 
-def generate_dataset_sync(config: DatasetGenerationConfig, repository: IngestedChunkPort) -> GoldenDataset:
+def generate_dataset_sync(
+    config: DatasetGenerationConfig, repository: IngestedChunkPort
+) -> GoldenDataset:
     """Sync entry point for scripts."""
     return asyncio.run(generate_dataset(config, repository=repository))
 
