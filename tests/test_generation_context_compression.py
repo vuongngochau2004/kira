@@ -1,0 +1,84 @@
+from uuid import uuid4
+
+from src.modules.evaluation.runners.rag_pipeline_runner import RAGPipelineEvaluationRunner
+from src.modules.rag.orchestration.agents.generation_agent import GenerationAgent
+from src.modules.rag.orchestration.state.rag_state import DocumentWithScore, GenerationAgentConfig
+
+
+def test_generation_context_keeps_query_relevant_sentences() -> None:
+    agent = GenerationAgent(config=GenerationAgentConfig())
+    doc = DocumentWithScore(
+        doc_id=uuid4(),
+        content=(
+            "Phần mở đầu nêu nhiều căn cứ pháp lý không liên quan. "
+            "Nhà trường dự kiến mở thêm mới ít nhất 01 chương trình đào tạo "
+            "giảng dạy hoàn toàn bằng tiếng Anh. "
+            "Các nội dung khác tập trung vào tài chính và cơ sở vật chất."
+        ),
+        filename="strategy.pdf",
+        page_number=3,
+        chunk_index=21,
+        score=0.9,
+    )
+
+    context, compressed_contexts = agent._build_context(
+        "Nhà trường dự kiến mở thêm mới bao nhiêu chương trình đào tạo bằng tiếng Anh?",
+        [doc],
+    )
+
+    assert "ít nhất 01 chương trình" in context
+    assert "ít nhất 01 chương trình" in compressed_contexts[0]
+    assert len(compressed_contexts[0]) < len(doc.content)
+
+
+def test_evaluation_runner_uses_compressed_contexts_and_sanitizes_metadata() -> None:
+    compressed_context = "Câu trực tiếp trả lời câu hỏi."
+    raw_context = "Nội dung raw dài và nhiễu."
+    doc = DocumentWithScore(
+        doc_id=uuid4(),
+        content=raw_context,
+        filename="doc.pdf",
+        page_number=1,
+        chunk_index=0,
+        score=0.9,
+    )
+    state = {
+        "final_response": "answer",
+        "generation_metadata": {
+            "context_size": len(compressed_context),
+            "compressed_contexts": [compressed_context],
+        },
+        "retrieval_agent_output": {
+            "reranked_docs": [doc.model_dump()],
+            "retrieved_docs": [],
+        },
+        "final_citations": [],
+        "quality_agent_output": {},
+        "agent_results": [],
+    }
+    sample = type(
+        "Sample",
+        (),
+        {
+            "id": "sample-1",
+            "query": "question",
+            "expected_answer": "answer",
+            "reference_contexts": [],
+            "expected_citations": [],
+            "expected_context_ids": [],
+            "should_refuse": False,
+            "tags": [],
+        },
+    )()
+    config = type("Config", (), {"retrieval_k": 5, "metrics": [], "threshold": 0.7})()
+
+    request = RAGPipelineEvaluationRunner._request_from_state(
+        RAGPipelineEvaluationRunner.__new__(RAGPipelineEvaluationRunner),
+        sample,
+        state,
+        config,
+    )
+
+    assert request.contexts == [compressed_context]
+    assert "compressed_contexts" not in request.metadata["generation_metadata"]
+    assert request.metadata["generation_metadata"]["compressed_context_count"] == 1

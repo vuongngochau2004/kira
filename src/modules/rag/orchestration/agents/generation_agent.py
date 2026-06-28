@@ -19,6 +19,7 @@ Example:
 """
 
 import logging
+import re
 from typing import List, Dict, Any, AsyncIterator, Optional
 from datetime import datetime, timezone
 import time
@@ -33,7 +34,7 @@ from src.modules.rag.orchestration.state.rag_state import (
     create_agent_result,
     mark_agent_start,
     update_state_with_agent_result,
-    get_retrieval_docs
+    get_retrieval_docs,
 )
 from src.modules.rag.domain.prompts.generation import (
     build_generation_prompt,
@@ -42,6 +43,32 @@ from src.modules.rag.domain.prompts.generation import (
 from src.config.config import settings
 
 logger = logging.getLogger(__name__)
+
+VIETNAMESE_STOPWORDS = {
+    "anh",
+    "bao",
+    "bằng",
+    "các",
+    "căn",
+    "cho",
+    "có",
+    "của",
+    "đã",
+    "được",
+    "gì",
+    "hay",
+    "khi",
+    "là",
+    "nào",
+    "những",
+    "theo",
+    "trong",
+    "từ",
+    "và",
+    "vào",
+    "về",
+    "việc",
+}
 
 
 class GenerationAgent:
@@ -111,11 +138,7 @@ class GenerationAgent:
         ):
             yield chunk
 
-    async def handle(
-        self,
-        state: RAGState,
-        context: Optional[Dict[str, Any]] = None
-    ) -> RAGState:
+    async def handle(self, state: RAGState, context: Optional[Dict[str, Any]] = None) -> RAGState:
         """
         Generate response (non-streaming).
 
@@ -138,8 +161,8 @@ class GenerationAgent:
 
             logger.info(f"GenerationAgent starting: query='{query[:50]}...', docs={len(documents)}")
 
-            # Build context from documents
-            context_str = self._build_context(documents)
+            # Build compressed context from documents
+            context_str, compressed_contexts = self._build_context(query, documents)
 
             # Build prompt
             prompt = self._build_prompt(query, context_str)
@@ -148,7 +171,7 @@ class GenerationAgent:
             response = await self._generate_text(
                 prompt=prompt,
                 temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens
+                max_tokens=self.config.max_tokens,
             )
 
             # Use response directly as plain text (no JSON wrapping)
@@ -166,8 +189,10 @@ class GenerationAgent:
                 "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,
                 "context_size": len(context_str),
+                "compressed_contexts": compressed_contexts,
+                "raw_context_size": sum(len(doc.content or "") for doc in documents),
                 "documents_used": len(documents),
-                "generated_at": datetime.now(timezone.utc).isoformat()
+                "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
             execution_time = (time.time() - start_time) * 1000
@@ -178,11 +203,13 @@ class GenerationAgent:
                 metadata={
                     "response_length": len(response),
                     "citations_count": len(citations),
-                    "documents_used": len(documents)
-                }
+                    "documents_used": len(documents),
+                },
             )
 
-            logger.info(f"GenerationAgent completed in {execution_time:.0f}ms: {len(response)} chars")
+            logger.info(
+                f"GenerationAgent completed in {execution_time:.0f}ms: {len(response)} chars"
+            )
             return update_state_with_agent_result(state, result)
 
         except Exception as e:
@@ -193,7 +220,7 @@ class GenerationAgent:
                 agent_name="GenerationAgent",
                 status=AgentStatus.FAILED,
                 execution_time_ms=execution_time,
-                error_message=str(e)
+                error_message=str(e),
             )
 
             state = update_state_with_agent_result(state, result)
@@ -201,9 +228,7 @@ class GenerationAgent:
             return state
 
     async def handle_stream(
-        self,
-        state: RAGState,
-        context: Optional[Dict[str, Any]] = None
+        self, state: RAGState, context: Optional[Dict[str, Any]] = None
     ) -> AsyncIterator[Dict[str, Any]]:
         """
         Generate response with streaming.
@@ -227,7 +252,7 @@ class GenerationAgent:
             logger.info(f"GenerationAgent streaming: docs={len(documents)}")
 
             # Build context and prompt
-            context_str = self._build_context(documents)
+            context_str, compressed_contexts = self._build_context(query, documents)
             prompt = self._build_prompt(query, context_str)
 
             # Stream generation — yield each token chunk directly to the frontend
@@ -236,16 +261,10 @@ class GenerationAgent:
             async for chunk in self._stream_text(
                 prompt=prompt,
                 temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens
+                max_tokens=self.config.max_tokens,
             ):
                 full_response += chunk
-                yield {
-                    "type": "content",
-                    "data": {
-                        "text": chunk,
-                        "done": False
-                    }
-                }
+                yield {"type": "content", "data": {"text": chunk, "done": False}}
 
             # Use full response directly as plain text (no JSON parsing)
             answer_text = full_response.strip()
@@ -262,9 +281,11 @@ class GenerationAgent:
                 "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,
                 "context_size": len(context_str),
+                "compressed_contexts": compressed_contexts,
+                "raw_context_size": sum(len(doc.content or "") for doc in documents),
                 "documents_used": len(documents),
                 "streaming": True,
-                "generated_at": datetime.now(timezone.utc).isoformat()
+                "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
             # Yield final metadata
@@ -274,7 +295,7 @@ class GenerationAgent:
                     "citations": [c.model_dump() for c in citations],
                     "documents_used": len(documents),
                     "response_length": len(answer_text),
-                }
+                },
             }
 
             execution_time = (time.time() - start_time) * 1000
@@ -285,8 +306,8 @@ class GenerationAgent:
                 metadata={
                     "response_length": len(answer_text),
                     "citations_count": len(citations),
-                    "streaming": True
-                }
+                    "streaming": True,
+                },
             )
 
             state = update_state_with_agent_result(state, result)
@@ -302,18 +323,13 @@ class GenerationAgent:
                 agent_name="GenerationAgent",
                 status=AgentStatus.FAILED,
                 execution_time_ms=execution_time,
-                error_message=str(e)
+                error_message=str(e),
             )
 
             state = update_state_with_agent_result(state, result)
 
             # Yield error chunk
-            yield {
-                "type": "error",
-                "data": {
-                    "message": str(e)
-                }
-            }
+            yield {"type": "error", "data": {"message": str(e)}}
             return
 
     def can_handle(self, state: RAGState) -> bool:
@@ -329,57 +345,117 @@ class GenerationAgent:
             True if state has retrieval_agent_output
         """
         return bool(
-            state.get("retrieval_agent_output") and
-            state["retrieval_agent_output"].get("reranked_docs") or
-            state["retrieval_agent_output"].get("retrieved_docs")
+            state.get("retrieval_agent_output")
+            and state["retrieval_agent_output"].get("reranked_docs")
+            or state["retrieval_agent_output"].get("retrieved_docs")
         )
 
     # ==========================================================================
     # Context Building
     # ==========================================================================
 
-    def _build_context(self, documents: List[DocumentWithScore]) -> str:
+    def _build_context(
+        self, query: str, documents: List[DocumentWithScore]
+    ) -> tuple[str, list[str]]:
         """
         Build context string from retrieved documents.
 
-        TODO: Enhance context building with:
-        - Intelligent document selection
-        - Context compression for long documents
-        - Deduplication of similar content
-
         Args:
+            query: User query used to select relevant sentences
             documents: List of retrieved documents
 
         Returns:
-            Formatted context string
+            Formatted context string and plain compressed contexts
         """
         if not documents:
-            return "No relevant documents found."
+            return "No relevant documents found.", []
 
         context_parts = []
+        compressed_contexts: list[str] = []
+        total_chars = 0
 
         for idx, doc in enumerate(documents, 1):
+            if total_chars >= settings.context_max_total_chars:
+                break
+
             source = ""
             if doc.filename and doc.filename != "Unknown":
                 source = f" {doc.filename}"
                 if doc.page_number:
                     source += f", page {doc.page_number}"
 
-            # Truncate very long documents to avoid blowing up context
-            content = doc.content
-            if len(content) > 8000:
-                content = content[:8000] + "..."
+            content = self._compress_content(query, doc.content)
+            remaining = settings.context_max_total_chars - total_chars
+            if len(content) > remaining:
+                content = content[:remaining].rstrip() + "..."
 
             if source:
-                context_parts.append(
-                    f"Document {idx}:{source}\n{content}\n"
-                )
+                context_parts.append(f"Document {idx}:{source}\n{content}\n")
             else:
-                context_parts.append(
-                    f"Document {idx}:\n{content}\n"
-                )
+                context_parts.append(f"Document {idx}:\n{content}\n")
 
-        return "\n".join(context_parts)
+            compressed_contexts.append(content)
+            total_chars += len(content)
+
+        return "\n".join(context_parts), compressed_contexts
+
+    def _compress_content(self, query: str, content: str) -> str:
+        """Keep the sentences most likely to answer the query."""
+        text = (content or "").strip()
+        if not text or not settings.context_compression_enabled:
+            return self._truncate_context(text)
+
+        sentences = self._split_sentences(text)
+        if not sentences:
+            return self._truncate_context(text)
+
+        query_terms = self._query_terms(query)
+        scored = [
+            (self._sentence_score(sentence, query_terms), index, sentence)
+            for index, sentence in enumerate(sentences)
+        ]
+        scored.sort(key=lambda item: (-item[0], item[1]))
+
+        selected = [
+            sentence
+            for score, _, sentence in scored[: settings.context_max_sentences_per_doc]
+            if score > 0
+        ]
+        if not selected:
+            selected = sentences[: min(2, len(sentences))]
+
+        ordered = sorted(selected, key=lambda sentence: sentences.index(sentence))
+        return self._truncate_context(" ".join(ordered))
+
+    def _truncate_context(self, text: str) -> str:
+        """Apply the per-document context budget."""
+        if len(text) <= settings.context_max_chars_per_doc:
+            return text
+        return text[: settings.context_max_chars_per_doc].rstrip() + "..."
+
+    @staticmethod
+    def _split_sentences(text: str) -> list[str]:
+        """Split Vietnamese administrative text into sentence-like units."""
+        normalized = re.sub(r"\s+", " ", text).strip()
+        parts = re.split(r"(?<=[.!?;:])\s+|\n+", normalized)
+        return [part.strip() for part in parts if part.strip()]
+
+    @staticmethod
+    def _query_terms(query: str) -> set[str]:
+        """Extract useful lexical terms from the query."""
+        tokens = re.findall(r"[\wÀ-ỹ/.-]+", query.lower())
+        return {token for token in tokens if len(token) >= 3 and token not in VIETNAMESE_STOPWORDS}
+
+    @staticmethod
+    def _sentence_score(sentence: str, query_terms: set[str]) -> float:
+        """Score how directly a sentence supports the query."""
+        lowered = sentence.lower()
+        score = sum(1.0 for term in query_terms if term in lowered)
+        if re.search(r"\d{1,4}[/.-]\d{1,4}|qđ|tt-|ngày|tháng|năm|điều|khoản", lowered):
+            score += 0.5
+        if any(marker in lowered for marker in ("trách nhiệm", "căn cứ", "quy định", "hiệu lực")):
+            score += 0.5
+        return score
 
     # ==========================================================================
     # Prompt Building
@@ -437,7 +513,7 @@ class GenerationAgent:
                 text=text,
                 doc_index=idx,
                 score=doc.score,
-                document_id=str(doc.doc_id) if doc.doc_id else None
+                document_id=str(doc.doc_id) if doc.doc_id else None,
             )
             citations.append(citation)
 
@@ -447,11 +523,7 @@ class GenerationAgent:
     # Regeneration (for QualityAgent feedback)
     # ==========================================================================
 
-    async def regenerate_with_feedback(
-        self,
-        state: RAGState,
-        feedback: str
-    ) -> RAGState:
+    async def regenerate_with_feedback(self, state: RAGState, feedback: str) -> RAGState:
         """
         Regenerate response based on quality feedback.
 
@@ -479,22 +551,22 @@ class GenerationAgent:
 
             logger.info(f"Regenerating with feedback: {feedback[:100]}...")
 
-            # Build context
-            context_str = self._build_context(documents)
+            # Build compressed context
+            context_str, compressed_contexts = self._build_context(query, documents)
 
             # Build regeneration prompt
             prompt = self._build_regeneration_prompt(
                 query=query,
                 context=context_str,
                 previous_response=previous_response,
-                feedback=feedback
+                feedback=feedback,
             )
 
             # Generate improved response
             response = await self._generate_text(
                 prompt=prompt,
                 temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens
+                max_tokens=self.config.max_tokens,
             )
 
             # Update state
@@ -502,6 +574,8 @@ class GenerationAgent:
             if state.get("generation_metadata"):
                 state["generation_metadata"]["regenerated"] = True
                 state["generation_metadata"]["regeneration_feedback"] = feedback
+                state["generation_metadata"]["compressed_contexts"] = compressed_contexts
+                state["generation_metadata"]["context_size"] = len(context_str)
 
             execution_time = (time.time() - start_time) * 1000
             result = create_agent_result(
@@ -511,8 +585,8 @@ class GenerationAgent:
                 metadata={
                     "regeneration": True,
                     "feedback": feedback,
-                    "response_length": len(response)
-                }
+                    "response_length": len(response),
+                },
             )
 
             logger.info(f"Regeneration completed: {len(response)} chars")
@@ -526,17 +600,13 @@ class GenerationAgent:
                 agent_name="GenerationAgent (regenerate)",
                 status=AgentStatus.FAILED,
                 execution_time_ms=execution_time,
-                error_message=str(e)
+                error_message=str(e),
             )
 
             return update_state_with_agent_result(state, result)
 
     def _build_regeneration_prompt(
-        self,
-        query: str,
-        context: str,
-        previous_response: str,
-        feedback: str
+        self, query: str, context: str, previous_response: str, feedback: str
     ) -> str:
         """
         Build prompt for regeneration with feedback.

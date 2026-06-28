@@ -95,7 +95,9 @@ class RAGPipelineEvaluationRunner:
         config: EvaluationRunConfig,
     ) -> EvaluationRequest:
         docs = get_retrieval_docs(state)
-        contexts = [doc.content for doc in docs if doc.content]
+        generation_metadata = self._report_generation_metadata(state.get("generation_metadata", {}))
+        compressed_contexts = generation_metadata.pop("_compressed_contexts_for_eval", [])
+        contexts = compressed_contexts or [doc.content for doc in docs if doc.content]
         actual_citations = self._extract_actual_citations(state)
 
         return EvaluationRequest(
@@ -115,13 +117,26 @@ class RAGPipelineEvaluationRunner:
                 "expected_context_ids": sample.expected_context_ids,
                 "retrieved_context_ids": self._retrieved_context_ids(docs),
                 "quality_agent_output": state.get("quality_agent_output", {}),
-                "generation_metadata": state.get("generation_metadata", {}),
+                "generation_metadata": generation_metadata,
                 "agent_results": [
                     result.model_dump() if hasattr(result, "model_dump") else result
                     for result in state.get("agent_results", [])
                 ],
             },
         )
+
+    @staticmethod
+    def _report_generation_metadata(metadata: dict) -> dict:
+        """Remove bulky context payloads while preserving compression diagnostics."""
+        report_metadata = dict(metadata or {})
+        compressed_contexts = report_metadata.pop("compressed_contexts", []) or []
+        report_metadata["_compressed_contexts_for_eval"] = compressed_contexts
+        if compressed_contexts:
+            report_metadata["compressed_context_count"] = len(compressed_contexts)
+            report_metadata["compressed_context_total_chars"] = sum(
+                len(context) for context in compressed_contexts
+            )
+        return report_metadata
 
     def _failure_result(
         self,

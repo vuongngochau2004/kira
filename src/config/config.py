@@ -198,6 +198,20 @@ class Settings(BaseSettings):
     chunk_size: int = _static_config.get("chunking", {}).get("size", 2048)
     chunk_overlap: int = _static_config.get("chunking", {}).get("overlap", 256)
 
+    # ----- Context compression (from settings.yaml) -----
+    context_compression_enabled: bool = _static_config.get("context_compression", {}).get(
+        "enabled", True
+    )
+    context_max_sentences_per_doc: int = _static_config.get("context_compression", {}).get(
+        "max_sentences_per_doc", 4
+    )
+    context_max_chars_per_doc: int = _static_config.get("context_compression", {}).get(
+        "max_chars_per_doc", 1600
+    )
+    context_max_total_chars: int = _static_config.get("context_compression", {}).get(
+        "max_total_chars", 6000
+    )
+
     # ----- CORS -----
     cors_origins: str = ""
 
@@ -232,7 +246,9 @@ class Settings(BaseSettings):
     progressive_sample_rate: float = Field(0.15)  # fraction of pages to verify (0.0-1.0)
     progressive_min_sample_pages: int = Field(3)  # minimum pages to verify regardless of rate
     progressive_max_sample_pages: int = Field(20)  # cap to bound VLM cost
-    progressive_accuracy_threshold: float = Field(0.85)  # min char-level match ratio to accept native text
+    progressive_accuracy_threshold: float = Field(
+        0.85
+    )  # min char-level match ratio to accept native text
     progressive_skip_simple_docs: bool = Field(True)  # skip VLM verify for short, clean native text
     document_audit_enabled: bool = Field(True)
     document_audit_dir: str = Field("reports/document_processing")
