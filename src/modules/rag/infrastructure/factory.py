@@ -8,6 +8,7 @@ from src.modules.rag.orchestration.state.rag_state import (
     QualityAgentConfig,
     RetrievalAgentConfig,
 )
+from src.config.config import settings
 from src.modules.retrieval.composition import create_search_use_case
 from src.shared.adapters.embedding import create_embedding_adapter
 from src.shared.adapters.llm.glm_adapter import GLMAdapter
@@ -25,7 +26,12 @@ def create_default_rag_pipeline_service(
     """Compose the default production RAG pipeline service."""
     pipeline = create_langgraph_pipeline(
         orchestrator_config=OrchestratorAgentConfig(),
-        retrieval_config=RetrievalAgentConfig(),
+        retrieval_config=RetrievalAgentConfig(
+            top_k=max(settings.retrieval_k, settings.reranking_top_k_before),
+            rerank_top_k=settings.reranking_top_k_after,
+            rerank_threshold=settings.reranking_min_score_threshold,
+            enable_reranking=settings.reranking_enabled,
+        ),
         generation_config=GenerationAgentConfig(),
         quality_config=QualityAgentConfig(),
         embedding=embedding or create_embedding_adapter(),

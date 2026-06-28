@@ -122,30 +122,31 @@ async def hybrid_search(
     k = k or settings.retrieval_k
     rrf_k = rrf_k or settings.rrf_k
     enable_rerank = enable_rerank if enable_rerank is not None else settings.reranking_enabled
+    candidate_k = max(k, settings.reranking_top_k_before) if enable_rerank else k
 
     dense_results = dense_search_fn(
         query_embedding=query_embedding,
         user_id=user_id,
-        k=k * DENSE_MULTIPLIER,
+        k=candidate_k * DENSE_MULTIPLIER,
     )
     if asyncio.iscoroutine(dense_results):
         dense_results = await dense_results
 
-    bm25_results = _get_bm25_results(bm25_index, query_text, k)
+    bm25_results = _get_bm25_results(bm25_index, query_text, candidate_k)
 
     # ✅ Log retrieval composition for debugging
     logger.debug(
         f"Hybrid search composition: dense={len(dense_results)}, "
-        f"bm25={len(bm25_results)}, k={k}"
+        f"bm25={len(bm25_results)}, k={k}, candidate_k={candidate_k}"
     )
 
     if not bm25_results:
-        fused = dense_results[:k]
+        fused = dense_results[:candidate_k]
         logger.debug("Using dense-only retrieval (BM25 unavailable)")
     else:
         dense_formatted = _format_dense_results(dense_results)
         fused = reciprocal_rank_fusion([dense_formatted, bm25_results], k=rrf_k)
-        fused = fused[:k]
+        fused = fused[:candidate_k]
         logger.debug(f"RRF fusion completed: {len(fused)} results")
 
     # Apply LLM reranking if enabled
@@ -153,7 +154,10 @@ async def hybrid_search(
         fused = await _apply_llm_reranking(query_text, fused, k)
         logger.debug(f"LLM reranking applied: {len(fused)} final results")
     else:
-        logger.debug(f"LLM reranking {'disabled' if not enable_rerank else 'skipped (no LLM client)'}")
+        logger.debug(
+            f"LLM reranking {'disabled' if not enable_rerank else 'skipped (no LLM client)'}"
+        )
+        fused = fused[:k]
 
     return fused
 
@@ -225,7 +229,7 @@ async def _call_llm_for_reranking(prompt: str) -> str:
     """
     messages = [
         {"role": "system", "content": RERANKING_SYSTEM_PROMPT},
-        {"role": "user", "content": prompt}
+        {"role": "user", "content": prompt},
     ]
 
     response = await asyncio.wait_for(
@@ -302,7 +306,7 @@ def _parse_llm_reranking(response: str, num_documents: int) -> list[int]:
     """
     # Try to extract JSON array
     try:
-        json_match = re.search(r'\[.*?\]', response)
+        json_match = re.search(r"\[.*?\]", response)
         if json_match:
             indices = json.loads(json_match.group(0))
             if isinstance(indices, list):
@@ -311,7 +315,7 @@ def _parse_llm_reranking(response: str, num_documents: int) -> list[int]:
         pass
 
     # Fallback: extract comma-separated numbers
-    numbers = re.findall(r'\d+', response)
+    numbers = re.findall(r"\d+", response)
     if numbers:
         return [int(n) for n in numbers]
 
@@ -336,7 +340,9 @@ def _get_bm25_results(
             "metadata": doc.get("metadata", {}),
             "score": doc.get("score", 0),
             "document_id": doc.get("document_id") or doc.get("metadata", {}).get("document_id"),
-            "chunk_index": doc.get("chunk_index") if doc.get("chunk_index") is not None else doc.get("metadata", {}).get("chunk_index"),
+            "chunk_index": doc.get("chunk_index")
+            if doc.get("chunk_index") is not None
+            else doc.get("metadata", {}).get("chunk_index"),
         }
         for doc in bm25_docs
     ]

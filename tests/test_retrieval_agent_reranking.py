@@ -71,3 +71,38 @@ def test_fallback_reranking_returns_top_docs_when_threshold_filters_all():
 
     assert len(reranked) == 2
     assert reranked[0].filename == "doc-1.pdf"
+
+
+class LowScoreLLM:
+    async def generate(self, messages, temperature=0.7, max_tokens=2000, **kwargs):
+        return """
+        {
+          "rankings": [
+            {"index": 1, "score": 0.25, "reason": "weak lexical overlap"},
+            {"index": 2, "score": 0.10, "reason": "mostly unrelated"}
+          ]
+        }
+        """
+
+
+@pytest.mark.asyncio
+async def test_llm_reranking_filters_documents_below_threshold():
+    config = RetrievalAgentConfig(rerank_threshold=0.8, rerank_top_k=3)
+    agent = RetrievalAgent(config=config, llm_client=FakeLLM())
+
+    reranked = await agent._rerank_documents("quy định xét tuyển sinh", _docs())
+
+    assert [doc.filename for doc in reranked] == ["doc-3.pdf", "doc-1.pdf"]
+    assert all(doc.score >= 0.8 for doc in reranked)
+
+
+@pytest.mark.asyncio
+async def test_llm_reranking_keeps_single_best_candidate_when_all_scores_low():
+    config = RetrievalAgentConfig(rerank_threshold=0.8, rerank_top_k=3)
+    agent = RetrievalAgent(config=config, llm_client=LowScoreLLM())
+
+    reranked = await agent._rerank_documents("quy định xét tuyển sinh", _docs())
+
+    assert len(reranked) == 1
+    assert reranked[0].filename == "doc-2.pdf"
+    assert reranked[0].metadata["reranker"] == "llm_structured_threshold_fallback"

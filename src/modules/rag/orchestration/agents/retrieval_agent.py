@@ -391,7 +391,7 @@ class RetrievalAgent:
                 user_id=user_id,
                 k=self.config.top_k,
                 rrf_k=60,
-                enable_rerank=self.config.enable_reranking,
+                enable_rerank=False,
             )
 
             # Convert to DocumentWithScore objects
@@ -523,9 +523,7 @@ class RetrievalAgent:
         )
         return reranked_docs[: self.config.rerank_top_k]
 
-    def _build_llm_reranking_prompt(
-        self, query: str, documents: List[DocumentWithScore]
-    ) -> str:
+    def _build_llm_reranking_prompt(self, query: str, documents: List[DocumentWithScore]) -> str:
         """Build a structured-output reranking prompt."""
         formatted_docs = []
         for index, doc in enumerate(documents):
@@ -561,13 +559,13 @@ Quy tắc:
 - "index" phải là chỉ số tài liệu trong danh sách ứng viên.
 - "score" là độ liên quan từ 0.0 đến 1.0.
 - Sắp xếp "rankings" từ liên quan nhất đến ít liên quan nhất.
+- Chỉ đưa vào "rankings" các đoạn có thông tin trực tiếp hoặc hỗ trợ rõ ràng cho câu hỏi.
+- Bỏ qua đoạn không giúp trả lời câu hỏi; không cần trả đủ số lượng nếu chỉ có ít đoạn liên quan.
 - Ưu tiên đoạn trực tiếp chứa quy định, điều khoản, điều kiện, quy trình, mốc thời gian, đối tượng áp dụng.
 - Không loại bỏ tài liệu chỉ vì retrieval_score thấp nếu nội dung trả lời trực tiếp câu hỏi.
 - Không thêm markdown, không giải thích ngoài JSON."""
 
-    def _parse_llm_reranking_response(
-        self, raw: str, num_documents: int
-    ) -> List[Dict[str, Any]]:
+    def _parse_llm_reranking_response(self, raw: str, num_documents: int) -> List[Dict[str, Any]]:
         """Parse and validate structured LLM reranking output."""
         text = (raw or "").strip()
         try:
@@ -619,6 +617,10 @@ Quy tắc:
 
         for ranking in rankings:
             index = int(ranking["index"])
+            score = float(ranking["score"])
+            if score < self.config.rerank_threshold:
+                continue
+
             original = documents[index]
             reranked_docs.append(
                 DocumentWithScore(
@@ -627,7 +629,7 @@ Quy tắc:
                     filename=original.filename,
                     page_number=original.page_number,
                     chunk_index=original.chunk_index,
-                    score=float(ranking["score"]),
+                    score=score,
                     metadata={
                         **original.metadata,
                         "original_score": original.score,
@@ -637,6 +639,35 @@ Quy tắc:
                 )
             )
             seen.add(index)
+
+        if reranked_docs:
+            return reranked_docs
+
+        logger.info(
+            "LLM reranking returned no documents above threshold; "
+            "falling back to the highest-ranked candidate. threshold=%s",
+            self.config.rerank_threshold,
+        )
+
+        if rankings:
+            top_index = int(rankings[0]["index"])
+            doc = documents[top_index]
+            return [
+                DocumentWithScore(
+                    doc_id=doc.doc_id,
+                    content=doc.content,
+                    filename=doc.filename,
+                    page_number=doc.page_number,
+                    chunk_index=doc.chunk_index,
+                    score=float(rankings[0]["score"]),
+                    metadata={
+                        **doc.metadata,
+                        "original_score": doc.score,
+                        "rerank_reason": rankings[0].get("reason", ""),
+                        "reranker": "llm_structured_threshold_fallback",
+                    },
+                )
+            ]
 
         for index, doc in enumerate(documents):
             if index in seen or len(reranked_docs) >= self.config.rerank_top_k:
