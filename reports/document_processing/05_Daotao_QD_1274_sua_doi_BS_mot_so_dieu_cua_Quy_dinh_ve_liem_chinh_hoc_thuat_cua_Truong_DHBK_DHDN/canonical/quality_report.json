@@ -1,0 +1,100 @@
+{
+  "source_file": "docs_eval_sample/05_Daotao_QD 1274 sua doi BS mot so dieu cua Quy dinh ve liem chinh hoc thuat cua Truong DHBK-DHDN.PDF",
+  "extractor": "vlm-ollama",
+  "model": "gemma4:31b-cloud",
+  "render_dpi": 300,
+  "page_concurrency": 2,
+  "verify_only_failed_pages": true,
+  "canonicalization": {
+    "enabled": false,
+    "applied": false,
+    "error": null
+  },
+  "quality_status": "pass",
+  "page_warnings": [],
+  "final_quality": {
+    "issues": [
+      "many_alphanumeric_artifacts"
+    ],
+    "score": 1,
+    "should_fallback": false,
+    "char_count": 9048,
+    "word_count": 1906,
+    "letter_count": 6386,
+    "vi_diacritic_ratio": 0.2823,
+    "unaccented_signal_ratio": 0.0273,
+    "mojibake_count": 0,
+    "html_entity_count": 0,
+    "alphanumeric_artifact_ratio": 0.0441
+  },
+  "pages": [
+    {
+      "page": 1,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 2291,
+        "word_count": 476,
+        "letter_count": 1595,
+        "vi_diacritic_ratio": 0.2997,
+        "unaccented_signal_ratio": 0.0504,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.1008
+      }
+    },
+    {
+      "page": 2,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 3046,
+        "word_count": 674,
+        "letter_count": 2265,
+        "vi_diacritic_ratio": 0.2728,
+        "unaccented_signal_ratio": 0.0163,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0148
+      }
+    },
+    {
+      "page": 3,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 2330,
+        "word_count": 507,
+        "letter_count": 1709,
+        "vi_diacritic_ratio": 0.3037,
+        "unaccented_signal_ratio": 0.0138,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0276
+      }
+    },
+    {
+      "page": 4,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1311,
+        "word_count": 245,
+        "letter_count": 801,
+        "vi_diacritic_ratio": 0.2347,
+        "unaccented_signal_ratio": 0.0408,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0327
+      }
+    }
+  ]
+}

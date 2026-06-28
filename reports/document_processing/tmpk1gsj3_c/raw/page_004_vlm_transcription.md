@@ -1,0 +1,8 @@
+2
+
+| TT | Nội dung nhiệm vụ chủ yếu | Đơn vị chủ trì | Thời gian thực hiện | Nhiệm vụ / Sản phẩm chủ yếu | Ghi chú |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| | | | | với Cổng dữ liệu quốc gia. Tận dụng tối đa cơ sở hạ tầng mạng triển khai Chính phủ số sẵn có; ưu tiên sử dụng phương án thuê dịch vụ trong quá trình triển khai xây dựng Cổng dữ liệu. <br> - Xây dựng, cung cấp căn nền tảng số tổng hợp, phân tích dữ liệu cấp Bộ để lưu trữ tập trung, hướng tới việc hình thành kho dữ liệu dùng chung của Bộ GDĐT phục vụ công tác chỉ đạo điều hành và phát triển kinh tế xã hội. | |
+| | | Vụ KHCNMT | Năm 2025-2030 | - Tổ chức triển khai các nhiệm vụ khoa học công nghệ về phân tích, xử lý dữ liệu mới phục vụ cho công tác chỉ đạo điều hành của cơ quan quản lý và phát triển kinh tế xã hội. | |
+| | | Cục CNTT, Cục QLCL | Năm 2025-2030 | - Xây dựng CSDL văn bằng, chứng chỉ; triển khai văn bằng số. | |
+| 2. | Phát triển dữ liệu lớn | Cục CNTT | Năm 2025-2030 | - Ban hành Danh mục dữ liệu lớn và Kế hoạch phát triển dữ liệu lớn thuộc phạm vi quản lý của Bộ GDĐT. <br> - Xây dựng và ban hành quy chuẩn đối với từng loại dữ liệu thuộc danh mục dữ liệu lớn của ngành giáo dục. <br> - Phát triển nguồn dữ liệu lớn và xây dựng hồ dữ liệu của Bộ GDĐT. Thu thập và khai thác, làm giàu nguồn dữ liệu lớn phát sinh trong các hoạt động trong ngành giáo dục. <br> - Xây dựng và củng cố, hoàn thiện các hạ tầng thu thập và truyền tải dữ liệu tại Bộ GDĐT. Phát triển hạ tầng Internet vạn vật (IoT) phục vụ các ứng dụng nghiệp vụ, chuyên | Quyết định 142/QĐ-TTg ngày 02/02/2024 |

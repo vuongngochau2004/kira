@@ -1,0 +1,100 @@
+{
+  "source_file": "/tmp/tmpl5y3jwgr.tmp",
+  "extractor": "vlm-ollama",
+  "model": "gemma4:31b-cloud",
+  "render_dpi": 300,
+  "page_concurrency": 2,
+  "verify_only_failed_pages": true,
+  "canonicalization": {
+    "enabled": false,
+    "applied": false,
+    "error": null
+  },
+  "quality_status": "pass",
+  "page_warnings": [],
+  "final_quality": {
+    "issues": [
+      "many_alphanumeric_artifacts"
+    ],
+    "score": 1,
+    "should_fallback": false,
+    "char_count": 9098,
+    "word_count": 1913,
+    "letter_count": 6405,
+    "vi_diacritic_ratio": 0.2823,
+    "unaccented_signal_ratio": 0.0272,
+    "mojibake_count": 0,
+    "html_entity_count": 0,
+    "alphanumeric_artifact_ratio": 0.0439
+  },
+  "pages": [
+    {
+      "page": 1,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 2281,
+        "word_count": 474,
+        "letter_count": 1587,
+        "vi_diacritic_ratio": 0.2999,
+        "unaccented_signal_ratio": 0.0506,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.1013
+      }
+    },
+    {
+      "page": 2,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 3052,
+        "word_count": 676,
+        "letter_count": 2269,
+        "vi_diacritic_ratio": 0.2737,
+        "unaccented_signal_ratio": 0.0163,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0148
+      }
+    },
+    {
+      "page": 3,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 2360,
+        "word_count": 514,
+        "letter_count": 1732,
+        "vi_diacritic_ratio": 0.302,
+        "unaccented_signal_ratio": 0.0136,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0272
+      }
+    },
+    {
+      "page": 4,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1335,
+        "word_count": 245,
+        "letter_count": 801,
+        "vi_diacritic_ratio": 0.2347,
+        "unaccented_signal_ratio": 0.0408,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0327
+      }
+    }
+  ]
+}

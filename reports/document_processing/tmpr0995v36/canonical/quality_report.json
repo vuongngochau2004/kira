@@ -1,0 +1,484 @@
+{
+  "source_file": "/tmp/tmpr0995v36.tmp",
+  "extractor": "vlm-ollama",
+  "model": "gemma4:31b-cloud",
+  "render_dpi": 300,
+  "page_concurrency": 2,
+  "verify_only_failed_pages": true,
+  "canonicalization": {
+    "enabled": false,
+    "applied": false,
+    "error": null
+  },
+  "quality_status": "pass",
+  "page_warnings": [],
+  "final_quality": {
+    "issues": [
+      "many_alphanumeric_artifacts"
+    ],
+    "score": 1,
+    "should_fallback": false,
+    "char_count": 44426,
+    "word_count": 7164,
+    "letter_count": 25673,
+    "vi_diacritic_ratio": 0.2787,
+    "unaccented_signal_ratio": 0.0405,
+    "mojibake_count": 0,
+    "html_entity_count": 0,
+    "alphanumeric_artifact_ratio": 0.0476
+  },
+  "pages": [
+    {
+      "page": 1,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1911,
+        "word_count": 381,
+        "letter_count": 1301,
+        "vi_diacritic_ratio": 0.2998,
+        "unaccented_signal_ratio": 0.0551,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0997
+      }
+    },
+    {
+      "page": 2,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1956,
+        "word_count": 395,
+        "letter_count": 1467,
+        "vi_diacritic_ratio": 0.2856,
+        "unaccented_signal_ratio": 0.0405,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0329
+      }
+    },
+    {
+      "page": 3,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 2202,
+        "word_count": 450,
+        "letter_count": 1621,
+        "vi_diacritic_ratio": 0.2943,
+        "unaccented_signal_ratio": 0.0422,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0378
+      }
+    },
+    {
+      "page": 4,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 2386,
+        "word_count": 503,
+        "letter_count": 1778,
+        "vi_diacritic_ratio": 0.3065,
+        "unaccented_signal_ratio": 0.0378,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0219
+      }
+    },
+    {
+      "page": 5,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 2005,
+        "word_count": 413,
+        "letter_count": 1495,
+        "vi_diacritic_ratio": 0.287,
+        "unaccented_signal_ratio": 0.0339,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0387
+      }
+    },
+    {
+      "page": 6,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 2110,
+        "word_count": 435,
+        "letter_count": 1579,
+        "vi_diacritic_ratio": 0.2755,
+        "unaccented_signal_ratio": 0.0322,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0322
+      }
+    },
+    {
+      "page": 7,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 2207,
+        "word_count": 451,
+        "letter_count": 1634,
+        "vi_diacritic_ratio": 0.2919,
+        "unaccented_signal_ratio": 0.0288,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.031
+      }
+    },
+    {
+      "page": 8,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 2147,
+        "word_count": 422,
+        "letter_count": 1583,
+        "vi_diacritic_ratio": 0.2805,
+        "unaccented_signal_ratio": 0.0498,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0569
+      }
+    },
+    {
+      "page": 9,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1998,
+        "word_count": 401,
+        "letter_count": 1500,
+        "vi_diacritic_ratio": 0.28,
+        "unaccented_signal_ratio": 0.0449,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0424
+      }
+    },
+    {
+      "page": 10,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1615,
+        "word_count": 324,
+        "letter_count": 1197,
+        "vi_diacritic_ratio": 0.2865,
+        "unaccented_signal_ratio": 0.0432,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0617
+      }
+    },
+    {
+      "page": 11,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1545,
+        "word_count": 316,
+        "letter_count": 1144,
+        "vi_diacritic_ratio": 0.2797,
+        "unaccented_signal_ratio": 0.057,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0475
+      }
+    },
+    {
+      "page": 12,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 280,
+        "word_count": 60,
+        "letter_count": 202,
+        "vi_diacritic_ratio": 0.2921,
+        "unaccented_signal_ratio": 0.0167,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0333
+      }
+    },
+    {
+      "page": 13,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1254,
+        "word_count": 216,
+        "letter_count": 776,
+        "vi_diacritic_ratio": 0.259,
+        "unaccented_signal_ratio": 0.0509,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0556
+      }
+    },
+    {
+      "page": 14,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1251,
+        "word_count": 190,
+        "letter_count": 674,
+        "vi_diacritic_ratio": 0.2552,
+        "unaccented_signal_ratio": 0.0263,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0737
+      }
+    },
+    {
+      "page": 15,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 2750,
+        "word_count": 219,
+        "letter_count": 748,
+        "vi_diacritic_ratio": 0.2767,
+        "unaccented_signal_ratio": 0.0502,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0502
+      }
+    },
+    {
+      "page": 16,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 1886,
+        "word_count": 281,
+        "letter_count": 989,
+        "vi_diacritic_ratio": 0.2801,
+        "unaccented_signal_ratio": 0.032,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0285
+      }
+    },
+    {
+      "page": 17,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 1195,
+        "word_count": 250,
+        "letter_count": 883,
+        "vi_diacritic_ratio": 0.2775,
+        "unaccented_signal_ratio": 0.04,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.02
+      }
+    },
+    {
+      "page": 18,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 2098,
+        "word_count": 205,
+        "letter_count": 731,
+        "vi_diacritic_ratio": 0.2353,
+        "unaccented_signal_ratio": 0.039,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0732
+      }
+    },
+    {
+      "page": 19,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1499,
+        "word_count": 170,
+        "letter_count": 609,
+        "vi_diacritic_ratio": 0.2545,
+        "unaccented_signal_ratio": 0.0529,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0353
+      }
+    },
+    {
+      "page": 20,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1247,
+        "word_count": 237,
+        "letter_count": 785,
+        "vi_diacritic_ratio": 0.2955,
+        "unaccented_signal_ratio": 0.038,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0549
+      }
+    },
+    {
+      "page": 21,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 180,
+        "word_count": 44,
+        "letter_count": 129,
+        "vi_diacritic_ratio": 0.2791,
+        "unaccented_signal_ratio": 0.0227,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0
+      }
+    },
+    {
+      "page": 22,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 1183,
+        "word_count": 194,
+        "letter_count": 691,
+        "vi_diacritic_ratio": 0.259,
+        "unaccented_signal_ratio": 0.0206,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0876
+      }
+    },
+    {
+      "page": 23,
+      "quality": {
+        "issues": [
+          "many_alphanumeric_artifacts"
+        ],
+        "score": 1,
+        "should_fallback": false,
+        "char_count": 3142,
+        "word_count": 232,
+        "letter_count": 841,
+        "vi_diacritic_ratio": 0.2616,
+        "unaccented_signal_ratio": 0.0388,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0302
+      }
+    },
+    {
+      "page": 24,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 935,
+        "word_count": 104,
+        "letter_count": 356,
+        "vi_diacritic_ratio": 0.2556,
+        "unaccented_signal_ratio": 0.0481,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0096
+      }
+    },
+    {
+      "page": 25,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 2515,
+        "word_count": 199,
+        "letter_count": 696,
+        "vi_diacritic_ratio": 0.2385,
+        "unaccented_signal_ratio": 0.0402,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0251
+      }
+    },
+    {
+      "page": 26,
+      "quality": {
+        "issues": [],
+        "score": 0,
+        "should_fallback": false,
+        "char_count": 446,
+        "word_count": 46,
+        "letter_count": 160,
+        "vi_diacritic_ratio": 0.2687,
+        "unaccented_signal_ratio": 0.0652,
+        "mojibake_count": 0,
+        "html_entity_count": 0,
+        "alphanumeric_artifact_ratio": 0.0
+      }
+    }
+  ]
+}

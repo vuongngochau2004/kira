@@ -1,0 +1,8 @@
+PHỤ LỤC
+Danh mục một số nhiệm vụ thực hiện quy định số 127/QĐ-TTg ngày 26/01/2021,
+Quyết định số 142/QĐ-TTg ngày 02/02/2024 của Thủ tướng Chính phủ
+(Kèm theo Quyết định số 4268/QĐ-BGDĐT ngày 30 tháng 12 năm 2024 của Bộ trưởng Bộ Giáo dục và Đào tạo)
+
+| TT | Nội dung nhiệm vụ chủ yếu | Đơn vị chủ trì | Thời gian thực hiện | Nhiệm vụ / Sản phẩm chủ yếu | Ghi chú |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 1. | Phát triển cơ sở dữ liệu (CSDL) chuyên ngành; ứng dụng CSDL phục vụ quản lý điều hành, cung cấp dịch vụ công trực tuyến | Vụ GDDH, Vụ GDTX, Vụ GDTrH, Vụ GDTH, Vụ GDMN Cục CNTT | Năm 2025-2030 | - Phát triển các CSDL dùng chung, CSDL chuyên ngành về giáo dục (CSDL về giáo dục mầm non, CSDL về giáo dục phổ thông, CSDL về giáo dục thường xuyên, CSDL về giáo dục đại học), liên thông kết nối hội chia sẻ phục vụ quản lý điều hành, cung cấp dịch vụ công trực tuyến<br>- Tích hợp, đồng bộ dữ liệu từ CSDL ngành giáo dục về Trung tâm dữ liệu quốc gia.<br>- Xây dựng Khung quản trị dữ liệu, kiến trúc dữ liệu và các mục tiêu dữ liệu và bổ sung vào Khung kiến trúc Chính phủ điện tử Bộ GDĐT.<br>- Rà soát, ban hành quy định kỹ thuật về cấu trúc dữ liệu, quy chế khai thác, sử dụng dữ liệu của CSDL ngành giáo dục.<br>- Ban hành kế hoạch triển khai ứng dụng trí tuệ nhân tạo, các công nghệ phân tích dữ liệu mới, tiến tới nâng cao tác quản lý, điều hành để nâng cao khả năng phân tích và xử lý dữ liệu tại Bộ GDĐT.<br>- Triển khai Cổng dữ liệu của Bộ GDĐT theo quy định tại Nghị định số 42/2022/NĐ-CP của Chính phủ, tích hợp | Quyết định 142/QĐ-TTg ngày 02/02/2024 |
