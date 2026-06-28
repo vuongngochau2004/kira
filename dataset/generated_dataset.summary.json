@@ -1,0 +1,298 @@
+{
+  "dataset_id": "eval-subset-gold",
+  "name": "Generated RAG evaluation dataset",
+  "created_at": "2026-06-28T04:52:14.379109",
+  "generation_config": {
+    "max_documents": 43,
+    "chunks_per_document": 2,
+    "questions_per_chunk": 2,
+    "no_answer_count": 10,
+    "min_chunk_chars": 600,
+    "max_context_chars": 3500
+  },
+  "corpus_sampling": {
+    "sampled_documents": 43,
+    "sampled_chunks": 84,
+    "documents_with_answerable_samples": 41,
+    "document_answerable_coverage": 0.9535
+  },
+  "samples": {
+    "total": 105,
+    "answerable": 95,
+    "no_answer": 10,
+    "answerable_ratio": 0.9048,
+    "no_answer_ratio": 0.0952
+  },
+  "question_types": {
+    "condition": 3,
+    "definition": 8,
+    "fact": 62,
+    "procedure": 1,
+    "responsibility": 20,
+    "summary": 1
+  },
+  "difficulty": {
+    "easy": 87,
+    "medium": 8
+  },
+  "source_documents": [
+    {
+      "document_id": "8f368709-91b8-4019-8912-48bc9f8ccd43",
+      "filename": "(DT) 2019_DHBK_1980_QD Danh_Gia HocTap SV HocVien.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "62bb825a-a02f-4b0e-b950-3b8821ef9377",
+      "filename": "04-4268 QD ban hanh KH thuc hien QD so127QD-TTg ngay 26-01-2021 QD so 142QD-TTg ngay 02-02-2024 cua TTCP.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "5760a6c2-1110-45ba-8635-ea20de2a1d43",
+      "filename": "07-511 Thong tu Quy dinh cong tac tu van nghe nghiep-viec lam va ho tro khoi nghiep trong cac CSGD.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 4
+    },
+    {
+      "document_id": "2b3eaf01-23f1-46aa-9b9a-973ebb40e64b",
+      "filename": "1. Luat luu tru 2024.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "78ce0977-556b-4c9e-8f99-177e6d9a83d8",
+      "filename": "1. Luat Thanh tra 2025.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 4
+    },
+    {
+      "document_id": "4b327ea3-2afa-4811-9a8b-431676884b87",
+      "filename": "104 - 245 Huong dan khung BDCL ket qua hoc tap cua nguoi hoc tai DHDN.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "9149a4af-cd9d-4822-8a67-009f9329def8",
+      "filename": "1077 QD sua doi BS mot so dieu cua QD QLHD KH&CN tai Truong DHBK BH kem theo QD so 1404 QD-DHBK ngay 12.5.2021 cua Hieu truong.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 4
+    },
+    {
+      "document_id": "22d87eb7-c378-464e-b5a5-b9a7a5889eb4",
+      "filename": "1189-2140 QD cong khai duong day nong, hop thu dien tu tiep nhan thong tin ve hanh vi nhung nhieu, gay phien ha cho dan, DN.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 4
+    },
+    {
+      "document_id": "3ed1045b-1ba8-41da-a371-b2783a045e47",
+      "filename": "13. 4420 QD ban hanh Quy dinh ve van hoa hoc duong va quy tac ung xu van hoa cua nguoi hoc tai Truong DHBK.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 3
+    },
+    {
+      "document_id": "9d2e29c8-df94-4229-be6e-a43225a31513",
+      "filename": "1437 - 3699 QD sua doi BS mot so dieu cua QC cong nhan BN BN lai keo dai TG giu CV thoi giu CV mien nhiem VC giu CVLDQL cua DHDN.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "560b6764-0ea9-467c-92eb-cc0e70c406f8",
+      "filename": "18. TT. 01_2024_TT-TTCP_ quy dinh bao cao cong tac thanh tra, kiem tra, tiep cong dan, gai quyet khieu nai to cao.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "ba636699-bec6-48b4-a03a-6720dfacf5ac",
+      "filename": "1802 - 25 TT ban hanh Quy che quan ly viec di cong tac nuoc ngoai cua cac don vi thuoc va truc thuoc Bo GD&ĐT.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "4577da7e-261b-49d1-a173-e59254c5638c",
+      "filename": "185-322 QDBH ke hoach theo doi tinh hinh thi hanh phap luat va theo doi thi hanh PL ve xu ly VPHC nam 2025 cua Bo GDDT.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "b705e447-fc99-4035-9336-27a6165d7271",
+      "filename": "1929 - 3571 QD cong bo thu tuc HC duoc SĐ, BS hoacTTGD&ĐT thuoc HTGDQD thuoc PVQL cua Bo GD&ĐT.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 1
+    },
+    {
+      "document_id": "675d77d9-9d3b-46ad-9aad-7be3cfbcbecf",
+      "filename": "2016m12_100000000.7110454PBQPPL_CVD_9._36_2009_QH12_90634.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 1
+    },
+    {
+      "document_id": "3a57545f-1ad8-4644-88fc-08b3c1fb6e18",
+      "filename": "2024m12_638694362286100502DHDN_CVDi_5007-qd-ban-hanh-phu-luc-tinh-gio-nckh-cho-don-vi-thuoc-truc-thuoc-dhdn_1733471756.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "73891533-a32a-444a-824c-caafc4af84ee",
+      "filename": "2025m3_100000000.9942378PBQPPL_CVD_TT28.2024.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "1d5c4f18-24b4-4ba9-a9a0-7779be014d1f",
+      "filename": "2026m1_639033150439174494DHDN_CVDi_QD_4809_dieu_chinh_QCCTNB.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "41ac7994-5fe9-48d3-9bc4-4d5ba67ff1c9",
+      "filename": "2026m4_100000000.5168355PBQPPL_CVD_701978.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 1
+    },
+    {
+      "document_id": "3f523990-5a32-49e8-9568-fa24f7e8225f",
+      "filename": "2026m4_100000000.533424PBQPPL_CVD_1208_(20_2026_TT-BGDDT).pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 3
+    },
+    {
+      "document_id": "18798cea-776e-464f-901e-2d937dd14a15",
+      "filename": "2026m4_100000000.533424PBQPPL_CVD_1270_(26_2026_TT-BGDDT).pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 1
+    },
+    {
+      "document_id": "c534eafd-4cc4-4873-a48c-ca68cd71484e",
+      "filename": "2026m4_639111767639575014DHDN_CVDi_01.4-Quyet_dinh_so_hoa_VBCC_thay_the.pdf",
+      "sampled_chunks": 1,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "471f36ca-9c70-4ca7-909b-b13088297c03",
+      "filename": "2026m4_639120369353666188DHDN_CVDi_QD_1364_ve_sua_doi_quy_dinh_ve_to_chuc_xet_duyet_va_cong_nhan_sang_kien.pdf",
+      "sampled_chunks": 1,
+      "answerable_samples": 0
+    },
+    {
+      "document_id": "72cb47ea-db40-4dd1-80b0-b0aaad8d7c4e",
+      "filename": "223 - 404 QDBH ke hoach pho bien giao duc phap luat cua nganh GD nam 2026.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 3
+    },
+    {
+      "document_id": "dd802278-cd45-44cc-bc8b-ee64151c3614",
+      "filename": "256 - 07 TT quy dinh chi tiet thi hanh mot so dieu cua Luat TDKT ND so 152.2025ND-CP ngay 14.6.2025 cua CP.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 1
+    },
+    {
+      "document_id": "f365aa1b-789c-4b44-8f87-b7ab89da3192",
+      "filename": "260 - 10 Thong tu ban hanh quy che van bang chung chi cua he thong giao duc quoc dan.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "7803a229-f35c-46eb-9090-87ce7a31a497",
+      "filename": "3868 QDBH quy dinh ho so thu tuc thuc hien va HSTT mua sam sua chua thuong xuyen duoi 500 trieu dong tai Truong DHBK , DHDN.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "ab3f666b-bef2-4fab-93fe-16e0823dcd79",
+      "filename": "4303 QD ban hanh quy dinh chuc nang nhiem vu cua cac don vi chuc nang thuoc Truong DHBK, DHDN.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 1
+    },
+    {
+      "document_id": "66405c3c-2e3a-4d21-8a4a-c049154a81bb",
+      "filename": "447 - 618 QD cong bo thu tuc HC duoc thay the linh vuc thi TS thuoc PVCNQL cua Bo GD& DT.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "827c2616-e3a9-49b3-ae69-07d6f3148051",
+      "filename": "486 - 1384 Trien khai NQ so 10.2026 NQ-CP.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 3
+    },
+    {
+      "document_id": "cad7badc-87c4-46ce-ae63-74316e6a5842",
+      "filename": "519 - 754 QD cong bo thu tuc HC moi BH thu tuc HC duoc sua doi BS va TCHC bi bai bo LVVB CC thuoc PVCNQL cua Bo GDDT.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 3
+    },
+    {
+      "document_id": "d93a1bac-3f61-43eb-b533-26b83b783f8a",
+      "filename": "5274 QD BH chien luoc phat trien Truong DHBK DHDN GD 2025 2030 tam nhin den nam 2045.PDF",
+      "sampled_chunks": 2,
+      "answerable_samples": 3
+    },
+    {
+      "document_id": "0763900c-1475-40e3-bed6-df649d98fb63",
+      "filename": "5543-QĐ ĐHBK Vv ban hành các khoản thu, mức thu tại KTX Trường ĐHBK.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "8229b8f0-629d-4a7c-ad79-14d2eb2bc77e",
+      "filename": "652 QD ban hanh Quy che TS cac nganh dao tao trinh do dai hoc hinh thuc DTCQ cua DHDN.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 4
+    },
+    {
+      "document_id": "73b4a75d-46c1-4521-b35e-9f3bc59cc04e",
+      "filename": "66 - 94 QD ban hanh Bo tieu chi danh gia cham diem thi dua nam 2026.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 0
+    },
+    {
+      "document_id": "a9f6c0dd-ae5e-4ce2-b477-93a2251a2a4c",
+      "filename": "732 - 1050 QD ban hanh chuan Chuong trinh dao tao trinh do dai hoc cac nganh ve dien hat nhan.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 3
+    },
+    {
+      "document_id": "d59e998a-e516-4d47-a2ec-c3b50f76b99e",
+      "filename": "733 - 1060 QD cong bo thu tuc HC duoc sua doi BS hoac TT thu tuc HC bi bai bo LVGDDH thuoc PVCNQL cua Bo GD&DT.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "d567fdaa-e1f8-4bbc-bbfd-10446bb6fc50",
+      "filename": "734 - 1061 QD ban hanh chuan chuong trinh dao tao ve duong sat trinh do dai hoc.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "b94a7501-9d48-48c6-bd24-20be1c9ef135",
+      "filename": "773 - 1099 QD ban hanh QCQL van hanh va cung cap thong tin tren Cong Thong tin dien tu cua Bo GD&DT.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 1
+    },
+    {
+      "document_id": "5e006dcf-746e-4b25-bfb5-a2f367d29adc",
+      "filename": "81 - 191 QDBH ke hoach thuc hien NQ so 57 - NQ.TW nagy 22.12.2024, NQ so 59-NQ.TW ngay 24.01.2025, NQ so 71-NQ.TW ngay 22.8.2025.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 1
+    },
+    {
+      "document_id": "1684e932-0cf7-4e11-8e7f-0dca92500f96",
+      "filename": "990 - 2152 QD ban hanh Quy che thuc hien dan chu trong hoat dong cua DHDN.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 4
+    },
+    {
+      "document_id": "807a2996-7e65-49cc-99c1-d1ad11ecacae",
+      "filename": "Luat Nha giao 2025.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 2
+    },
+    {
+      "document_id": "1484f7a5-0f93-4263-acc9-1b9045db9496",
+      "filename": "Luat sua doi bo sung mot so dieu cua Luat Giao duc.pdf",
+      "sampled_chunks": 2,
+      "answerable_samples": 4
+    }
+  ]
+}
