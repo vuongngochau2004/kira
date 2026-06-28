@@ -52,6 +52,7 @@ class EvaluationRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=5000)
     answer: str = Field(..., min_length=1, max_length=20000)
     contexts: list[str] = Field(default_factory=list, max_length=100)
+    generation_contexts: list[str] = Field(default_factory=list, max_length=100)
     expected_answer: str | None = None
     reference_contexts: list[str] = Field(default_factory=list)
     expected_citations: list[str] = Field(default_factory=list)
@@ -61,7 +62,7 @@ class EvaluationRequest(BaseModel):
     metrics: list[EvaluationMetric] = Field(default_factory=lambda: DEFAULT_METRICS.copy())
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("contexts", "reference_contexts")
+    @field_validator("contexts", "generation_contexts", "reference_contexts")
     @classmethod
     def strip_empty_contexts(cls, value: list[str]) -> list[str]:
         """Drop empty context strings before sending data to DeepEval."""

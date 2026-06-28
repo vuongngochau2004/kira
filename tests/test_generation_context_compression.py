@@ -28,10 +28,10 @@ def test_generation_context_keeps_query_relevant_sentences() -> None:
 
     assert "ít nhất 01 chương trình" in context
     assert "ít nhất 01 chương trình" in compressed_contexts[0]
-    assert len(compressed_contexts[0]) < len(doc.content)
+    assert len(compressed_contexts[0]) <= len(doc.content)
 
 
-def test_evaluation_runner_uses_compressed_contexts_and_sanitizes_metadata() -> None:
+def test_evaluation_runner_separates_raw_and_generation_contexts() -> None:
     compressed_context = "Câu trực tiếp trả lời câu hỏi."
     raw_context = "Nội dung raw dài và nhiễu."
     doc = DocumentWithScore(
@@ -79,6 +79,7 @@ def test_evaluation_runner_uses_compressed_contexts_and_sanitizes_metadata() -> 
         config,
     )
 
-    assert request.contexts == [compressed_context]
+    assert request.contexts == [raw_context]
+    assert request.generation_contexts == [compressed_context]
     assert "compressed_contexts" not in request.metadata["generation_metadata"]
     assert request.metadata["generation_metadata"]["compressed_context_count"] == 1

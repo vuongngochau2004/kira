@@ -80,6 +80,27 @@ def test_service_adds_deterministic_retrieval_scores() -> None:
     assert [result.score for result in response.results] == [1.0, 0.5, 0.5]
 
 
+def test_retrieval_metrics_prioritize_ids_over_generation_contexts() -> None:
+    """Compressed generation context must not make deterministic retrieval look failed."""
+    request = EvaluationRequest(
+        query="q",
+        answer="a",
+        contexts=["raw expected evidence text"],
+        generation_contexts=["compressed text that no longer contains the full evidence"],
+        reference_contexts=["raw expected evidence text"],
+        metrics=[EvaluationMetric.MRR, EvaluationMetric.RECALL_AT_K],
+        retrieval_k=5,
+        metadata={
+            "expected_context_ids": ["document-a:1"],
+            "retrieved_context_ids": ["document-a:1"],
+        },
+    )
+
+    response = asyncio.run(DeepEvalEvaluationService().evaluate(request))
+
+    assert [result.score for result in response.results] == [1.0, 1.0]
+
+
 def test_report_includes_actionable_guidance_for_aggregated_metrics() -> None:
     """Reports map low aggregate scores to the component that needs tuning."""
     report = BatchEvaluationResponse(
@@ -110,16 +131,22 @@ def test_is_semantic_match() -> None:
     assert is_semantic_match("văn bản tìm kiếm", "Đây là nội dung văn bản tìm kiếm") is True
 
     # High overlap check (threshold 0.65)
-    assert is_semantic_match(
-        "quy định về thời gian thử việc tối đa là hai tháng theo quy chế công ty",
-        "quy định về thời gian thử việc tối đa là 2 tháng",
-    ) is True
+    assert (
+        is_semantic_match(
+            "quy định về thời gian thử việc tối đa là hai tháng theo quy chế công ty",
+            "quy định về thời gian thử việc tối đa là 2 tháng",
+        )
+        is True
+    )
 
     # Low overlap check
-    assert is_semantic_match(
-        "quy trình tuyển dụng nhân sự năm nay",
-        "quy định về thời gian thử việc tối đa là 2 tháng",
-    ) is False
+    assert (
+        is_semantic_match(
+            "quy trình tuyển dụng nhân sự năm nay",
+            "quy định về thời gian thử việc tối đa là 2 tháng",
+        )
+        is False
+    )
 
 
 def test_retrieval_metrics_content_based() -> None:
@@ -164,15 +191,10 @@ def test_refusal_correctness_heuristic() -> None:
     assert "heuristic" in reason
 
     # should not refuse and answers normally
-    score, reason = asyncio.run(
-        refusal_correctness("Thử việc tối đa 2 tháng", should_refuse=False)
-    )
+    score, reason = asyncio.run(refusal_correctness("Thử việc tối đa 2 tháng", should_refuse=False))
     assert score == 1.0
     assert "heuristic" in reason
 
     # should refuse but answers normally -> score 0
-    score, reason = asyncio.run(
-        refusal_correctness("Thử việc tối đa 2 tháng", should_refuse=True)
-    )
+    score, reason = asyncio.run(refusal_correctness("Thử việc tối đa 2 tháng", should_refuse=True))
     assert score == 0.0
-

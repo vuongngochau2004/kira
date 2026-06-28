@@ -126,7 +126,9 @@ class DeepEvalEvaluationService:
 
         sem = asyncio.Semaphore(5)  # Restrict to 5 concurrent evaluations
 
-        async def _evaluate_with_semaphore(item: EvaluationRequest) -> tuple[EvaluationResponse | None, bool]:
+        async def _evaluate_with_semaphore(
+            item: EvaluationRequest,
+        ) -> tuple[EvaluationResponse | None, bool]:
             async with sem:
                 if request.metrics is not None:
                     item.metrics = request.metrics
@@ -215,8 +217,8 @@ class DeepEvalEvaluationService:
             input=request.query,
             actual_output=request.answer,
             expected_output=request.expected_answer,
-            retrieval_context=request.contexts,
-            context=request.reference_contexts or request.contexts,
+            retrieval_context=request.generation_contexts or request.contexts,
+            context=request.reference_contexts or request.generation_contexts or request.contexts,
         )
 
     def _metric_result(
@@ -239,22 +241,34 @@ class DeepEvalEvaluationService:
         metric: EvaluationMetric,
         request: EvaluationRequest,
     ) -> tuple[float, str]:
-        # Prioritize content-based matching if raw contexts and reference_contexts are present
+        expected = request.metadata.get("expected_context_ids", [])
+        retrieved = request.metadata.get("retrieved_context_ids", [])
+        if expected and retrieved:
+            if metric == EvaluationMetric.HIT_RATE_AT_K:
+                return hit_rate_at_k(expected, retrieved, request.retrieval_k)
+            if metric == EvaluationMetric.MRR:
+                return mean_reciprocal_rank(expected, retrieved)
+            if metric == EvaluationMetric.RECALL_AT_K:
+                return recall_at_k(expected, retrieved, request.retrieval_k)
+
         if request.reference_contexts and request.contexts:
             from src.modules.evaluation.metrics import (
                 hit_rate_at_k_text,
                 mean_reciprocal_rank_text,
                 recall_at_k_text,
             )
+
             if metric == EvaluationMetric.HIT_RATE_AT_K:
-                return hit_rate_at_k_text(request.reference_contexts, request.contexts, request.retrieval_k)
+                return hit_rate_at_k_text(
+                    request.reference_contexts, request.contexts, request.retrieval_k
+                )
             if metric == EvaluationMetric.MRR:
                 return mean_reciprocal_rank_text(request.reference_contexts, request.contexts)
             if metric == EvaluationMetric.RECALL_AT_K:
-                return recall_at_k_text(request.reference_contexts, request.contexts, request.retrieval_k)
+                return recall_at_k_text(
+                    request.reference_contexts, request.contexts, request.retrieval_k
+                )
 
-        expected = request.metadata.get("expected_context_ids", [])
-        retrieved = request.metadata.get("retrieved_context_ids", [])
         if metric == EvaluationMetric.HIT_RATE_AT_K:
             return hit_rate_at_k(expected, retrieved, request.retrieval_k)
         if metric == EvaluationMetric.MRR:

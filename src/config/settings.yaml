@@ -20,7 +20,7 @@ reranking:
   mode: "llm"                  # "llm" for LLM-based, "score" for individual scoring
   top_k_before: 20             # Number of candidates to rerank
   top_k_after: 5               # Number of top results after reranking
-  min_score_threshold: 0.65    # Minimum relevance score after reranking
+  min_score_threshold: 0.55    # Minimum relevance score after reranking
   timeout_ms: 10000             # Timeout for LLM reranking calls
 
 # Context compression before generation/evaluation

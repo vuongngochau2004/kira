@@ -97,13 +97,14 @@ class RAGPipelineEvaluationRunner:
         docs = get_retrieval_docs(state)
         generation_metadata = self._report_generation_metadata(state.get("generation_metadata", {}))
         compressed_contexts = generation_metadata.pop("_compressed_contexts_for_eval", [])
-        contexts = compressed_contexts or [doc.content for doc in docs if doc.content]
+        contexts = [doc.content for doc in docs if doc.content]
         actual_citations = self._extract_actual_citations(state)
 
         return EvaluationRequest(
             query=sample.query,
             answer=state.get("final_response") or state.get("generated_response") or "",
             contexts=contexts,
+            generation_contexts=compressed_contexts or contexts,
             expected_answer=sample.expected_answer,
             reference_contexts=sample.reference_contexts,
             expected_citations=sample.expected_citations or sample.expected_context_ids,

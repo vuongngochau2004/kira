@@ -411,21 +411,27 @@ class GenerationAgent:
 
         query_terms = self._query_terms(query)
         scored = [
-            (self._sentence_score(sentence, query_terms), index, sentence)
+            (self._sentence_score(sentence, query_terms), index)
             for index, sentence in enumerate(sentences)
         ]
-        scored.sort(key=lambda item: (-item[0], item[1]))
+        positive = [(score, index) for score, index in scored if score > 0]
+        positive.sort(key=lambda item: (-item[0], item[1]))
 
-        selected = [
-            sentence
-            for score, _, sentence in scored[: settings.context_max_sentences_per_doc]
-            if score > 0
-        ]
+        selected_indices: set[int] = set()
+        for _, index in positive:
+            for candidate in (index - 1, index, index + 1):
+                if 0 <= candidate < len(sentences):
+                    selected_indices.add(candidate)
+            if len(selected_indices) >= settings.context_max_sentences_per_doc:
+                break
+
+        selected = [sentences[index] for index in sorted(selected_indices)]
         if not selected:
             selected = sentences[: min(2, len(sentences))]
+        else:
+            selected = selected[: settings.context_max_sentences_per_doc]
 
-        ordered = sorted(selected, key=lambda sentence: sentences.index(sentence))
-        return self._truncate_context(" ".join(ordered))
+        return self._truncate_context(" ".join(selected))
 
     def _truncate_context(self, text: str) -> str:
         """Apply the per-document context budget."""
