@@ -3,14 +3,14 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from loguru import logger
 
 from src.config.config import settings
 from src.shared.infrastructure.persistence.database.session import init_db, close_db
 from src.tools.retrieval_tools import init_retrieval_tools
 from src.tools.ingestion_tools import init_ingestion_tools
 from src.modules.retrieval.domain.services.reranking_service import init_reranking_service
-from src.shared.adapters.embedding.api_adapter import EmbeddingAPIAdapter
-from src.shared.infrastructure.llm.client import LLMClient
+from src.shared.infrastructure.llm.client import LLMClient, LLMProvider
 from src.modules.retrieval.domain.services.hybrid_search import set_llm_client
 from src.modules.chat.api.endpoints import router as chat_router
 from src.modules.document.api.endpoints import router as documents_router
@@ -21,30 +21,39 @@ from src.server.api.v1.admin.endpoints import router as admin_router
 
 from .api.middleware.cors_middleware import setup_cors
 from .api.middleware.error_handler_middleware import setup_exception_handlers
+from src.server.startup_health import log_startup_service_health
 from src.shared.infrastructure.monitoring import setup_logging
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
+    logger.info("Starting {} dependency initialization", settings.app_name)
     await init_db()
-    await EmbeddingAPIAdapter().health_check()
     init_retrieval_tools()
     init_ingestion_tools()
 
     # Initialize LLM client for reranking
-    llm_client = LLMClient(
-        provider=settings.llm_provider,
-        model=settings.glm_model if settings.llm_provider == "glm" else None,
+    llm_client = _create_llm_client()
+    init_reranking_service(llm_client=llm_client)
+    set_llm_client(llm_client)
+    await log_startup_service_health(llm_client)
+
+    yield
+    logger.info("Shutting down {}", settings.app_name)
+    await close_db()
+
+
+def _create_llm_client() -> LLMClient:
+    """Build the configured LLM client with its provider enum, not a raw string."""
+    provider = LLMProvider(settings.llm_provider)
+    return LLMClient(
+        provider=provider,
+        model=settings.glm_model if provider is LLMProvider.GLM else None,
         temperature=0.1,  # Low temperature for consistent reranking
         max_tokens=512,
         timeout=30.0,
     )
-    init_reranking_service(llm_client=llm_client)
-    set_llm_client(llm_client)
-
-    yield
-    await close_db()
 
 
 def create_app() -> FastAPI:
@@ -101,8 +110,8 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "src.server.main:app",
-        host="0.0.0.0",
-        port=8006,
+        host=settings.api_host,
+        port=settings.backend_port,
         reload=settings.debug,
         log_level="debug" if settings.debug else "info",
     )

@@ -1,4 +1,5 @@
 /** Simple API client for chat, documents, and auth */
+import { getBackendUrl } from './backend-url'
 
 const getApiBase = () => {
   if (typeof window !== 'undefined') {
@@ -6,7 +7,7 @@ const getApiBase = () => {
     return ''
   }
   // Server-side default
-  return process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, '') || 'http://127.0.0.1:8006'
+  return getBackendUrl()
 }
 
 const API_BASE = getApiBase()

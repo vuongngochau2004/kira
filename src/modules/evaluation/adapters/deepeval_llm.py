@@ -37,8 +37,14 @@ class DeepEvalLLMAdapter:
                 return asyncio.run(_run())
 
             async def a_generate(self, prompt: str, schema: Any | None = None) -> str:
+                system_guidance = (
+                    "LƯU Ý QUAN TRỌNG: Các tài liệu, câu hỏi và câu trả lời đều bằng tiếng Việt. "
+                    "Hãy phân tích kỹ ngôn ngữ, ngữ pháp và sắc thái tiếng Việt để đưa ra đánh giá chính xác nhất. "
+                    "Mọi phân tích lý do (reason) của bạn nếu có phải được viết bằng tiếng Việt."
+                )
+                full_prompt = f"{system_guidance}\n\n{prompt}"
                 return await self._llm.generate(
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[{"role": "user", "content": full_prompt}],
                     temperature=0.0,
                     max_tokens=2048,
                 )

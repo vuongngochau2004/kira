@@ -1,9 +1,10 @@
 """Application configuration using Pydantic Settings."""
 
+from enum import Enum
 from pathlib import Path
 
 import yaml
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +12,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _settings_path = Path(__file__).parent / "settings.yaml"
 with open(_settings_path, "r", encoding="utf-8") as f:
     _static_config = yaml.safe_load(f) or {}
+
+
+class EmbeddingProvider(str, Enum):
+    """Supported embedding backends."""
+
+    AIVN = "aivn"
+    OLLAMA = "ollama"
 
 
 class Settings(BaseSettings):
@@ -44,6 +52,11 @@ class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = True
     secret_key: str = "change-this-in-production"
+    api_host: str = "0.0.0.0"
+    backend_port: int = 8006
+    frontend_port: int = 3001
+    service_health_timeout_seconds: float = 5.0
+    celery_health_timeout_seconds: float = 1.0
 
     @field_validator("debug", mode="before")
     @classmethod
@@ -72,8 +85,11 @@ class Settings(BaseSettings):
     # ----- Qdrant -----
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
-    qdrant_collection: str = _static_config.get("qdrant", {}).get("collection", "document_chunks")
-    qdrant_vector_dim: int = _static_config.get("qdrant", {}).get("vector_dim", 1024)
+    aivn_qdrant_collection: str = Field(
+        default=_static_config.get("qdrant", {}).get("collection", "document_chunks"),
+        validation_alias=AliasChoices("AIVN_QDRANT_COLLECTION", "QDRANT_COLLECTION"),
+    )
+    ollama_qdrant_collection: str = "document_chunks_ollama"
 
     # ----- Redis / Celery -----
     redis_host: str = "localhost"
@@ -124,13 +140,23 @@ class Settings(BaseSettings):
     ollama_api_keys: str = ""
     ollama_model: str = "gemma4:31b-cloud"
 
-    # ----- Embedding (from settings.yaml) -----
-    embedding_provider: str = "aivn"
-    embedding_base_url: str = _static_config.get("embedding", {}).get(
-        "base_url", "http://localhost:8888"
+    # ----- Embedding -----
+    embedding_provider: EmbeddingProvider = EmbeddingProvider.AIVN
+    aivn_embedding_base_url: str = Field(
+        default=_static_config.get("embedding", {}).get("base_url", "http://localhost:8888"),
+        validation_alias=AliasChoices("AIVN_EMBEDDING_BASE_URL", "EMBEDDING_BASE_URL"),
     )
-    embedding_model: str = "vietnamese-embedding-v2"
-    embedding_dim: int = _static_config.get("embedding", {}).get("dim", 1024)
+    aivn_embedding_model: str = Field(
+        default="vietnamese-embedding-v2",
+        validation_alias=AliasChoices("AIVN_EMBEDDING_MODEL", "EMBEDDING_MODEL"),
+    )
+    aivn_embedding_dim: int = Field(
+        default=_static_config.get("embedding", {}).get("dim", 1024),
+        validation_alias=AliasChoices("AIVN_EMBEDDING_DIM", "EMBEDDING_DIM"),
+    )
+    ollama_embedding_base_url: str = "https://ollama.com/api"
+    ollama_embedding_model: str = "embeddinggemma"
+    ollama_embedding_dim: int = 768
 
     # ----- Retrieval (from settings.yaml) -----
     retrieval_k: int = _static_config.get("retrieval", {}).get("k", 5)
@@ -173,9 +199,7 @@ class Settings(BaseSettings):
     chunk_overlap: int = _static_config.get("chunking", {}).get("overlap", 256)
 
     # ----- CORS -----
-    cors_origins: str = Field(
-        "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001,http://localhost:8006"
-    )
+    cors_origins: str = ""
 
     # ----- Auth -----
     auth_enabled: bool = Field(True)
@@ -289,9 +313,48 @@ class Settings(BaseSettings):
         )
 
     @property
+    def embedding_base_url(self) -> str:
+        """Return the configured embedding provider URL."""
+        if self.embedding_provider is EmbeddingProvider.OLLAMA:
+            return self.ollama_embedding_base_url
+        return self.aivn_embedding_base_url
+
+    @property
+    def embedding_model(self) -> str:
+        """Return the configured embedding model name."""
+        if self.embedding_provider is EmbeddingProvider.OLLAMA:
+            return self.ollama_embedding_model
+        return self.aivn_embedding_model
+
+    @property
+    def embedding_dim(self) -> int:
+        """Return the configured embedding vector dimension."""
+        if self.embedding_provider is EmbeddingProvider.OLLAMA:
+            return self.ollama_embedding_dim
+        return self.aivn_embedding_dim
+
+    @property
+    def qdrant_collection(self) -> str:
+        """Return the vector collection for the configured embedding provider."""
+        if self.embedding_provider is EmbeddingProvider.OLLAMA:
+            return self.ollama_qdrant_collection
+        return self.aivn_qdrant_collection
+
+    @property
+    def qdrant_vector_dim(self) -> int:
+        """Return the vector dimension matching the configured embedding model."""
+        return self.embedding_dim
+
+    @property
     def cors_origins_list(self) -> list[str]:
-        """Parse CORS origins string into list."""
-        return [origin.strip() for origin in self.cors_origins.split(",")]
+        """Return configured CORS origins or local frontend origins derived from its port."""
+        if self.cors_origins.strip():
+            return [origin.strip() for origin in self.cors_origins.split(",")]
+
+        return [
+            f"http://localhost:{self.frontend_port}",
+            f"http://127.0.0.1:{self.frontend_port}",
+        ]
 
 
 settings = Settings()

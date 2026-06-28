@@ -119,7 +119,7 @@ def dense_retrieve(
         JSON string of retrieved documents with content and metadata
     """
     from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
-    from src.ingestion.embedding import embed_single
+    from src.modules.document.domain.services.embedder import embed_single
 
     # Generate query embedding
     query_embedding = embed_single(query)
@@ -198,7 +198,7 @@ def hybrid_retrieve(
         RuntimeError: If BM25 index is not available (falls back to dense only)
     """
     from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
-    from src.ingestion.embedding import embed_single
+    from src.modules.document.domain.services.embedder import embed_single
     from src.modules.retrieval.domain.services.hybrid_search import reciprocal_rank_fusion
 
     # Generate query embedding
@@ -404,7 +404,7 @@ async def hybrid_retrieve_with_expansion(
     """
     try:
         from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
-        from src.ingestion.embedding import embed_single
+        from src.modules.document.domain.services.embedder import embed_single
         from src.modules.retrieval.domain.services.hybrid_search import reciprocal_rank_fusion
 
         # Step 1: Query expansion (if enabled)

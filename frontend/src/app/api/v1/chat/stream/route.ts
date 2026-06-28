@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
+import { getBackendUrl } from '@/lib/api/backend-url'
 
-const BACKEND_URL = process.env.KIRA_API_URL || 'http://127.0.0.1:8006'
+const BACKEND_URL = getBackendUrl()
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

@@ -74,9 +74,10 @@ class DeepEvalEvaluationService:
                 continue
 
             if metric == EvaluationMetric.REFUSAL_CORRECTNESS:
-                score, reason = refusal_correctness(
+                score, reason = await refusal_correctness(
                     answer=request.answer,
                     should_refuse=request.should_refuse,
+                    llm=self.judge_llm,
                 )
                 results.append(self._metric_result(metric, score, reason=reason))
                 continue
@@ -116,20 +117,33 @@ class DeepEvalEvaluationService:
         )
 
     async def evaluate_batch(self, request: BatchEvaluationRequest) -> BatchEvaluationResponse:
-        """Evaluate many RAG outputs sequentially for stable LLM judge usage."""
+        """Evaluate many RAG outputs concurrently with bounded concurrency."""
         batch_id = str(uuid.uuid4())
         started = time.time()
         started_at = datetime.utcnow()
         results: list[EvaluationResponse] = []
         failed = 0
 
-        for item in request.queries:
-            if request.metrics is not None:
-                item.metrics = request.metrics
-            try:
-                results.append(await self.evaluate(item))
-            except Exception:
+        sem = asyncio.Semaphore(5)  # Restrict to 5 concurrent evaluations
+
+        async def _evaluate_with_semaphore(item: EvaluationRequest) -> tuple[EvaluationResponse | None, bool]:
+            async with sem:
+                if request.metrics is not None:
+                    item.metrics = request.metrics
+                try:
+                    res = await self.evaluate(item)
+                    return res, False
+                except Exception:
+                    return None, True
+
+        tasks = [_evaluate_with_semaphore(item) for item in request.queries]
+        eval_results = await asyncio.gather(*tasks)
+
+        for res, is_fail in eval_results:
+            if is_fail or res is None:
                 failed += 1
+            else:
+                results.append(res)
 
         return BatchEvaluationResponse(
             batch_id=batch_id,
@@ -225,6 +239,20 @@ class DeepEvalEvaluationService:
         metric: EvaluationMetric,
         request: EvaluationRequest,
     ) -> tuple[float, str]:
+        # Prioritize content-based matching if raw contexts and reference_contexts are present
+        if request.reference_contexts and request.contexts:
+            from src.modules.evaluation.metrics import (
+                hit_rate_at_k_text,
+                mean_reciprocal_rank_text,
+                recall_at_k_text,
+            )
+            if metric == EvaluationMetric.HIT_RATE_AT_K:
+                return hit_rate_at_k_text(request.reference_contexts, request.contexts, request.retrieval_k)
+            if metric == EvaluationMetric.MRR:
+                return mean_reciprocal_rank_text(request.reference_contexts, request.contexts)
+            if metric == EvaluationMetric.RECALL_AT_K:
+                return recall_at_k_text(request.reference_contexts, request.contexts, request.retrieval_k)
+
         expected = request.metadata.get("expected_context_ids", [])
         retrieved = request.metadata.get("retrieved_context_ids", [])
         if metric == EvaluationMetric.HIT_RATE_AT_K:

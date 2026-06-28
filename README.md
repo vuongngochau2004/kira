@@ -197,6 +197,11 @@ Backend URL: http://localhost:8006
 
 API docs: http://localhost:8006/docs
 
+At startup, the backend writes a Loguru dependency report for PostgreSQL, Qdrant,
+MinIO, Redis, Celery workers, the embedding API, the configured LLM, PaddleOCR, and
+Docling. `DOWN` or `SKIP` entries identify unavailable or intentionally disabled
+optional services; PostgreSQL remains required for startup.
+
 ### 4. Run document worker
 
 Document upload enqueues a Celery task. Keep a worker running during local development:

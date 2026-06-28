@@ -2,10 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 const getApiBase = () => {
-  if (typeof window !== 'undefined') {
-    return '/api/v1'
-  }
-  return 'http://127.0.0.1:8888/api/v1'
+  return '/api/v1'
 }
 
 

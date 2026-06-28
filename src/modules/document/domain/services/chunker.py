@@ -4,21 +4,13 @@ Migrated from src/ingestion/chunker.py
 """
 
 import re
-from dataclasses import dataclass, field
 from typing import Protocol
 
 import tiktoken
 
 from src.config.config import settings
-
-
-@dataclass
-class Chunk:
-    """A chunk of text from a document."""
-    index: int
-    content: str
-    token_count: int
-    metadata: dict = field(default_factory=dict)
+from src.modules.document.domain.models import Chunk
+from src.modules.document.domain.constants import LEGAL_HEADING_PATTERN, CHUNKER_PAGE_MARKER_PATTERN
 
 
 class TextEncoding(Protocol):
@@ -139,15 +131,8 @@ def _get_overlap_parts(
     return overlap_parts
 
 
-LEGAL_HEADING_PATTERN = re.compile(
-    r"(?im)^(?:#{1,6}\s*)?(?:\*\*)?\s*(Điều\s+\d+[^\n]*|Chương\s+[IVXLCDM\d]+[^\n]*|Phụ\s*lục[^\n]*)"
-)
-
-PAGE_MARKER_PATTERN = re.compile(r"<!--\s*page\s+(\d+)\s*-->")
-
-
 def _page_range(text: str) -> tuple[int | None, int | None]:
-    pages = [int(match.group(1)) for match in PAGE_MARKER_PATTERN.finditer(text)]
+    pages = [int(match.group(1)) for match in CHUNKER_PAGE_MARKER_PATTERN.finditer(text)]
     if not pages:
         return None, None
     return min(pages), max(pages)
@@ -155,7 +140,7 @@ def _page_range(text: str) -> tuple[int | None, int | None]:
 
 def _active_page_marker_before(text: str, offset: int) -> str | None:
     marker = None
-    for match in PAGE_MARKER_PATTERN.finditer(text, 0, offset):
+    for match in CHUNKER_PAGE_MARKER_PATTERN.finditer(text, 0, offset):
         marker = match.group(0)
     return marker
 
@@ -192,10 +177,10 @@ def _split_legal_sections(text: str) -> list[str]:
         section = text[start:end].strip()
         if section:
             active_marker = _active_page_marker_before(text, start)
-            if active_marker and not PAGE_MARKER_PATTERN.search(section):
+            if active_marker and not CHUNKER_PAGE_MARKER_PATTERN.search(section):
                 section = f"{active_marker}\n{section}"
             elif active_marker and not section.startswith(active_marker):
-                first_marker = PAGE_MARKER_PATTERN.search(section)
+                first_marker = CHUNKER_PAGE_MARKER_PATTERN.search(section)
                 if first_marker and first_marker.start() > 0:
                     section = f"{active_marker}\n{section}"
             sections.append(section)

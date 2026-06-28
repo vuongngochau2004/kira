@@ -3,8 +3,8 @@
 Contains core business logic for document processing.
 """
 
+from src.modules.document.domain.models import ExtractionResult, Chunk
 from src.modules.document.domain.services.extractor import (
-    ExtractionResult,
     extract_content,
     extract_content_sync,
     extract_pdf,
@@ -14,7 +14,6 @@ from src.modules.document.domain.services.extractor import (
     extract_image_ocr,
 )
 from src.modules.document.domain.services.chunker import (
-    Chunk,
     chunk_document,
     count_tokens,
 )
@@ -27,7 +26,6 @@ from src.modules.document.domain.services.embedder import (
     embed_single,
     aembed,
     aembed_single,
-    preload_model,
 )
 from src.modules.document.domain.services.pipeline import (
     process_document,
@@ -55,7 +53,6 @@ __all__ = [
     "embed_single",
     "aembed",
     "aembed_single",
-    "preload_model",
     # Pipeline
     "process_document",
 ]

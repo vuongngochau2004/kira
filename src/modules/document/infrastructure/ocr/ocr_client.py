@@ -48,6 +48,7 @@ class PaddleOCRClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self._client: httpx.AsyncClient | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     async def __aenter__(self) -> "PaddleOCRClient":
         """Async context manager entry."""
@@ -60,11 +61,28 @@ class PaddleOCRClient:
 
     async def _ensure_client(self) -> None:
         """Ensure HTTP client is initialized."""
-        if self._client is None or self._client.is_closed:
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            current_loop = None
+
+        if (
+            self._client is None 
+            or self._client.is_closed 
+            or self._loop is None 
+            or self._loop is not current_loop 
+            or self._loop.is_closed()
+        ):
+            if self._client and not self._client.is_closed:
+                try:
+                    await self._client.aclose()
+                except Exception:
+                    pass
             self._client = httpx.AsyncClient(
                 timeout=self.timeout,
                 limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
             )
+            self._loop = current_loop
 
     async def close(self) -> None:
         """Close HTTP client."""

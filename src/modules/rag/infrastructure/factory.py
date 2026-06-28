@@ -9,7 +9,7 @@ from src.modules.rag.orchestration.state.rag_state import (
     RetrievalAgentConfig,
 )
 from src.modules.retrieval.composition import create_search_use_case
-from src.shared.adapters.embedding.api_adapter import EmbeddingAPIAdapter
+from src.shared.adapters.embedding import create_embedding_adapter
 from src.shared.adapters.llm.glm_adapter import GLMAdapter
 from src.shared.ports.embedding import EmbeddingPort
 from src.shared.ports.llm import LLMPort
@@ -28,7 +28,7 @@ def create_default_rag_pipeline_service(
         retrieval_config=RetrievalAgentConfig(),
         generation_config=GenerationAgentConfig(),
         quality_config=QualityAgentConfig(),
-        embedding=embedding or EmbeddingAPIAdapter(),
+        embedding=embedding or create_embedding_adapter(),
         search=search or create_search_use_case(llm_client=llm),
         llm=llm or GLMAdapter(),
     )

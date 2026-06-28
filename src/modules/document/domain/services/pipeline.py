@@ -9,6 +9,7 @@ import tempfile
 import uuid
 from pathlib import Path
 from uuid import UUID
+from src.modules.document.domain.models import Chunk
 from src.modules.document.domain.services.extractor import extract_content_sync
 from src.modules.document.domain.services.cleaner import clean_document
 from src.modules.document.domain.services.chunker import chunk_document
@@ -197,7 +198,7 @@ def _process_sync(
                 logger.warning("Failed to delete temp file %s: %s", temp_file.name, e)
 
 
-def _prepare_chunk_data(chunks: list) -> list[dict]:
+def _prepare_chunk_data(chunks: list[Chunk]) -> list[dict]:
     """Prepare chunk data for storage."""
     return [
         {

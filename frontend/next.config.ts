@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { getBackendUrl } from './src/lib/api/backend-url';
 
 const nextConfig: NextConfig = {
   // Enable standalone output for optimized Docker deployment
@@ -11,7 +12,7 @@ const nextConfig: NextConfig = {
 
   // API Rewrites — proxy to KIRA FastAPI backend
   async rewrites() {
-    const apiUrl = process.env.KIRA_API_URL || 'http://127.0.0.1:8006';
+    const apiUrl = getBackendUrl();
     return [
       {
         source: '/api/:path*',

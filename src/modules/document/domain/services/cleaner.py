@@ -6,7 +6,7 @@ Migrated from src/ingestion/cleaner.py
 import re
 import unicodedata
 
-PAGE_MARKER_PATTERN = re.compile(r"<!--\s*page\s+\d+\s*-->", re.IGNORECASE)
+from src.modules.document.domain.constants import CLEANER_PAGE_MARKER_PATTERN
 
 
 def _strip_html(text: str) -> str:
@@ -17,7 +17,7 @@ def _strip_html(text: str) -> str:
         page_markers.append(match.group(0))
         return f"__KIRA_PAGE_MARKER_{len(page_markers) - 1}__"
 
-    text = PAGE_MARKER_PATTERN.sub(preserve_page_marker, text)
+    text = CLEANER_PAGE_MARKER_PATTERN.sub(preserve_page_marker, text)
     clean = re.sub(r"<[^>]+>", " ", text)
     for index, marker in enumerate(page_markers):
         clean = clean.replace(f"__KIRA_PAGE_MARKER_{index}__", marker)

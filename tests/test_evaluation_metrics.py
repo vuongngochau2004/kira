@@ -99,3 +99,80 @@ def test_report_includes_actionable_guidance_for_aggregated_metrics() -> None:
     assert "## Improvement Guide" in markdown
     assert "hybrid-search weights" in markdown
     assert "grounding instructions" in markdown
+
+
+def test_is_semantic_match() -> None:
+    """is_semantic_match correctly matches identical, substring, and high token overlap contexts."""
+    from src.modules.evaluation.metrics.custom import is_semantic_match
+
+    # Substring check
+    assert is_semantic_match("Đây là nội dung văn bản tìm kiếm", "văn bản tìm kiếm") is True
+    assert is_semantic_match("văn bản tìm kiếm", "Đây là nội dung văn bản tìm kiếm") is True
+
+    # High overlap check (threshold 0.65)
+    assert is_semantic_match(
+        "quy định về thời gian thử việc tối đa là hai tháng theo quy chế công ty",
+        "quy định về thời gian thử việc tối đa là 2 tháng",
+    ) is True
+
+    # Low overlap check
+    assert is_semantic_match(
+        "quy trình tuyển dụng nhân sự năm nay",
+        "quy định về thời gian thử việc tối đa là 2 tháng",
+    ) is False
+
+
+def test_retrieval_metrics_content_based() -> None:
+    """hit_rate, MRR, and recall content-based versions correctly match expected texts using semantic matching."""
+    from src.modules.evaluation.metrics.custom import (
+        hit_rate_at_k_text,
+        mean_reciprocal_rank_text,
+        recall_at_k_text,
+    )
+
+    expected_texts = [
+        "quy định về thời gian thử việc tối đa là 2 tháng",
+        "lương thử việc bằng 85% lương chính thức",
+    ]
+    retrieved_texts = [
+        "quy trình xin nghỉ phép năm",
+        "quy định về thời gian thử việc tối đa là hai tháng theo quy chế",  # matches first expected
+        "hồ sơ cần nộp khi nhận việc",
+    ]
+
+    # k=1 (only "quy trình xin nghỉ phép năm" -> no match)
+    assert hit_rate_at_k_text(expected_texts, retrieved_texts, k=1)[0] == 0.0
+    # k=2 (first two retrieved -> matches first expected)
+    assert hit_rate_at_k_text(expected_texts, retrieved_texts, k=2)[0] == 1.0
+    # MRR (first match is rank 2)
+    assert mean_reciprocal_rank_text(expected_texts, retrieved_texts)[0] == 0.5
+    # Recall @ 2 (matches 1 out of 2 expected)
+    assert recall_at_k_text(expected_texts, retrieved_texts, k=2)[0] == 0.5
+    # Recall @ 3 (matches 1 out of 2 expected)
+    assert recall_at_k_text(expected_texts, retrieved_texts, k=3)[0] == 0.5
+
+
+def test_refusal_correctness_heuristic() -> None:
+    """refusal_correctness correctly uses fast heuristic matching."""
+    from src.modules.evaluation.metrics.custom import refusal_correctness
+
+    # should refuse and answers with refusal marker
+    score, reason = asyncio.run(
+        refusal_correctness("Tôi không tìm thấy thông tin này", should_refuse=True)
+    )
+    assert score == 1.0
+    assert "heuristic" in reason
+
+    # should not refuse and answers normally
+    score, reason = asyncio.run(
+        refusal_correctness("Thử việc tối đa 2 tháng", should_refuse=False)
+    )
+    assert score == 1.0
+    assert "heuristic" in reason
+
+    # should refuse but answers normally -> score 0
+    score, reason = asyncio.run(
+        refusal_correctness("Thử việc tối đa 2 tháng", should_refuse=True)
+    )
+    assert score == 0.0
+

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from datetime import datetime
@@ -48,18 +49,30 @@ class RAGPipelineEvaluationRunner:
         results = []
         failed = 0
 
-        for sample in samples:
-            try:
-                state = await self.pipeline.run(
-                    query=sample.query,
-                    user_id=config.user_id,
-                    conversation_id=None,
-                )
-                eval_request = self._request_from_state(sample, state, config)
-                results.append(await self.evaluator.evaluate(eval_request))
-            except Exception as exc:
+        sem = asyncio.Semaphore(5)  # Restrict to 5 concurrent pipeline runs and evaluations
+
+        async def _process_sample(sample: GoldenDatasetSample) -> tuple[EvaluationResponse, bool]:
+            async with sem:
+                try:
+                    state = await self.pipeline.run(
+                        query=sample.query,
+                        user_id=config.user_id,
+                        conversation_id=None,
+                    )
+                    eval_request = self._request_from_state(sample, state, config)
+                    res = await self.evaluator.evaluate(eval_request)
+                    return res, False
+                except Exception as exc:
+                    res = self._failure_result(sample, exc, config)
+                    return res, True
+
+        tasks = [_process_sample(s) for s in samples]
+        raw_results = await asyncio.gather(*tasks)
+
+        for res, is_fail in raw_results:
+            results.append(res)
+            if is_fail:
                 failed += 1
-                results.append(self._failure_result(sample, exc, config))
 
         report = BatchEvaluationResponse(
             batch_id=str(uuid.uuid4()),

@@ -84,7 +84,7 @@ class ServiceRegistry:
 
             from src.shared.adapters.llm.glm_adapter import GLMAdapter
             from src.shared.adapters.vector.qdrant_adapter import QdrantAdapter
-            from src.shared.adapters.embedding.api_adapter import EmbeddingAPIAdapter
+            from src.shared.adapters.embedding import create_embedding_adapter
             from src.shared.adapters.storage.minio_adapter import MinIOAdapter
             from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
             from src.modules.retrieval.infrastructure.keyword.bm25_adapter import BM25KeywordIndexAdapter
@@ -92,7 +92,7 @@ class ServiceRegistry:
 
             await container.register_singleton(LLMPort, GLMAdapter())
             await container.register_singleton(VectorStorePort, QdrantAdapter())
-            await container.register_singleton(EmbeddingPort, EmbeddingAPIAdapter())
+            await container.register_singleton(EmbeddingPort, create_embedding_adapter())
             await container.register_singleton(StoragePort, MinIOAdapter())
             await container.register_singleton(
                 KeywordIndexPort,
