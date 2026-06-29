@@ -70,6 +70,60 @@ VIETNAMESE_STOPWORDS = {
     "việc",
 }
 
+CONDITION_QUERY_MARKERS = (
+    "điều kiện",
+    "khi nào",
+    "trường hợp",
+    "yêu cầu",
+    "tiêu chuẩn",
+    "được phép",
+    "áp dụng",
+    "cần đáp ứng",
+)
+
+RESPONSIBILITY_QUERY_MARKERS = (
+    "trách nhiệm",
+    "ai chịu trách nhiệm",
+    "đơn vị nào",
+    "cơ quan nào",
+    "phòng nào",
+    "nhiệm vụ",
+    "phụ trách",
+    "chủ trì",
+    "thực hiện",
+)
+
+PROCEDURE_QUERY_MARKERS = (
+    "thủ tục",
+    "quy trình",
+    "các bước",
+    "trình tự",
+    "hồ sơ",
+    "nộp",
+    "xử lý",
+    "thực hiện như thế nào",
+)
+
+SUPPORT_SENTENCE_MARKERS = (
+    "bao gồm",
+    "cụ thể",
+    "đồng thời",
+    "trường hợp",
+    "nếu",
+    "khi",
+    "phải",
+    "được",
+    "không được",
+    "trách nhiệm",
+    "chủ trì",
+    "phối hợp",
+    "thực hiện",
+    "hồ sơ",
+    "bước",
+    "quy trình",
+    "thủ tục",
+)
+
 
 class GenerationAgent:
     """
@@ -409,27 +463,32 @@ class GenerationAgent:
         if not sentences:
             return self._truncate_context(text)
 
+        profile = self._query_profile(query)
         query_terms = self._query_terms(query)
         scored = [
-            (self._sentence_score(sentence, query_terms), index)
+            (self._sentence_score(sentence, query_terms, profile), index)
             for index, sentence in enumerate(sentences)
         ]
         positive = [(score, index) for score, index in scored if score > 0]
         positive.sort(key=lambda item: (-item[0], item[1]))
 
         selected_indices: set[int] = set()
+        max_sentences = self._max_sentences_for_profile(profile)
+        neighbor_radius = 2 if profile in {"condition", "responsibility", "procedure"} else 1
+
         for _, index in positive:
-            for candidate in (index - 1, index, index + 1):
+            for candidate in range(index - neighbor_radius, index + neighbor_radius + 1):
                 if 0 <= candidate < len(sentences):
                     selected_indices.add(candidate)
-            if len(selected_indices) >= settings.context_max_sentences_per_doc:
+            self._include_support_sentences(sentences, selected_indices, index, profile)
+            if len(selected_indices) >= max_sentences:
                 break
 
         selected = [sentences[index] for index in sorted(selected_indices)]
         if not selected:
-            selected = sentences[: min(2, len(sentences))]
+            selected = sentences[: min(max(2, max_sentences // 2), len(sentences))]
         else:
-            selected = selected[: settings.context_max_sentences_per_doc]
+            selected = selected[:max_sentences]
 
         return self._truncate_context(" ".join(selected))
 
@@ -453,7 +512,45 @@ class GenerationAgent:
         return {token for token in tokens if len(token) >= 3 and token not in VIETNAMESE_STOPWORDS}
 
     @staticmethod
-    def _sentence_score(sentence: str, query_terms: set[str]) -> float:
+    def _query_profile(query: str) -> str:
+        """Classify the query shape for context compression."""
+        lowered = query.lower()
+        if any(marker in lowered for marker in PROCEDURE_QUERY_MARKERS):
+            return "procedure"
+        if any(marker in lowered for marker in RESPONSIBILITY_QUERY_MARKERS):
+            return "responsibility"
+        if any(marker in lowered for marker in CONDITION_QUERY_MARKERS):
+            return "condition"
+        return "default"
+
+    @staticmethod
+    def _max_sentences_for_profile(profile: str) -> int:
+        """Allow answer-bearing query types to keep more local context."""
+        base = settings.context_max_sentences_per_doc
+        if profile in {"condition", "responsibility", "procedure"}:
+            return min(max(base + 2, 6), 8)
+        return base
+
+    @staticmethod
+    def _include_support_sentences(
+        sentences: list[str],
+        selected_indices: set[int],
+        anchor_index: int,
+        profile: str,
+    ) -> None:
+        """Keep adjacent clauses that often contain conditions, owners, or steps."""
+        if profile not in {"condition", "responsibility", "procedure"}:
+            return
+
+        for candidate in (anchor_index - 2, anchor_index + 2):
+            if not 0 <= candidate < len(sentences):
+                continue
+            lowered = sentences[candidate].lower()
+            if any(marker in lowered for marker in SUPPORT_SENTENCE_MARKERS):
+                selected_indices.add(candidate)
+
+    @staticmethod
+    def _sentence_score(sentence: str, query_terms: set[str], profile: str = "default") -> float:
         """Score how directly a sentence supports the query."""
         lowered = sentence.lower()
         score = sum(1.0 for term in query_terms if term in lowered)
@@ -461,6 +558,19 @@ class GenerationAgent:
             score += 0.5
         if any(marker in lowered for marker in ("trách nhiệm", "căn cứ", "quy định", "hiệu lực")):
             score += 0.5
+        if profile == "condition" and any(
+            marker in lowered for marker in ("điều kiện", "trường hợp", "nếu", "khi", "phải")
+        ):
+            score += 1.0
+        if profile == "responsibility" and any(
+            marker in lowered
+            for marker in ("trách nhiệm", "chủ trì", "phối hợp", "thực hiện", "phụ trách")
+        ):
+            score += 1.0
+        if profile == "procedure" and any(
+            marker in lowered for marker in ("thủ tục", "quy trình", "bước", "hồ sơ", "nộp")
+        ):
+            score += 1.0
         return score
 
     # ==========================================================================

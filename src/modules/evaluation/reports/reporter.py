@@ -94,15 +94,20 @@ class EvaluationReporter:
             symptom, action = METRIC_DIAGNOSTICS[metric]
             lines.append(f"| {metric} | {symptom} | {action} |")
 
+        lines.extend(self._failure_analysis_markdown(report))
+
         lines.extend(["", "## Samples", ""])
         for result in report.results:
             sample_id = result.sample_id or result.evaluation_id
+            analysis = result.metadata.get("failure_analysis", {})
+            categories = ", ".join(analysis.get("categories", [])) or "unknown"
             lines.extend(
                 [
                     f"### {sample_id}",
                     "",
                     f"- Passed: {'yes' if result.passed else 'no'}",
                     f"- Overall: {result.overall_score:.3f}",
+                    f"- Failure analysis: {categories}",
                     f"- Query: {result.query}",
                     "",
                     "| Metric | Score | Pass | Reason |",
@@ -117,3 +122,57 @@ class EvaluationReporter:
                 )
             lines.append("")
         return "\n".join(lines)
+
+    def _failure_analysis_markdown(self, report: BatchEvaluationResponse) -> list[str]:
+        """Summarize sample-level failure classes for faster debugging."""
+        category_counts: dict[str, int] = {}
+        retrieval_failed = 0
+        generation_failed = 0
+        examples: dict[str, list[str]] = {}
+
+        for result in report.results:
+            analysis = result.metadata.get("failure_analysis", {})
+            categories = analysis.get("categories") or ["unknown"]
+            if analysis.get("retrieval_failed"):
+                retrieval_failed += 1
+            if analysis.get("generation_failed"):
+                generation_failed += 1
+
+            sample_id = result.sample_id or result.evaluation_id
+            for category in categories:
+                category_counts[category] = category_counts.get(category, 0) + 1
+                examples.setdefault(category, [])
+                if len(examples[category]) < 5:
+                    examples[category].append(str(sample_id))
+
+        lines = [
+            "",
+            "## Failure Analysis",
+            "",
+            f"- Retrieval failures: {retrieval_failed}",
+            f"- Generation failures: {generation_failed}",
+            "",
+            "| Category | Samples | Example sample IDs |",
+            "| --- | ---: | --- |",
+        ]
+
+        for category, count in sorted(
+            category_counts.items(), key=lambda item: (-item[1], item[0])
+        ):
+            sample_examples = ", ".join(examples.get(category, []))
+            lines.append(f"| {category} | {count} | {sample_examples} |")
+
+        lines.extend(
+            [
+                "",
+                "Interpretation:",
+                "- `retrieval_miss`: top-k did not retrieve expected evidence.",
+                "- `retrieval_ranking`: expected evidence was retrieved but ranked too low.",
+                "- `context_noise`: retrieved context is too noisy for the question.",
+                "- `generation_answer`: retrieval is acceptable, but the answer is off-target or incomplete.",
+                "- `generation_grounding`: answer contains unsupported claims.",
+                "- `citation_mapping`: citations do not map to expected evidence.",
+                "- `refusal_policy`: refusal/no-answer decision is wrong.",
+            ]
+        )
+        return lines

@@ -103,6 +103,9 @@ class DeepEvalEvaluationService:
 
         scored = [result.score for result in results]
         overall = sum(scored) / len(scored) if scored else 0.0
+        response_metadata = dict(request.metadata)
+        response_metadata["failure_analysis"] = self._failure_analysis(results)
+
         return EvaluationResponse(
             evaluation_id=str(uuid.uuid4()),
             sample_id=str(request.metadata.get("sample_id") or "") or None,
@@ -113,7 +116,7 @@ class DeepEvalEvaluationService:
             passed=all(item.passed for item in results),
             evaluated_at=datetime.utcnow(),
             duration_seconds=time.time() - started,
-            metadata=request.metadata,
+            metadata=response_metadata,
         )
 
     async def evaluate_batch(self, request: BatchEvaluationRequest) -> BatchEvaluationResponse:
@@ -308,6 +311,64 @@ class DeepEvalEvaluationService:
             aggregated["overall_score"] = sum(r.overall_score for r in results) / len(results)
             aggregated["pass_rate"] = sum(1 for r in results if r.passed) / len(results)
         return aggregated
+
+    @staticmethod
+    def _failure_analysis(results: list[MetricResult]) -> dict[str, Any]:
+        """Classify sample failures into actionable RAG subsystem buckets."""
+        by_metric = {result.metric.value: result for result in results}
+        scores = {name: result.score for name, result in by_metric.items()}
+
+        def failed(metric: str) -> bool:
+            result = by_metric.get(metric)
+            return bool(result and not result.passed)
+
+        retrieval_metrics = ("mrr", "recall_at_k", "hit_rate_at_k")
+        retrieval_failed = any(failed(metric) for metric in retrieval_metrics)
+        retrieval_ok = not retrieval_failed
+        categories: list[str] = []
+        actions: list[str] = []
+
+        if failed("recall_at_k") or failed("hit_rate_at_k"):
+            categories.append("retrieval_miss")
+            actions.append("Improve indexing, chunk coverage, query rewriting, or retrieval top-k.")
+        elif failed("mrr"):
+            categories.append("retrieval_ranking")
+            actions.append("Tune hybrid weights, candidate pool, or reranker ordering.")
+
+        if failed("contextual_relevancy"):
+            categories.append("context_noise")
+            actions.append("Tighten reranking, chunk selection, or context compression.")
+
+        if retrieval_ok and failed("answer_relevancy"):
+            categories.append("generation_answer")
+            actions.append(
+                "Make the generation prompt answer the query directly and preserve answer-bearing context."
+            )
+
+        if failed("faithfulness"):
+            categories.append("generation_grounding")
+            actions.append("Strengthen grounding instructions and reduce unsupported synthesis.")
+
+        if failed("citation_accuracy"):
+            categories.append("citation_mapping")
+            actions.append("Fix citation extraction and source-to-answer mapping.")
+
+        if failed("refusal_correctness"):
+            categories.append("refusal_policy")
+            actions.append("Tune no-answer detection and refusal wording.")
+
+        if not categories:
+            categories.append("passed")
+            actions.append("No failed metric in this sample.")
+
+        return {
+            "primary_category": categories[0],
+            "categories": categories,
+            "retrieval_failed": retrieval_failed,
+            "generation_failed": any(category.startswith("generation") for category in categories),
+            "scores": scores,
+            "recommended_actions": actions,
+        }
 
 
 _evaluation_service: DeepEvalEvaluationService | None = None

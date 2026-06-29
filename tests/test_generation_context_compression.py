@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+from src.modules.rag.domain.prompts.generation import build_generation_prompt
 from src.modules.evaluation.runners.rag_pipeline_runner import RAGPipelineEvaluationRunner
 from src.modules.rag.orchestration.agents.generation_agent import GenerationAgent
 from src.modules.rag.orchestration.state.rag_state import DocumentWithScore, GenerationAgentConfig
@@ -29,6 +30,43 @@ def test_generation_context_keeps_query_relevant_sentences() -> None:
     assert "ít nhất 01 chương trình" in context
     assert "ít nhất 01 chương trình" in compressed_contexts[0]
     assert len(compressed_contexts[0]) <= len(doc.content)
+
+
+def test_generation_context_keeps_neighbors_for_responsibility_queries() -> None:
+    agent = GenerationAgent(config=GenerationAgentConfig())
+    doc = DocumentWithScore(
+        doc_id=uuid4(),
+        content=(
+            "Câu mở đầu giới thiệu phạm vi văn bản. "
+            "Phòng Đào tạo chủ trì xây dựng kế hoạch triển khai. "
+            "Các khoa có trách nhiệm phối hợp rà soát danh sách sinh viên. "
+            "Phòng Công tác sinh viên thực hiện thông báo đến người học. "
+            "Bộ phận tài chính cập nhật kinh phí nếu phát sinh. "
+            "Phần cuối nói về hiệu lực thi hành."
+        ),
+        filename="responsibility.pdf",
+        page_number=1,
+        chunk_index=2,
+        score=0.9,
+    )
+
+    _, compressed_contexts = agent._build_context(
+        "Đơn vị nào chịu trách nhiệm phối hợp rà soát danh sách sinh viên?",
+        [doc],
+    )
+
+    compressed = compressed_contexts[0]
+    assert "Phòng Đào tạo chủ trì" in compressed
+    assert "có trách nhiệm phối hợp" in compressed
+    assert "thực hiện thông báo" in compressed
+
+
+def test_generation_prompt_requires_direct_first_sentence() -> None:
+    prompt = build_generation_prompt(
+        query="Ai chịu trách nhiệm?", context="Phòng A chịu trách nhiệm."
+    )
+
+    assert "Câu đầu tiên phải trả lời trực tiếp vào câu hỏi" in prompt
 
 
 def test_evaluation_runner_separates_raw_and_generation_contexts() -> None:

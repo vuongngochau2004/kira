@@ -6,6 +6,8 @@ from src.modules.evaluation.domain.models import (
     BatchEvaluationResponse,
     DEFAULT_METRICS,
     EvaluationMetric,
+    EvaluationResponse,
+    MetricResult,
 )
 from src.modules.evaluation.domain.models import EvaluationRequest
 from src.modules.evaluation.domain.service import DeepEvalEvaluationService
@@ -120,6 +122,74 @@ def test_report_includes_actionable_guidance_for_aggregated_metrics() -> None:
     assert "## Improvement Guide" in markdown
     assert "hybrid-search weights" in markdown
     assert "grounding instructions" in markdown
+
+
+def test_evaluation_service_classifies_generation_failure_after_good_retrieval() -> None:
+    """Good retrieval plus low answer relevancy is reported as generation failure."""
+    analysis = DeepEvalEvaluationService._failure_analysis(
+        [
+            MetricResult(
+                metric=EvaluationMetric.MRR,
+                score=1.0,
+                threshold=0.7,
+                passed=True,
+            ),
+            MetricResult(
+                metric=EvaluationMetric.RECALL_AT_K,
+                score=1.0,
+                threshold=0.7,
+                passed=True,
+            ),
+            MetricResult(
+                metric=EvaluationMetric.ANSWER_RELEVANCY,
+                score=0.2,
+                threshold=0.7,
+                passed=False,
+            ),
+        ]
+    )
+
+    assert analysis["primary_category"] == "generation_answer"
+    assert analysis["retrieval_failed"] is False
+    assert analysis["generation_failed"] is True
+
+
+def test_report_includes_failure_analysis_section() -> None:
+    """Markdown reports separate retrieval and generation failure classes."""
+    report = BatchEvaluationResponse(
+        batch_id="batch",
+        total_queries=1,
+        successful_evaluations=1,
+        failed_evaluations=0,
+        results=[
+            EvaluationResponse(
+                evaluation_id="eval-1",
+                sample_id="sample-1",
+                query="q",
+                answer="a",
+                results=[],
+                overall_score=0.4,
+                passed=False,
+                metadata={
+                    "failure_analysis": {
+                        "categories": ["generation_answer"],
+                        "retrieval_failed": False,
+                        "generation_failed": True,
+                    }
+                },
+            )
+        ],
+        aggregated_scores={"answer_relevancy": 0.2},
+        started_at="2026-06-24T00:00:00",
+        completed_at="2026-06-24T00:00:01",
+        total_duration_seconds=1.0,
+    )
+
+    markdown = EvaluationReporter()._to_markdown(report)
+
+    assert "## Failure Analysis" in markdown
+    assert "Generation failures: 1" in markdown
+    assert "| generation_answer | 1 | sample-1 |" in markdown
 
 
 def test_is_semantic_match() -> None:
