@@ -36,7 +36,7 @@ uv run python scripts/generate_eval_dataset_from_ingested_chunks.py \
   --user-id "$USER_ID" \
   --output dataset/generated_dataset.json \
   --dataset-id eval-subset-gold \
-  --max-documents 43
+  --max-documents 60
 
 # Step 3: Running DeepEval benchmark evaluation on the RAG pipeline
 echo -e "\n${BLUE}[Step 3/4] Running DeepEval judge model benchmark on the RAG pipeline...${NC}"

@@ -302,14 +302,76 @@ class DeepEvalEvaluationService:
 
     @staticmethod
     def _aggregate(results: list[EvaluationResponse]) -> dict[str, float]:
-        scores: dict[str, list[float]] = {}
+        import csv
+        from pathlib import Path
+
+        # 1. Load manifest to map filename to field
+        filename_to_field: dict[str, str] = {}
+        try:
+            # src/modules/evaluation/domain/service.py is 4 levels deep
+            project_root = Path(__file__).resolve().parents[4]
+            manifest_path = project_root / "dataset" / "_subset_manifest.csv"
+            if manifest_path.exists():
+                with open(manifest_path, mode="r", encoding="utf-8") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        filename = row.get("filename")
+                        field = row.get("field")
+                        if filename and field:
+                            filename_to_field[filename.strip()] = field.strip()
+        except Exception as e:
+            print(f"Warning: Failed to load dataset/_subset_manifest.csv for macro aggregation: {e}")
+
+        # 2. Group sample scores by field
+        field_scores: dict[str, dict[str, list[float]]] = {}
+        field_overall_scores: dict[str, list[float]] = {}
+        field_passed: dict[str, list[bool]] = {}
+
         for result in results:
+            source_file = result.metadata.get("source_file") or ""
+            # If source_file contains path separators, extract basename
+            basename = Path(source_file).name.strip()
+            field = filename_to_field.get(basename, "Khác")
+
+            field_scores.setdefault(field, {})
+            field_overall_scores.setdefault(field, []).append(result.overall_score)
+            field_passed.setdefault(field, []).append(result.passed)
+
             for metric in result.results:
-                scores.setdefault(metric.metric.value, []).append(metric.score)
-        aggregated = {name: sum(values) / len(values) for name, values in scores.items() if values}
-        if results:
-            aggregated["overall_score"] = sum(r.overall_score for r in results) / len(results)
-            aggregated["pass_rate"] = sum(1 for r in results if r.passed) / len(results)
+                field_scores[field].setdefault(metric.metric.value, []).append(metric.score)
+
+        # 3. Calculate macro average for each metric
+        metric_field_averages: dict[str, list[float]] = {}
+        for field, metrics in field_scores.items():
+            for metric_name, values in metrics.items():
+                if values:
+                    avg = sum(values) / len(values)
+                    metric_field_averages.setdefault(metric_name, []).append(avg)
+
+        # Average those averages across fields
+        aggregated = {}
+        for metric_name, field_avgs in metric_field_averages.items():
+            if field_avgs:
+                aggregated[metric_name] = sum(field_avgs) / len(field_avgs)
+
+        # 4. Overall score and pass rate macro average
+        field_overall_averages = [
+            sum(vals) / len(vals) for vals in field_overall_scores.values() if vals
+        ]
+        field_pass_rates = [
+            sum(1 for p in vals if p) / len(vals) for vals in field_passed.values() if vals
+        ]
+
+        if field_overall_averages:
+            aggregated["overall_score"] = sum(field_overall_averages) / len(field_overall_averages)
+        else:
+            aggregated["overall_score"] = 0.0
+
+        if field_pass_rates:
+            aggregated["pass_rate"] = sum(field_pass_rates) / len(field_pass_rates)
+        else:
+            aggregated["pass_rate"] = 0.0
+
         return aggregated
 
     @staticmethod

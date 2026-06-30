@@ -21,11 +21,7 @@ def test_default_metrics_cover_actionable_rag_diagnostics() -> None:
     assert DEFAULT_METRICS == [
         EvaluationMetric.ANSWER_RELEVANCY,
         EvaluationMetric.FAITHFULNESS,
-        EvaluationMetric.CONTEXTUAL_RELEVANCY,
-        EvaluationMetric.MRR,
-        EvaluationMetric.RECALL_AT_K,
-        EvaluationMetric.CITATION_ACCURACY,
-        EvaluationMetric.REFUSAL_CORRECTNESS,
+        EvaluationMetric.CONTEXTUAL_RECALL,
     ]
 
 

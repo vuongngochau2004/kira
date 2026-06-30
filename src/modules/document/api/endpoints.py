@@ -63,49 +63,112 @@ def _enqueue_document_processing(
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_document(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    files: list[UploadFile] | None = File(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
-):
-    """Upload a document and start processing."""
-    content = await file.read()
-    file_ext = _get_file_extension(file.filename)
-    upload_result = await upload_document_service(db).execute(
-        UploadDocumentRequest(
-            file_name=file.filename,
-            user_id=current_user.id,
-            file_type=file_ext,
-            file_content=content,
-            file_size=len(content),
-            content_type=file.content_type,
-        )
-    )
-
-    if upload_result.status != "success" or upload_result.document is None:
+) -> Any:
+    """Upload one or more documents and start processing.
+    
+    If 'file' is provided (single upload), returns a single document object.
+    If 'files' is provided (multiple upload), returns a list of document objects.
+    """
+    if not file and not files:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=upload_result.message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No files uploaded",
         )
 
-    try:
-        task_id = _enqueue_document_processing(
-            upload_result.document_id,
-            current_user.id,
-            upload_result.storage_path or "",
+    # Process single file first if it's the only one provided (for backward compatibility)
+    if file and not files:
+        content = await file.read()
+        file_ext = _get_file_extension(file.filename)
+        upload_result = await upload_document_service(db).execute(
+            UploadDocumentRequest(
+                file_name=file.filename,
+                user_id=current_user.id,
+                file_type=file_ext,
+                file_content=content,
+                file_size=len(content),
+                content_type=file.content_type,
+            )
         )
-        await document_repository(db).update_document_processing_task(
-            document_id=upload_result.document_id,
-            task_id=task_id,
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Failed to enqueue document processing task: {exc}",
-        ) from exc
 
-    serialized = _serialize_document(upload_result.document)
-    serialized["processing_task_id"] = task_id
-    return serialized
+        if upload_result.status != "success" or upload_result.document is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=upload_result.message,
+            )
+
+        try:
+            task_id = _enqueue_document_processing(
+                upload_result.document_id,
+                current_user.id,
+                upload_result.storage_path or "",
+            )
+            await document_repository(db).update_document_processing_task(
+                document_id=upload_result.document_id,
+                task_id=task_id,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Failed to enqueue document processing task: {exc}",
+            ) from exc
+
+        serialized = _serialize_document(upload_result.document)
+        serialized["processing_task_id"] = task_id
+        return serialized
+
+    # Process multiple files (either files is present, or both file and files are present)
+    all_files = []
+    if file:
+        all_files.append(file)
+    if files:
+        all_files.extend(files)
+
+    results = []
+    for f in all_files:
+        content = await f.read()
+        file_ext = _get_file_extension(f.filename)
+        upload_result = await upload_document_service(db).execute(
+            UploadDocumentRequest(
+                file_name=f.filename,
+                user_id=current_user.id,
+                file_type=file_ext,
+                file_content=content,
+                file_size=len(content),
+                content_type=f.content_type,
+            )
+        )
+
+        if upload_result.status != "success" or upload_result.document is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=upload_result.message or f"Failed to upload {f.filename}",
+            )
+
+        try:
+            task_id = _enqueue_document_processing(
+                upload_result.document_id,
+                current_user.id,
+                upload_result.storage_path or "",
+            )
+            await document_repository(db).update_document_processing_task(
+                document_id=upload_result.document_id,
+                task_id=task_id,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Failed to enqueue document processing task for {f.filename}: {exc}",
+            ) from exc
+
+        serialized = _serialize_document(upload_result.document)
+        serialized["processing_task_id"] = task_id
+        results.append(serialized)
+
+    return results
 
 
 

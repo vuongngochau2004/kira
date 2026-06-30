@@ -115,6 +115,7 @@ class RAGPipelineEvaluationRunner:
             metadata={
                 "sample_id": sample.id,
                 "tags": sample.tags,
+                "source_file": sample.metadata.get("source_file"),
                 "expected_context_ids": sample.expected_context_ids,
                 "retrieved_context_ids": self._retrieved_context_ids(docs),
                 "quality_agent_output": state.get("quality_agent_output", {}),
@@ -162,7 +163,11 @@ class RAGPipelineEvaluationRunner:
             ],
             overall_score=0.0,
             passed=False,
-            metadata={"sample_id": sample.id, "pipeline_error": str(exc)},
+            metadata={
+                "sample_id": sample.id,
+                "source_file": sample.metadata.get("source_file"),
+                "pipeline_error": str(exc),
+            },
         )
 
     @staticmethod

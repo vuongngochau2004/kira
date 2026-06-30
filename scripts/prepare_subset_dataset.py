@@ -17,26 +17,17 @@ OUTPUT_DIR = ROOT_DIR / "dataset"
 OUTPUT_CSV = OUTPUT_DIR / "_subset_manifest.csv"
 OUTPUT_IMAGE = OUTPUT_DIR / "subset_distribution.png"
 
-# Target distribution mapping (represents 43 documents across 18 fields)
+# Major fields to keep
+MAJOR_FIELDS = ["Tổ chức, hành chính", "Đào tạo", "Thanh tra, kiểm tra", "Thi đua, khen thưởng", "Pháp chế"]
+
+# Target distribution mapping (represents 60 documents across 5 major fields + "Khác" - 10 documents per field)
 TARGET_COUNTS = {
     "Tổ chức, hành chính": 10,
-    "Đào tạo": 5,
-    "Thanh tra, kiểm tra": 4,
-    "Thi đua, khen thưởng": 3,
-    "Pháp chế": 3,
-    "Công tác sinh viên": 2,
-    "Tài chính, kế toán": 2,
-    "Khoa học Công nghệ": 2,
-    "Đảm bảo chất lượng, KĐCL": 2,
-    "Tuyển sinh": 2,
-    "Cơ sở vật chất, xây dựng": 1,
-    "Công nghệ thông tin, CĐS": 1,
-    "Học liệu, truyền thông": 1,
-    "Hợp tác quốc tế": 1,
-    "Khác": 1,
-    "Văn thư, lưu trữ": 1,
-    "Khảo thí": 1,
-    "Sở hữu trí tuệ": 1,
+    "Đào tạo": 10,
+    "Thanh tra, kiểm tra": 10,
+    "Thi đua, khen thưởng": 10,
+    "Pháp chế": 10,
+    "Khác": 10,
 }
 
 def main():
@@ -44,12 +35,17 @@ def main():
         print(f"Error: Manifest file not found at {CSV_PATH}")
         return 1
 
-    # Create destination directory
+    # Clean and recreate destination directory to overwrite completely
+    if OUTPUT_DIR.exists():
+        shutil.rmtree(OUTPUT_DIR)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # Read original manifest
     df = pd.read_csv(CSV_PATH)
     df['field'] = df['field'].fillna('Không xác định').astype(str).str.strip()
+
+    # Group rare categories into "Khác"
+    df['field'] = df['field'].apply(lambda x: x if x in MAJOR_FIELDS else "Khác")
 
     # Deduplicate by local_path to select unique document files
     unique_docs = df.drop_duplicates(subset=['local_path']).copy()

@@ -129,10 +129,23 @@ class IngestedChunkDatasetGenerator:
     async def generate(self) -> GoldenDataset:
         """Generate and save a dataset."""
         chunks = await self._load_sampled_chunks()
-        samples: list[GoldenDatasetSample] = []
+        
+        # Concurrency limit to avoid hitting LLM API rate limits (e.g. 5 concurrent calls)
+        semaphore = asyncio.Semaphore(5)
+        
+        async def safe_worker(source: SourceChunk) -> list[GoldenDatasetSample]:
+            async with semaphore:
+                try:
+                    return await self._generate_samples_for_chunk(source)
+                except Exception as e:
+                    print(f"Error generating samples for chunk {source.filename} [{source.chunk_index}]: {e}")
+                    return []
 
-        for source in chunks:
-            generated = await self._generate_samples_for_chunk(source)
+        tasks = [safe_worker(source) for source in chunks]
+        results_lists = await asyncio.gather(*tasks)
+        
+        samples: list[GoldenDatasetSample] = []
+        for generated in results_lists:
             samples.extend(generated)
 
         samples.extend(self._build_no_answer_samples(chunks))
@@ -467,9 +480,32 @@ class IngestedChunkDatasetGenerator:
                 return {"samples": []}
 
     @staticmethod
-    def _has_exact_evidence(context: str, evidence: str) -> bool:
-        """Return whether evidence is a useful exact substring of context."""
-        return len(evidence) >= 20 and evidence in context
+    def _normalize_text(text: str) -> str:
+        import unicodedata
+        # Normalize unicode to NFC
+        text = unicodedata.normalize("NFC", text)
+        # Lowercase
+        text = text.lower()
+        # Clean whitespaces and newlines
+        text = re.sub(r"\s+", " ", text).strip()
+        # Remove basic punctuation
+        text = re.sub(r"[.,;:!?'\"()\[\]\-]", "", text)
+        return text
+
+    @classmethod
+    def _has_exact_evidence(cls, context: str, evidence: str) -> bool:
+        """Return whether evidence is a useful substring of context (using fuzzy/normalized match)."""
+        if len(evidence) < 20:
+            return False
+        
+        # Exact match first
+        if evidence in context:
+            return True
+            
+        # Fallback to normalized match
+        norm_context = cls._normalize_text(context)
+        norm_evidence = cls._normalize_text(evidence)
+        return norm_evidence in norm_context
 
     @staticmethod
     def _sample_id(source: SourceChunk, index: int, question_type: str) -> str:

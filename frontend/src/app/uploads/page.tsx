@@ -258,14 +258,15 @@ export default function UploadsPage() {
 
     const files = Array.from(e.dataTransfer.files)
     if (files.length > 0) {
-      await uploadFile(files[0])
+      await Promise.all(files.map(file => uploadFile(file)))
     }
-  }, [documents])
+  }, [uploadFile])
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      await uploadFile(file)
+    const files = e.target.files
+    if (files && files.length > 0) {
+      const fileList = Array.from(files)
+      await Promise.all(fileList.map(file => uploadFile(file)))
     }
     e.target.value = ''
   }, [uploadFile])
@@ -371,6 +372,7 @@ export default function UploadsPage() {
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={handleFileSelect}
                     accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.tiff,.pptx,.ppt"
+                    multiple
                   />
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
                     <UploadIcon className={cn(
