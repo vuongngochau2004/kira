@@ -239,7 +239,37 @@ async def _chat_glm_async(
     if system_msg:
         kwargs["system"] = system_msg
 
-    response = await client.messages.create(**kwargs)
+    max_retries = 5
+    initial_delay = 2.0
+    backoff_factor = 2.0
+
+    for attempt in range(max_retries):
+        try:
+            response = await client.messages.create(**kwargs)
+            break
+        except anthropic.RateLimitError as e:
+            if attempt == max_retries - 1:
+                logger.error(f"[GLM] Rate limit reached. Failed after {max_retries} attempts.")
+                raise
+            delay = initial_delay * (backoff_factor ** attempt)
+            logger.warning(
+                f"[GLM] Rate limit error (429). Retrying in {delay:.1f}s... "
+                f"(Attempt {attempt + 1}/{max_retries})"
+            )
+            await asyncio.sleep(delay)
+        except anthropic.APIStatusError as e:
+            if e.status_code == 429:
+                if attempt == max_retries - 1:
+                    logger.error(f"[GLM] Rate limit status 429. Failed after {max_retries} attempts.")
+                    raise
+                delay = initial_delay * (backoff_factor ** attempt)
+                logger.warning(
+                    f"[GLM] Rate limit APIStatusError (429). Retrying in {delay:.1f}s... "
+                    f"(Attempt {attempt + 1}/{max_retries})"
+                )
+                await asyncio.sleep(delay)
+            else:
+                raise
 
     # Extract text from first text block in response
     content = ""

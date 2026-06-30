@@ -127,7 +127,7 @@ class DeepEvalEvaluationService:
         results: list[EvaluationResponse] = []
         failed = 0
 
-        sem = asyncio.Semaphore(5)  # Restrict to 5 concurrent evaluations
+        sem = asyncio.Semaphore(3)  # Restrict to 3 concurrent evaluations (reduced to avoid LLM rate limit 429)
 
         async def _evaluate_with_semaphore(
             item: EvaluationRequest,

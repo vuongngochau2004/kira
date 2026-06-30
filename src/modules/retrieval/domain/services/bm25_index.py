@@ -16,9 +16,14 @@ def _normalize(text: str) -> str:
 
 
 def _tokenize(text: str) -> list[str]:
-    """Simple whitespace tokenization for Vietnamese."""
+    """Tokenize Vietnamese text using pyvi or fallback to whitespace split."""
     normalized = _normalize(text)
-    return normalized.lower().split()
+    try:
+        from pyvi import ViTokenizer
+        tokenized = ViTokenizer.tokenize(normalized)
+    except ImportError:
+        tokenized = normalized
+    return tokenized.lower().split()
 
 
 class BM25Index:

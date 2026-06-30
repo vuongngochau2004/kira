@@ -26,7 +26,7 @@ reranking:
 # Context compression before generation/evaluation
 context_compression:
   enabled: true
-  max_sentences_per_doc: 4
+  max_sentences_per_doc: 3
   max_chars_per_doc: 1600
   max_total_chars: 6000
 
@@ -45,8 +45,8 @@ citation_verification:
 
 # Chunking
 chunking:
-  size: 2048                   # Token limit per chunk
-  overlap: 256                 # Overlap tokens
+  size: 1024                   # Token limit per chunk
+  overlap: 128                 # Overlap tokens
 
 # Qdrant
 qdrant:

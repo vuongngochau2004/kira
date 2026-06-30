@@ -89,19 +89,33 @@ def main() -> int:
 
     # 2. Draw distribution chart
     sns.set_theme(style="whitegrid")
+    plt.rcParams['font.family'] = 'DejaVu Sans'
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
     # Left plot: Question Type Distribution
     types_sorted = sorted(type_counter.items(), key=lambda x: x[1], reverse=True)
     if types_sorted:
-        x_types = [t[0] for t in types_sorted]
+        type_mapping = {
+            "fact": "Thực tế (Fact)",
+            "condition": "Điều kiện (Condition)",
+            "responsibility": "Trách nhiệm (Responsibility)",
+            "definition": "Định nghĩa (Definition)",
+            "procedure": "Quy trình (Procedure)",
+            "summary": "Tóm tắt (Summary)"
+        }
+        x_types = [type_mapping.get(t[0], t[0]) for t in types_sorted]
         y_types = [t[1] for t in types_sorted]
         sns.barplot(x=y_types, y=x_types, ax=axes[0], hue=x_types, palette="viridis", legend=False)
-    axes[0].set_title("Question Type Distribution", fontsize=14, fontweight="bold", pad=15)
-    axes[0].set_xlabel("Number of Questions")
+    axes[0].set_title("Phân bố Loại Câu hỏi", fontsize=14, fontweight="bold", pad=15)
+    axes[0].set_xlabel("Số lượng câu hỏi")
 
-    # Right plot: Difficulty and Refusal Pie Chart
-    diff_labels = list(difficulty_counter.keys())
+    # Right plot: Difficulty Pie Chart
+    diff_mapping = {
+        "easy": "Dễ (Easy)",
+        "medium": "Trung bình (Medium)",
+        "hard": "Khó (Hard)"
+    }
+    diff_labels = [diff_mapping.get(k, k) for k in difficulty_counter.keys()]
     diff_sizes = list(difficulty_counter.values())
     if diff_sizes:
         axes[1].pie(
@@ -112,7 +126,7 @@ def main() -> int:
             colors=["#66b3ff", "#ff9999"], 
             textprops={'fontsize': 12}
         )
-    axes[1].set_title("Difficulty Distribution", fontsize=14, fontweight="bold", pad=15)
+    axes[1].set_title("Phân bố Độ khó", fontsize=14, fontweight="bold", pad=15)
 
     plt.tight_layout()
     output_img_path.parent.mkdir(parents=True, exist_ok=True)
