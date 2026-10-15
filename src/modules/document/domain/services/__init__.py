@@ -30,6 +30,17 @@ from src.modules.document.domain.services.extractor import (
 from src.modules.document.domain.services.pipeline import (
     process_document,
 )
+from src.modules.document.domain.services.quality_checker import (
+    analyze_vietnamese_text_quality,
+    is_low_quality_text,
+    should_fallback_to_ocr,
+    vietnamese_text_quality_issues,
+)
+from src.modules.document.domain.services.token_counter import (
+    CharacterEncodingFallback,
+    TextEncoding,
+    get_encoding,
+)
 
 __all__ = [
     # Extractor
@@ -53,6 +64,15 @@ __all__ = [
     "embed_single",
     "aembed",
     "aembed_single",
+    # Quality checker
+    "is_low_quality_text",
+    "analyze_vietnamese_text_quality",
+    "vietnamese_text_quality_issues",
+    "should_fallback_to_ocr",
+    # Token counter
+    "TextEncoding",
+    "CharacterEncodingFallback",
+    "get_encoding",
     # Pipeline
     "process_document",
 ]
