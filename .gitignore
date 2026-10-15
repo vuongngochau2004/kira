@@ -82,6 +82,7 @@ docs/ingested-chunk-evaluation-workflow.md
 docs/examples/evaluation/golden_sample.json
 docs_to_upload/
 dataset/
+docs_eval_sample/
 output/
-reports/document_processing/*
-!reports/document_processing/.gitkeep
+reports/
+*.docx
