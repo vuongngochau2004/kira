@@ -5,11 +5,7 @@ import json
 import logging
 from typing import Any
 
-try:
-    from langchain_core.tools import tool
-except ImportError:
-    def tool(fn):
-        return fn
+from langchain_core.tools import tool
 
 from src.modules.retrieval.domain.services.reranking.llm_reranker import (
     format_documents_for_reranking,
