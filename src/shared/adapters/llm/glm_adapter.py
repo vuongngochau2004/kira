@@ -6,10 +6,11 @@ to conform to the LLMPort interface defined in shared/ports/llm.py.
 To swap to Claude or GPT-4, create a ClaudeAdapter or OpenAIAdapter
 implementing the same LLMPort — no application code changes needed.
 """
-from typing import AsyncIterator, Any
 
-from src.shared.ports.llm import LLMPort
+from typing import Any, AsyncIterator
+
 from src.shared.infrastructure.llm.client import LLMClient
+from src.shared.ports.llm import LLMPort
 
 
 class GLMAdapter(LLMPort):

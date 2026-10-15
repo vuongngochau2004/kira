@@ -3,14 +3,12 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
+# ===== Password Hashing =====
+import bcrypt
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError
+
 from src.config.config import settings
-
-
-# ===== Password Hashing =====
-
-import bcrypt
 
 
 def hash_password(password: str) -> str:
@@ -34,8 +32,7 @@ def create_access_token(
     """Create a JWT access token with enhanced security claims."""
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (
-        expires_delta
-        or timedelta(minutes=settings.jwt_access_token_expire_minutes)
+        expires_delta or timedelta(minutes=settings.jwt_access_token_expire_minutes)
     )
     claims = {
         "iat": datetime.now(timezone.utc),
@@ -63,8 +60,7 @@ def create_refresh_token(
     """Create a JWT refresh token with enhanced security claims."""
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (
-        expires_delta
-        or timedelta(days=settings.jwt_refresh_token_expire_days)
+        expires_delta or timedelta(days=settings.jwt_refresh_token_expire_days)
     )
     claims = {
         "iat": datetime.now(timezone.utc),

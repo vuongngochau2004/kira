@@ -4,9 +4,10 @@ API response DTOs for classification module.
 Defines response models for classification endpoints.
 """
 
-from pydantic import BaseModel, Field
-from typing import Any, Optional
 from enum import Enum
+from typing import Any, Optional
+
+from pydantic import BaseModel, Field
 
 
 class IntentEnum(str, Enum):
@@ -47,9 +48,9 @@ class ClassificationResponse(BaseModel):
                 "metadata": {
                     "strategy": "keyword",
                     "matched_file": "contract.pdf",
-                    "cached": False
+                    "cached": False,
                 },
-                "handler_hint": "RAGHandler"
+                "handler_hint": "RAGHandler",
             }
         }
 
@@ -83,20 +84,20 @@ class BatchClassificationResponse(BaseModel):
                         "confidence": 0.85,
                         "reason": "Keyword detected: xin chào",
                         "metadata": {"strategy": "keyword"},
-                        "handler_hint": "ConversationalHandler"
+                        "handler_hint": "ConversationalHandler",
                     },
                     {
                         "intent": "rag",
                         "confidence": 0.95,
                         "reason": "Fuzzy filename match: contract.pdf",
                         "metadata": {"strategy": "keyword"},
-                        "handler_hint": "RAGHandler"
-                    }
+                        "handler_hint": "RAGHandler",
+                    },
                 ],
                 "total": 2,
                 "high_confidence_count": 2,
                 "rag_count": 1,
-                "conversational_count": 1
+                "conversational_count": 1,
             }
         }
 
@@ -122,6 +123,6 @@ class StrategyInfoResponse(BaseModel):
             "example": {
                 "strategy_count": 2,
                 "strategy_names": ["KeywordStrategy", "CachedStrategy"],
-                "cache_size": 1000
+                "cache_size": 1000,
             }
         }

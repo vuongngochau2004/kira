@@ -20,6 +20,7 @@ def _tokenize(text: str) -> list[str]:
     normalized = _normalize(text)
     try:
         from pyvi import ViTokenizer
+
         tokenized = ViTokenizer.tokenize(normalized)
     except ImportError:
         tokenized = normalized
@@ -129,14 +130,16 @@ class BM25Index:
         results = []
         for idx, score in scores[:k]:
             metadata = self.doc_metadata[idx]
-            results.append({
-                "text": self.doc_texts[idx],
-                "content": self.doc_texts[idx],  # Alias for consistency
-                "metadata": metadata,
-                "document_id": metadata.get("document_id"),
-                "chunk_index": metadata.get("chunk_index"),
-                "score": score,
-            })
+            results.append(
+                {
+                    "text": self.doc_texts[idx],
+                    "content": self.doc_texts[idx],  # Alias for consistency
+                    "metadata": metadata,
+                    "document_id": metadata.get("document_id"),
+                    "chunk_index": metadata.get("chunk_index"),
+                    "score": score,
+                }
+            )
 
         return results
 

@@ -44,7 +44,9 @@ class ProcessDocument:
         try:
             document = await self.repository.get_document(document_id=document_id, user_id=user_id)
             if not document or document.status == DocumentStatus.CANCELLED.value:
-                logger.info("Skipping cancelled/missing document before processing: %s", document_id)
+                logger.info(
+                    "Skipping cancelled/missing document before processing: %s", document_id
+                )
                 return DocumentProcessResult(
                     document_id=document_id,
                     success=False,
@@ -57,7 +59,9 @@ class ProcessDocument:
                 status=DocumentStatus.PROCESSING.value,
             )
             if not processing_document:
-                logger.info("Skipping document after processing status update was rejected: %s", document_id)
+                logger.info(
+                    "Skipping document after processing status update was rejected: %s", document_id
+                )
                 return DocumentProcessResult(
                     document_id=document_id,
                     success=False,

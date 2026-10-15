@@ -4,8 +4,9 @@ API request DTOs for classification module.
 Defines request models for classification endpoints.
 """
 
-from pydantic import BaseModel, Field, validator
 from typing import Any, Optional
+
+from pydantic import BaseModel, Field, validator
 
 
 class ClassifyRequest(BaseModel):
@@ -43,7 +44,7 @@ class ClassifyRequest(BaseModel):
             "example": {
                 "query": "hỏi về điều khoản hợp đồng lao động",
                 "user_id": "user123",
-                "context": {"conversation_id": "conv-456"}
+                "context": {"conversation_id": "conv-456"},
             }
         }
 
@@ -56,7 +57,9 @@ class BatchClassifyRequest(BaseModel):
         queries: List of query classification requests
     """
 
-    queries: list[ClassifyRequest] = Field(..., min_items=1, max_items=50, description="List of queries to classify")
+    queries: list[ClassifyRequest] = Field(
+        ..., min_items=1, max_items=50, description="List of queries to classify"
+    )
 
     @validator("queries")
     def validate_queries(cls, v):
@@ -72,7 +75,7 @@ class BatchClassifyRequest(BaseModel):
             "example": {
                 "queries": [
                     {"query": "xin chào", "user_id": "user123"},
-                    {"query": "điều khoản hợp đồng", "user_id": "user123"}
+                    {"query": "điều khoản hợp đồng", "user_id": "user123"},
                 ]
             }
         }

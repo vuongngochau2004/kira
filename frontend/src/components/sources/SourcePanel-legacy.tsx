@@ -126,7 +126,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   
-  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: any }>>>({})
+  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }> | null>>({})
   const [loadingDocs, setLoadingDocs] = useState<Record<string, boolean>>({})
 
   // Interactive PDF/Document Preview States
@@ -195,7 +195,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
           })
           .catch(err => {
             console.warn('[SourcePanel] Failed to load document chunks (will fallback to RAG snippets):', err?.message || err)
-            setDocChunks(prev => ({ ...prev, [docId]: null as any }))
+            setDocChunks(prev => ({ ...prev, [docId]: null }))
           })
           .finally(() => {
             setLoadingDocs(prev => ({ ...prev, [docId]: false }))

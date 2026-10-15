@@ -45,12 +45,10 @@ jobs:
       - name: Run Ruff Linter
         run: |
           ruff check src/ tests/
-        continue-on-error: true
 
       - name: Run Mypy Type Checking
         run: |
           mypy src/
-        continue-on-error: true
 
       - name: Run Pytest Suite
         env:
@@ -89,7 +87,6 @@ jobs:
       - name: Run ESLint
         run: |
           npm run lint
-        continue-on-error: true
 
       - name: Run Frontend Tests
         run: |

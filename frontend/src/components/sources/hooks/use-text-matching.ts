@@ -108,7 +108,7 @@ interface UseTextMatchingResult {
   cleanStringForMatching: (str: string) => string
   findLongestMatch: (content: string, snippet: string) => TextMatchResult | null
   getCleanSearchPhrase: (snippet: string) => string
-  groupChunksByPage: (chunks: any[]) => Record<number, any[]>
+  groupChunksByPage: (chunks: DocumentChunk[]) => Record<number, DocumentChunk[]>
 }
 
 export function useTextMatching(): UseTextMatchingResult {

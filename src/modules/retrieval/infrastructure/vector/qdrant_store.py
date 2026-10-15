@@ -7,11 +7,11 @@ from uuid import UUID
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
     PointStruct,
     VectorParams,
-    Filter,
-    FieldCondition,
-    MatchValue,
 )
 
 from src.config.config import settings
@@ -75,7 +75,7 @@ def store_chunks(
     points = []
     chunk_ids = []
 
-    for chunk, embedding in zip(chunks, embeddings):
+    for chunk, embedding in zip(chunks, embeddings, strict=False):
         name = f"{document_id}_chunk_{chunk.get('index', len(chunk_ids))}"
         chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, name))
 
@@ -163,7 +163,7 @@ def search_similar(
             f"Qdrant retrieval: {len(filtered_results)}/{len(results)} results "
             f"passed score threshold (min={min_score:.2f}). "
             f"Score range: {min(scores):.3f} - {max(scores):.3f}, "
-            f"avg: {sum(scores)/len(scores):.3f}"
+            f"avg: {sum(scores) / len(scores):.3f}"
         )
     else:
         logger.warning(f"Qdrant retrieval returned 0 results for user_id={user_id}")

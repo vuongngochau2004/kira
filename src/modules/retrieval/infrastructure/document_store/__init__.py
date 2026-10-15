@@ -4,17 +4,17 @@ Provides database operations for document metadata and chunks.
 """
 
 from .document_repository import (
-    create_document,
     cancel_document,
-    update_document_status,
-    update_document_processing_task,
+    create_chunks,
+    create_deletion_retry_job,
+    create_document,
+    delete_document,
     get_document,
+    get_document_chunks,
     get_documents_batch,
     list_documents,
-    delete_document,
-    create_deletion_retry_job,
-    create_chunks,
-    get_document_chunks,
+    update_document_processing_task,
+    update_document_status,
 )
 
 __all__ = [

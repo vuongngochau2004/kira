@@ -636,8 +636,8 @@ export function SimpleChat({
 
     if (useNewFormat) {
       // Use new CitationPanel
-      const citation = (source || (allSources || message?.sources || [])[citationIndex]) as unknown as CitationSource
-      setActiveCitationChunkId(citation?.chunk_id || (citation as any)?.id || null)
+      const candidate = source || (allSources || message?.sources || [])[citationIndex]
+      setActiveCitationChunkId(candidate?.chunk_id || candidate?.id || null)
       setCitationPanelOpen(true)
     } else {
       // Use old SourcePanel

@@ -5,8 +5,9 @@ Allows swapping GLM ↔ Claude ↔ GPT-4 ↔ Gemini without changing core logic.
 
 To use a different LLM, implement LLMPort and wire it in server/main.py.
 """
+
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Any
+from typing import Any, AsyncIterator
 
 
 class LLMPort(ABC):

@@ -12,6 +12,7 @@ from src.shared.ports.vector_store import VectorStorePort
 
 logger = logging.getLogger(__name__)
 
+
 class SearchUseCase:
     """Use case for search operations.
 
@@ -45,6 +46,7 @@ class SearchUseCase:
         # Set LLM client for reranking in hybrid_search
         if llm_client is not None:
             from src.modules.retrieval.domain.services.hybrid_search import set_llm_client
+
             set_llm_client(llm_client)
 
     async def execute(
@@ -101,7 +103,9 @@ class SearchUseCase:
                 doc_mapping = await self._documents.get_filenames(doc_ids)
                 logger.info(f"[SearchUseCase] doc_mapping resolved to: {doc_mapping}")
                 for r in results:
-                    doc_id = str(r.get("document_id") or (r.get("metadata") or {}).get("document_id") or "")
+                    doc_id = str(
+                        r.get("document_id") or (r.get("metadata") or {}).get("document_id") or ""
+                    )
                     if doc_id in doc_mapping:
                         filename = doc_mapping[doc_id]
                         r["filename"] = filename
@@ -109,7 +113,10 @@ class SearchUseCase:
                             r["metadata"]["title"] = filename
                             r["metadata"]["filename"] = filename
             except Exception as e:
-                logger.error(f"Failed to resolve search result filenames in SearchUseCase: {e}", exc_info=True)
+                logger.error(
+                    f"Failed to resolve search result filenames in SearchUseCase: {e}",
+                    exc_info=True,
+                )
 
         return results
 

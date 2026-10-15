@@ -4,8 +4,9 @@ Chat API response DTOs - Pydantic models for HTTP response formatting.
 These DTOs decouple HTTP concerns from domain logic.
 """
 
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional, List
 
 
 class ChatResponse(BaseModel):

@@ -12,8 +12,8 @@ protection is planned for future implementation.
 """
 
 import secrets
-from fastapi import Request
 
+from fastapi import Request
 
 # CSRF token length (bytes)
 CSRF_TOKEN_LENGTH = 32
@@ -49,8 +49,10 @@ def csrf_protect_decorator(async_handler):
     NOTE: This decorator is a placeholder for future implementation.
     Current CSRF protection relies on SameSite=strict cookie attribute.
     """
+
     async def wrapper(*args, **kwargs):
         return await async_handler(*args, **kwargs)
+
     return wrapper
 
 

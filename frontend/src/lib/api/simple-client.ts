@@ -93,7 +93,7 @@ async function fetchAPI<T>(
 
 export interface SSEChunk {
   type: 'routing' | 'retrieval' | 'content' | 'thinking' | 'metadata' | 'done' | 'error'
-  data: any
+  data: unknown
 }
 
 export interface RoutingData {
@@ -116,8 +116,8 @@ export interface ContentData {
 }
 
 export interface MetadataData {
-  citations?: any[]
-  attachments?: any[]
+  citations?: Array<Record<string, unknown>>
+  attachments?: Array<Record<string, unknown>>
   conversation_id?: string
   message_id?: string
 }
@@ -143,7 +143,7 @@ export class SSEClient {
    */
   async *stream(
     endpoint: string,
-    body: any,
+    body: unknown,
     signal?: AbortSignal
   ): AsyncGenerator<SSEChunk, void, unknown> {
     this.controller = new AbortController()
@@ -309,8 +309,8 @@ export const documentsAPI = {
     return `${API_BASE}/api/v1/documents/${id}/download`
   },
 
-  getChunks: async (id: string): Promise<Array<{ id: string; chunk_index: number; content: string; metadata?: any }>> => {
-    return fetchAPI<any[]>(`/api/v1/documents/${id}/chunks`)
+  getChunks: async (id: string): Promise<Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }>> => {
+    return fetchAPI<Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }>>(`/api/v1/documents/${id}/chunks`)
   },
 }
 
@@ -384,7 +384,7 @@ export interface Message {
   content: string
   metadata: Record<string, unknown>
   created_at: string
-  sources?: any[]
+  sources?: Array<Record<string, unknown>>
 }
 
 export interface ConversationDetail extends Conversation {
@@ -400,7 +400,14 @@ export interface ConversationListResponse {
 
 export const conversationsAPI = {
   list: async (page = 1, pageSize = 20): Promise<ConversationListResponse> => {
-    const data = await fetchAPI<any>(
+    interface RawConversationListResponse {
+      total: number
+      page?: number
+      page_size?: number
+      conversations?: Conversation[]
+      items?: Conversation[]
+    }
+    const data = await fetchAPI<RawConversationListResponse>(
       `/api/v1/chat/conversations?page=${page}&page_size=${pageSize}`
     )
     return {

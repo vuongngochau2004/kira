@@ -7,7 +7,6 @@ import yaml
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 # Load static config from YAML
 _settings_path = Path(__file__).parent / "settings.yaml"
 with open(_settings_path, "r", encoding="utf-8") as f:

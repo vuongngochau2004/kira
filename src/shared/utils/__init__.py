@@ -12,7 +12,12 @@ This package contains utility functions used across the application:
 - format_context: Format documents for context
 """
 
-from src.shared.utils.agent import is_conversational_query, parse_json_response, format_context, CONVERSATIONAL_KEYWORDS
+from src.shared.utils.agent import (
+    CONVERSATIONAL_KEYWORDS,
+    format_context,
+    is_conversational_query,
+    parse_json_response,
+)
 
 __all__ = [
     "is_conversational_query",

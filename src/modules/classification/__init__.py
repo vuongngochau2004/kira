@@ -22,21 +22,25 @@ Module Structure:
 - api/ - Request/response DTOs
 """
 
-from src.modules.classification.application import Classification, ClassifyQuery, ClassificationResultDTO
+from src.modules.classification.api import (
+    BatchClassificationResponse,
+    BatchClassifyRequest,
+    ClassificationResponse,
+    ClassifyRequest,
+    StrategyInfoResponse,
+)
+from src.modules.classification.application import (
+    Classification,
+    ClassificationResultDTO,
+    ClassifyQuery,
+)
 from src.modules.classification.domain import (
+    AsyncLRUCache,
+    CachedStrategy,
     CompositeClassifier,
     KeywordStrategy,
     LLMStrategy,
-    CachedStrategy,
-    AsyncLRUCache,
-    generate_cache_key
-)
-from src.modules.classification.api import (
-    ClassifyRequest,
-    BatchClassifyRequest,
-    ClassificationResponse,
-    BatchClassificationResponse,
-    StrategyInfoResponse
+    generate_cache_key,
 )
 
 __all__ = [

@@ -1,7 +1,7 @@
 from uuid import uuid4
 
-from src.modules.rag.domain.prompts.generation import build_generation_prompt
 from src.modules.evaluation.runners.rag_pipeline_runner import RAGPipelineEvaluationRunner
+from src.modules.rag.domain.prompts.generation import build_generation_prompt
 from src.modules.rag.orchestration.agents.generation_agent import GenerationAgent
 from src.modules.rag.orchestration.state.rag_state import DocumentWithScore, GenerationAgentConfig
 

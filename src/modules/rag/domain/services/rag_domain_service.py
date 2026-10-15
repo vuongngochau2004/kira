@@ -10,9 +10,9 @@ This service coordinates between infrastructure handlers and
 domain rules without depending on specific LLM or retrieval implementations.
 """
 
-from dataclasses import dataclass, field
 import json
 import re
+from dataclasses import dataclass, field
 from typing import Any
 
 from loguru import logger
@@ -20,7 +20,6 @@ from loguru import logger
 from src.modules.rag.domain.prompts.relevance import build_relevance_evaluation_prompt
 from src.shared.ports.handlers import Citation
 from src.shared.ports.llm import LLMPort
-
 
 # Vietnamese rejection patterns for detecting irrelevant document responses
 REJECTION_PATTERNS = [
@@ -107,7 +106,9 @@ class RAGService:
                 "reason": "legacy_pattern_fallback" if is_rejection else "",
                 "fallback": True,
             }
-            logger.warning(f"⚠️ [Relevance Evaluation] LLM is None, using legacy fallback. Result: {res}")
+            logger.warning(
+                f"⚠️ [Relevance Evaluation] LLM is None, using legacy fallback. Result: {res}"
+            )
             return res
 
         prompt = build_relevance_evaluation_prompt(
@@ -135,7 +136,9 @@ class RAGService:
                 "fallback": True,
                 "error": str(e),
             }
-            logger.error(f"❌ [Relevance Evaluation] Error during LLM call: {e}. Fallback result: {res}")
+            logger.error(
+                f"❌ [Relevance Evaluation] Error during LLM call: {e}. Fallback result: {res}"
+            )
             return res
 
     @staticmethod

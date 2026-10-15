@@ -17,26 +17,26 @@ Example:
     quality_score = get_quality_score(state)
 """
 
-import logging
-from typing import List, Dict, Any, AsyncIterator, Optional
 import json
+import logging
 import re
 import time
+from typing import Any, AsyncIterator, Dict, List, Optional
 
-from src.shared.ports.llm import LLMPort
 from src.modules.rag.orchestration.state.rag_state import (
-    RAGState,
     AgentStatus,
     CritiqueResult,
-    VerificationResult,
-    QualityScore,
     QualityAgentConfig,
+    QualityScore,
+    RAGState,
+    VerificationResult,
     create_agent_result,
+    get_retrieval_docs,
     mark_agent_start,
-    update_state_with_agent_result,
     update_quality_output,
-    get_retrieval_docs
+    update_state_with_agent_result,
 )
+from src.shared.ports.llm import LLMPort
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +69,7 @@ class QualityAgent:
         self.llm_client = llm_client
         self._iteration = 0
 
-    async def handle(
-        self,
-        state: RAGState,
-        context: Optional[Dict[str, Any]] = None
-    ) -> RAGState:
+    async def handle(self, state: RAGState, context: Optional[Dict[str, Any]] = None) -> RAGState:
         """
         Execute quality assessment: critique + verification.
 
@@ -98,27 +94,37 @@ class QualityAgent:
             if not response:
                 raise ValueError("No response to evaluate")
 
-            logger.info(f"QualityAgent starting: response_length={len(response)}, docs={len(documents)}")
+            logger.info(
+                f"QualityAgent starting: response_length={len(response)}, docs={len(documents)}"
+            )
 
             # Stage 1: Critique (merged from CritiqueAgent)
             critique_result = await self._critique_response(query, response, documents)
             critique_quality = self._quality_level_value(critique_result.quality_level)
-            logger.info(f"Critique: quality={critique_quality}, confidence={critique_result.confidence_score:.2f}")
+            logger.info(
+                f"Critique: quality={critique_quality}, confidence={critique_result.confidence_score:.2f}"
+            )
 
             # Stage 2: Verification (merged from VerificationAgent)
-            verification_result = await self._verify_response(query, response, documents, critique_result)
-            logger.info(f"Verification: verified={verification_result.is_verified}, confidence={verification_result.confidence:.2f}")
+            verification_result = await self._verify_response(
+                query, response, documents, critique_result
+            )
+            logger.info(
+                f"Verification: verified={verification_result.is_verified}, confidence={verification_result.confidence:.2f}"
+            )
 
             # Calculate unified quality score
             quality_score = self._calculate_quality_score(critique_result, verification_result)
 
             # Determine if regeneration is needed
-            should_regenerate = self._should_regenerate(critique_result, verification_result, quality_score)
+            should_regenerate = self._should_regenerate(
+                critique_result, verification_result, quality_score
+            )
 
             # Extract suggestions from both
             suggestions = critique_result.suggestions + [
                 f"Factual consistency: {verification_result.factual_consistency:.2f}",
-                f"Citation accuracy: {verification_result.citation_accuracy:.2f}"
+                f"Citation accuracy: {verification_result.citation_accuracy:.2f}",
             ]
 
             # Update state
@@ -128,7 +134,7 @@ class QualityAgent:
                 critique=critique_result,
                 verification=verification_result,
                 suggestions=suggestions,
-                should_regenerate=should_regenerate
+                should_regenerate=should_regenerate,
             )
 
             execution_time = (time.time() - start_time) * 1000
@@ -141,11 +147,13 @@ class QualityAgent:
                     "critique_quality": critique_quality,
                     "verification_passed": verification_result.is_verified,
                     "should_regenerate": should_regenerate,
-                    "issues_count": len(critique_result.issues)
-                }
+                    "issues_count": len(critique_result.issues),
+                },
             )
 
-            logger.info(f"QualityAgent completed in {execution_time:.0f}ms: score={quality_score:.2f}, regenerate={should_regenerate}")
+            logger.info(
+                f"QualityAgent completed in {execution_time:.0f}ms: score={quality_score:.2f}, regenerate={should_regenerate}"
+            )
             return update_state_with_agent_result(state, result)
 
         except Exception as e:
@@ -156,21 +164,15 @@ class QualityAgent:
                 agent_name="QualityAgent",
                 status=AgentStatus.FAILED,
                 execution_time_ms=execution_time,
-                error_message=str(e)
+                error_message=str(e),
             )
 
             # Set default quality output on failure
-            state = update_quality_output(
-                state=state,
-                quality_score=0.5,
-                should_regenerate=False
-            )
+            state = update_quality_output(state=state, quality_score=0.5, should_regenerate=False)
             return update_state_with_agent_result(state, result)
 
     async def handle_stream(
-        self,
-        state: RAGState,
-        context: Optional[Dict[str, Any]] = None
+        self, state: RAGState, context: Optional[Dict[str, Any]] = None
     ) -> AsyncIterator[Dict[str, Any]]:
         """
         Execute quality assessment with streaming progress.
@@ -201,32 +203,36 @@ class QualityAgent:
                     "stage": "critique",
                     "status": "completed",
                     "quality": self._quality_level_value(critique_result.quality_level),
-                    "issues": len(critique_result.issues)
-                }
+                    "issues": len(critique_result.issues),
+                },
             }
 
             # Stage 2: Verification
             yield {"type": "stage", "data": {"stage": "verification", "status": "started"}}
 
-            verification_result = await self._verify_response(query, response, documents, critique_result)
+            verification_result = await self._verify_response(
+                query, response, documents, critique_result
+            )
 
             # Calculate unified score
             quality_score = self._calculate_quality_score(critique_result, verification_result)
-            should_regenerate = self._should_regenerate(critique_result, verification_result, quality_score)
+            should_regenerate = self._should_regenerate(
+                critique_result, verification_result, quality_score
+            )
 
             state = update_quality_output(
                 state=state,
                 quality_score=quality_score,
                 critique=critique_result,
                 verification=verification_result,
-                should_regenerate=should_regenerate
+                should_regenerate=should_regenerate,
             )
 
             execution_time = (time.time() - start_time) * 1000
             result = create_agent_result(
                 agent_name="QualityAgent",
                 status=AgentStatus.COMPLETED,
-                execution_time_ms=execution_time
+                execution_time_ms=execution_time,
             )
             state = update_state_with_agent_result(state, result)
 
@@ -236,8 +242,8 @@ class QualityAgent:
                     "stage": "verification",
                     "status": "completed",
                     "verified": verification_result.is_verified,
-                    "confidence": verification_result.confidence
-                }
+                    "confidence": verification_result.confidence,
+                },
             }
 
             yield {
@@ -245,8 +251,8 @@ class QualityAgent:
                 "data": {
                     "quality_score": quality_score,
                     "should_regenerate": should_regenerate,
-                    "suggestions": critique_result.suggestions
-                }
+                    "suggestions": critique_result.suggestions,
+                },
             }
 
         except Exception as e:
@@ -272,10 +278,7 @@ class QualityAgent:
     # ==========================================================================
 
     async def _critique_response(
-        self,
-        query: str,
-        response: str,
-        documents: List[Any]
+        self, query: str, response: str, documents: List[Any]
     ) -> CritiqueResult:
         """
         Perform LLM-based critique of response.
@@ -297,7 +300,7 @@ class QualityAgent:
                 confidence_score=0.8,
                 issues=[],
                 suggestions=[],
-                should_regenerate=False
+                should_regenerate=False,
             )
 
         try:
@@ -422,7 +425,7 @@ Quy tắc:
             confidence_score=confidence,
             issues=issues,
             suggestions=suggestions,
-            should_regenerate=len(issues) > 2
+            should_regenerate=len(issues) > 2,
         )
 
     def _check_response_issues(self, response: str, documents: List[Any]) -> List[str]:
@@ -447,11 +450,13 @@ Quy tắc:
             issues.append("Response too long")
 
         # Check for Vietnamese
-        if not re.search(r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', response):
+        if not re.search(
+            r"[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]", response
+        ):
             issues.append("No Vietnamese characters detected")
 
         # Check for apology without useful info
-        apology_patterns = [r'xin lỗi', r'không có thông tin']
+        apology_patterns = [r"xin lỗi", r"không có thông tin"]
         if any(re.search(p, response, re.IGNORECASE) for p in apology_patterns):
             issues.append("Response is just an apology")
 
@@ -485,11 +490,7 @@ Quy tắc:
     # ==========================================================================
 
     async def _verify_response(
-        self,
-        query: str,
-        response: str,
-        documents: List[Any],
-        critique_result: CritiqueResult
+        self, query: str, response: str, documents: List[Any], critique_result: CritiqueResult
     ) -> VerificationResult:
         """
         Verify factual consistency and citation accuracy.
@@ -513,7 +514,7 @@ Quy tắc:
                 factual_consistency=0.8,
                 citation_accuracy=0.8,
                 reasoning_quality=0.8,
-                verification_checks=["Verification disabled - auto-verified"]
+                verification_checks=["Verification disabled - auto-verified"],
             )
 
         # Perform verification checks
@@ -532,7 +533,7 @@ Quy tắc:
         checks.append(f"Reasoning quality: {reasoning_score:.2f}")
 
         # Calculate overall confidence
-        confidence = (factual_score * 0.4 + citation_score * 0.3 + reasoning_score * 0.3)
+        confidence = factual_score * 0.4 + citation_score * 0.3 + reasoning_score * 0.3
 
         return VerificationResult(
             is_verified=confidence >= self.config.verification_threshold,
@@ -540,14 +541,11 @@ Quy tắc:
             factual_consistency=factual_score,
             citation_accuracy=citation_score,
             reasoning_quality=reasoning_score,
-            verification_checks=checks
+            verification_checks=checks,
         )
 
     async def _verify_factual_consistency(
-        self,
-        query: str,
-        response: str,
-        documents: List[Any]
+        self, query: str, response: str, documents: List[Any]
     ) -> float:
         """
         Verify factual consistency using heuristic checks.
@@ -567,13 +565,12 @@ Quy tắc:
         score = 0.7
 
         # Check for citations
-        if re.search(r'\[Document\s+\d+\]', response):
+        if re.search(r"\[Document\s+\d+\]", response):
             score += 0.1
 
         # Check for uncertainty indicators (lower score)
         uncertainty_count = sum(
-            1 for p in [r'có thể', r'có lẽ']
-            if re.search(p, response, re.IGNORECASE)
+            1 for p in [r"có thể", r"có lẽ"] if re.search(p, response, re.IGNORECASE)
         )
         score -= min(0.2, uncertainty_count * 0.05)
 
@@ -617,7 +614,7 @@ Quy tắc:
             score += 0.1
 
         # Check for structure
-        if re.search(r'\d+\.', response) or re.search(r'\*\*', response):
+        if re.search(r"\d+\.", response) or re.search(r"\*\*", response):
             score += 0.05
 
         return max(0.0, min(1.0, score))
@@ -627,9 +624,7 @@ Quy tắc:
     # ==========================================================================
 
     def _calculate_quality_score(
-        self,
-        critique_result: CritiqueResult,
-        verification_result: VerificationResult
+        self, critique_result: CritiqueResult, verification_result: VerificationResult
     ) -> float:
         """
         Calculate unified quality score from critique and verification.
@@ -648,7 +643,7 @@ Quy tắc:
         verification_weight = self.config.weight_verification
 
         # Weighted combination
-        unified_score = (critique_score * critique_weight + verification_score * verification_weight)
+        unified_score = critique_score * critique_weight + verification_score * verification_weight
 
         return round(unified_score, 2)
 
@@ -667,19 +662,21 @@ Quy tắc:
             QualityScore.GOOD: 0.8,
             QualityScore.ACCEPTABLE: 0.6,
             QualityScore.POOR: 0.4,
-            QualityScore.FAILED: 0.2
+            QualityScore.FAILED: 0.2,
         }
         return mapping.get(quality_level, 0.5)
 
     def _quality_level_value(self, quality_level: QualityScore | str) -> str:
         """Return the serialized quality level for enum or string inputs."""
-        return quality_level.value if isinstance(quality_level, QualityScore) else str(quality_level)
+        return (
+            quality_level.value if isinstance(quality_level, QualityScore) else str(quality_level)
+        )
 
     def _should_regenerate(
         self,
         critique_result: CritiqueResult,
         verification_result: VerificationResult,
-        quality_score: float
+        quality_score: float,
     ) -> bool:
         """
         Decide if response should be regenerated.

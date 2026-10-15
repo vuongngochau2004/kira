@@ -4,12 +4,12 @@ Chat module domain services.
 Provides business logic for RAG and conversational query processing.
 """
 
-from src.modules.chat.domain.services.rag import RAGService, RAGResult
 from src.modules.chat.domain.services.conversation import (
-    ConversationService,
     ConversationContext,
     ConversationResult,
+    ConversationService,
 )
+from src.modules.chat.domain.services.rag import RAGResult, RAGService
 
 __all__ = [
     "RAGService",

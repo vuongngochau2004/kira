@@ -12,9 +12,8 @@ from src.modules.chat.infrastructure.persistence.conversation_repository import 
     get_conversation_messages,
     list_conversations,
 )
-from src.shared.ports.classification import Intent
 from src.modules.retrieval.infrastructure.retrieval_adapters import PostgresRetrievalDocumentAdapter
-
+from src.shared.ports.classification import Intent
 
 _chat_use_case: ChatUseCase | None = None
 

@@ -67,7 +67,7 @@ export function CitationPanel({
   const [isDragging, setIsDragging] = useState(false)
   const resizeRef = useRef<HTMLDivElement>(null)
 
-  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: any }>>>({})
+  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }>>>({})
   const [fetchingChunks, setFetchingChunks] = useState<Record<string, boolean>>({})
   const [expandedViewMode, setExpandedViewMode] = useState<Record<string, 'snippet' | 'context'>>({})
   const [previewDocId, setPreviewDocId] = useState<string | null>(null)

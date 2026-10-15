@@ -1,5 +1,5 @@
-from src.modules.document.domain.services.cleaner import clean_document
 from src.modules.document.domain.services.chunker import chunk_document
+from src.modules.document.domain.services.cleaner import clean_document
 
 
 def test_clean_document_preserves_page_markers_when_stripping_html() -> None:
@@ -38,7 +38,4 @@ def test_legal_chunking_uses_paragraph_boundaries_for_large_sections() -> None:
     assert chunks[0].metadata.get("page_start") == 1
     assert any(chunk.metadata.get("page_start") == 1 for chunk in chunks)
     assert any(chunk.metadata.get("page_start") == 2 for chunk in chunks)
-    assert all(
-        chunk.content.startswith(("<!-- page", "Điều", "Đoạn", "- "))
-        for chunk in chunks
-    )
+    assert all(chunk.content.startswith(("<!-- page", "Điều", "Đoạn", "- ")) for chunk in chunks)

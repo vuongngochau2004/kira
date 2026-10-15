@@ -3,14 +3,13 @@
 Migrated from src/ingestion/chunker.py
 """
 
-import re
 from typing import Protocol
 
 import tiktoken
 
 from src.config.config import settings
+from src.modules.document.domain.constants import CHUNKER_PAGE_MARKER_PATTERN, LEGAL_HEADING_PATTERN
 from src.modules.document.domain.models import Chunk
-from src.modules.document.domain.constants import LEGAL_HEADING_PATTERN, CHUNKER_PAGE_MARKER_PATTERN
 
 
 class TextEncoding(Protocol):
@@ -167,7 +166,7 @@ def _split_legal_sections(text: str) -> list[str]:
 
     sections: list[str] = []
     if matches[0].start() > 0:
-        intro = text[:matches[0].start()].strip()
+        intro = text[: matches[0].start()].strip()
         if intro:
             sections.append(intro)
 
@@ -302,33 +301,39 @@ def chunk_document(
         if para_tokens > chunk_size:
             if current_parts:
                 chunk_text = "\n\n".join(current_parts)
-                chunks.append(Chunk(
-                    index=len(chunks),
-                    content=chunk_text,
-                    token_count=_count_tokens(chunk_text, encoding),
-                    metadata=base_metadata.copy(),
-                ))
+                chunks.append(
+                    Chunk(
+                        index=len(chunks),
+                        content=chunk_text,
+                        token_count=_count_tokens(chunk_text, encoding),
+                        metadata=base_metadata.copy(),
+                    )
+                )
                 current_parts = []
                 current_tokens = 0
 
             sub_chunks = _split_large_text(paragraph, chunk_size, chunk_overlap, encoding)
             for sub in sub_chunks:
-                chunks.append(Chunk(
-                    index=len(chunks),
-                    content=sub,
-                    token_count=_count_tokens(sub, encoding),
-                    metadata=base_metadata.copy(),
-                ))
+                chunks.append(
+                    Chunk(
+                        index=len(chunks),
+                        content=sub,
+                        token_count=_count_tokens(sub, encoding),
+                        metadata=base_metadata.copy(),
+                    )
+                )
             continue
 
         if current_tokens + para_tokens > chunk_size and current_parts:
             chunk_text = "\n\n".join(current_parts)
-            chunks.append(Chunk(
-                index=len(chunks),
-                content=chunk_text,
-                token_count=_count_tokens(chunk_text, encoding),
-                metadata=base_metadata.copy(),
-            ))
+            chunks.append(
+                Chunk(
+                    index=len(chunks),
+                    content=chunk_text,
+                    token_count=_count_tokens(chunk_text, encoding),
+                    metadata=base_metadata.copy(),
+                )
+            )
 
             overlap_parts = _get_overlap_parts(current_parts, chunk_overlap, encoding)
             current_parts = overlap_parts
@@ -339,12 +344,14 @@ def chunk_document(
 
     if current_parts:
         chunk_text = "\n\n".join(current_parts)
-        chunks.append(Chunk(
-            index=len(chunks),
-            content=chunk_text,
-            token_count=_count_tokens(chunk_text, encoding),
-            metadata=base_metadata.copy(),
-        ))
+        chunks.append(
+            Chunk(
+                index=len(chunks),
+                content=chunk_text,
+                token_count=_count_tokens(chunk_text, encoding),
+                metadata=base_metadata.copy(),
+            )
+        )
 
     return chunks
 

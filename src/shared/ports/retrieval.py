@@ -25,9 +25,8 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 from dataclasses import dataclass, field
-
+from typing import Any
 
 __all__ = [
     # Data models
@@ -121,11 +120,7 @@ class RetrieverBase(ABC):
 
     @abstractmethod
     async def retrieve(
-        self,
-        query: str,
-        user_id: str,
-        top_k: int = 5,
-        filters: dict[str, Any] | None = None
+        self, query: str, user_id: str, top_k: int = 5, filters: dict[str, Any] | None = None
     ) -> list[Document]:
         """
         Retrieve documents for the query.
@@ -220,7 +215,7 @@ class DenseRetrieverBase(RetrieverBase):
         query_vector: list[float],
         user_id: str,
         top_k: int = 5,
-        filters: dict[str, Any] | None = None
+        filters: dict[str, Any] | None = None,
     ) -> list[Document]:
         """
         Retrieve documents by query vector.
@@ -275,11 +270,7 @@ class BM25RetrieverBase(RetrieverBase):
     """
 
     @abstractmethod
-    async def index_document(
-        self,
-        document: Document,
-        user_id: str
-    ) -> None:
+    async def index_document(self, document: Document, user_id: str) -> None:
         """
         Index a document for BM25 retrieval.
 
@@ -294,11 +285,7 @@ class BM25RetrieverBase(RetrieverBase):
         ...
 
     @abstractmethod
-    async def remove_document(
-        self,
-        chunk_id: str,
-        user_id: str
-    ) -> None:
+    async def remove_document(self, chunk_id: str, user_id: str) -> None:
         """
         Remove a document from BM25 index.
 
@@ -312,11 +299,7 @@ class BM25RetrieverBase(RetrieverBase):
         ...
 
     @abstractmethod
-    async def bulk_index(
-        self,
-        documents: list[Document],
-        user_id: str
-    ) -> None:
+    async def bulk_index(self, documents: list[Document], user_id: str) -> None:
         """
         Bulk index multiple documents.
 
@@ -375,7 +358,7 @@ class HybridRetrieverBase(RetrieverBase):
         user_id: str,
         top_k: int = 5,
         dense_weight: float = 0.5,
-        bm25_weight: float = 0.5
+        bm25_weight: float = 0.5,
     ) -> tuple[list[Document], dict[str, float]]:
         """
         Retrieve with hybrid scoring and return individual strategy scores.

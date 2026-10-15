@@ -8,20 +8,38 @@ from typing import Any
 from uuid import UUID
 
 from src.config.config import settings
-from src.shared.ports.classification import ClassificationStrategyBase, ClassificationResult, Intent
+from src.shared.ports.classification import ClassificationResult, ClassificationStrategyBase, Intent
 from src.shared.ports.retrieval import Document
 
-
 DEFAULT_FILE_KEYWORDS = [
-    "tài liệu", "doc", "pdf", "file", "hỏi về",
-    "trong", "có", "liên quan", "về", "chương",
-    "mục", "điều", "khoản", "bản", "phụ lục",
+    "tài liệu",
+    "doc",
+    "pdf",
+    "file",
+    "hỏi về",
+    "trong",
+    "có",
+    "liên quan",
+    "về",
+    "chương",
+    "mục",
+    "điều",
+    "khoản",
+    "bản",
+    "phụ lục",
 ]
 DEFAULT_DRAFTING_ACTIONS = ["soạn", "soạn thảo", "lập", "viết", "tạo", "chuẩn bị"]
 DEFAULT_DRAFTING_KEYWORDS = [
-    "công văn", "tờ trình", "quyết định", "thông báo",
-    "kế hoạch", "biên bản", "văn bản hành chính",
-    "đơn đề nghị", "giấy mời", "báo cáo",
+    "công văn",
+    "tờ trình",
+    "quyết định",
+    "thông báo",
+    "kế hoạch",
+    "biên bản",
+    "văn bản hành chính",
+    "đơn đề nghị",
+    "giấy mời",
+    "báo cáo",
 ]
 
 
@@ -47,7 +65,7 @@ class KeywordStrategy(ClassificationStrategyBase):
         self,
         user_documents: dict[str, list[Document]] | None = None,
         file_keywords: list[str] | None = None,
-        fuzzy_threshold: float = 0.6
+        fuzzy_threshold: float = 0.6,
     ):
         """
         Initialize keyword strategy.
@@ -58,9 +76,13 @@ class KeywordStrategy(ClassificationStrategyBase):
             fuzzy_threshold: Minimum similarity for fuzzy matching (0.0 to 1.0)
         """
         self.user_documents = user_documents or {}
-        self.file_keywords = file_keywords or settings.classification_file_keywords or DEFAULT_FILE_KEYWORDS
+        self.file_keywords = (
+            file_keywords or settings.classification_file_keywords or DEFAULT_FILE_KEYWORDS
+        )
         self.drafting_actions = settings.classification_drafting_actions or DEFAULT_DRAFTING_ACTIONS
-        self.drafting_keywords = settings.classification_drafting_keywords or DEFAULT_DRAFTING_KEYWORDS
+        self.drafting_keywords = (
+            settings.classification_drafting_keywords or DEFAULT_DRAFTING_KEYWORDS
+        )
         self.fuzzy_threshold = fuzzy_threshold
 
     def can_handle(self, query: str, user_id: str | UUID) -> bool:
@@ -91,10 +113,7 @@ class KeywordStrategy(ClassificationStrategyBase):
         return False
 
     async def classify(
-        self,
-        query: str,
-        user_id: str | UUID,
-        context: dict[str, Any] | None = None
+        self, query: str, user_id: str | UUID, context: dict[str, Any] | None = None
     ) -> ClassificationResult:
         """
         Classify query using keyword matching.
@@ -151,9 +170,9 @@ class KeywordStrategy(ClassificationStrategyBase):
                 "strategy": "keyword",
                 "matched_file": matched_file,
                 "keyword_match": keyword_match,
-                "user_doc_count": len(self.user_documents.get(user_id_str, []))
+                "user_doc_count": len(self.user_documents.get(user_id_str, [])),
             },
-            handler_hint="RAGHandler" if intent == Intent.RAG else "ConversationalHandler"
+            handler_hint="RAGHandler" if intent == Intent.RAG else "ConversationalHandler",
         )
 
     def _detect_keywords(self, query: str) -> str | None:
@@ -277,8 +296,7 @@ class KeywordStrategy(ClassificationStrategyBase):
         original_length = len(docs)
 
         self.user_documents[user_id] = [
-            doc for doc in docs
-            if (doc.filename if isinstance(doc, Document) else doc) != filename
+            doc for doc in docs if (doc.filename if isinstance(doc, Document) else doc) != filename
         ]
 
         return len(self.user_documents[user_id]) < original_length

@@ -3,6 +3,7 @@
 from datetime import timedelta
 
 from fastapi import Response
+
 from src.config.config import settings
 
 
@@ -17,7 +18,7 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
         httponly=True,
         secure=is_secure,
         samesite=samesite_mode,
-        max_age=int(timedelta(minutes=settings.jwt_access_token_expire_minutes).total_seconds())
+        max_age=int(timedelta(minutes=settings.jwt_access_token_expire_minutes).total_seconds()),
     )
 
     response.set_cookie(
@@ -26,7 +27,7 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
         httponly=True,
         secure=is_secure,
         samesite=samesite_mode,
-        max_age=int(timedelta(days=settings.jwt_refresh_token_expire_days).total_seconds())
+        max_age=int(timedelta(days=settings.jwt_refresh_token_expire_days).total_seconds()),
     )
 
 
@@ -41,7 +42,7 @@ def clear_auth_cookies(response: Response):
         max_age=0,
         httponly=True,
         secure=is_secure,
-        samesite=samesite_mode
+        samesite=samesite_mode,
     )
 
     response.set_cookie(
@@ -50,5 +51,5 @@ def clear_auth_cookies(response: Response):
         max_age=0,
         httponly=True,
         secure=is_secure,
-        samesite=samesite_mode
+        samesite=samesite_mode,
     )

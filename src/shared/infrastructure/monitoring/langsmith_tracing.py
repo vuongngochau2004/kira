@@ -25,12 +25,12 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
 
-
 logger = logging.getLogger(__name__)
 
 
 class TraceType(Enum):
     """Types of traces to capture."""
+
     AGENT_CALL = "agent_call"
     ROUTING_DECISION = "routing_decision"
     RETRIEVAL = "retrieval"
@@ -42,6 +42,7 @@ class TraceType(Enum):
 @dataclass
 class TraceMetadata:
     """Metadata for LangSmith traces."""
+
     trace_id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: datetime = field(default_factory=datetime.utcnow)
     trace_type: TraceType = TraceType.AGENT_CALL
@@ -91,7 +92,9 @@ class LangSmithTracer:
         sampling_rate: float = 1.0,
     ):
         """Initialize LangSmith tracer."""
-        self.enabled = enabled if enabled is not None else os.getenv("LANGCHAIN_TRACING_V2") == "true"
+        self.enabled = (
+            enabled if enabled is not None else os.getenv("LANGCHAIN_TRACING_V2") == "true"
+        )
         self.project_name = project_name or os.getenv("LANGCHAIN_PROJECT", "kira-rag")
         self.sampling_rate = sampling_rate
 
@@ -216,7 +219,9 @@ class LangSmithTracer:
             return
 
         self._trace_stack.append(metadata)
-        logger.debug(f"[LANGSMITH] Starting trace: {metadata.trace_type.value} ({metadata.trace_id})")
+        logger.debug(
+            f"[LANGSMITH] Starting trace: {metadata.trace_type.value} ({metadata.trace_id})"
+        )
 
     def _end_trace(self, metadata: TraceMetadata) -> None:
         """End a trace and record it."""
@@ -247,7 +252,8 @@ class LangSmithTracer:
 
         cutoff = datetime.utcnow().timestamp() - (time_window_hours * 3600)
         recent_traces = [
-            t for t in self._trace_history
+            t
+            for t in self._trace_history
             if datetime.fromisoformat(t["timestamp"]).timestamp() > cutoff
         ]
 
@@ -272,12 +278,18 @@ class LangSmithTracer:
         if latencies:
             metrics["performance"] = {
                 "avg_latency_ms": sum(latencies) / len(latencies),
-                "p95_latency_ms": sorted(latencies)[int(len(latencies) * 0.95)] if len(latencies) > 1 else latencies[0],
-                "p99_latency_ms": sorted(latencies)[int(len(latencies) * 0.99)] if len(latencies) > 1 else latencies[0],
+                "p95_latency_ms": sorted(latencies)[int(len(latencies) * 0.95)]
+                if len(latencies) > 1
+                else latencies[0],
+                "p99_latency_ms": sorted(latencies)[int(len(latencies) * 0.99)]
+                if len(latencies) > 1
+                else latencies[0],
             }
 
         errors = [t for t in recent_traces if not t["success"]]
-        metrics["performance"]["error_rate"] = len(errors) / len(recent_traces) if recent_traces else 0
+        metrics["performance"]["error_rate"] = (
+            len(errors) / len(recent_traces) if recent_traces else 0
+        )
 
         llm_traces = traces_by_type.get("llm_call", [])
         if llm_traces:

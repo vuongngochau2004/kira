@@ -52,6 +52,22 @@ function waitForNextPaint(): Promise<void> {
   })
 }
 
+function getErrorMessage(err: unknown, defaultMsg: string): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return String((err as { message: unknown }).message)
+  }
+  return defaultMsg
+}
+
+function isAbortError(err: unknown): boolean {
+  if (err instanceof Error && err.name === 'AbortError') return true
+  if (typeof err === 'object' && err !== null && 'name' in err) {
+    return (err as { name: unknown }).name === 'AbortError'
+  }
+  return false
+}
+
 // ==================== Custom Hook ====================
 
 export function useSimpleChat() {
@@ -84,7 +100,7 @@ export function useSimpleChat() {
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const queueRef = useRef(new MessageQueue())
   const failedMessageRef = useRef<string | null>(null)
-  const conversationError = useRef<any>(null)
+  const conversationError = useRef<Error | null>(null)
 
   // Refs for streaming
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -299,13 +315,13 @@ export function useSimpleChat() {
               : msg
             )
           )
-        } catch (streamErr: any) {
-          if (streamErr?.name === 'AbortError') {
+        } catch (streamErr: unknown) {
+          if (isAbortError(streamErr)) {
             finishCurrentAssistantMessage()
             return
           }
 
-          const errorMsg = streamErr?.message || 'Failed to stream response'
+          const errorMsg = getErrorMessage(streamErr, 'Failed to stream response')
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMsgId
@@ -320,8 +336,8 @@ export function useSimpleChat() {
           )
         }
       })
-    } catch (err: any) {
-      setError(err?.message || 'Failed to send queued messages')
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to send queued messages'))
     }
   }
 
@@ -402,11 +418,11 @@ export function useSimpleChat() {
             }
           }
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
+      } catch (err: unknown) {
+        if (isAbortError(err)) {
           finishCurrentAssistantMessage()
         } else {
-          const errorMsg = err?.message || 'Failed to send message. Please check your connection.'
+          const errorMsg = getErrorMessage(err, 'Failed to send message. Please check your connection.')
           setError(errorMsg)
           setMessages((prev) =>
             prev.map((msg) =>
@@ -484,8 +500,8 @@ export function useSimpleChat() {
           )
         )
         setIsCreatingConversation(false)
-      } catch (err: any) {
-        setError(err?.message || 'Failed to create conversation. Please try again.')
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, 'Failed to create conversation. Please try again.'))
         failedMessageRef.current = content
         queueRef.current = new MessageQueue()
         setIsCreatingConversation(false)
@@ -500,6 +516,8 @@ export function useSimpleChat() {
     addOptimistic,
     isAuthenticated,
     mounted,
+    isLoading,
+    flushQueuedMessages,
   ])
 
   const clearMessages = useCallback(() => {
@@ -509,7 +527,7 @@ export function useSimpleChat() {
     setError(null)
     // Reset sources panel
     sourcesStore.reset()
-  }, [setActiveConversation, cleanup])
+  }, [setActiveConversation, cleanup, sourcesStore])
 
   const retryMessage = useCallback(() => {
     if (failedMessageRef.current) {

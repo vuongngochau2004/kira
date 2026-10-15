@@ -15,7 +15,6 @@ from typing import Any
 
 from src.shared.ports.handlers import Citation
 
-
 # Vietnamese rejection patterns for detecting irrelevant document responses
 REJECTION_PATTERNS = [
     "không tìm thấy",

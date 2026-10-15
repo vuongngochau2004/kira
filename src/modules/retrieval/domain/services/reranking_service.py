@@ -19,7 +19,6 @@ from src.modules.retrieval.domain.prompts import (
     build_scoring_prompt,
 )
 
-
 logger = logging.getLogger(__name__)
 
 # Global LLM client reference
@@ -41,7 +40,7 @@ async def _run_llm_rerank(llm_client: Any, prompt: str) -> str:
     """
     messages = [
         {"role": "system", "content": RERANKING_SYSTEM_PROMPT},
-        {"role": "user", "content": prompt}
+        {"role": "user", "content": prompt},
     ]
 
     response = await asyncio.wait_for(
@@ -68,7 +67,7 @@ async def _score_document_async(llm_client: Any, prompt: str) -> float:
     """
     messages = [
         {"role": "system", "content": SCORING_SYSTEM_PROMPT},
-        {"role": "user", "content": prompt}
+        {"role": "user", "content": prompt},
     ]
 
     try:
@@ -80,7 +79,7 @@ async def _score_document_async(llm_client: Any, prompt: str) -> float:
         content = response.get("content", "0.0")
 
         # Extract float from response
-        match = re.search(r'0?\.\d+|1\.0|0|1', content)
+        match = re.search(r"0?\.\d+|1\.0|0|1", content)
         if match:
             score = float(match.group(0))
             return max(0.0, min(1.0, score))  # Clamp to [0, 1]
@@ -113,7 +112,7 @@ async def _score_all_documents_async(
     scores = await asyncio.gather(*tasks)
 
     scored_docs = []
-    for doc, score in zip(doc_list, scores):
+    for doc, score in zip(doc_list, scores, strict=False):
         doc_copy = doc.copy()
         doc_copy["rerank_score"] = score
         scored_docs.append(doc_copy)
@@ -159,10 +158,7 @@ def _format_documents_for_reranking(documents: list[dict]) -> str:
     return "\n\n".join(formatted)
 
 
-def _parse_reranking_response(
-    response: str,
-    num_documents: int
-) -> list[int]:
+def _parse_reranking_response(response: str, num_documents: int) -> list[int]:
     """Parse LLM response to extract ranked indices.
 
     Args:
@@ -181,7 +177,7 @@ def _parse_reranking_response(
     # Try to extract JSON array
     try:
         # Clean response - find JSON array
-        json_match = re.search(r'\[.*?\]', response)
+        json_match = re.search(r"\[.*?\]", response)
         if json_match:
             indices = json.loads(json_match.group(0))
             if isinstance(indices, list):
@@ -191,7 +187,7 @@ def _parse_reranking_response(
 
     # Fallback: extract comma-separated numbers
     try:
-        numbers = re.findall(r'\d+', response)
+        numbers = re.findall(r"\d+", response)
         if numbers:
             return [int(n) for n in numbers]
     except Exception as e:
@@ -327,18 +323,13 @@ def score_and_rerank(
 
         # Run async scoring
         try:
-            scored_docs = asyncio.run(
-                _score_all_documents_async(llm_client, query, doc_list)
-            )
+            scored_docs = asyncio.run(_score_all_documents_async(llm_client, query, doc_list))
         except Exception as e:
             logger.error(f"Async scoring failed: {e}")
             scored_docs = [{**doc, "rerank_score": 0.0} for doc in doc_list]
 
         # Filter by threshold and sort by score
-        filtered = [
-            doc for doc in scored_docs
-            if doc.get("rerank_score", 0) >= min_score_threshold
-        ]
+        filtered = [doc for doc in scored_docs if doc.get("rerank_score", 0) >= min_score_threshold]
 
         reranked = sorted(filtered, key=lambda x: x.get("rerank_score", 0), reverse=True)
 

@@ -10,17 +10,19 @@ keeping this handler focused on LLM orchestration.
 """
 
 import time
-from loguru import logger
 from typing import Any, AsyncIterator
 
-from src.shared.ports.classification import ClassificationResult, Intent
-from src.shared.ports.handlers import QueryHandlerBase, HandlerResult, HandlerConfig
-from src.shared.ports.llm import LLMPort
-
-from src.modules.chat.domain.services import ConversationService, ConversationContext
+from loguru import logger
 
 # Import from chat domain prompts
-from src.modules.chat.domain.prompts.conversational import CONVERSATIONAL_SYSTEM_PROMPT, CONVERSATIONAL_USER_PROMPT
+from src.modules.chat.domain.prompts.conversational import (
+    CONVERSATIONAL_SYSTEM_PROMPT,
+    CONVERSATIONAL_USER_PROMPT,
+)
+from src.modules.chat.domain.services import ConversationContext, ConversationService
+from src.shared.ports.classification import ClassificationResult, Intent
+from src.shared.ports.handlers import HandlerConfig, HandlerResult, QueryHandlerBase
+from src.shared.ports.llm import LLMPort
 
 
 class ConversationalHandler(QueryHandlerBase):
@@ -83,13 +85,11 @@ class ConversationalHandler(QueryHandlerBase):
             ValueError: If classification intent is not CONVERSATIONAL
         """
         if classification.intent != Intent.CONVERSATIONAL:
-            raise ValueError(
-                f"ConversationalHandler cannot handle intent: {classification.intent}"
-            )
+            raise ValueError(f"ConversationalHandler cannot handle intent: {classification.intent}")
 
         logger.info(
             f"🚀 <yellow>[CONVERSATIONAL FLOW]</yellow> Starting conversational handler. "
-            f"Query: \"{query[:50] + '...' if len(query) > 50 else query}\""
+            f'Query: "{query[:50] + "..." if len(query) > 50 else query}"'
         )
         t0 = time.perf_counter()
         conversation_history = context.get("conversation_history") if context else None
@@ -186,7 +186,7 @@ class ConversationalHandler(QueryHandlerBase):
 
         logger.info(
             f"🚀 <yellow>[CONVERSATIONAL STREAM FLOW]</yellow> Starting conversational stream. "
-            f"Query: \"{query[:50] + '...' if len(query) > 50 else query}\""
+            f'Query: "{query[:50] + "..." if len(query) > 50 else query}"'
         )
         t0 = time.perf_counter()
         conversation_history = context.get("conversation_history") if context else None
@@ -235,7 +235,9 @@ class ConversationalHandler(QueryHandlerBase):
             }
 
         except Exception as e:
-            logger.error(f"❌ <red>[CONVERSATIONAL STREAM ERROR]</red> ConversationalHandler stream error: {e}")
+            logger.error(
+                f"❌ <red>[CONVERSATIONAL STREAM ERROR]</red> ConversationalHandler stream error: {e}"
+            )
             yield {
                 "type": "content",
                 "data": {"text": "Xin lỗi, tôi không thể trả lời ngay lúc này."},

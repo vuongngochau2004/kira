@@ -17,6 +17,7 @@ from src.shared.kernel.base.entity import Entity
 
 class DocumentStatus:
     """Document processing status (value object)."""
+
     UPLOADING = "uploading"
     PROCESSING = "processing"
     COMPLETED = "completed"

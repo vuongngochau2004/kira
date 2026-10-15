@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Depends
 
-from src.shared.infrastructure.monitoring.routing_metrics import get_metrics_collector
 from src.shared.infrastructure.auth.dependencies import get_current_user
+from src.shared.infrastructure.monitoring.routing_metrics import get_metrics_collector
 from src.shared.infrastructure.persistence.database.models import User
 
 router = APIRouter()

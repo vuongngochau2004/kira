@@ -16,15 +16,12 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.shared.infrastructure.auth.dependencies import get_current_user
 from src.constants import (
     DEFAULT_LIMIT,
     DEFAULT_OFFSET,
-    DocumentStatus,
     ERR_DOC_NOT_FOUND,
+    DocumentStatus,
 )
-from src.shared.infrastructure.persistence.database.session import get_session
-from src.shared.infrastructure.persistence.database.models import User
 from src.modules.document.application import (
     CancelDocumentRequest,
     DeleteDocumentRequest,
@@ -45,6 +42,9 @@ from src.modules.document.composition import (
     storage_adapter,
     upload_document_service,
 )
+from src.shared.infrastructure.auth.dependencies import get_current_user
+from src.shared.infrastructure.persistence.database.models import User
+from src.shared.infrastructure.persistence.database.session import get_session
 
 router = APIRouter()
 
@@ -69,7 +69,7 @@ async def upload_document(
     db: AsyncSession = Depends(get_session),
 ) -> Any:
     """Upload one or more documents and start processing.
-    
+
     If 'file' is provided (single upload), returns a single document object.
     If 'files' is provided (multiple upload), returns a list of document objects.
     """
@@ -169,7 +169,6 @@ async def upload_document(
         results.append(serialized)
 
     return results
-
 
 
 def _get_file_extension(filename: str) -> str:

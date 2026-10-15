@@ -7,7 +7,7 @@ Environment-based and runtime feature flag management with percentage-based roll
 import hashlib
 from enum import Enum
 from functools import lru_cache
-from typing import Optional, Any
+from typing import Any, Optional
 
 
 class FeatureFlag(str, Enum):
@@ -59,10 +59,7 @@ class FeatureFlagManager:
         self._runtime_overrides: dict[str, bool] = {}
 
     def is_enabled(
-        self,
-        flag: FeatureFlag,
-        user_id: Optional[str] = None,
-        default: bool = False
+        self, flag: FeatureFlag, user_id: Optional[str] = None, default: bool = False
     ) -> bool:
         """
         Check if feature flag is enabled.
@@ -205,6 +202,7 @@ def get_feature_flag_manager() -> FeatureFlagManager:
     """
     try:
         from src.config.config import settings
+
         config = getattr(settings, "feature_flags", {})
     except Exception:
         # Fallback if settings not available

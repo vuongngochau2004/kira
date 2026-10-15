@@ -18,6 +18,7 @@ DEFAULT_LLM_TIMEOUT = 60.0
 
 class LLMProvider(str, Enum):
     """Supported LLM providers."""
+
     GLM = "glm"
     GEMINI = "gemini"
     OPENAI_COMPATIBLE = "openai_compatible"
@@ -26,16 +27,19 @@ class LLMProvider(str, Enum):
 
 class LLMError(Exception):
     """Base exception for LLM-related errors."""
+
     pass
 
 
 class LLMTimeoutError(LLMError):
     """Raised when LLM request times out."""
+
     pass
 
 
 class LLMStreamError(LLMError):
     """Raised when LLM streaming fails."""
+
     pass
 
 
@@ -55,7 +59,9 @@ def _normalize_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
     ]
 
 
-def _extract_system_message(messages: list[dict[str, str]]) -> tuple[str | None, list[dict[str, str]]]:
+def _extract_system_message(
+    messages: list[dict[str, str]],
+) -> tuple[str | None, list[dict[str, str]]]:
     """Extract system message from conversation messages.
 
     Args:
@@ -106,24 +112,16 @@ async def chat_async(
     try:
         if provider == LLMProvider.GLM:
             model = model or settings.glm_model
-            return await _chat_glm_async(
-                messages, model, temperature, max_tokens, timeout
-            )
+            return await _chat_glm_async(messages, model, temperature, max_tokens, timeout)
         elif provider == LLMProvider.GEMINI:
             model = model or settings.gemini_model
-            return await _chat_gemini_async(
-                messages, model, temperature, max_tokens, timeout
-            )
+            return await _chat_gemini_async(messages, model, temperature, max_tokens, timeout)
         elif provider == LLMProvider.OLLAMA:
             model = model or settings.ollama_model
-            return await _chat_ollama_async(
-                messages, model, temperature, max_tokens, timeout
-            )
+            return await _chat_ollama_async(messages, model, temperature, max_tokens, timeout)
         else:
             model = model or settings.bk_llm_model or "gpt-3.5-turbo"
-            return await _chat_openai_async(
-                messages, model, temperature, max_tokens, timeout
-            )
+            return await _chat_openai_async(messages, model, temperature, max_tokens, timeout)
     except asyncio.TimeoutError as e:
         logger.error(f"[LLM] Timeout after {timeout}s")
         raise LLMTimeoutError(f"LLM request timed out after {timeout}s") from e
@@ -169,9 +167,7 @@ async def chat_async_stream(
     try:
         if provider == LLMProvider.GLM:
             model = model or settings.glm_model
-            async for chunk in _chat_glm_stream(
-                messages, model, temperature, max_tokens, timeout
-            ):
+            async for chunk in _chat_glm_stream(messages, model, temperature, max_tokens, timeout):
                 yield chunk
         elif provider == LLMProvider.GEMINI:
             model = model or settings.gemini_model
@@ -247,11 +243,11 @@ async def _chat_glm_async(
         try:
             response = await client.messages.create(**kwargs)
             break
-        except anthropic.RateLimitError as e:
+        except anthropic.RateLimitError:
             if attempt == max_retries - 1:
                 logger.error(f"[GLM] Rate limit reached. Failed after {max_retries} attempts.")
                 raise
-            delay = initial_delay * (backoff_factor ** attempt)
+            delay = initial_delay * (backoff_factor**attempt)
             logger.warning(
                 f"[GLM] Rate limit error (429). Retrying in {delay:.1f}s... "
                 f"(Attempt {attempt + 1}/{max_retries})"
@@ -260,9 +256,11 @@ async def _chat_glm_async(
         except anthropic.APIStatusError as e:
             if e.status_code == 429:
                 if attempt == max_retries - 1:
-                    logger.error(f"[GLM] Rate limit status 429. Failed after {max_retries} attempts.")
+                    logger.error(
+                        f"[GLM] Rate limit status 429. Failed after {max_retries} attempts."
+                    )
                     raise
-                delay = initial_delay * (backoff_factor ** attempt)
+                delay = initial_delay * (backoff_factor**attempt)
                 logger.warning(
                     f"[GLM] Rate limit APIStatusError (429). Retrying in {delay:.1f}s... "
                     f"(Attempt {attempt + 1}/{max_retries})"
@@ -360,15 +358,17 @@ async def _chat_gemini_async(
     contents = []
     for msg in conv_messages:
         if msg["role"] == "user":
-            contents.append(genai_types.Content(
-                role="user",
-                parts=[genai_types.Part.from_text(text=msg["content"])]
-            ))
+            contents.append(
+                genai_types.Content(
+                    role="user", parts=[genai_types.Part.from_text(text=msg["content"])]
+                )
+            )
         elif msg["role"] == "assistant":
-            contents.append(genai_types.Content(
-                role="model",
-                parts=[genai_types.Part.from_text(text=msg["content"])]
-            ))
+            contents.append(
+                genai_types.Content(
+                    role="model", parts=[genai_types.Part.from_text(text=msg["content"])]
+                )
+            )
 
     # Run in thread pool since Gemini SDK is synchronous
     response = await asyncio.to_thread(
@@ -415,15 +415,17 @@ async def _chat_gemini_stream(
     contents = []
     for msg in conv_messages:
         if msg["role"] == "user":
-            contents.append(genai_types.Content(
-                role="user",
-                parts=[genai_types.Part.from_text(text=msg["content"])]
-            ))
+            contents.append(
+                genai_types.Content(
+                    role="user", parts=[genai_types.Part.from_text(text=msg["content"])]
+                )
+            )
         elif msg["role"] == "assistant":
-            contents.append(genai_types.Content(
-                role="model",
-                parts=[genai_types.Part.from_text(text=msg["content"])]
-            ))
+            contents.append(
+                genai_types.Content(
+                    role="model", parts=[genai_types.Part.from_text(text=msg["content"])]
+                )
+            )
 
     # Run in thread pool since Gemini SDK is synchronous
     def sync_generate():
@@ -488,11 +490,7 @@ async def _chat_openai_async(
         data = resp.json()
 
     content = data["choices"][0]["message"]["content"]
-    return {
-        "content": content,
-        "model": model,
-        "provider": LLMProvider.OPENAI_COMPATIBLE.value
-    }
+    return {"content": content, "model": model, "provider": LLMProvider.OPENAI_COMPATIBLE.value}
 
 
 async def _chat_openai_stream(
@@ -734,11 +732,9 @@ async def chat_async_with_tools(
         tool_results = []
         for block in response.content:  # type: ignore[attr-defined]
             if hasattr(block, "type") and block.type == "tool_use":
-                tool_results.append({
-                    "tool_name": block.name,
-                    "tool_input": block.input,
-                    "tool_id": block.id
-                })
+                tool_results.append(
+                    {"tool_name": block.name, "tool_input": block.input, "tool_id": block.id}
+                )
 
         if not tool_results:
             logger.warning(
@@ -756,7 +752,7 @@ async def chat_async_with_tools(
             "tool_results": tool_results,  # ✅ Structured data here
             "model": model or settings.glm_model,
             "provider": provider.value,
-            "stop_reason": getattr(response, "stop_reason", None)
+            "stop_reason": getattr(response, "stop_reason", None),
         }
 
     except asyncio.TimeoutError as e:

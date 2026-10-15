@@ -3,14 +3,15 @@
 Wraps the existing MinIO client functions from
 src.modules.document.infrastructure.storage.storage.
 """
-from src.shared.ports.storage import StoragePort
+
 from src.modules.document.infrastructure.storage.storage import (
-    upload_bytes,
-    download_bytes,
     delete_file,
+    download_bytes,
     file_exists,
     get_presigned_url,
+    upload_bytes,
 )
+from src.shared.ports.storage import StoragePort
 
 
 class MinIOAdapter(StoragePort):

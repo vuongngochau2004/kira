@@ -8,7 +8,6 @@ from pathlib import Path
 
 from src.modules.evaluation.domain.models import BatchEvaluationResponse
 
-
 METRIC_DIAGNOSTICS = {
     "answer_relevancy": (
         "Generation answers the wrong question or omits key information.",

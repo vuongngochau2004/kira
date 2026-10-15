@@ -10,7 +10,7 @@ import { memo, useMemo, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { useImprovedTextMatching } from '../hooks/use-improved-text-matching'
 import { findLongestMatch } from '../hooks/use-text-matching'
-import type { DocumentChunk, SourceChunk } from '../types/source-panel-types'
+import type { DocumentChunk, SourceChunk, TextMatchResult } from '../types/source-panel-types'
 
 // ============================================
 // Types
@@ -30,7 +30,7 @@ interface RelevantSegment {
   chunkIndex: number
   page: number
   segment: string
-  match: any
+  match: TextMatchResult | null
   relevance: number
   snippet?: string
 }

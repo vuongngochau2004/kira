@@ -4,6 +4,7 @@ Application core depends on this ABC, NOT on a specific embedding model.
 Allows swapping Vietnamese-v2 ↔ BAAI/bge ↔ OpenAI text-embedding-3
 without changing business logic.
 """
+
 from abc import ABC, abstractmethod
 
 

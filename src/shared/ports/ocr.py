@@ -4,6 +4,7 @@ Application core depends on this ABC, NOT on PaddleOCR/Tesseract directly.
 Allows swapping PaddleOCR ↔ Tesseract ↔ cloud OCR APIs
 without changing business logic.
 """
+
 from abc import ABC, abstractmethod
 
 

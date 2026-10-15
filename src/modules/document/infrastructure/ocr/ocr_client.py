@@ -6,9 +6,10 @@ Migrated from src/ingestion/paddleocr_client.py
 import asyncio
 import base64
 import logging
-import httpx
 from dataclasses import dataclass
 from typing import Any
+
+import httpx
 
 from src.config.config import settings
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class OCRResult:
     """Result from OCR processing."""
+
     text: str = ""
     success: bool = True
     error: str | None = None
@@ -67,10 +69,10 @@ class PaddleOCRClient:
             current_loop = None
 
         if (
-            self._client is None 
-            or self._client.is_closed 
-            or self._loop is None 
-            or self._loop is not current_loop 
+            self._client is None
+            or self._client.is_closed
+            or self._loop is None
+            or self._loop is not current_loop
             or self._loop.is_closed()
         ):
             if self._client and not self._client.is_closed:
@@ -170,11 +172,13 @@ class PaddleOCRClient:
 
             except httpx.HTTPError as e:
                 last_error = e
-                logger.warning(f"OCR request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
+                logger.warning(
+                    f"OCR request failed (attempt {attempt + 1}/{self.max_retries}): {e}"
+                )
 
             # Exponential backoff before retry
             if attempt < self.max_retries - 1:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
         # All retries exhausted
         raise httpx.HTTPError(
@@ -267,9 +271,7 @@ class PaddleOCRClient:
 
         try:
             # Prepare request payload as multipart form-data
-            files = {
-                "file": ("image.png", image_bytes, "image/png")
-            }
+            files = {"file": ("image.png", image_bytes, "image/png")}
             data = {
                 "lang": lang or self.lang,
             }
@@ -293,14 +295,16 @@ class PaddleOCRClient:
                 if not text and "results" in response_data:
                     results = response_data.get("results", [])
                     if results and isinstance(results, list):
-                        text = " ".join(
-                            r.get("text", "") for r in results if isinstance(r, dict)
-                        )
+                        text = " ".join(r.get("text", "") for r in results if isinstance(r, dict))
 
                 # Get confidence if available
                 confidence = response_data.get("confidence", 0.0)
                 if not confidence and "lines" in response_data:
-                    scores = [line.get("score", 0.0) for line in response_data["lines"] if isinstance(line, dict)]
+                    scores = [
+                        line.get("score", 0.0)
+                        for line in response_data["lines"]
+                        if isinstance(line, dict)
+                    ]
                     if scores:
                         confidence = sum(scores) / len(scores)
 

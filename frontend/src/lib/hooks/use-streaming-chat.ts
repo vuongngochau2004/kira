@@ -73,6 +73,7 @@ export function useStreamingChat() {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingMessageRef = useRef<string>('')
   const retryCountRef = useRef<number>(0)
+  const startStreamRef = useRef<((content: string, assistantMessageId: string) => Promise<void>) | null>(null)
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -93,6 +94,87 @@ export function useStreamingChat() {
     pendingMessageRef.current = ''
   }, [cleanup])
 
+  const updateAssistantMessage = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId
+          ? {
+              ...msg,
+              content: currentMessageRef.current,
+              sources: currentSourcesRef.current.length > 0
+                ? [...currentSourcesRef.current]
+                : undefined,
+              thinking: currentThinkingRef.current.length > 0
+                ? [...currentThinkingRef.current]
+                : undefined,
+            }
+          : msg
+      )
+    )
+  }, [])
+
+  const handleStreamEvent = useCallback((
+    event: StreamEvent,
+    messageId: string
+  ) => {
+    const { type, data } = event
+
+    switch (type) {
+      case 'thinking_start':
+        currentThinkingRef.current = []
+        break
+
+      case 'node_start':
+        currentThinkingRef.current = [
+          ...currentThinkingRef.current,
+          {
+            node: data.node || 'unknown',
+            status: 'running' as const,
+          },
+        ]
+        updateAssistantMessage(messageId)
+        break
+
+      case 'node_end':
+        {
+          const lastThinking = currentThinkingRef.current[currentThinkingRef.current.length - 1]
+          if (lastThinking) {
+            lastThinking.status = 'complete'
+          }
+          updateAssistantMessage(messageId)
+        }
+        break
+
+      case 'token':
+        currentMessageRef.current += data.token || ''
+        updateAssistantMessage(messageId)
+        break
+
+      case 'source':
+        if (data.sources) {
+          currentSourcesRef.current = data.sources
+          updateAssistantMessage(messageId)
+        }
+        break
+
+      case 'response':
+        if (data.message) {
+          currentMessageRef.current = data.message
+          updateAssistantMessage(messageId)
+        }
+        break
+
+      case 'error':
+        setError(data.message || 'Đã xảy ra lỗi')
+        break
+
+      case 'done':
+        cleanup()
+        setIsLoading(false)
+        break
+    }
+  }, [cleanup, updateAssistantMessage])
+
   // Reconnection logic with jitter to prevent thundering herd
   const reconnect = useCallback(async (content: string, assistantMessageId: string) => {
     const retryCount = retryCountRef.current
@@ -112,7 +194,9 @@ export function useStreamingChat() {
 
     reconnectTimeoutRef.current = setTimeout(async () => {
       retryCountRef.current = retryCount + 1
-      await startStream(content, assistantMessageId)
+      if (startStreamRef.current) {
+        await startStreamRef.current(content, assistantMessageId)
+      }
     }, Math.max(delay, RETRY_CONFIG.baseDelay * 0.5)) // Minimum 50% of base delay
   }, [])
 
@@ -185,99 +269,24 @@ export function useStreamingChat() {
             try {
               const parsed: StreamEvent = JSON.parse(data)
               handleStreamEvent(parsed, assistantMessageId)
-            } catch (e) {
+            } catch {
               // Failed to parse SSE event
             }
           }
         }
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Don't show error if aborted by user
-      if (e.name === 'AbortError') return
+      if (e instanceof Error && e.name === 'AbortError') return
 
       setError('Stream failed. Retrying...')
       reconnect(content, assistantMessageId)
     }
-  }, [conversationId, cleanup, reconnect])
+  }, [conversationId, reconnect, handleStreamEvent])
 
-  const handleStreamEvent = useCallback((
-    event: StreamEvent,
-    messageId: string
-  ) => {
-    const { type, data } = event
-
-    switch (type) {
-      case 'thinking_start':
-        currentThinkingRef.current = []
-        break
-
-      case 'node_start':
-        currentThinkingRef.current = [
-          ...currentThinkingRef.current,
-          {
-            node: data.node || 'unknown',
-            status: 'running' as const,
-          },
-        ]
-        updateAssistantMessage(messageId)
-        break
-
-      case 'node_end':
-        const lastThinking = currentThinkingRef.current[currentThinkingRef.current.length - 1]
-        if (lastThinking) {
-          lastThinking.status = 'complete'
-        }
-        updateAssistantMessage(messageId)
-        break
-
-      case 'token':
-        currentMessageRef.current += data.token || ''
-        updateAssistantMessage(messageId)
-        break
-
-      case 'source':
-        if (data.sources) {
-          currentSourcesRef.current = data.sources
-          updateAssistantMessage(messageId)
-        }
-        break
-
-      case 'response':
-        if (data.message) {
-          currentMessageRef.current = data.message
-          updateAssistantMessage(messageId)
-        }
-        break
-
-      case 'error':
-        setError(data.message || 'Đã xảy ra lỗi')
-        break
-
-      case 'done':
-        cleanup()
-        setIsLoading(false)
-        break
-    }
-  }, [cleanup])
-
-  const updateAssistantMessage = useCallback((messageId: string) => {
-    setMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === messageId
-          ? {
-              ...msg,
-              content: currentMessageRef.current,
-              sources: currentSourcesRef.current.length > 0
-                ? [...currentSourcesRef.current]
-                : undefined,
-              thinking: currentThinkingRef.current.length > 0
-                ? [...currentThinkingRef.current]
-                : undefined,
-            }
-          : msg
-      )
-    )
-  }, [])
+  useEffect(() => {
+    startStreamRef.current = startStream
+  }, [startStream])
 
   const sendMessage = useCallback((content: string) => {
     if (!content.trim()) return

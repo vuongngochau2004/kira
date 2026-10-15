@@ -9,7 +9,7 @@ from src.shared.kernel.di.feature_flags import (
     FeatureFlag,
     FeatureFlagManager,
     get_feature_flag_manager,
-    reset_feature_flag_manager
+    reset_feature_flag_manager,
 )
 from src.shared.kernel.di.registry import ServiceRegistry, get_container
 

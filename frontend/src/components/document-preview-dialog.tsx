@@ -116,6 +116,6 @@ export function DocumentPreviewDialog({
 }
 
 // Utility to handle conditional Tailwind classnames safely
-function cn(...classes: any[]) {
+function cn(...classes: (string | boolean | null | undefined)[]) {
   return classes.filter(Boolean).join(" ")
 }

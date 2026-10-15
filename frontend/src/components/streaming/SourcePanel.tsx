@@ -119,7 +119,7 @@ export function SourcePanel({ sources, isOpen, onClose, activeSourceId, classNam
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
   const activeRef = useRef<HTMLDivElement>(null)
   
-  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: any }>>>({})
+  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }> | null>>({})
   const [fetchingDocIds, setFetchingDocIds] = useState<Set<string>>(new Set())
 
   // Modal preview state for mobile
@@ -198,7 +198,7 @@ export function SourcePanel({ sources, isOpen, onClose, activeSourceId, classNam
           .catch(err => {
             console.warn('[SourcePanel] Failed to load chunks (will fallback to RAG snippets):', err?.message || err)
             // Mark as null to prevent infinite loop of retries on failure
-            setDocChunks(prev => ({ ...prev, [docId]: null as any }))
+            setDocChunks(prev => ({ ...prev, [docId]: null }))
           })
           .finally(() => {
             setFetchingDocIds((prev) => {

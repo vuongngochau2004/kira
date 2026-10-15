@@ -42,11 +42,7 @@ class ClassifyQuery:
         Returns:
             Dict with query data
         """
-        return {
-            "query": self.query,
-            "user_id": str(self.user_id),
-            "context": self.context or {}
-        }
+        return {"query": self.query, "user_id": str(self.user_id), "context": self.context or {}}
 
 
 @dataclass
@@ -86,7 +82,7 @@ class ClassificationResultDTO:
             confidence=result.confidence,
             reason=result.reason,
             metadata=result.metadata,
-            handler_hint=result.handler_hint
+            handler_hint=result.handler_hint,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -101,7 +97,7 @@ class ClassificationResultDTO:
             "confidence": self.confidence,
             "reason": self.reason,
             "metadata": self.metadata,
-            "handler_hint": self.handler_hint
+            "handler_hint": self.handler_hint,
         }
 
     def is_high_confidence(self, threshold: float = 0.7) -> bool:

@@ -102,18 +102,20 @@ export const CitationBadge = memo(({
 
 CitationBadge.displayName = 'CitationBadge'
 
+export interface CitationInfo {
+  chunk_id: string
+  source: string
+  page_number?: number
+  grounding_score?: number
+}
+
 /**
  * Hook to parse content and replace [source:chunk_id] with CitationBadge components
  */
 export function parseContentWithCitations(
   content: string,
-  citations: Array<{
-    chunk_id: string
-    source: string
-    page_number?: number
-    grounding_score?: number
-  }>,
-  onCitationClick?: (chunkId: string, citation: any) => void
+  citations: CitationInfo[],
+  onCitationClick?: (chunkId: string, citation: CitationInfo) => void
 ): Array<string | React.ReactElement> {
   if (!content) return []
 

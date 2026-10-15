@@ -143,12 +143,22 @@ class RAGHandler(QueryHandlerBase):
         if stage == "retrieval":
             output = state.get("retrieval_agent_output", {})
             documents = output.get("reranked_docs") or output.get("retrieved_docs") or []
-            metadata = {"docs_retrieved": len(documents), "refined_queries": output.get("refined_queries", [])}
+            metadata = {
+                "docs_retrieved": len(documents),
+                "refined_queries": output.get("refined_queries", []),
+            }
         elif stage == "quality":
             output = state.get("quality_agent_output", {})
-            metadata = {"quality_score": output.get("quality_score", 0.0), "should_regenerate": output.get("should_regenerate", False)}
+            metadata = {
+                "quality_score": output.get("quality_score", 0.0),
+                "should_regenerate": output.get("should_regenerate", False),
+            }
         else:
-            metadata = {"response_length": len(state.get("generated_response", ""))} if stage == "generation" else {}
+            metadata = (
+                {"response_length": len(state.get("generated_response", ""))}
+                if stage == "generation"
+                else {}
+            )
         return {"type": "status", "data": {"stage": stage, "metadata": metadata}}
 
     @staticmethod

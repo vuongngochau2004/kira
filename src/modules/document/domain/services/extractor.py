@@ -11,21 +11,20 @@ import logging
 import re
 from dataclasses import asdict
 from pathlib import Path
-from src.modules.document.domain.models import ExtractionResult, TextQualityReport
+
 from src.modules.document.domain.constants import (
-    SUPPORTED_TYPES,
+    HTML_ENTITY_PATTERN,
+    MOJIBAKE_OR_PLACEHOLDER_PATTERN,
     OCR_TYPES,
+    QUALITY_ISSUE_WEIGHTS,
+    SUPPORTED_TYPES,
     VIETNAMESE_DIACRITICS,
     VIETNAMESE_UNACCENTED_SIGNAL_WORDS,
-    MOJIBAKE_OR_PLACEHOLDER_PATTERN,
-    HTML_ENTITY_PATTERN,
-    QUALITY_ISSUE_WEIGHTS,
 )
+from src.modules.document.domain.models import ExtractionResult, TextQualityReport
 from src.shared.ports.ocr import OCRPort
 
 logger = logging.getLogger(__name__)
-
-
 
 
 def _is_low_quality_text(text: str, lang: str = "vi") -> bool:
@@ -51,7 +50,9 @@ def _is_low_quality_text(text: str, lang: str = "vi") -> bool:
     if len(words) > 5:
         single_char_words = [w for w in words if len(w) == 1 and w.isalpha()]
         if len(single_char_words) / len(words) > 0.40:
-            logger.warning("Low quality text detected: excessive single-character words (spacing issue)")
+            logger.warning(
+                "Low quality text detected: excessive single-character words (spacing issue)"
+            )
             return True
 
     # 2. Vietnamese-specific diacritics check
@@ -66,7 +67,7 @@ def _is_low_quality_text(text: str, lang: str = "vi") -> bool:
             if vi_ratio < 0.015:
                 logger.warning(
                     "Low quality text detected: very low Vietnamese diacritics ratio (%.2f%%)",
-                    vi_ratio * 100
+                    vi_ratio * 100,
                 )
                 return True
 
@@ -175,7 +176,9 @@ def _should_fallback_to_ocr(quality_issues: list[str], fallback_score: int = 3) 
     return score >= fallback_score
 
 
-async def extract_pdf(file_path: str, use_ocr_fallback: bool = True, ocr: OCRPort | None = None) -> ExtractionResult:
+async def extract_pdf(
+    file_path: str, use_ocr_fallback: bool = True, ocr: OCRPort | None = None
+) -> ExtractionResult:
     """Extract text from PDF.
 
     Docling is preferred for PDFs because it handles document layout and problematic
@@ -208,7 +211,8 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True, ocr: OCRPor
         fallback = await _extract_pdf_pymupdf(
             file_path,
             use_ocr_fallback=use_ocr_fallback,
-            force_ocr_all=True, ocr=ocr,
+            force_ocr_all=True,
+            ocr=ocr,
         )
         fallback.metadata["fallback_from"] = "vlm"
         fallback.metadata["vlm_error"] = vlm_result.error
@@ -242,12 +246,12 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True, ocr: OCRPor
             fallback = await _extract_pdf_pymupdf(
                 file_path,
                 use_ocr_fallback=use_ocr_fallback,
-                force_ocr_all=True, ocr=ocr,
+                force_ocr_all=True,
+                ocr=ocr,
             )
             fallback.metadata["fallback_from"] = "docling"
             fallback.metadata["docling_error"] = (
-                "Docling output failed Vietnamese quality gate: "
-                + ", ".join(quality_report.issues)
+                "Docling output failed Vietnamese quality gate: " + ", ".join(quality_report.issues)
             )
             fallback.metadata["docling_quality"] = asdict(quality_report)
             fallback.metadata["docling_chars"] = len(docling_result.text)
@@ -262,7 +266,8 @@ async def extract_pdf(file_path: str, use_ocr_fallback: bool = True, ocr: OCRPor
         fallback = await _extract_pdf_pymupdf(
             file_path,
             use_ocr_fallback=use_ocr_fallback,
-            force_ocr_all=True, ocr=ocr,
+            force_ocr_all=True,
+            ocr=ocr,
         )
         fallback.metadata["fallback_from"] = "docling"
         fallback.metadata["docling_error"] = docling_result.error
@@ -288,8 +293,9 @@ async def _extract_pdf_progressive(
              escalate ONLY that page to VLM transcription.
            - Merge the results (PaddleOCR texts + VLM Markdowns).
     """
-    from src.config.config import settings
     from dataclasses import asdict
+
+    from src.config.config import settings
 
     logger.info("Progressive extraction starting for %s", file_path)
 
@@ -298,7 +304,7 @@ async def _extract_pdf_progressive(
     if native_result.success and native_result.text.strip():
         native_text = native_result.text
         total_pages = max(native_result.pages, 1)
-        
+
         quality = _analyze_vietnamese_text_quality(
             native_text,
             lang=settings.ocr_lang,
@@ -320,55 +326,58 @@ async def _extract_pdf_progressive(
 
     # Step 2: Escalate to Hybrid OCR/VLM cascade
     logger.info("Progressive: Escalating to Hybrid OCR/VLM cascade for %s", file_path)
-    
+
     if ocr is None:
         from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
+
         ocr = PaddleOCRAdapter()
 
     try:
         import fitz
-        
+
         doc = fitz.open(file_path)
         total_pages = len(doc)
         zoom = settings.pdf_render_dpi / 72
-        
+
         page_texts = []
         hybrid_metadata = {
             "progressive_path": "hybrid_cascade",
             "paddleocr_pages": [],
             "vlm_pages": [],
         }
-        
+
         for page_num in range(total_pages):
             page = doc[page_num]
             logger.info("Hybrid processing page %d/%d for %s", page_num + 1, total_pages, file_path)
-            
+
             # Render page to image
             pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
             image_bytes = pix.tobytes("png")
-            
+
             # Run local PaddleOCR
             logger.info("Page %d: Running PaddleOCR...", page_num + 1)
             try:
                 page_text = await ocr.extract_text(image_bytes, language=settings.ocr_lang)
             except Exception as ocr_err:
-                logger.warning("PaddleOCR failed on page %d: %s. Forcing VLM.", page_num + 1, ocr_err)
+                logger.warning(
+                    "PaddleOCR failed on page %d: %s. Forcing VLM.", page_num + 1, ocr_err
+                )
                 page_text = ""
-                
+
             # Analyze OCR quality for this page
             quality = _analyze_vietnamese_text_quality(
                 page_text,
                 lang=settings.ocr_lang,
                 fallback_score=settings.docling_quality_fallback_score,
             )
-            
+
             # Decide if VLM is needed
             if quality.should_fallback or not page_text.strip():
                 logger.info(
                     "Page %d: OCR quality low (score=%d, issues=%s). Escalating to VLM...",
                     page_num + 1,
                     quality.score,
-                    quality.issues
+                    quality.issues,
                 )
                 image_data_url = _prepare_vlm_image_data_url(image_bytes)
                 vlm_text = await _transcribe_page_with_ollama_vlm(
@@ -376,22 +385,22 @@ async def _extract_pdf_progressive(
                     page_number=page_num + 1,
                 )
                 vlm_cleaned = _clean_vlm_markdown(vlm_text)
-                
+
                 page_texts.append(vlm_cleaned)
                 hybrid_metadata["vlm_pages"].append(page_num + 1)
             else:
                 logger.info("Page %d: OCR quality acceptable. Keeping OCR text.", page_num + 1)
                 page_texts.append(page_text)
                 hybrid_metadata["paddleocr_pages"].append(page_num + 1)
-                
+
         doc.close()
-        
+
         full_text = "\n\n".join(
             f"<!-- page {i + 1} -->\n{text.strip()}"
             for i, text in enumerate(page_texts)
             if text.strip()
         )
-        
+
         return ExtractionResult(
             text=full_text,
             pages=total_pages,
@@ -399,7 +408,7 @@ async def _extract_pdf_progressive(
             metadata=hybrid_metadata,
             success=bool(full_text.strip()),
         )
-        
+
     except Exception as e:
         logger.error("Hybrid OCR/VLM extraction failed for %s: %s", file_path, e)
         return ExtractionResult(
@@ -408,14 +417,12 @@ async def _extract_pdf_progressive(
         )
 
 
-
-
-
 async def _extract_pdf_vlm(file_path: str) -> ExtractionResult:
     """Extract PDF text by rendering each page and transcribing it with a VLM."""
     logger.info("Extracting PDF using VLM transcription: %s", file_path)
     try:
         import fitz
+
         from src.config.config import settings
 
         doc = fitz.open(file_path)
@@ -454,12 +461,8 @@ async def _extract_pdf_vlm(file_path: str) -> ExtractionResult:
                     lang=settings.ocr_lang,
                     fallback_score=settings.docling_quality_fallback_score,
                 )
-                should_verify = (
-                    settings.vlm_page_verification_enabled
-                    and (
-                        not settings.vlm_verify_only_failed_pages
-                        or initial_quality.should_fallback
-                    )
+                should_verify = settings.vlm_page_verification_enabled and (
+                    not settings.vlm_verify_only_failed_pages or initial_quality.should_fallback
                 )
                 verified = False
                 canonical_text = cleaned_text
@@ -502,10 +505,7 @@ async def _extract_pdf_vlm(file_path: str) -> ExtractionResult:
             *(process_page(rendered_page) for rendered_page in rendered_pages)
         )
         processed_pages.sort(key=lambda page: page["page_index"])
-        page_texts = [
-            (page["page_index"], page["canonical_text"])
-            for page in processed_pages
-        ]
+        page_texts = [(page["page_index"], page["canonical_text"]) for page in processed_pages]
         page_reports = [
             {
                 "page": page["page"],
@@ -639,6 +639,7 @@ async def _transcribe_page_with_ollama_vlm(
 ) -> str:
     """Transcribe a rendered PDF page through Ollama's OpenAI-compatible VLM API."""
     import httpx
+
     from src.config.config import settings
 
     api_key = settings.ollama_api_keys.split(",", 1)[0].strip()
@@ -692,6 +693,7 @@ async def _transcribe_page_with_ollama_vlm(
 async def _canonicalize_legal_document_with_ollama(text: str) -> str:
     """Normalize a verified document into legal structure without adding content."""
     import httpx
+
     from src.config.config import settings
 
     if len(text) > settings.legal_canonicalization_max_chars:
@@ -752,6 +754,7 @@ async def _verify_page_with_ollama_vlm(
 ) -> str:
     """Correct and verify a page transcription against the source image."""
     import httpx
+
     from src.config.config import settings
 
     api_key = settings.ollama_api_keys.split(",", 1)[0].strip()
@@ -822,6 +825,7 @@ def _write_vlm_audit_artifacts(
 ) -> Path:
     """Write page images, VLM page output, canonical text, and quality metadata."""
     from io import BytesIO
+
     from PIL import Image
 
     pages_dir = audit_dir / "pages"
@@ -863,7 +867,9 @@ def _write_vlm_audit_artifacts(
 def _prepare_vlm_image_data_url(image_bytes: bytes) -> str:
     """Resize and compress rendered page image before sending it to the VLM."""
     from io import BytesIO
+
     from PIL import Image
+
     from src.config.config import settings
 
     image = Image.open(BytesIO(image_bytes)).convert("RGB")
@@ -926,6 +932,7 @@ async def _extract_pdf_pymupdf(
     logger.info("Extracting PDF using PyMuPDF (native text): %s", file_path)
     try:
         import fitz
+
         from src.config.config import settings
 
         doc = fitz.open(file_path)
@@ -976,24 +983,26 @@ async def _extract_pdf_pymupdf(
 
         # Second pass: OCR for pages without text
         if ocr is None:
-            return ExtractionResult(success=False, error="OCR fallback requested without an OCRPort")
+            return ExtractionResult(
+                success=False, error="OCR fallback requested without an OCRPort"
+            )
         for page_num in pages_needing_ocr:
-                page = doc[page_num]
+            page = doc[page_num]
 
-                # Convert page to image
-                mat = fitz.Matrix(3.0, 3.0)  # 3x zoom for better OCR
-                pix = page.get_pixmap(matrix=mat)
-                img_bytes = pix.tobytes("png")
+            # Convert page to image
+            mat = fitz.Matrix(3.0, 3.0)  # 3x zoom for better OCR
+            pix = page.get_pixmap(matrix=mat)
+            img_bytes = pix.tobytes("png")
 
-                # Perform OCR
-                ocr_text = await ocr.extract_text(img_bytes, language=ocr_lang)
+            # Perform OCR
+            ocr_text = await ocr.extract_text(img_bytes, language=ocr_lang)
 
-                if ocr_text.strip():
-                    # Update placeholder with OCR text
-                    text_parts[page_num] = ocr_text
-                    page_texts.append((page_num, ocr_text))  # Track OCR pages too
-                elif text_parts[page_num].strip():
-                    page_texts.append((page_num, text_parts[page_num]))
+            if ocr_text.strip():
+                # Update placeholder with OCR text
+                text_parts[page_num] = ocr_text
+                page_texts.append((page_num, ocr_text))  # Track OCR pages too
+            elif text_parts[page_num].strip():
+                page_texts.append((page_num, text_parts[page_num]))
 
         doc.close()
 
@@ -1131,7 +1140,12 @@ def extract_text_file(file_path: str) -> ExtractionResult:
             return ExtractionResult(
                 text=text,
                 pages=1,
-                metadata={"extractor": "native", "encoding": "latin-1", "extraction_method": "normal", "ocr_used": False},
+                metadata={
+                    "extractor": "native",
+                    "encoding": "latin-1",
+                    "extraction_method": "normal",
+                    "ocr_used": False,
+                },
                 success=True,
             )
         except Exception as e:
@@ -1180,8 +1194,6 @@ async def extract_image_ocr(file_path: str, ocr: OCRPort | None = None) -> Extra
         return await _extract_image_docling(file_path, error=str(e))
 
 
-
-
 async def _extract_image_docling(file_path: str, error: str | None = None) -> ExtractionResult:
     """Fallback image extraction using Docling.
 
@@ -1215,7 +1227,9 @@ async def _extract_image_docling(file_path: str, error: str | None = None) -> Ex
         )
 
 
-async def extract_content(file_path: str, file_type: str, ocr: OCRPort | None = None) -> ExtractionResult:
+async def extract_content(
+    file_path: str, file_type: str, ocr: OCRPort | None = None
+) -> ExtractionResult:
     """Extract text from file using appropriate extractor.
 
     Args:
@@ -1249,8 +1263,12 @@ async def extract_content(file_path: str, file_type: str, ocr: OCRPort | None = 
     else:
         method_name = "normal (text-based)"
 
-    print(f"[Extractor] Starting {method_name} extraction for file: {file_path} (format: {file_type})")
-    logger.info("Starting %s extraction for file: %s (format: %s)", method_name, file_path, file_type)
+    print(
+        f"[Extractor] Starting {method_name} extraction for file: {file_path} (format: {file_type})"
+    )
+    logger.info(
+        "Starting %s extraction for file: %s (format: %s)", method_name, file_path, file_type
+    )
 
     try:
         if file_type == "pdf":
@@ -1278,7 +1296,11 @@ async def extract_content(file_path: str, file_type: str, ocr: OCRPort | None = 
 
             ext_method = result.metadata["extraction_method"].upper()
             print(f"[Extractor] Extraction successful. Method: {ext_method}, Pages: {result.pages}")
-            logger.info("Extraction successful. Method: %s, Pages: %d", result.metadata['extraction_method'], result.pages)
+            logger.info(
+                "Extraction successful. Method: %s, Pages: %d",
+                result.metadata["extraction_method"],
+                result.pages,
+            )
         else:
             print(f"[Extractor ERROR] Extraction failed: {result.error}")
             logger.error("Extraction failed: %s", result.error)
@@ -1293,7 +1315,9 @@ async def extract_content(file_path: str, file_type: str, ocr: OCRPort | None = 
         )
 
 
-def extract_content_sync(file_path: str, file_type: str, ocr: OCRPort | None = None) -> ExtractionResult:
+def extract_content_sync(
+    file_path: str, file_type: str, ocr: OCRPort | None = None
+) -> ExtractionResult:
     """Synchronous wrapper for extract_content.
 
     This function runs the async extract_content in a new event loop.

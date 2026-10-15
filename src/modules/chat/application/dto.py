@@ -15,7 +15,7 @@ from typing import Any
 from uuid import UUID
 
 from src.shared.ports.classification import ClassificationResult
-from src.shared.ports.handlers import HandlerResult, Citation
+from src.shared.ports.handlers import Citation, HandlerResult
 
 
 @dataclass

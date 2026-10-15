@@ -20,16 +20,20 @@ class RetrievalSearchRequest(BaseModel):
     rrf_k: int = Field(60, ge=1, description="RRF constant")
     enable_rerank: bool = Field(False, description="Enable LLM reranking")
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "query_embedding": [0.1, 0.2, 0.3],
-            "query_text": "tìm kiếm văn bản",
-            "user_id": "user123",
-            "k": 5,
-            "rrf_k": 60,
-            "enable_rerank": True,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "query_embedding": [0.1, 0.2, 0.3],
+                    "query_text": "tìm kiếm văn bản",
+                    "user_id": "user123",
+                    "k": 5,
+                    "rrf_k": 60,
+                    "enable_rerank": True,
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class RetrievedChunk(BaseModel):
@@ -45,19 +49,23 @@ class RetrievedChunk(BaseModel):
     rerank_score: float | None = Field(None, description="LLM reranking score")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "text": "Sample document text",
-            "content": "Sample document text",
-            "document_id": "uuid",
-            "chunk_index": 0,
-            "page_number": 1,
-            "score": 0.85,
-            "rrf_score": 0.12,
-            "rerank_score": 0.90,
-            "metadata": {"user_id": "user123"},
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "text": "Sample document text",
+                    "content": "Sample document text",
+                    "document_id": "uuid",
+                    "chunk_index": 0,
+                    "page_number": 1,
+                    "score": 0.85,
+                    "rrf_score": 0.12,
+                    "rerank_score": 0.90,
+                    "metadata": {"user_id": "user123"},
+                }
+            ]
         }
-    ]}}
+    }
 
 
 class RetrievalSearchResponse(BaseModel):
@@ -69,15 +77,19 @@ class RetrievalSearchResponse(BaseModel):
     retrieval_method: str = Field(..., description="Method used: hybrid, dense_only, bm25_only")
     latency_ms: int | None = Field(None, description="Search latency in milliseconds")
 
-    model_config = {"json_schema_extra": {"examples": [
-        {
-            "results": [],
-            "total": 5,
-            "query": "tìm kiếm văn bản",
-            "retrieval_method": "hybrid",
-            "latency_ms": 150,
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "results": [],
+                    "total": 5,
+                    "query": "tìm kiếm văn bản",
+                    "retrieval_method": "hybrid",
+                    "latency_ms": 150,
+                }
+            ]
         }
-    ]}}
+    }
 
 
 __all__ = [

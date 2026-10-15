@@ -21,24 +21,25 @@ Example:
     final_response = state["final_response"]
 """
 
-from typing import Dict, Any, AsyncIterator, Optional
 import time
+from typing import Any, AsyncIterator, Dict, Optional
+
+from loguru import logger
 
 from src.modules.rag.orchestration.state.rag_state import (
-    RAGState,
     AgentStatus,
     OrchestratorAgentConfig,
+    RAGState,
     create_agent_result,
-    mark_agent_start,
-    update_state_with_agent_result,
-    update_orchestrator_routing,
-    increment_orchestrator_iteration,
     get_quality_score,
-    should_regenerate
+    increment_orchestrator_iteration,
+    mark_agent_start,
+    should_regenerate,
+    update_orchestrator_routing,
+    update_state_with_agent_result,
 )
+from src.shared.ports.classification import ClassificationResult, Intent
 from src.shared.ports.handlers import QueryHandlerBase
-from src.shared.ports.classification import Intent, ClassificationResult
-from loguru import logger
 
 
 class OrchestratorAgent:
@@ -67,7 +68,7 @@ class OrchestratorAgent:
         config: OrchestratorAgentConfig,
         retrieval_agent: Optional[QueryHandlerBase] = None,
         generation_agent: Optional[QueryHandlerBase] = None,
-        quality_agent: Optional[QueryHandlerBase] = None
+        quality_agent: Optional[QueryHandlerBase] = None,
     ):
         """
         Initialize OrchestratorAgent.
@@ -83,11 +84,7 @@ class OrchestratorAgent:
         self.generation_agent = generation_agent
         self.quality_agent = quality_agent
 
-    async def handle(
-        self,
-        state: RAGState,
-        context: Optional[Dict[str, Any]] = None
-    ) -> RAGState:
+    async def handle(self, state: RAGState, context: Optional[Dict[str, Any]] = None) -> RAGState:
         """
         Execute complete agentic RAG pipeline with orchestration.
 
@@ -119,17 +116,23 @@ class OrchestratorAgent:
 
             # Stage 1: Initial routing
             routing_decision = await self._make_routing_decision(state)
-            state = update_orchestrator_routing(state, routing_decision["next_agent"], routing_decision)
-            logger.info(f"🎯 <yellow>[ORCHESTRATOR ROUTING]</yellow> Initial routing decision: next_agent={routing_decision['next_agent']}")
+            state = update_orchestrator_routing(
+                state, routing_decision["next_agent"], routing_decision
+            )
+            logger.info(
+                f"🎯 <yellow>[ORCHESTRATOR ROUTING]</yellow> Initial routing decision: next_agent={routing_decision['next_agent']}"
+            )
 
             if context and context.get("langgraph_node"):
-                logger.info("🎯 <yellow>[ORCHESTRATOR ROUTING]</yellow> LangGraph node mode: bypassing execution loop.")
+                logger.info(
+                    "🎯 <yellow>[ORCHESTRATOR ROUTING]</yellow> LangGraph node mode: bypassing execution loop."
+                )
                 execution_time = (time.time() - start_time) * 1000
                 result = create_agent_result(
                     agent_name="OrchestratorAgent",
                     status=AgentStatus.COMPLETED,
                     execution_time_ms=execution_time,
-                    metadata={"langgraph_node": True, "next_agent": routing_decision["next_agent"]}
+                    metadata={"langgraph_node": True, "next_agent": routing_decision["next_agent"]},
                 )
                 return update_state_with_agent_result(state, result)
 
@@ -139,7 +142,9 @@ class OrchestratorAgent:
 
             while iteration < max_iterations:
                 iteration += 1
-                logger.info(f"🔄 <yellow>[ORCHESTRATOR ITERATION]</yellow> Pipeline iteration {iteration}/{max_iterations}")
+                logger.info(
+                    f"🔄 <yellow>[ORCHESTRATOR ITERATION]</yellow> Pipeline iteration {iteration}/{max_iterations}"
+                )
 
                 # Execute RetrievalAgent
                 if self.retrieval_agent:
@@ -147,7 +152,9 @@ class OrchestratorAgent:
 
                 # Execute GenerationAgent
                 if self.generation_agent:
-                    state = await self._execute_agent(state, self.generation_agent, "GenerationAgent")
+                    state = await self._execute_agent(
+                        state, self.generation_agent, "GenerationAgent"
+                    )
 
                 # Execute QualityAgent
                 if self.quality_agent:
@@ -155,24 +162,32 @@ class OrchestratorAgent:
 
                 # Evaluate quality
                 quality_score = get_quality_score(state)
-                logger.info(f"📊 <cyan>[ORCHESTRATOR QUALITY]</cyan> Iteration {iteration} quality score: {quality_score:.2f}")
+                logger.info(
+                    f"📊 <cyan>[ORCHESTRATOR QUALITY]</cyan> Iteration {iteration} quality score: {quality_score:.2f}"
+                )
 
                 # Quality gate check
                 if quality_score >= self.config.quality_gate_threshold:
-                    logger.info(f"✅ <green>[ORCHESTRATOR QUALITY PASSED]</green> Quality gate passed: {quality_score:.2f} >= threshold={self.config.quality_gate_threshold:.2f}")
+                    logger.info(
+                        f"✅ <green>[ORCHESTRATOR QUALITY PASSED]</green> Quality gate passed: {quality_score:.2f} >= threshold={self.config.quality_gate_threshold:.2f}"
+                    )
                     state["final_response"] = state["generated_response"]
                     state["is_final"] = True
                     break
 
                 # Check if should regenerate
                 if should_regenerate(state) and iteration < max_iterations:
-                    logger.info("🔄 <yellow>[ORCHESTRATOR REGENERATE]</yellow> Quality gate failed. Regeneration recommended, retrying...")
+                    logger.info(
+                        "🔄 <yellow>[ORCHESTRATOR REGENERATE]</yellow> Quality gate failed. Regeneration recommended, retrying..."
+                    )
                     state = increment_orchestrator_iteration(state)
                     continue
 
                 # Quality failed, check fallback
                 if quality_score < self.config.quality_gate_threshold:
-                    logger.warning(f"⚠️  <yellow>[ORCHESTRATOR QUALITY FAILED]</yellow> Quality gate failed after {iteration} iterations (score={quality_score:.2f} < threshold={self.config.quality_gate_threshold:.2f})")
+                    logger.warning(
+                        f"⚠️  <yellow>[ORCHESTRATOR QUALITY FAILED]</yellow> Quality gate failed after {iteration} iterations (score={quality_score:.2f} < threshold={self.config.quality_gate_threshold:.2f})"
+                    )
                     if self.config.enable_routing and self.config.enable_flow_control:
                         # Fallback to simpler pipeline
                         state = await self._fallback_pipeline(state)
@@ -197,22 +212,27 @@ class OrchestratorAgent:
                     "iterations": iteration,
                     "final_quality": get_quality_score(state),
                     "routing_history": len(state["orchestrator_state"]["routing_history"]),
-                    "total_time_ms": execution_time
-                }
+                    "total_time_ms": execution_time,
+                },
             )
 
-            logger.info(f"✅ <green>[ORCHESTRATOR agent COMPLETED]</green> Completed in {execution_time:.0f}ms after {iteration} iterations")
+            logger.info(
+                f"✅ <green>[ORCHESTRATOR agent COMPLETED]</green> Completed in {execution_time:.0f}ms after {iteration} iterations"
+            )
             return update_state_with_agent_result(state, result)
 
         except Exception as e:
             execution_time = (time.time() - start_time) * 1000
-            logger.error(f"❌ <red>[ORCHESTRATOR agent ERROR]</red> OrchestratorAgent failed: {e}", exc_info=True)
+            logger.error(
+                f"❌ <red>[ORCHESTRATOR agent ERROR]</red> OrchestratorAgent failed: {e}",
+                exc_info=True,
+            )
 
             result = create_agent_result(
                 agent_name="OrchestratorAgent",
                 status=AgentStatus.FAILED,
                 execution_time_ms=execution_time,
-                error_message=str(e)
+                error_message=str(e),
             )
 
             state = update_state_with_agent_result(state, result)
@@ -221,9 +241,7 @@ class OrchestratorAgent:
             return state
 
     async def handle_stream(
-        self,
-        state: RAGState,
-        context: Optional[Dict[str, Any]] = None
+        self, state: RAGState, context: Optional[Dict[str, Any]] = None
     ) -> AsyncIterator[Dict[str, Any]]:
         """
         Execute pipeline with streaming updates.
@@ -245,15 +263,17 @@ class OrchestratorAgent:
 
             # Initial routing
             routing_decision = await self._make_routing_decision(state)
-            state = update_orchestrator_routing(state, routing_decision["next_agent"], routing_decision)
+            state = update_orchestrator_routing(
+                state, routing_decision["next_agent"], routing_decision
+            )
 
             yield {
                 "type": "routing",
                 "data": {
                     "status": "completed",
                     "next_agent": routing_decision["next_agent"],
-                    "reasoning": routing_decision.get("reasoning", "")
-                }
+                    "reasoning": routing_decision.get("reasoning", ""),
+                },
             }
 
             # Execute pipeline
@@ -267,15 +287,29 @@ class OrchestratorAgent:
 
                 # Execute agents
                 if self.retrieval_agent:
-                    yield {"type": "agent", "data": {"agent": "RetrievalAgent", "status": "started"}}
+                    yield {
+                        "type": "agent",
+                        "data": {"agent": "RetrievalAgent", "status": "started"},
+                    }
                     state = await self._execute_agent(state, self.retrieval_agent, "RetrievalAgent")
-                    yield {"type": "agent", "data": {"agent": "RetrievalAgent", "status": "completed"}}
+                    yield {
+                        "type": "agent",
+                        "data": {"agent": "RetrievalAgent", "status": "completed"},
+                    }
 
                 if self.generation_agent:
-                    yield {"type": "agent", "data": {"agent": "GenerationAgent", "status": "started"}}
+                    yield {
+                        "type": "agent",
+                        "data": {"agent": "GenerationAgent", "status": "started"},
+                    }
                     # For streaming generation, we'd need to handle streaming differently
-                    state = await self._execute_agent(state, self.generation_agent, "GenerationAgent")
-                    yield {"type": "agent", "data": {"agent": "GenerationAgent", "status": "completed"}}
+                    state = await self._execute_agent(
+                        state, self.generation_agent, "GenerationAgent"
+                    )
+                    yield {
+                        "type": "agent",
+                        "data": {"agent": "GenerationAgent", "status": "completed"},
+                    }
 
                 if self.quality_agent:
                     yield {"type": "agent", "data": {"agent": "QualityAgent", "status": "started"}}
@@ -287,8 +321,8 @@ class OrchestratorAgent:
                         "data": {
                             "agent": "QualityAgent",
                             "status": "completed",
-                            "quality_score": quality_score
-                        }
+                            "quality_score": quality_score,
+                        },
                     }
 
                     # Quality gate check
@@ -298,8 +332,8 @@ class OrchestratorAgent:
                             "data": {
                                 "passed": True,
                                 "score": quality_score,
-                                "threshold": self.config.quality_gate_threshold
-                            }
+                                "threshold": self.config.quality_gate_threshold,
+                            },
                         }
                         break
                     elif should_regenerate(state) and iteration < max_iterations:
@@ -308,18 +342,14 @@ class OrchestratorAgent:
                             "data": {
                                 "passed": False,
                                 "score": quality_score,
-                                "action": "regenerate"
-                            }
+                                "action": "regenerate",
+                            },
                         }
                         continue
                     else:
                         yield {
                             "type": "quality_gate",
-                            "data": {
-                                "passed": False,
-                                "score": quality_score,
-                                "action": "accept"
-                            }
+                            "data": {"passed": False, "score": quality_score, "action": "accept"},
                         }
                         break
 
@@ -331,11 +361,14 @@ class OrchestratorAgent:
             result = create_agent_result(
                 agent_name="OrchestratorAgent",
                 status=AgentStatus.COMPLETED,
-                execution_time_ms=execution_time
+                execution_time_ms=execution_time,
             )
             state = update_state_with_agent_result(state, result)
 
-            yield {"type": "done", "data": {"iterations": iteration, "total_time_ms": execution_time}}
+            yield {
+                "type": "done",
+                "data": {"iterations": iteration, "total_time_ms": execution_time},
+            }
 
         except Exception as e:
             logger.error(f"OrchestratorAgent streaming failed: {e}")
@@ -382,14 +415,11 @@ class OrchestratorAgent:
         return {
             "next_agent": "RetrievalAgent",
             "reasoning": "Standard query - full pipeline",
-            "query_complexity": "medium" if 50 < query_length < 200 else "simple"
+            "query_complexity": "medium" if 50 < query_length < 200 else "simple",
         }
 
     async def _execute_agent(
-        self,
-        state: RAGState,
-        agent: QueryHandlerBase,
-        agent_name: str
+        self, state: RAGState, agent: QueryHandlerBase, agent_name: str
     ) -> RAGState:
         """
         Execute an agent and handle errors.
@@ -414,7 +444,7 @@ class OrchestratorAgent:
             handle_params = list(handle_sig.parameters.keys())
 
             # Multi-Agent interface: handle(state, context=None)
-            if len(handle_params) >= 1 and handle_params[0] in ['state', 'self']:
+            if len(handle_params) >= 1 and handle_params[0] in ["state", "self"]:
                 # Multi-Agent agent - pass RAGState directly
                 logger.debug(f"Executing {agent_name} with Multi-Agent interface")
                 state = await agent.handle(state, context={"orchestrator": True})
@@ -422,9 +452,7 @@ class OrchestratorAgent:
                 # QueryHandlerBase interface - pass (query, user_id, classification)
                 logger.debug(f"Executing {agent_name} with QueryHandlerBase interface")
                 classification = ClassificationResult(
-                    intent=Intent.RAG,
-                    confidence=0.8,
-                    reasoning="Orchestrator routing"
+                    intent=Intent.RAG, confidence=0.8, reasoning="Orchestrator routing"
                 )
                 state = await agent.handle(state["query"], state["user_id"], classification)
 
@@ -457,7 +485,9 @@ class OrchestratorAgent:
 
         # TODO: Implement actual fallback logic
         # For now, just accept current response
-        state["final_response"] = state.get("generated_response", "Xin lỗi, không thể tạo phản hồi.")
+        state["final_response"] = state.get(
+            "generated_response", "Xin lỗi, không thể tạo phản hồi."
+        )
         state["is_final"] = True
         state["should_fallback"] = True
         state["fallback_reason"] = "Quality gate failed after max iterations"
@@ -468,11 +498,7 @@ class OrchestratorAgent:
     # Flow Control and Quality Gates
     # ==========================================================================
 
-    def _evaluate_quality_gate(
-        self,
-        state: RAGState,
-        iteration: int
-    ) -> Dict[str, Any]:
+    def _evaluate_quality_gate(self, state: RAGState, iteration: int) -> Dict[str, Any]:
         """
         Evaluate if response passes quality gate.
 
@@ -491,21 +517,21 @@ class OrchestratorAgent:
                 "passed": True,
                 "score": quality_score,
                 "action": "proceed",
-                "reasoning": f"Quality score {quality_score:.2f} >= threshold {threshold:.2f}"
+                "reasoning": f"Quality score {quality_score:.2f} >= threshold {threshold:.2f}",
             }
         elif iteration >= self.config.max_pipeline_iterations:
             return {
                 "passed": False,
                 "score": quality_score,
                 "action": "accept",
-                "reasoning": "Max iterations reached, accepting current response"
+                "reasoning": "Max iterations reached, accepting current response",
             }
         else:
             return {
                 "passed": False,
                 "score": quality_score,
                 "action": "regenerate",
-                "reasoning": f"Quality score {quality_score:.2f} < threshold {threshold:.2f}"
+                "reasoning": f"Quality score {quality_score:.2f} < threshold {threshold:.2f}",
             }
 
     # ==========================================================================
@@ -528,11 +554,7 @@ class OrchestratorAgent:
             Complexity analysis dict
         """
         # Placeholder
-        return {
-            "complexity": "medium",
-            "reasoning_depth": "shallow",
-            "entities_count": 0
-        }
+        return {"complexity": "medium", "reasoning_depth": "shallow", "entities_count": 0}
 
     async def _should_skip_agent(self, agent_name: str, state: RAGState) -> bool:
         """

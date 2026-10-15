@@ -6,11 +6,11 @@ Implementation files use kebab-case naming; imports go through __init__.py.
 """
 
 from src.modules.chat.domain.services import (
-    RAGService,
-    RAGResult,
-    ConversationService,
     ConversationContext,
     ConversationResult,
+    ConversationService,
+    RAGResult,
+    RAGService,
 )
 
 __all__ = [

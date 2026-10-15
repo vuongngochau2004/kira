@@ -16,6 +16,7 @@ from src.shared.kernel.base.entity import Entity
 
 class UserRole:
     """User role enumeration (value object)."""
+
     USER = "user"
     ADMIN = "admin"
 

@@ -19,13 +19,34 @@ export interface ParentDocumentInfo {
   relevance_score: number
 }
 
+export interface RawSourceItem {
+  id?: string
+  chunk_id?: string
+  title?: string
+  source?: string
+  filename?: string
+  snippet?: string
+  content?: string
+  page?: number
+  page_number?: number
+  chunk_index?: number
+  score?: number
+  grounding_score?: number
+  document_id?: string
+  content_length?: number
+  total_chunks_used?: number
+  relevance_score?: number
+  chunks?: RawSourceItem[]
+  [key: string]: unknown
+}
+
 interface SourcesState {
   sources: SourceItem[]
   conversationId: string | null
   isOpen: boolean
   activeSourceId: string | null
-  setSources: (rawSources: any[]) => void
-  replaceForConversation: (conversationId: string | null, rawSources: any[]) => void
+  setSources: (rawSources: RawSourceItem[]) => void
+  replaceForConversation: (conversationId: string | null, rawSources: RawSourceItem[]) => void
   setIsOpen: (isOpen: boolean) => void
   toggleOpen: () => void
   setActiveSourceId: (id: string | null) => void
@@ -46,22 +67,22 @@ function getSourceType(title: string, documentId?: string | null): 'pdf' | 'docx
   return 'pdf'
 }
 
-function mapSources(rawSources: any[] | null | undefined): SourceItem[] {
+function mapSources(rawSources: RawSourceItem[] | null | undefined): SourceItem[] {
   if (!rawSources || rawSources.length === 0) {
     return []
   }
 
   // Auto-detect response format (grouped vs flat)
-  const isGrouped = rawSources[0]?.hasOwnProperty('chunks')
+  const isGrouped = Boolean(rawSources[0] && 'chunks' in rawSources[0])
 
   if (isGrouped) {
     // Grouped by document: flatten DocumentSource.chunks into SourceItem list.
-    return rawSources.flatMap((docSource: any, docIdx: number) => {
+    return rawSources.flatMap((docSource: RawSourceItem, docIdx: number) => {
       const docTitle = docSource.filename || docSource.title || 'Tài liệu'
       const docId = docSource.document_id || `doc-${docIdx}`
       const type = getSourceType(docTitle, docId)
 
-      return (docSource.chunks || []).map((chunk: any, chunkIdx: number) => ({
+      return (docSource.chunks || []).map((chunk: RawSourceItem, chunkIdx: number) => ({
         id: chunk.chunk_id || chunk.id || `${docId}-chunk-${chunkIdx}`,
         type,
         title: docTitle,

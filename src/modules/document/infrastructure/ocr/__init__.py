@@ -4,10 +4,10 @@ Provides OCR services via PaddleOCR client.
 """
 
 from src.modules.document.infrastructure.ocr.ocr_client import (
-    PaddleOCRClient,
     OCRResult,
-    get_ocr_client,
+    PaddleOCRClient,
     close_ocr_client,
+    get_ocr_client,
 )
 
 __all__ = [

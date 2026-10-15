@@ -37,7 +37,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       access_token: null,
       refresh_token: null,
@@ -87,7 +87,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isVerified: true,
           })
-        } catch (error) {
+        } catch {
           // Network error or auth failed - clear state
           set({
             user: null,
@@ -228,7 +228,7 @@ export const useAuthStore = create<AuthState>()(
             method: 'POST',
             credentials: 'include',  // Send/receive httpOnly cookies
           })
-        } catch (error) {
+        } catch {
           // Ignore logout errors
         } finally {
           // Always clear local state

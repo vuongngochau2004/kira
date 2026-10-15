@@ -127,7 +127,9 @@ class DeepEvalEvaluationService:
         results: list[EvaluationResponse] = []
         failed = 0
 
-        sem = asyncio.Semaphore(3)  # Restrict to 3 concurrent evaluations (reduced to avoid LLM rate limit 429)
+        sem = asyncio.Semaphore(
+            3
+        )  # Restrict to 3 concurrent evaluations (reduced to avoid LLM rate limit 429)
 
         async def _evaluate_with_semaphore(
             item: EvaluationRequest,
@@ -320,7 +322,9 @@ class DeepEvalEvaluationService:
                         if filename and field:
                             filename_to_field[filename.strip()] = field.strip()
         except Exception as e:
-            print(f"Warning: Failed to load dataset/_subset_manifest.csv for macro aggregation: {e}")
+            print(
+                f"Warning: Failed to load dataset/_subset_manifest.csv for macro aggregation: {e}"
+            )
 
         # 2. Group sample scores by field
         field_scores: dict[str, dict[str, list[float]]] = {}
@@ -342,7 +346,7 @@ class DeepEvalEvaluationService:
 
         # 3. Calculate macro average for each metric
         metric_field_averages: dict[str, list[float]] = {}
-        for field, metrics in field_scores.items():
+        for _field, metrics in field_scores.items():
             for metric_name, values in metrics.items():
                 if values:
                     avg = sum(values) / len(values)

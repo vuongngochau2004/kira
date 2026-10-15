@@ -2,7 +2,6 @@
 
 import re
 
-
 _DOCUMENT_CITATION_RE = re.compile(r"\s*\[Document\s+\d+\]", flags=re.IGNORECASE)
 _TRAILING_SOURCES_RE = re.compile(
     r"\n+\s*(?:Tài liệu|Nguồn|Căn cứ)\s*/?\s*(?:căn cứ)?\s*đã sử dụng\s*:.*\Z",

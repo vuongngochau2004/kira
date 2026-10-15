@@ -10,28 +10,28 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.shared.infrastructure.persistence.database.session import get_session
-from src.shared.infrastructure.persistence.database.query import soft_delete_conversation
+from src.constants import (
+    DEFAULT_CONVERSATION_LIMIT,
+    DEFAULT_MAX_TOKENS,
+    DEFAULT_OFFSET,
+    DEFAULT_TEMPERATURE,
+    ERR_CONVERSATION_NOT_FOUND,
+)
+from src.modules.chat.api.requests import ChatStreamRequest, ConversationCreate
+from src.modules.chat.application.dto import ChatQuery
 from src.modules.chat.composition import (
+    citation_enricher,
     create_conversation,
     create_message,
-    citation_enricher,
     get_chat_use_case,
     get_conversation,
     get_conversation_messages,
     list_conversations,
 )
-from src.modules.chat.application.dto import ChatQuery
 from src.shared.infrastructure.auth.dependencies import get_current_user
 from src.shared.infrastructure.persistence.database.models import User
-from src.modules.chat.api.requests import ChatStreamRequest, ConversationCreate
-from src.constants import (
-    DEFAULT_TEMPERATURE,
-    DEFAULT_MAX_TOKENS,
-    DEFAULT_CONVERSATION_LIMIT,
-    DEFAULT_OFFSET,
-    ERR_CONVERSATION_NOT_FOUND,
-)
+from src.shared.infrastructure.persistence.database.query import soft_delete_conversation
+from src.shared.infrastructure.persistence.database.session import get_session
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -434,7 +434,7 @@ async def chat_completion(
                 "page": c.page,
                 "confidence": c.confidence,
                 "document_id": (
-                    str(getattr(c, "document_id"))
+                    str(c.document_id)
                     if getattr(c, "document_id", None)
                     else c.metadata.get("document_id")
                     if getattr(c, "metadata", None)
@@ -589,11 +589,11 @@ async def _stream_generator(
                         contexts = [c.get("content", "") for c in citations if c.get("content")]
 
                         if contexts:
-                            from src.modules.evaluation.domain.service import get_evaluation_service
                             from src.modules.evaluation.api.schemas import (
-                                EvaluationRequest,
                                 EvaluationMetric,
+                                EvaluationRequest,
                             )
+                            from src.modules.evaluation.domain.service import get_evaluation_service
 
                             # Map metric names to enum
                             metrics = evaluation_metrics or ["faithfulness", "answer_relevancy"]

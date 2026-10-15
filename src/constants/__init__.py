@@ -2,10 +2,10 @@
 
 from enum import Enum
 
-
 # =============================================================================
 # ENUMS - Categorical constants
 # =============================================================================
+
 
 class HTTPStatus(int, Enum):
     """HTTP status codes."""

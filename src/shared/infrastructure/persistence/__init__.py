@@ -4,33 +4,33 @@ Provides database session management, ORM models, and query helpers
 for PostgreSQL with async support.
 """
 
+from src.shared.infrastructure.persistence.database.models import (
+    Conversation,
+    Document,
+    DocumentChunk,
+    DocumentStatus,
+    Message,
+    MessageRole,
+    User,
+    UserRole,
+)
+from src.shared.infrastructure.persistence.database.query import (
+    get_chunks_by_document,
+    get_conversation_with_messages,
+    get_document_with_chunks,
+    get_user_by_email,
+    list_user_conversations,
+    list_user_documents,
+    soft_delete_conversation,
+    soft_delete_document,
+)
 from src.shared.infrastructure.persistence.database.session import (
     Base,
+    async_session_factory,
+    close_db,
     engine,
     get_session,
     init_db,
-    close_db,
-    async_session_factory,
-)
-from src.shared.infrastructure.persistence.database.models import (
-    User,
-    Document,
-    DocumentChunk,
-    Conversation,
-    Message,
-    UserRole,
-    DocumentStatus,
-    MessageRole,
-)
-from src.shared.infrastructure.persistence.database.query import (
-    get_user_by_email,
-    get_document_with_chunks,
-    get_conversation_with_messages,
-    list_user_documents,
-    list_user_conversations,
-    get_chunks_by_document,
-    soft_delete_document,
-    soft_delete_conversation,
 )
 
 __all__ = [
