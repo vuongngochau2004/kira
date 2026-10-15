@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { documentsAPI } from '@/lib/api/simple-client'
-import type { DocumentData, DocumentChunk } from '../types/source-panel-types'
+import type { DocumentData } from '../types/source-panel-types'
 
 export function useDocumentData(expandedDocumentId: string | null) {
   const [documents, setDocuments] = useState<Record<string, DocumentData>>({})

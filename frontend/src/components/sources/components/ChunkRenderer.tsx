@@ -64,7 +64,7 @@ export const ChunkRenderer = memo<ChunkRendererProps>(
         {Object.entries(chunksByPage).map(([pageNum, pageChunks]) => (
           <div key={pageNum} className="space-y-2">
             <p className="indent-6 text-justify leading-relaxed">
-              {pageChunks.map((chunk, idx) => {
+              {pageChunks.map((chunk) => {
                 const isSelected = activeChunkId === chunk.id
                 const isActiveSnippet = activeSnippet ? [activeSnippet] : []
 
@@ -95,12 +95,6 @@ ChunkRenderer.displayName = 'ChunkRenderer'
 // ============================================
 // Text Highlighting Component
 // ============================================
-
-interface HighlightedTextProps {
-  content: string
-  snippets: string[]
-  isSelected: boolean
-}
 
 function renderHighlightedText(content: string, snippets: string[], isSelected: boolean) {
   if (!snippets || snippets.length === 0) {

@@ -25,7 +25,6 @@ export interface CitationBadgeProps {
  */
 export const CitationBadge = memo(({
   chunkId,
-  verified = true,
   groundingScore,
   onClick,
   className,
@@ -114,8 +113,8 @@ export interface CitationInfo {
  */
 export function parseContentWithCitations(
   content: string,
-  citations: CitationInfo[],
-  onCitationClick?: (chunkId: string, citation: CitationInfo) => void
+  _citations?: CitationInfo[],
+  _onCitationClick?: (chunkId: string, citation: CitationInfo) => void
 ): Array<string | React.ReactElement> {
   if (!content) return []
 

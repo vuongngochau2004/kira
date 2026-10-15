@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { X, Search, FileText, Loader2, CheckCircle, AlertTriangle, XCircle, Info, Eye } from 'lucide-react'
+import { X, Search, FileText, Loader2, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { CitationBadge } from './CitationBadge'
 import { documentsAPI } from '@/lib/api/simple-client'
 import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
 
