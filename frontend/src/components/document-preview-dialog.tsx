@@ -97,6 +97,7 @@ export function DocumentPreviewDialog({
           ) : isImage ? (
             // Centered Image Lightbox
             <div className="p-6 max-w-full max-h-[70vh] flex items-center justify-center overflow-auto">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={downloadUrl}
                 alt={filename}

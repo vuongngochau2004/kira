@@ -21,12 +21,12 @@ class Citation(BaseModel):
     """Citation information for retrieved documents."""
 
     filename: str = Field(..., description="Source filename")
-    page_number: Optional[int] = Field(None, description="Page number in source document")
+    page_number: Optional[int] = Field(default=None, description="Page number in source document")
     text: str = Field(..., description="Cited text excerpt")
-    doc_index: Optional[int] = Field(None, description="Document index in response")
-    score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Relevance score")
-    chunk_index: Optional[int] = Field(None, description="Chunk index within document")
-    document_id: Optional[str] = Field(None, description="Source document ID")
+    doc_index: Optional[int] = Field(default=None, description="Document index in response")
+    score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Relevance score")
+    chunk_index: Optional[int] = Field(default=None, description="Chunk index within document")
+    document_id: Optional[str] = Field(default=None, description="Source document ID")
 
 
 # ============================================================================
@@ -87,7 +87,7 @@ class RetrievalMetadata(BaseModel):
     total_results: int = Field(..., description="Total number of results retrieved")
     query_expansions: List[str] = Field(default_factory=list, description="Query expansion terms")
     search_time_ms: float = Field(..., description="Search execution time")
-    index_size: Optional[int] = Field(None, description="Size of the index searched")
+    index_size: Optional[int] = Field(default=None, description="Size of the index searched")
 
     model_config = ConfigDict(use_enum_values=True)
 

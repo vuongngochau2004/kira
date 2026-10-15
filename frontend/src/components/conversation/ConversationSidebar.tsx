@@ -6,7 +6,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConversationStore } from '@/lib/stores/conversation-store'
 import { conversationsAPI } from '@/lib/api/simple-client'
 import { ConversationItem } from './ConversationItem'
-import { NewConversationButton } from './NewConversationButton'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 
 import { Search, Plus, Sparkles, LogOut } from 'lucide-react'

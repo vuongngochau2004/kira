@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState, useEffect } from 'react'
-import { Upload, FileText, Trash2, Loader2, File, CheckCircle, XCircle, Clock, MoreVertical, Plus } from 'lucide-react'
+import { Upload, FileText, Trash2, Loader2, File, Clock, MoreVertical, Plus } from 'lucide-react'
 import { Document } from '@/lib/api/simple-client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'

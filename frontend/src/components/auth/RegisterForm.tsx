@@ -29,7 +29,7 @@ export function RegisterForm() {
     try {
       await register(email, password, fullName || undefined)
       handleRedirect()
-    } catch (err) {
+    } catch {
       // Error handled by store
     }
   }

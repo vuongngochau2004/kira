@@ -58,7 +58,7 @@ class BatchClassifyRequest(BaseModel):
     """
 
     queries: list[ClassifyRequest] = Field(
-        ..., min_items=1, max_items=50, description="List of queries to classify"
+        ..., min_length=1, max_length=50, description="List of queries to classify"
     )
 
     @validator("queries")
