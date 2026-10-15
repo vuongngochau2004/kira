@@ -4,6 +4,7 @@ Application core depends on this ABC, NOT on Qdrant directly.
 Allows swapping Qdrant ↔ Weaviate ↔ Pinecone ↔ Chroma
 without changing business logic.
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
@@ -22,6 +23,7 @@ class VectorDocument:
         embedding: Dense vector representation
         metadata: Additional metadata (user_id, document_id, etc.)
     """
+
     id: str
     text: str
     embedding: list[float]
@@ -38,6 +40,7 @@ class SearchResult:
         score: Cosine similarity score (0.0 - 1.0)
         metadata: Additional metadata from the stored document
     """
+
     id: str
     text: str
     score: float

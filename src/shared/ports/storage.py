@@ -4,6 +4,7 @@ Application core depends on this ABC, NOT on MinIO/S3 directly.
 Allows swapping MinIO ↔ AWS S3 ↔ Google Cloud Storage
 without changing business logic.
 """
+
 from abc import ABC, abstractmethod
 
 

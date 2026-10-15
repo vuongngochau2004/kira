@@ -11,17 +11,34 @@ from typing import Any
 # Conversational query detection keywords
 CONVERSATIONAL_KEYWORDS = [
     # Greetings
-    "hello", "hi", "hey", "chao", "xin chào", "bạn tên", "ten la gi",
+    "hello",
+    "hi",
+    "hey",
+    "chao",
+    "xin chào",
+    "bạn tên",
+    "ten la gi",
     # Small talk
-    "how are you", "bạn sao", "có khỏe không",
+    "how are you",
+    "bạn sao",
+    "có khỏe không",
     # Gratitude
-    "thanks", "cảm ơn", "thank you",
+    "thanks",
+    "cảm ơn",
+    "thank you",
     # Farewell
-    "goodbye", "tạm biệt", "bye",
+    "goodbye",
+    "tạm biệt",
+    "bye",
     # Meta questions about the bot
-    "bạn là ai", "you are", "bot làm được gì", "bạn làm gì",
+    "bạn là ai",
+    "you are",
+    "bot làm được gì",
+    "bạn làm gì",
     # Weather/time (common small talk)
-    "nhiet độ", "weather", "thoi tiet",
+    "nhiet độ",
+    "weather",
+    "thoi tiet",
 ]
 
 # Maximum word count for very short conversational queries
@@ -49,7 +66,7 @@ def parse_json_response(content: str) -> dict[str, Any]:
         return json.loads(content)
     except json.JSONDecodeError:
         # Try to extract JSON using regex
-        match = re.search(r'\{.*\}', content, re.DOTALL)
+        match = re.search(r"\{.*\}", content, re.DOTALL)
         if match:
             try:
                 return json.loads(match.group())
@@ -73,7 +90,7 @@ def format_context(docs: list[Any]) -> str:
             text = doc.get("text", doc.get("content", doc.get("page_content", "")))
         else:
             text = getattr(doc, "page_content", getattr(doc, "text", ""))
-        parts.append(f"[{i+1}] {text}")
+        parts.append(f"[{i + 1}] {text}")
     return "\n\n".join(parts)
 
 

@@ -8,8 +8,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from src.shared.ports.classification import ClassificationStrategyBase, ClassificationResult, Intent
-
+from src.shared.ports.classification import ClassificationResult, ClassificationStrategyBase, Intent
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ class CompositeClassifier(ClassificationStrategyBase):
         self,
         strategies: list[ClassificationStrategyBase],
         thresholds: dict[str, float] | None = None,
-        default_intent: Intent = Intent.RAG
+        default_intent: Intent = Intent.RAG,
     ):
         """
         Initialize composite classifier.
@@ -75,16 +74,10 @@ class CompositeClassifier(ClassificationStrategyBase):
         Returns:
             True if any strategy can handle
         """
-        return any(
-            strategy.can_handle(query, user_id)
-            for strategy in self.strategies
-        )
+        return any(strategy.can_handle(query, user_id) for strategy in self.strategies)
 
     async def classify(
-        self,
-        query: str,
-        user_id: str | UUID,
-        context: dict[str, Any] | None = None
+        self, query: str, user_id: str | UUID, context: dict[str, Any] | None = None
     ) -> ClassificationResult:
         """
         Classify query using strategy chain with fallback.
@@ -116,7 +109,7 @@ class CompositeClassifier(ClassificationStrategyBase):
                 # Check if strategy can handle
                 if not strategy.can_handle(query, user_id):
                     logger.debug(
-                        f"Strategy {i+1}/{len(self.strategies)} "
+                        f"Strategy {i + 1}/{len(self.strategies)} "
                         f"({strategy.__class__.__name__}) cannot handle query"
                     )
                     continue
@@ -148,7 +141,7 @@ class CompositeClassifier(ClassificationStrategyBase):
                             "total_strategies": len(self.strategies),
                             "composite": True,
                         },
-                        handler_hint=result.handler_hint
+                        handler_hint=result.handler_hint,
                     )
 
                 logger.debug(
@@ -157,10 +150,7 @@ class CompositeClassifier(ClassificationStrategyBase):
                 )
 
             except Exception as e:
-                logger.error(
-                    f"Error in strategy {strategy.__class__.__name__}: {e}",
-                    exc_info=True
-                )
+                logger.error(f"Error in strategy {strategy.__class__.__name__}: {e}", exc_info=True)
                 # Continue to next strategy on error
                 continue
 
@@ -179,11 +169,13 @@ class CompositeClassifier(ClassificationStrategyBase):
                     **last_result.metadata,
                     "fallback": True,
                     "composite": True,
-                }
+                },
             )
 
         # No result from any strategy - use default
-        logger.warning(f"No strategy could classify query, using default: {self.default_intent.value}")
+        logger.warning(
+            f"No strategy could classify query, using default: {self.default_intent.value}"
+        )
 
         return self._create_default_result("All strategies failed")
 
@@ -228,14 +220,14 @@ class CompositeClassifier(ClassificationStrategyBase):
             intent=self.default_intent,
             confidence=0.3,
             reason=reason,
-            metadata={"fallback": True, "composite": True}
+            metadata={"fallback": True, "composite": True},
         )
 
     def add_strategy(
         self,
         strategy: ClassificationStrategyBase,
         position: int | None = None,
-        threshold: float | None = None
+        threshold: float | None = None,
     ) -> None:
         """
         Add a strategy to the chain.
@@ -274,10 +266,7 @@ class CompositeClassifier(ClassificationStrategyBase):
         """
         original_length = len(self.strategies)
 
-        self.strategies = [
-            s for s in self.strategies
-            if not isinstance(s, strategy_class)
-        ]
+        self.strategies = [s for s in self.strategies if not isinstance(s, strategy_class)]
 
         return len(self.strategies) < original_length
 

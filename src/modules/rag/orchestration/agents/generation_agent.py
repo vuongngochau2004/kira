@@ -20,27 +20,27 @@ Example:
 
 import logging
 import re
-from typing import List, Dict, Any, AsyncIterator, Optional
-from datetime import datetime, timezone
 import time
+from datetime import datetime, timezone
+from typing import Any, AsyncIterator, Dict, List, Optional
 
-from src.shared.ports.llm import LLMPort
-from src.modules.rag.orchestration.state.rag_state import (
-    RAGState,
-    AgentStatus,
-    DocumentWithScore,
-    GenerationAgentConfig,
-    Citation,
-    create_agent_result,
-    mark_agent_start,
-    update_state_with_agent_result,
-    get_retrieval_docs,
-)
+from src.config.config import settings
 from src.modules.rag.domain.prompts.generation import (
     build_generation_prompt,
     build_regeneration_prompt,
 )
-from src.config.config import settings
+from src.modules.rag.orchestration.state.rag_state import (
+    AgentStatus,
+    Citation,
+    DocumentWithScore,
+    GenerationAgentConfig,
+    RAGState,
+    create_agent_result,
+    get_retrieval_docs,
+    mark_agent_start,
+    update_state_with_agent_result,
+)
+from src.shared.ports.llm import LLMPort
 
 logger = logging.getLogger(__name__)
 

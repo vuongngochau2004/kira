@@ -18,7 +18,7 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, Optional
+from typing import Generic, Optional, TypeVar
 from uuid import UUID
 
 T = TypeVar("T")

@@ -4,7 +4,6 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.modules.evaluation.composition import dataset_manager, evaluation_service
 from src.modules.evaluation.api.schemas import (
     BatchEvaluationRequest,
     BatchEvaluationResponse,
@@ -12,6 +11,7 @@ from src.modules.evaluation.api.schemas import (
     EvaluationResponse,
     GoldenDataset,
 )
+from src.modules.evaluation.composition import dataset_manager, evaluation_service
 from src.shared.infrastructure.auth.dependencies import get_current_user
 from src.shared.infrastructure.persistence.database.models import User
 

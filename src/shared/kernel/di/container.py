@@ -5,11 +5,10 @@ Protocol-based DI container following SOLID principles.
 """
 
 import asyncio
-from typing import Type, TypeVar, Any, Callable, Awaitable
 from threading import Lock
+from typing import Any, Awaitable, Callable, Type, TypeVar
 
-from src.shared.ports.container import Lifecycle, DependencyContainerBase, ServiceDescriptor
-
+from src.shared.ports.container import DependencyContainerBase, Lifecycle, ServiceDescriptor
 
 T = TypeVar("T")
 
@@ -39,11 +38,7 @@ class ServiceContainer(DependencyContainerBase):
         self._lock = Lock()
         self._async_lock = asyncio.Lock()
 
-    async def register_singleton(
-        self,
-        interface: Type[T],
-        implementation: Type[T] | T
-    ) -> None:
+    async def register_singleton(self, interface: Type[T], implementation: Type[T] | T) -> None:
         """
         Register singleton service.
 
@@ -56,9 +51,7 @@ class ServiceContainer(DependencyContainerBase):
         """
         with self._lock:
             descriptor = ServiceDescriptor(
-                interface=interface,
-                implementation=implementation,
-                lifecycle=Lifecycle.SINGLETON
+                interface=interface, implementation=implementation, lifecycle=Lifecycle.SINGLETON
             )
             self._services[interface] = descriptor
 
@@ -66,11 +59,7 @@ class ServiceContainer(DependencyContainerBase):
             if not isinstance(implementation, type):
                 self._singletons[interface] = implementation
 
-    async def register_transient(
-        self,
-        interface: Type[T],
-        implementation: Type[T]
-    ) -> None:
+    async def register_transient(self, interface: Type[T], implementation: Type[T]) -> None:
         """
         Register transient service (new instance each time).
 
@@ -83,16 +72,11 @@ class ServiceContainer(DependencyContainerBase):
         """
         with self._lock:
             self._services[interface] = ServiceDescriptor(
-                interface=interface,
-                implementation=implementation,
-                lifecycle=Lifecycle.TRANSIENT
+                interface=interface, implementation=implementation, lifecycle=Lifecycle.TRANSIENT
             )
 
     async def register_scoped(
-        self,
-        interface: Type[T],
-        implementation: Type[T],
-        scope_id: str | None = None
+        self, interface: Type[T], implementation: Type[T], scope_id: str | None = None
     ) -> None:
         """
         Register scoped service.
@@ -107,15 +91,11 @@ class ServiceContainer(DependencyContainerBase):
         """
         with self._lock:
             self._services[interface] = ServiceDescriptor(
-                interface=interface,
-                implementation=implementation,
-                lifecycle=Lifecycle.SCOPED
+                interface=interface, implementation=implementation, lifecycle=Lifecycle.SCOPED
             )
 
     async def register_factory(
-        self,
-        interface: Type[T],
-        factory: Callable[..., T] | Callable[..., Awaitable[T]]
+        self, interface: Type[T], factory: Callable[..., T] | Callable[..., Awaitable[T]]
     ) -> None:
         """
         Register factory function for custom instantiation.
@@ -135,7 +115,7 @@ class ServiceContainer(DependencyContainerBase):
                 interface=interface,
                 implementation=type(None),  # Not used for factories
                 lifecycle=Lifecycle.SINGLETON,  # Factories typically singletons
-                factory=factory
+                factory=factory,
             )
 
     async def get(self, interface: Type[T]) -> T:
@@ -293,10 +273,16 @@ class ServiceContainer(DependencyContainerBase):
             "singleton_count": len(self._singletons),
             "scoped_scopes": len(self._scoped),
             "lifecycle_breakdown": {
-                "singleton": sum(1 for s in self._services.values() if s.lifecycle == Lifecycle.SINGLETON),
-                "transient": sum(1 for s in self._services.values() if s.lifecycle == Lifecycle.TRANSIENT),
-                "scoped": sum(1 for s in self._services.values() if s.lifecycle == Lifecycle.SCOPED),
-            }
+                "singleton": sum(
+                    1 for s in self._services.values() if s.lifecycle == Lifecycle.SINGLETON
+                ),
+                "transient": sum(
+                    1 for s in self._services.values() if s.lifecycle == Lifecycle.TRANSIENT
+                ),
+                "scoped": sum(
+                    1 for s in self._services.values() if s.lifecycle == Lifecycle.SCOPED
+                ),
+            },
         }
 
     async def clear_scope(self, scope_id: str) -> None:

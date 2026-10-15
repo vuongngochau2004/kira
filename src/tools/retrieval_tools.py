@@ -118,8 +118,8 @@ def dense_retrieve(
     Returns:
         JSON string of retrieved documents with content and metadata
     """
-    from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
     from src.modules.document.domain.services.embedder import embed_single
+    from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
 
     # Generate query embedding
     query_embedding = embed_single(query)
@@ -163,12 +163,14 @@ def bm25_retrieve(
     # Normalize format
     normalized = []
     for doc in docs:
-        normalized.append({
-            "text": doc.get("content", ""),
-            "content": doc.get("content", ""),
-            "metadata": doc.get("metadata", {}),
-            "score": doc.get("score", 0.0),
-        })
+        normalized.append(
+            {
+                "text": doc.get("content", ""),
+                "content": doc.get("content", ""),
+                "metadata": doc.get("metadata", {}),
+                "score": doc.get("score", 0.0),
+            }
+        )
 
     return json.dumps(normalized, ensure_ascii=False)
 
@@ -197,9 +199,9 @@ def hybrid_retrieve(
     Raises:
         RuntimeError: If BM25 index is not available (falls back to dense only)
     """
-    from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
     from src.modules.document.domain.services.embedder import embed_single
     from src.modules.retrieval.domain.services.hybrid_search import reciprocal_rank_fusion
+    from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
 
     # Generate query embedding
     query_embedding = embed_single(query)
@@ -217,14 +219,16 @@ def hybrid_retrieve(
     if bm25_index:
         bm25_docs = bm25_index.search(query, k=k * 2)
         for doc in bm25_docs:
-            bm25_results.append({
-                "text": doc.get("content", ""),
-                "content": doc.get("content", ""),
-                "metadata": doc.get("metadata", {}),
-                "score": doc.get("score", 0),
-                "document_id": doc.get("metadata", {}).get("document_id"),
-                "chunk_index": doc.get("metadata", {}).get("chunk_index"),
-            })
+            bm25_results.append(
+                {
+                    "text": doc.get("content", ""),
+                    "content": doc.get("content", ""),
+                    "metadata": doc.get("metadata", {}),
+                    "score": doc.get("score", 0),
+                    "document_id": doc.get("metadata", {}).get("document_id"),
+                    "chunk_index": doc.get("metadata", {}).get("chunk_index"),
+                }
+            )
 
     # If no BM25, fall back to dense only
     if not bm25_results:
@@ -233,18 +237,20 @@ def hybrid_retrieve(
     # Normalize dense results format for fusion
     dense_formatted = []
     for item in dense_results:
-        dense_formatted.append({
-            "text": item.get("text", ""),
-            "content": item.get("text", ""),
-            "metadata": {
+        dense_formatted.append(
+            {
+                "text": item.get("text", ""),
+                "content": item.get("text", ""),
+                "metadata": {
+                    "document_id": item.get("document_id"),
+                    "user_id": item.get("user_id"),
+                    "chunk_index": item.get("chunk_index"),
+                },
+                "score": item.get("score", 0),
                 "document_id": item.get("document_id"),
-                "user_id": item.get("user_id"),
                 "chunk_index": item.get("chunk_index"),
-            },
-            "score": item.get("score", 0),
-            "document_id": item.get("document_id"),
-            "chunk_index": item.get("chunk_index"),
-        })
+            }
+        )
 
     # Fuse with RRF
     fused = reciprocal_rank_fusion([dense_formatted, bm25_results], k=rrf_k)
@@ -303,7 +309,7 @@ Trả về mỗi câu hỏi trên một dòng, không đánh số:"""
             try:
                 messages = [
                     {"role": "system", "content": "Bạn là trợ lý chuyên gia tìm kiếm thông tin."},
-                    {"role": "user", "content": expansion_prompt}
+                    {"role": "user", "content": expansion_prompt},
                 ]
 
                 response = await asyncio.wait_for(
@@ -348,22 +354,28 @@ Trả về mỗi câu hỏi trên một dòng, không đánh số:"""
                 seen.add(q.lower())
                 unique_queries.append(q)
 
-        return json.dumps({
-            "success": True,
-            "original_query": query,
-            "expanded_queries": unique_queries[:expansion_count + 1],
-            "total_count": len(unique_queries)
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": True,
+                "original_query": query,
+                "expanded_queries": unique_queries[: expansion_count + 1],
+                "total_count": len(unique_queries),
+            },
+            ensure_ascii=False,
+        )
 
     except Exception as e:
         logger.error(f"Error in query_expansion_tool: {e}", exc_info=True)
         # Fallback to original query
-        return json.dumps({
-            "success": False,
-            "original_query": query,
-            "expanded_queries": [query],
-            "error": str(e)
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": False,
+                "original_query": query,
+                "expanded_queries": [query],
+                "error": str(e),
+            },
+            ensure_ascii=False,
+        )
 
 
 @tool
@@ -403,18 +415,16 @@ async def hybrid_retrieve_with_expansion(
         >>> metadata = response["metadata"]
     """
     try:
-        from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
         from src.modules.document.domain.services.embedder import embed_single
         from src.modules.retrieval.domain.services.hybrid_search import reciprocal_rank_fusion
+        from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
 
         # Step 1: Query expansion (if enabled)
         queries_to_search = [query]
         if enable_expansion:
-            expansion_result = await query_expansion_tool.ainvoke({
-                "query": query,
-                "expansion_count": expansion_count,
-                "use_synonyms": True
-            })
+            expansion_result = await query_expansion_tool.ainvoke(
+                {"query": query, "expansion_count": expansion_count, "use_synonyms": True}
+            )
             expansion_data = json.loads(expansion_result)
             queries_to_search = expansion_data.get("expanded_queries", [query])
 
@@ -447,32 +457,39 @@ async def hybrid_retrieve_with_expansion(
             doc_key = (item.get("document_id"), item.get("chunk_index"))
             if doc_key not in seen_docs:
                 seen_docs.add(doc_key)
-                normalized_dense.append({
-                    "text": item.get("text", ""),
-                    "content": item.get("text", ""),
-                    "metadata": {
+                normalized_dense.append(
+                    {
+                        "text": item.get("text", ""),
+                        "content": item.get("text", ""),
+                        "metadata": {
+                            "document_id": item.get("document_id"),
+                            "user_id": item.get("user_id"),
+                            "chunk_index": item.get("chunk_index"),
+                        },
+                        "score": item.get("score", 0),
                         "document_id": item.get("document_id"),
-                        "user_id": item.get("user_id"),
                         "chunk_index": item.get("chunk_index"),
-                    },
-                    "score": item.get("score", 0),
-                    "document_id": item.get("document_id"),
-                    "chunk_index": item.get("chunk_index"),
-                })
+                    }
+                )
 
         normalized_bm25 = []
         for doc in all_bm25_results:
-            doc_key = (doc.get("metadata", {}).get("document_id"), doc.get("metadata", {}).get("chunk_index"))
+            doc_key = (
+                doc.get("metadata", {}).get("document_id"),
+                doc.get("metadata", {}).get("chunk_index"),
+            )
             if doc_key not in seen_docs:
                 seen_docs.add(doc_key)
-                normalized_bm25.append({
-                    "text": doc.get("content", ""),
-                    "content": doc.get("content", ""),
-                    "metadata": doc.get("metadata", {}),
-                    "score": doc.get("score", 0),
-                    "document_id": doc.get("metadata", {}).get("document_id"),
-                    "chunk_index": doc.get("metadata", {}).get("chunk_index"),
-                })
+                normalized_bm25.append(
+                    {
+                        "text": doc.get("content", ""),
+                        "content": doc.get("content", ""),
+                        "metadata": doc.get("metadata", {}),
+                        "score": doc.get("score", 0),
+                        "document_id": doc.get("metadata", {}).get("document_id"),
+                        "chunk_index": doc.get("metadata", {}).get("chunk_index"),
+                    }
+                )
 
         # Step 4: Fuse with RRF
         if normalized_bm25:
@@ -483,29 +500,29 @@ async def hybrid_retrieve_with_expansion(
         # Step 5: Format response
         top_docs = fused[:k]
 
-        return json.dumps({
-            "success": True,
-            "documents": top_docs,
-            "metadata": {
-                "query": query,
-                "user_id": user_id,
-                "total_retrieved": len(fused),
-                "returned_count": len(top_docs),
-                "queries_used": queries_to_search,
-                "strategy": "hybrid_with_expansion" if enable_expansion else "hybrid",
-                "rrf_k": rrf_k,
-                "has_bm25": len(normalized_bm25) > 0
-            }
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": True,
+                "documents": top_docs,
+                "metadata": {
+                    "query": query,
+                    "user_id": user_id,
+                    "total_retrieved": len(fused),
+                    "returned_count": len(top_docs),
+                    "queries_used": queries_to_search,
+                    "strategy": "hybrid_with_expansion" if enable_expansion else "hybrid",
+                    "rrf_k": rrf_k,
+                    "has_bm25": len(normalized_bm25) > 0,
+                },
+            },
+            ensure_ascii=False,
+        )
 
     except Exception as e:
         logger.error(f"Error in hybrid_retrieve_with_expansion: {e}", exc_info=True)
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-            "documents": [],
-            "metadata": {}
-        }, ensure_ascii=False)
+        return json.dumps(
+            {"success": False, "error": str(e), "documents": [], "metadata": {}}, ensure_ascii=False
+        )
 
 
 @tool
@@ -542,27 +559,32 @@ async def retrieve_with_rerank(
     """
     try:
         # Step 1: Initial retrieval
-        retrieval_result = await hybrid_retrieve_with_expansion.ainvoke({
-            "query": query,
-            "user_id": user_id,
-            "k": k,
-            "enable_expansion": False  # No expansion for reranking flow
-        })
+        retrieval_result = await hybrid_retrieve_with_expansion.ainvoke(
+            {
+                "query": query,
+                "user_id": user_id,
+                "k": k,
+                "enable_expansion": False,  # No expansion for reranking flow
+            }
+        )
 
         retrieval_data = json.loads(retrieval_result)
         initial_docs = retrieval_data.get("documents", [])
 
         if not initial_docs:
-            return json.dumps({
-                "success": True,
-                "documents": [],
-                "metadata": {
-                    "query": query,
-                    "retrieved_count": 0,
-                    "reranked_count": 0,
-                    "reranking_applied": False
-                }
-            }, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "success": True,
+                    "documents": [],
+                    "metadata": {
+                        "query": query,
+                        "retrieved_count": 0,
+                        "reranked_count": 0,
+                        "reranking_applied": False,
+                    },
+                },
+                ensure_ascii=False,
+            )
 
         # Step 2: LLM reranking
         reranked_docs = initial_docs
@@ -572,37 +594,39 @@ async def retrieve_with_rerank(
             from src.modules.retrieval.domain.services.reranking_service import score_and_rerank
 
             docs_json = json.dumps(initial_docs, ensure_ascii=False)
-            rerank_result = score_and_rerank.invoke({
-                "query": query,
-                "documents": docs_json,
-                "top_k": rerank_top_k,
-                "min_score_threshold": 0.3
-            })
+            rerank_result = score_and_rerank.invoke(
+                {
+                    "query": query,
+                    "documents": docs_json,
+                    "top_k": rerank_top_k,
+                    "min_score_threshold": 0.3,
+                }
+            )
 
             reranked_data = json.loads(rerank_result)
             reranked_docs = reranked_data
             reranking_applied = True
 
-        return json.dumps({
-            "success": True,
-            "documents": reranked_docs[:rerank_top_k],
-            "metadata": {
-                "query": query,
-                "user_id": user_id,
-                "retrieved_count": len(initial_docs),
-                "reranked_count": len(reranked_docs),
-                "reranking_applied": reranking_applied
-            }
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": True,
+                "documents": reranked_docs[:rerank_top_k],
+                "metadata": {
+                    "query": query,
+                    "user_id": user_id,
+                    "retrieved_count": len(initial_docs),
+                    "reranked_count": len(reranked_docs),
+                    "reranking_applied": reranking_applied,
+                },
+            },
+            ensure_ascii=False,
+        )
 
     except Exception as e:
         logger.error(f"Error in retrieve_with_rerank: {e}", exc_info=True)
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-            "documents": [],
-            "metadata": {}
-        }, ensure_ascii=False)
+        return json.dumps(
+            {"success": False, "error": str(e), "documents": [], "metadata": {}}, ensure_ascii=False
+        )
 
 
 @tool
@@ -641,7 +665,9 @@ def format_documents_for_context(
 
         for idx, doc in enumerate(doc_list):
             text = doc.get("text", doc.get("content", ""))
-            filename = doc.get("filename", doc.get("metadata", {}).get("filename", f"Document {idx + 1}"))
+            filename = doc.get(
+                "filename", doc.get("metadata", {}).get("filename", f"Document {idx + 1}")
+            )
             page = doc.get("page_number") or doc.get("metadata", {}).get("page_number")
             score = doc.get("score", doc.get("rerank_score", 0))
 

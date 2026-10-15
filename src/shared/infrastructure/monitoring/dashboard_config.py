@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 class MetricType(Enum):
     """Types of dashboard metrics."""
+
     COUNTER = "counter"
     GAUGE = "gauge"
     HISTOGRAM = "histogram"
@@ -35,6 +36,7 @@ class MetricType(Enum):
 
 class AlertSeverity(Enum):
     """Alert severity levels."""
+
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"

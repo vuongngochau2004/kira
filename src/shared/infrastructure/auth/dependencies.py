@@ -2,14 +2,13 @@
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.shared.infrastructure.auth.security import decode_token
 from src.shared.infrastructure.persistence.database import get_session
 from src.shared.infrastructure.persistence.database.models import User, UserRole
-from sqlalchemy.ext.asyncio import AsyncSession
-
 
 security = HTTPBearer(auto_error=False)
 
@@ -44,7 +43,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {e}",
-        )
+        ) from e
 
     user_id = payload.get("sub")
     if not user_id:
@@ -81,7 +80,6 @@ async def get_current_user(
     return user
 
 
-
 async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
@@ -115,11 +113,10 @@ async def require_admin(
 
 def optional_auth():
     """Optional authentication - doesn't raise if no token provided."""
+
     async def _optional_auth(
         request: Request,
-        credentials: HTTPAuthorizationCredentials | None = Depends(
-            HTTPBearer(auto_error=False)
-        ),
+        credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
         db: AsyncSession = Depends(get_session),
     ) -> User | None:
         if not credentials and not request.cookies.get("access_token"):

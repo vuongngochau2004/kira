@@ -2,13 +2,11 @@
 
 import logging
 from datetime import datetime
-from uuid import UUID
 from typing import Any
+from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func
-
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +15,7 @@ async def _get_session(db: AsyncSession | None) -> AsyncSession:
     """Get database session, create new one if not provided."""
     if db is None:
         from src.shared.infrastructure.persistence.database.session import async_session_factory
+
         return async_session_factory()
     return db
 
@@ -229,8 +228,9 @@ async def get_documents_batch(
 
         if db is not None:
             return await _execute_query(db)
-        
+
         from src.shared.infrastructure.persistence.database.session import async_session_factory
+
         async with async_session_factory() as session:
             return await _execute_query(session)
 
@@ -262,9 +262,13 @@ async def list_documents(
 
     session = await _get_session(db)
 
-    count_query = select(func.count()).select_from(Document).where(
-        Document.user_id == user_id,
-        Document.deleted_at.is_(None),
+    count_query = (
+        select(func.count())
+        .select_from(Document)
+        .where(
+            Document.user_id == user_id,
+            Document.deleted_at.is_(None),
+        )
     )
     if status is not None:
         count_query = count_query.where(Document.status == status)

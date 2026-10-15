@@ -4,14 +4,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from src.shared.infrastructure.persistence.database.models import (
-    User,
+    Conversation,
     Document,
     DocumentChunk,
-    Conversation,
+    User,
 )
 
 
@@ -32,11 +32,7 @@ async def get_document_with_chunks(
     include_deleted: bool = False,
 ) -> Optional[Document]:
     """Get document with chunks eagerly loaded (avoids N+1)."""
-    query = (
-        select(Document)
-        .options(selectinload(Document.chunks))
-        .where(Document.id == doc_id)
-    )
+    query = select(Document).options(selectinload(Document.chunks)).where(Document.id == doc_id)
     if not include_deleted:
         query = query.where(Document.deleted_at.is_(None))
     result = await db_session.execute(query)
@@ -136,11 +132,7 @@ async def get_chunks_by_document(document_id: uuid.UUID, db_session) -> list[Doc
 
 async def soft_delete_document(doc_id: uuid.UUID, db_session) -> bool:
     """Soft delete a document (sets deleted_at)."""
-    query = (
-        select(Document)
-        .where(Document.id == doc_id)
-        .where(Document.deleted_at.is_(None))
-    )
+    query = select(Document).where(Document.id == doc_id).where(Document.deleted_at.is_(None))
     result = await db_session.execute(query)
     doc = result.scalar_one_or_none()
     if doc:

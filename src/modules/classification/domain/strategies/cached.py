@@ -7,8 +7,8 @@ Wraps any classification strategy with LRU cache for performance.
 from typing import Any
 from uuid import UUID
 
-from src.shared.ports.classification import ClassificationStrategyBase, ClassificationResult
 from src.modules.classification.domain.cache.lru_cache import AsyncLRUCache, generate_cache_key
+from src.shared.ports.classification import ClassificationResult, ClassificationStrategyBase
 
 
 class CachedStrategy(ClassificationStrategyBase):
@@ -30,10 +30,7 @@ class CachedStrategy(ClassificationStrategyBase):
     """
 
     def __init__(
-        self,
-        underlying: ClassificationStrategyBase,
-        cache_size: int = 1000,
-        ttl: int = 3600
+        self, underlying: ClassificationStrategyBase, cache_size: int = 1000, ttl: int = 3600
     ):
         """
         Initialize cached strategy.
@@ -61,10 +58,7 @@ class CachedStrategy(ClassificationStrategyBase):
         return self.underlying.can_handle(query, user_id)
 
     async def classify(
-        self,
-        query: str,
-        user_id: str | UUID,
-        context: dict[str, Any] | None = None
+        self, query: str, user_id: str | UUID, context: dict[str, Any] | None = None
     ) -> ClassificationResult:
         """
         Classify query with caching.
@@ -88,11 +82,7 @@ class CachedStrategy(ClassificationStrategyBase):
                 intent=cached_result.intent,
                 confidence=cached_result.confidence,
                 reason=cached_result.reason,
-                metadata={
-                    **cached_result.metadata,
-                    "cached": True,
-                    "strategy": "cached_wrapper"
-                }
+                metadata={**cached_result.metadata, "cached": True, "strategy": "cached_wrapper"},
             )
 
         # Cache miss - delegate to underlying strategy
@@ -106,11 +96,7 @@ class CachedStrategy(ClassificationStrategyBase):
             intent=result.intent,
             confidence=result.confidence,
             reason=result.reason,
-            metadata={
-                **result.metadata,
-                "cached": False,
-                "strategy": "cached_wrapper"
-            }
+            metadata={**result.metadata, "cached": False, "strategy": "cached_wrapper"},
         )
 
     async def invalidate(self, query: str, user_id: str | UUID) -> None:

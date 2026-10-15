@@ -10,8 +10,8 @@ from src.modules.evaluation.api.schemas import (
     EvaluationMetric,
     EvaluationRequest,
     EvaluationResponse,
-    EvaluationRunConfig,
     EvaluationResult,
+    EvaluationRunConfig,
     GoldenDataset,
     GoldenDatasetSample,
 )

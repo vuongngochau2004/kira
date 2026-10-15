@@ -108,9 +108,13 @@ async def list_conversations(
     """List conversations owned by a user."""
     from src.shared.infrastructure.persistence.database.models import Conversation
 
-    count_query = select(func.count()).select_from(Conversation).where(
-        Conversation.user_id == user_id,
-        Conversation.deleted_at.is_(None),
+    count_query = (
+        select(func.count())
+        .select_from(Conversation)
+        .where(
+            Conversation.user_id == user_id,
+            Conversation.deleted_at.is_(None),
+        )
     )
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()

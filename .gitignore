@@ -71,14 +71,17 @@ Thumbs.db
 *.pid
 *.seed
 *.pid.lock
+.agents/
 .claude/
 plans/
 scratch/
 data/
 
-.github/
 docs/deepeval-rag-evaluation.md
 docs/ingested-chunk-evaluation-workflow.md
 docs/examples/evaluation/golden_sample.json
 docs_to_upload/
 dataset/
+output/
+reports/document_processing/*
+!reports/document_processing/.gitkeep

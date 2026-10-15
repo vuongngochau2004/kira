@@ -24,7 +24,9 @@ class FakeWorkflow:
             "final_response": "Không tìm thấy thông tin phù hợp.",
             "final_citations": [],
             "agent_results": [
-                AgentResult(agent_name="RetrievalAgent", status=AgentStatus.COMPLETED, execution_time_ms=3)
+                AgentResult(
+                    agent_name="RetrievalAgent", status=AgentStatus.COMPLETED, execution_time_ms=3
+                )
             ],
         }
 

@@ -3,9 +3,10 @@
 Defines Pydantic models for search response formatting.
 """
 
-from pydantic import BaseModel, Field
-from typing import Any, Optional
 from datetime import datetime
+from typing import Any, Optional
+
+from pydantic import BaseModel, Field
 
 
 class SearchResult(BaseModel):
@@ -19,10 +20,7 @@ class SearchResult(BaseModel):
     score: float = Field(..., description="Relevance score from retrieval")
     rrf_score: Optional[float] = Field(None, description="RRF fusion score")
     rerank_score: Optional[float] = Field(None, description="LLM reranking score")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata"
-    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
     model_config = {
         "json_schema_extra": {
@@ -49,15 +47,9 @@ class SearchResponse(BaseModel):
     results: list[SearchResult] = Field(..., description="List of search results")
     total: int = Field(..., description="Total number of results returned")
     query: str = Field(..., description="Original query text")
-    retrieval_method: str = Field(
-        ...,
-        description="Method used: hybrid, dense_only, bm25_only"
-    )
+    retrieval_method: str = Field(..., description="Method used: hybrid, dense_only, bm25_only")
     latency_ms: Optional[int] = Field(None, description="Search latency in milliseconds")
-    timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Response timestamp"
-    )
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
 
     model_config = {
         "json_schema_extra": {
@@ -83,10 +75,7 @@ class RerankResponse(BaseModel):
     reranked_count: int = Field(..., description="Number after reranking")
     method: str = Field(..., description="Reranking method used")
     latency_ms: Optional[int] = Field(None, description="Reranking latency in ms")
-    timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Response timestamp"
-    )
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
 
     model_config = {
         "json_schema_extra": {
@@ -109,14 +98,10 @@ class HealthCheckResponse(BaseModel):
 
     status: str = Field(..., description="Health status: healthy, degraded, unhealthy")
     services: dict[str, str] = Field(
-        ...,
-        description="Status of individual services (qdrant, bm25)"
+        ..., description="Status of individual services (qdrant, bm25)"
     )
     version: str = Field(..., description="Module version")
-    timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Check timestamp"
-    )
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Check timestamp")
 
     model_config = {
         "json_schema_extra": {

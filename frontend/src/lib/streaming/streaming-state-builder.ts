@@ -78,30 +78,88 @@ const INITIAL_STATE: MessageState = {
 
 // ==================== StreamingStateBuilder ====================
 
+export interface RoutingChunkData {
+  router?: string
+  intent?: string
+  [key: string]: unknown
+}
+
+export interface RetrievalChunkData {
+  iteration?: number
+  strategy?: string
+  chunks_retrieved?: number
+  docs_retrieved?: number
+  unique_documents?: number
+  top_documents?: string[]
+  [key: string]: unknown
+}
+
+export interface ContentChunkData {
+  text?: string
+  [key: string]: unknown
+}
+
+export interface MetadataChunkData {
+  citations?: RawCitationItem[]
+  sources?: RawCitationItem[]
+  attachments?: Attachment[]
+  [key: string]: unknown
+}
+
+export interface ErrorChunkData {
+  error?: string
+  [key: string]: unknown
+}
+
+export interface RawCitationItem {
+  id?: string
+  chunk_id?: string
+  filename?: string
+  source?: string
+  title?: string
+  text?: string
+  content?: string
+  snippet?: string
+  page?: number
+  page_number?: number
+  score?: number
+  confidence?: number
+  grounding_score?: number
+  document_id?: string
+  chunk_index?: number
+  metadata?: {
+    document_id?: string
+    chunk_index?: number
+    [key: string]: unknown
+  }
+  chunks?: RawCitationItem[]
+  [key: string]: unknown
+}
+
 export class StreamingStateBuilder {
   private state: MessageState = { ...INITIAL_STATE }
 
   /**
    * Process a single SSE chunk and update state
    */
-  processChunk(type: string, data: any): void {
+  processChunk(type: string, data: unknown): void {
     this.state.timestamp = Date.now()
 
     switch (type) {
       case 'routing':
-        this.processRouting(data)
+        this.processRouting(data as RoutingChunkData)
         break
 
       case 'retrieval':
-        this.processRetrieval(data)
+        this.processRetrieval(data as RetrievalChunkData)
         break
 
       case 'content':
-        this.processContent(data)
+        this.processContent(data as ContentChunkData)
         break
 
       case 'metadata':
-        this.processMetadata(data)
+        this.processMetadata(data as MetadataChunkData)
         break
 
       case 'done':
@@ -109,7 +167,7 @@ export class StreamingStateBuilder {
         break
 
       case 'error':
-        this.processError(data)
+        this.processError(data as ErrorChunkData)
         break
 
       default:
@@ -152,7 +210,7 @@ export class StreamingStateBuilder {
 
   // ==================== Private Methods ====================
 
-  private processRouting(data: any): void {
+  private processRouting(data: RoutingChunkData): void {
     this.state.status = 'routing'
 
     if (data?.router) {
@@ -163,7 +221,7 @@ export class StreamingStateBuilder {
     }
   }
 
-  private processRetrieval(data: any): void {
+  private processRetrieval(data: RetrievalChunkData): void {
     this.state.status = 'retrieving'
 
     const iteration = data?.iteration ?? 1
@@ -182,7 +240,7 @@ export class StreamingStateBuilder {
     })
   }
 
-  private processContent(data: any): void {
+  private processContent(data: ContentChunkData): void {
     this.state.status = 'generating'
 
     const text = data?.text ?? ''
@@ -191,13 +249,13 @@ export class StreamingStateBuilder {
     }
   }
 
-  private processMetadata(data: any): void {
+  private processMetadata(data: MetadataChunkData): void {
     this.state.status = 'generating'
 
     if (data?.citations) {
-      this.state.sources = ensureFlatSources(data.citations) || []
+      this.state.sources = (ensureFlatSources(data.citations) as SourceChunk[]) || []
     } else if (data?.sources) {
-      this.state.sources = ensureFlatSources(data.sources) || []
+      this.state.sources = (ensureFlatSources(data.sources) as SourceChunk[]) || []
     }
 
     if (data?.attachments) {
@@ -209,7 +267,7 @@ export class StreamingStateBuilder {
     this.state.status = 'complete'
   }
 
-  private processError(data: any): void {
+  private processError(data: ErrorChunkData): void {
     this.state.status = 'error'
     this.state.error = data?.error ?? 'Unknown error'
   }
@@ -219,14 +277,14 @@ export class StreamingStateBuilder {
  * Normalizes/flattens raw sources (which might be in the grouped or flat format)
  * into a flat list of SourceChunk/CitationSource items.
  */
-export function ensureFlatSources(rawSources: any[] | undefined): any[] | undefined {
+export function ensureFlatSources(rawSources: RawCitationItem[] | undefined): Record<string, unknown>[] | undefined {
   if (!rawSources) return undefined
   if (rawSources.length === 0) return []
 
   // Check if it is grouped structure (contains 'chunks')
-  const isGrouped = rawSources.some(s => s && s.hasOwnProperty('chunks'))
+  const isGrouped = rawSources.some(s => s && 'chunks' in s)
   if (!isGrouped) {
-    return rawSources.map((citation: any, idx: number) => {
+    return rawSources.map((citation: RawCitationItem, idx: number) => {
       const docTitle = citation.filename || citation.source || citation.title || 'Tài liệu'
       const textVal = citation.text || citation.content || citation.snippet || ''
       const chunkId = citation.chunk_id || citation.id || `chunk-${idx}`
@@ -248,11 +306,11 @@ export function ensureFlatSources(rawSources: any[] | undefined): any[] | undefi
     })
   }
 
-  return rawSources.flatMap((doc: any, docIdx: number) => {
+  return rawSources.flatMap((doc: RawCitationItem, docIdx: number) => {
     const docTitle = doc.filename || doc.title || 'Tài liệu'
     const docId = doc.document_id || `doc-${docIdx}`
 
-    return (doc.chunks || []).map((chunk: any, chunkIdx: number) => {
+    return (doc.chunks || []).map((chunk: RawCitationItem, chunkIdx: number) => {
       const id = chunk.chunk_id || chunk.id || `${docId}-chunk-${chunkIdx}`
       return {
         id,

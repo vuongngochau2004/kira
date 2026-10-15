@@ -152,13 +152,19 @@ clean-backend: ## Clean backend artifacts
 	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	@find . -type f -name "*.pyo" -delete 2>/dev/null || true
-	@rm -rf .pytest_cache .ruff_cache
+	@find . -name ".DS_Store" -delete 2>/dev/null || true
+	@rm -rf .pytest_cache .ruff_cache output/
 	@echo "$(GREEN)Backend cleaned$(NC)"
 
 clean-frontend: ## Clean frontend artifacts
 	@echo "$(BLUE)Cleaning frontend...$(NC)"
 	@cd $(FRONTEND_DIR) && rm -rf .next out
 	@echo "$(GREEN)Frontend cleaned$(NC)"
+
+charts: ## Generate RAG evaluation charts
+	@echo "$(BLUE)Generating RAG evaluation charts...$(NC)"
+	@python3 scripts/generate_rag_evaluation_charts.py
+	@echo "$(GREEN)Charts generated in reports/evaluation/charts$(NC)"
 
 logs: ## Show backend and infrastructure logs
 	@echo "$(BLUE)Backend logs (Ctrl+C to exit):$(NC)"

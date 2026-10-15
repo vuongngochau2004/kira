@@ -4,8 +4,9 @@ Chat API request DTOs - Pydantic models for HTTP request validation.
 These DTOs decouple HTTP concerns from domain logic.
 """
 
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional, List
 
 
 class ChatStreamRequest(BaseModel):

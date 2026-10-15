@@ -17,7 +17,7 @@ interface ConversationStore {
   syncFromURL: (id: string | null) => boolean
 }
 
-export const useConversationStore = create<ConversationStore>((set, get) => ({
+export const useConversationStore = create<ConversationStore>((set) => ({
   // Initial state
   activeConversationId: null,
   isLoading: false,

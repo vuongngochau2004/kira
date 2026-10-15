@@ -20,11 +20,10 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 from uuid import UUID
-
 
 __all__ = [
     # Data models
@@ -40,6 +39,7 @@ __all__ = [
 # DATA MODELS (formerly in src.protocols.classification)
 # ============================================================================
 
+
 class Intent(str, Enum):
     """
     Query intent enumeration.
@@ -47,7 +47,7 @@ class Intent(str, Enum):
     Represents the different types of user queries in the RAG system:
     - RAG: Document retrieval and generation
     - CONVERSATIONAL: Direct chat without retrieval
-    - DRAFTING: Content creation 
+    - DRAFTING: Content creation
     - SEMANTIC: Semantic routing (future)
     """
 
@@ -123,6 +123,7 @@ class ClassificationResult:
 # ABC INTERFACES
 # ============================================================================
 
+
 class ClassificationCacheBase(ABC):
     """
     Abstract base class for classification result caching.
@@ -156,12 +157,7 @@ class ClassificationCacheBase(ABC):
         ...
 
     @abstractmethod
-    async def set(
-        self,
-        key: str,
-        value: ClassificationResult,
-        ttl: int | None = None
-    ) -> None:
+    async def set(self, key: str, value: ClassificationResult, ttl: int | None = None) -> None:
         """
         Cache classification result with TTL.
 
@@ -216,10 +212,7 @@ class ClassificationStrategyBase(ABC):
 
     @abstractmethod
     async def classify(
-        self,
-        query: str,
-        user_id: str | UUID,
-        context: dict[str, Any] | None = None
+        self, query: str, user_id: str | UUID, context: dict[str, Any] | None = None
     ) -> ClassificationResult:
         """
         Classify query intent.

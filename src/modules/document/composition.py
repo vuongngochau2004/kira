@@ -2,14 +2,19 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.document.application import CancelDocument, DeleteDocument, ProcessDocument, UploadDocument
+from src.modules.document.application import (
+    CancelDocument,
+    DeleteDocument,
+    ProcessDocument,
+    UploadDocument,
+)
 from src.modules.document.infrastructure.document_repository import SqlAlchemyDocumentRepository
 from src.modules.retrieval.infrastructure.keyword.bm25_adapter import BM25KeywordIndexAdapter
 from src.modules.retrieval.infrastructure.keyword.bm25_manager import get_bm25_manager
 from src.shared.adapters.embedding import create_embedding_adapter
+from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
 from src.shared.adapters.storage.minio_adapter import MinIOAdapter
 from src.shared.adapters.vector.qdrant_adapter import QdrantAdapter
-from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
 from src.shared.ports.embedding import EmbeddingPort
 from src.worker.task_queue_adapter import CeleryTaskQueueAdapter
 

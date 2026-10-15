@@ -163,7 +163,6 @@ function findBestWordSequenceMatch(
   normalizedFull: string,
   queryWords: string[]
 ): { index: number; length: number; text: string; similarity: number } | null {
-  const fullWords = tokenizeWords(normalizedFull)
   let bestMatch: { index: number; length: number; text: string; similarity: number } | null = null
 
   // Try decreasing sequence lengths
@@ -242,6 +241,8 @@ function reconstructOriginalMatch(
   normalizedMatch: string,
   matchIndex: number
 ): string {
+  void normalizedFull
+  void matchIndex
   // This is a simplified version - assumes character positions align
   // In production, you'd need to track original vs normalized positions
   return normalizedMatch

@@ -31,7 +31,9 @@ async def test_check_service_reports_down_without_raising() -> None:
 
 
 @pytest.mark.asyncio
-async def test_celery_health_check_uses_its_own_short_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_celery_health_check_uses_its_own_short_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     observed: dict[str, float] = {}
 
     def ping(*, timeout: float) -> list[dict[str, str]]:

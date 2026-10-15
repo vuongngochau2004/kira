@@ -4,7 +4,6 @@ from celery import Celery
 
 from src.config.config import settings
 
-
 celery_app = Celery(
     "kira",
     broker=settings.celery_broker_url,
@@ -26,4 +25,3 @@ celery_app.conf.update(
 )
 
 __all__ = ["celery_app"]
-

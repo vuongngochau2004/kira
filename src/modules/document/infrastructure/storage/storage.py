@@ -11,7 +11,6 @@ from minio import Minio
 
 from src.config.config import settings
 
-
 # Singleton client
 _minio_client: Minio | None = None
 

@@ -80,22 +80,31 @@ def extract_text_tool(
         result = extract_content_sync(file_path, file_type)
 
         if result.success:
-            return json.dumps({
-                "success": True,
-                "text": result.text,
-                "metadata": result.metadata,
-            }, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "success": True,
+                    "text": result.text,
+                    "metadata": result.metadata,
+                },
+                ensure_ascii=False,
+            )
         else:
-            return json.dumps({
-                "success": False,
-                "error": result.error or "Extraction failed",
-            }, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": result.error or "Extraction failed",
+                },
+                ensure_ascii=False,
+            )
 
     except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": False,
+                "error": str(e),
+            },
+            ensure_ascii=False,
+        )
 
 
 @tool
@@ -118,18 +127,24 @@ def clean_text_tool(
     try:
         cleaned = clean_document(text)
 
-        return json.dumps({
-            "success": True,
-            "text": cleaned,
-            "original_length": len(text),
-            "cleaned_length": len(cleaned),
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": True,
+                "text": cleaned,
+                "original_length": len(text),
+                "cleaned_length": len(cleaned),
+            },
+            ensure_ascii=False,
+        )
 
     except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": False,
+                "error": str(e),
+            },
+            ensure_ascii=False,
+        )
 
 
 @tool
@@ -170,17 +185,23 @@ def chunk_text_tool(
             for chunk in chunks
         ]
 
-        return json.dumps({
-            "success": True,
-            "chunks": chunk_data,
-            "total_chunks": len(chunks),
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": True,
+                "chunks": chunk_data,
+                "total_chunks": len(chunks),
+            },
+            ensure_ascii=False,
+        )
 
     except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": False,
+                "error": str(e),
+            },
+            ensure_ascii=False,
+        )
 
 
 @tool
@@ -201,18 +222,24 @@ def embed_chunks_tool(
         chunk_texts = [chunk.get("content", "") for chunk in chunks]
         embeddings = embed(chunk_texts)
 
-        return json.dumps({
-            "success": True,
-            "embeddings": embeddings,
-            "count": len(embeddings),
-            "dimension": len(embeddings[0]) if embeddings else 0,
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": True,
+                "embeddings": embeddings,
+                "count": len(embeddings),
+                "dimension": len(embeddings[0]) if embeddings else 0,
+            },
+            ensure_ascii=False,
+        )
 
     except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": False,
+                "error": str(e),
+            },
+            ensure_ascii=False,
+        )
 
 
 __all__ = [

@@ -19,7 +19,8 @@ import {
   Presentation,
   ChevronDown,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   AlertDialog,
@@ -50,7 +51,7 @@ interface SidebarExpandedProps {
 }
 
 // Beautiful, modern iOS-style colored icon configuration in sidebar
-const FILE_TYPES: Record<string, { icon: any; color: string; bgColor: string }> = {
+const FILE_TYPES: Record<string, { icon: LucideIcon; color: string; bgColor: string }> = {
   pdf: { 
     icon: FileText, 
     color: 'text-rose-500 dark:text-rose-400', 

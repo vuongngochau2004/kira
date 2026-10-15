@@ -18,7 +18,7 @@ export const SourceCard = memo<SourceCardProps>((props) => {
   const { group, isSelected, onExpand, onPreview } = props;
   const [expandedCitations, setExpandedCitations] = React.useState<Set<string>>(new Set());
 
-  const Icon = (FILE_ICONS as any)[group.type] || FileText;
+  const Icon = (group.type && group.type in FILE_ICONS ? FILE_ICONS[group.type as keyof typeof FILE_ICONS] : FileText);
   const groupKey = group.document_id || group.title;
   const readableChunks = group.chunks.filter((chunk) => chunk.snippet?.trim());
 

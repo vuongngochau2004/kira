@@ -9,7 +9,6 @@ from typing import Optional
 from src.shared.kernel.di.container import ServiceContainer
 from src.shared.ports.classification import ClassificationStrategyBase
 
-
 # Global container instance
 _container: Optional[ServiceContainer] = None
 
@@ -51,10 +50,10 @@ class ServiceRegistry:
         # Import services here to avoid circular imports
         # Classification strategies
         try:
+            from src.modules.classification.domain.strategies.cached import CachedStrategy
             from src.modules.classification.domain.strategies.composite import CompositeClassifier
             from src.modules.classification.domain.strategies.keyword import KeywordStrategy
             from src.modules.classification.domain.strategies.llm import LLMStrategy
-            from src.modules.classification.domain.strategies.cached import CachedStrategy
 
             # Register classification chain
             # Keyword -> Cached LLM with fallback
@@ -64,7 +63,7 @@ class ServiceRegistry:
 
             classifier = CompositeClassifier(
                 strategies=[keyword_strategy, cached_llm],
-                thresholds={"keyword": 0.7, "cached": 0.6, "llm": 0.5}
+                thresholds={"keyword": 0.7, "cached": 0.6, "llm": 0.5},
             )
 
             await container.register_singleton(ClassificationStrategyBase, classifier)
@@ -75,20 +74,21 @@ class ServiceRegistry:
 
         # Hexagonal Ports & Adapters wiring
         try:
-            from src.shared.ports.llm import LLMPort
-            from src.shared.ports.vector_store import VectorStorePort
-            from src.shared.ports.embedding import EmbeddingPort
-            from src.shared.ports.storage import StoragePort
-            from src.shared.ports.keyword_index import KeywordIndexPort
-            from src.shared.ports.ocr import OCRPort
-
-            from src.shared.adapters.llm.glm_adapter import GLMAdapter
-            from src.shared.adapters.vector.qdrant_adapter import QdrantAdapter
-            from src.shared.adapters.embedding import create_embedding_adapter
-            from src.shared.adapters.storage.minio_adapter import MinIOAdapter
-            from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
-            from src.modules.retrieval.infrastructure.keyword.bm25_adapter import BM25KeywordIndexAdapter
+            from src.modules.retrieval.infrastructure.keyword.bm25_adapter import (
+                BM25KeywordIndexAdapter,
+            )
             from src.modules.retrieval.infrastructure.keyword.bm25_manager import get_bm25_manager
+            from src.shared.adapters.embedding import create_embedding_adapter
+            from src.shared.adapters.llm.glm_adapter import GLMAdapter
+            from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
+            from src.shared.adapters.storage.minio_adapter import MinIOAdapter
+            from src.shared.adapters.vector.qdrant_adapter import QdrantAdapter
+            from src.shared.ports.embedding import EmbeddingPort
+            from src.shared.ports.keyword_index import KeywordIndexPort
+            from src.shared.ports.llm import LLMPort
+            from src.shared.ports.ocr import OCRPort
+            from src.shared.ports.storage import StoragePort
+            from src.shared.ports.vector_store import VectorStorePort
 
             await container.register_singleton(LLMPort, GLMAdapter())
             await container.register_singleton(VectorStorePort, QdrantAdapter())
@@ -105,8 +105,12 @@ class ServiceRegistry:
 
         # Query handlers are composed only after their ports are available.
         try:
-            from src.modules.chat.infrastructure.handlers.conversational import ConversationalHandler
-            from src.modules.chat.infrastructure.handlers.drafting_handler import AdministrativeDraftingHandler
+            from src.modules.chat.infrastructure.handlers.conversational import (
+                ConversationalHandler,
+            )
+            from src.modules.chat.infrastructure.handlers.drafting_handler import (
+                AdministrativeDraftingHandler,
+            )
             from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
             from src.modules.rag.composition import create_default_rag_pipeline_service
             from src.modules.retrieval.composition import create_search_use_case
@@ -127,7 +131,9 @@ class ServiceRegistry:
                     )
                 ),
             )
-            await container.register_singleton(ConversationalHandler, ConversationalHandler(llm=llm))
+            await container.register_singleton(
+                ConversationalHandler, ConversationalHandler(llm=llm)
+            )
             await container.register_singleton(
                 AdministrativeDraftingHandler,
                 AdministrativeDraftingHandler(
@@ -164,9 +170,14 @@ class ServiceRegistry:
 
         # Warm up handlers
         try:
+            from src.modules.chat.infrastructure.handlers.conversational import (
+                ConversationalHandler,
+            )
+            from src.modules.chat.infrastructure.handlers.drafting_handler import (
+                AdministrativeDraftingHandler,
+            )
             from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
-            from src.modules.chat.infrastructure.handlers.conversational import ConversationalHandler
-            from src.modules.chat.infrastructure.handlers.drafting_handler import AdministrativeDraftingHandler
+
             await container.get(RAGHandler)
             await container.get(ConversationalHandler)
             await container.get(AdministrativeDraftingHandler)

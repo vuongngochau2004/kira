@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { X, Search, FileText, Loader2, Eye } from 'lucide-react'
+import { X, Search, FileText, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SourceChunk } from './SourceCitation'
 import { documentsAPI } from '@/lib/api/simple-client'
@@ -28,98 +28,11 @@ interface GroupedSource {
   }>
 }
 
-function cleanStringForMatching(str: string): string {
-  if (!str) return ''
-  return str
-    .toLowerCase()
-    .replace(/[\s\r\n\t]+/g, ' ')
-    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, '')
-    .trim()
-}
-
-function findLongestMatch(content: string, snippet: string): { index: number; length: number } | null {
-  const cleanedC = content.toLowerCase()
-  const cleanedS = snippet.toLowerCase()
-
-  // Try exact match first
-  const exactIdx = cleanedC.indexOf(cleanedS)
-  if (exactIdx !== -1) {
-    return { index: exactIdx, length: snippet.length }
-  }
-
-  // Find longest word sub-segment that matches
-  const words = snippet.split(/\s+/).filter(Boolean)
-  if (words.length === 0) return null
-
-  // Check word segments of decreasing length
-  for (let len = words.length - 1; len >= 3; len--) {
-    for (let start = 0; start <= words.length - len; start++) {
-      const subPhrase = words.slice(start, start + len).join(' ')
-      const idx = cleanedC.indexOf(subPhrase.toLowerCase())
-      if (idx !== -1) {
-        return { index: idx, length: subPhrase.length }
-      }
-    }
-  }
-
-  return null
-}
-
-function renderHighlightedContent(content: string, snippets: string[], isSelected: boolean) {
-  if (!snippets || snippets.length === 0) {
-    return <span className={isSelected ? "font-bold bg-primary/30 px-0.5 rounded text-foreground" : ""}>{content}</span>
-  }
-
-  // Find the snippet with the best match in this content
-  let bestMatch: { index: number; length: number } | null = null
-  let matchedSnippetIndex = -1
-
-  for (let i = 0; i < snippets.length; i++) {
-    const match = findLongestMatch(content, snippets[i])
-    if (match) {
-      if (!bestMatch || match.length > bestMatch.length) {
-        bestMatch = match
-        matchedSnippetIndex = i
-      }
-    }
-  }
-
-  if (bestMatch && matchedSnippetIndex !== -1) {
-    const index = bestMatch.index
-    const length = bestMatch.length
-
-    const before = content.substring(0, index)
-    const match = content.substring(index, index + length)
-    const after = content.substring(index + length)
-
-    return (
-      <span>
-        {before}
-        <strong className={cn(
-          "font-bold text-foreground px-0.5 rounded",
-          isSelected ? "bg-primary/45 ring-1 ring-primary/60" : "bg-primary/25"
-        )}>
-          {match}
-        </strong>
-        {after}
-      </span>
-    )
-  }
-
-  // If no match is found, render as normal text (or select highlight if active)
-  return (
-    <span className={isSelected ? "font-bold bg-primary/35 px-0.5 rounded ring-1 ring-primary/40 text-foreground" : ""}>
-      {content}
-    </span>
-  )
-}
-
 export function SourcePanel({ sources, isOpen, onClose, activeSourceId, className }: SourcePanelProps) {
   const [expandedDocKeys, setExpandedDocKeys] = useState<Set<string>>(new Set())
-  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
   const activeRef = useRef<HTMLDivElement>(null)
   
-  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: any }>>>({})
+  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }> | null>>({})
   const [fetchingDocIds, setFetchingDocIds] = useState<Set<string>>(new Set())
 
   // Modal preview state for mobile
@@ -198,7 +111,7 @@ export function SourcePanel({ sources, isOpen, onClose, activeSourceId, classNam
           .catch(err => {
             console.warn('[SourcePanel] Failed to load chunks (will fallback to RAG snippets):', err?.message || err)
             // Mark as null to prevent infinite loop of retries on failure
-            setDocChunks(prev => ({ ...prev, [docId]: null as any }))
+            setDocChunks(prev => ({ ...prev, [docId]: null }))
           })
           .finally(() => {
             setFetchingDocIds((prev) => {

@@ -50,26 +50,7 @@ export function DocumentUpload({
     setIsDragging(false)
   }, [])
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length > 0) {
-      await uploadFile(files[0])
-    }
-  }, [])
-
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      await uploadFile(file)
-    }
-    // Reset input
-    e.target.value = ''
-  }, [])
-
-  const uploadFile = async (file: File) => {
+  const uploadFile = useCallback(async (file: File) => {
     // Validate file type
     const allowedTypes = ['pdf', 'docx', 'doc', 'txt', 'png', 'jpg', 'jpeg', 'tiff']
     const ext = file.name.split('.').pop()?.toLowerCase() || ''
@@ -87,10 +68,29 @@ export function DocumentUpload({
 
     try {
       await onUpload(file)
-    } catch (err) {
+    } catch {
       // Error handled by UI feedback
     }
-  }
+  }, [onUpload])
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length > 0) {
+      await uploadFile(files[0])
+    }
+  }, [uploadFile])
+
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      await uploadFile(file)
+    }
+    // Reset input
+    e.target.value = ''
+  }, [uploadFile])
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`

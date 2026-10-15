@@ -9,13 +9,12 @@ Previously, data models were in src.protocols.handlers - now unified in ABC-only
 """
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Any
 from dataclasses import dataclass, field
+from typing import Any, AsyncIterator
 from uuid import UUID
 
 # Import from shared ports module
 from src.shared.ports.classification import ClassificationResult
-
 
 __all__ = [
     # Data models
@@ -142,6 +141,7 @@ class HandlerConfig:
 # ABC INTERFACES
 # ============================================================================
 
+
 class QueryHandlerBase(ABC):
     """
     Abstract base class for query execution handlers.
@@ -179,7 +179,7 @@ class QueryHandlerBase(ABC):
         query: str,
         user_id: str | UUID,
         classification: ClassificationResult,
-        context: dict[str, Any] | None = None
+        context: dict[str, Any] | None = None,
     ) -> HandlerResult:
         """
         Execute query with known classification (non-streaming).
@@ -211,7 +211,7 @@ class QueryHandlerBase(ABC):
         query: str,
         user_id: str | UUID,
         classification: ClassificationResult,
-        context: dict[str, Any] | None = None
+        context: dict[str, Any] | None = None,
     ) -> AsyncIterator[dict]:
         """
         Execute query with streaming response.

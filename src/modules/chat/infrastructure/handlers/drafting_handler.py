@@ -21,7 +21,6 @@ from src.shared.ports.handlers import HandlerConfig, HandlerResult, QueryHandler
 from src.shared.ports.llm import LLMPort
 from src.shared.ports.storage import StoragePort
 
-
 DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 DOWNLOAD_URL_TTL_SECONDS = 3600
 
@@ -38,7 +37,9 @@ class AdministrativeDraftingHandler(QueryHandlerBase):
         config: HandlerConfig | None = None,
     ):
         """Initialize drafting handler dependencies."""
-        self.config = config or HandlerConfig(max_retrieved_docs=8, max_tokens=3000, temperature=0.2)
+        self.config = config or HandlerConfig(
+            max_retrieved_docs=8, max_tokens=3000, temperature=0.2
+        )
         self.embedding = embedding
         self.search = search
         self.llm = llm
@@ -53,7 +54,9 @@ class AdministrativeDraftingHandler(QueryHandlerBase):
     ) -> HandlerResult:
         """Generate a draft and a downloadable DOCX attachment."""
         if classification.intent != Intent.DRAFTING:
-            raise ValueError(f"AdministrativeDraftingHandler cannot handle intent: {classification.intent}")
+            raise ValueError(
+                f"AdministrativeDraftingHandler cannot handle intent: {classification.intent}"
+            )
 
         t0 = time.perf_counter()
         try:
@@ -98,7 +101,9 @@ class AdministrativeDraftingHandler(QueryHandlerBase):
                 )
 
             content = draft_result["draft"]
-            attachment = await self._create_attachment(content=content, query=query, user_id=str(user_id))
+            attachment = await self._create_attachment(
+                content=content, query=query, user_id=str(user_id)
+            )
             citations = self._build_citations(documents)
             latency_ms = (time.perf_counter() - t0) * 1000
 
@@ -218,7 +223,9 @@ class AdministrativeDraftingHandler(QueryHandlerBase):
             yield {"type": "content", "data": {"text": full_content}}
             latency_ms = (time.perf_counter() - t0) * 1000
 
-            attachment = await self._create_attachment(content=full_content, query=query, user_id=str(user_id))
+            attachment = await self._create_attachment(
+                content=full_content, query=query, user_id=str(user_id)
+            )
             citations = [citation.to_dict() for citation in self._build_citations(documents)]
 
             yield {
@@ -253,7 +260,8 @@ class AdministrativeDraftingHandler(QueryHandlerBase):
         )
 
         official_results = [
-            result for result in results
+            result
+            for result in results
             if (result.get("metadata") or {}).get("source_type") == "official"
         ]
         return official_results or results

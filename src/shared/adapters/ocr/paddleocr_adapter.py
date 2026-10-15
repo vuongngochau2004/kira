@@ -3,8 +3,9 @@
 Wraps the existing PaddleOCRClient from
 src.modules.document.infrastructure.ocr.ocr_client.
 """
-from src.shared.ports.ocr import OCRPort
+
 from src.modules.document.infrastructure.ocr.ocr_client import get_ocr_client
+from src.shared.ports.ocr import OCRPort
 
 
 class PaddleOCRAdapter(OCRPort):

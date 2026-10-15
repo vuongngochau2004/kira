@@ -52,11 +52,27 @@ function waitForNextPaint(): Promise<void> {
   })
 }
 
+function getErrorMessage(err: unknown, defaultMsg: string): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return String((err as { message: unknown }).message)
+  }
+  return defaultMsg
+}
+
+function isAbortError(err: unknown): boolean {
+  if (err instanceof Error && err.name === 'AbortError') return true
+  if (typeof err === 'object' && err !== null && 'name' in err) {
+    return (err as { name: unknown }).name === 'AbortError'
+  }
+  return false
+}
+
 // ==================== Custom Hook ====================
 
 export function useSimpleChat() {
   // Store & Router
-  const { activeConversationId, setActiveConversation, updateURL } = useConversationStore()
+  const { activeConversationId, setActiveConversation } = useConversationStore()
   const { isAuthenticated } = useAuthStore()
   const sourcesStore = useSourcesStore()
 
@@ -84,52 +100,17 @@ export function useSimpleChat() {
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
   const queueRef = useRef(new MessageQueue())
   const failedMessageRef = useRef<string | null>(null)
-  const conversationError = useRef<any>(null)
+  const conversationError = useRef<{ type?: string; retryable?: boolean } | null>(null)
 
   // Refs for streaming
   const abortControllerRef = useRef<AbortController | null>(null)
   const stateBuilderRef = useRef<ReturnType<typeof createStreamingStateBuilder> | null>(null)
   const assistantMsgIdRef = useRef<string | null>(null)
 
-  // Effects
-  useEffect(() => { setMounted(true) }, [])
-
-  useEffect(() => { return () => { cleanup() } }, [])
-
-  useEffect(() => {
-    return () => {
-      if (isCreatingConversation) {
-        queueRef.current = new MessageQueue()
-        setIsCreatingConversation(false)
-      }
-    }
-  }, [isCreatingConversation])
-
-  useEffect(() => {
-    if (!activeConversationId || !mounted || !isAuthenticated || isCreatingConversation) {
-      return
-    }
-    setMessages([])
-    sourcesStore.replaceForConversation(activeConversationId, [])
-    loadConversation(activeConversationId)
-  }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation])
-
-  useEffect(() => {
-    if (!activeConversationId && mounted && isAuthenticated && !isCreatingConversation) {
-      cleanup()
-      queueRef.current = new MessageQueue()
-      failedMessageRef.current = null
-      conversationError.current = null
-      setError(null)
-      setMessages([])
-      // Reset sources panel when switching to new chat
-      sourcesStore.reset()
-    }
-  }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation])
 
   // ==================== Helpers ====================
 
-  function cleanup() {
+  const cleanup = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
@@ -140,34 +121,37 @@ export function useSimpleChat() {
     }
     assistantMsgIdRef.current = null
     setIsLoading(false)
-  }
+  }, [])
 
   /**
    * Update assistant message with current streaming state
    * Simple mapping: state → hierarchy → message
    */
-  function updateAssistantMessage(msgId: string | null, stateBuilder: ReturnType<typeof createStreamingStateBuilder>) {
-    if (!msgId) return
+  const updateAssistantMessage = useCallback(
+    (msgId: string | null, stateBuilder: ReturnType<typeof createStreamingStateBuilder>) => {
+      if (!msgId) return
 
-    const state = stateBuilder.getState()
+      const state = stateBuilder.getState()
 
-    setMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === msgId
-          ? {
-              ...msg,
-              content: state.content,
-              sources: state.sources.length > 0 ? [...state.sources] : undefined,
-              attachments: state.attachments.length > 0 ? [...state.attachments] : undefined,
-              streamingState: state.status,
-              isStreaming: state.status !== 'complete',
-            }
-          : msg
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === msgId
+            ? {
+                ...msg,
+                content: state.content,
+                sources: state.sources.length > 0 ? [...state.sources] : undefined,
+                attachments: state.attachments.length > 0 ? [...state.attachments] : undefined,
+                streamingState: state.status,
+                isStreaming: state.status !== 'complete',
+              }
+            : msg
+        )
       )
-    )
-  }
+    },
+    []
+  )
 
-  function finishCurrentAssistantMessage() {
+  const finishCurrentAssistantMessage = useCallback(() => {
     const assistantMsgId = assistantMsgIdRef.current
     if (!assistantMsgId) return
 
@@ -182,9 +166,9 @@ export function useSimpleChat() {
           : msg
       )
     )
-  }
+  }, [])
 
-  async function loadConversation(id: string) {
+  const loadConversation = useCallback(async (id: string) => {
     try {
       const conversation = await conversationsAPI.get(id)
 
@@ -217,113 +201,153 @@ export function useSimpleChat() {
           }
         })
       )
-    } catch (err) {
+    } catch {
       // Silent fail
     }
-  }
+  }, [])
 
-  async function flushQueuedMessages(conversationId: string) {
-    const queue = queueRef.current
+  const flushQueuedMessages = useCallback(
+    async (conversationId: string) => {
+      const queue = queueRef.current
 
-    if (queue.isEmpty()) {
-      return
-    }
+      if (queue.isEmpty()) {
+        return
+      }
 
-    try {
-      await queue.flush(async (queuedMsg: QueuedMessage) => {
-        const assistantMsgId = queuedMsg.assistantId || (Date.now() + Math.random()).toString()
-        assistantMsgIdRef.current = assistantMsgId
+      try {
+        await queue.flush(async (queuedMsg: QueuedMessage) => {
+          const assistantMsgId = queuedMsg.assistantId || (Date.now() + Math.random()).toString()
+          assistantMsgIdRef.current = assistantMsgId
 
-        const stateBuilder = createStreamingStateBuilder()
-        stateBuilderRef.current = stateBuilder
+          const stateBuilder = createStreamingStateBuilder()
+          stateBuilderRef.current = stateBuilder
 
-        // Set initial assistant message
-        setMessages((prev) => {
-          const existingMsg = prev.find(m => m.id === assistantMsgId)
-          return [
-            ...prev.filter(m => m.id !== assistantMsgId),
-            {
-              id: assistantMsgId,
-              role: 'assistant' as const,
-              content: '',
-              timestamp: new Date(),
-              sources: existingMsg?.sources || [],
-              streamingState: 'connecting',
-              isStreaming: true,
-              isOptimistic: false,
-            }
-          ]
-        })
+          // Set initial assistant message
+          setMessages((prev) => {
+            const existingMsg = prev.find(m => m.id === assistantMsgId)
+            return [
+              ...prev.filter(m => m.id !== assistantMsgId),
+              {
+                id: assistantMsgId,
+                role: 'assistant' as const,
+                content: '',
+                timestamp: new Date(),
+                sources: existingMsg?.sources || [],
+                streamingState: 'connecting',
+                isStreaming: true,
+                isOptimistic: false,
+              }
+            ]
+          })
 
-        try {
-          const abortController = new AbortController()
-          abortControllerRef.current = abortController
-          const stream = chatAPI.streamMessage(queuedMsg.content, conversationId, abortController.signal)
-          let contentChunkCount = 0
+          try {
+            const abortController = new AbortController()
+            abortControllerRef.current = abortController
+            const stream = chatAPI.streamMessage(queuedMsg.content, conversationId, abortController.signal)
+            let contentChunkCount = 0
 
-          for await (const chunk of stream) {
-            const { type, data: eventData } = chunk
+            for await (const chunk of stream) {
+              const { type, data: eventData } = chunk
 
-            if (type === 'error') {
-              const errorMsg = eventData?.error || eventData?.message || 'Server error occurred'
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === assistantMsgId
-                    ? {
-                        ...msg,
-                        streamingState: 'error' as const,
-                        isStreaming: false,
-                        content: `❌ Error: ${errorMsg}`,
-                      }
-                    : msg
+              if (type === 'error') {
+                const errorMsg = eventData?.error || eventData?.message || 'Server error occurred'
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMsgId
+                      ? {
+                          ...msg,
+                          streamingState: 'error' as const,
+                          isStreaming: false,
+                          content: `❌ Error: ${errorMsg}`,
+                        }
+                      : msg
+                  )
                 )
-              )
-              break
-            }
+                break
+              }
 
-            stateBuilder.processChunk(type, eventData)
-            updateAssistantMessage(assistantMsgId, stateBuilder)
-            if (type === 'content') {
-              contentChunkCount += 1
-              if (contentChunkCount % STREAM_PAINT_INTERVAL_CHUNKS === 0) {
-                await waitForNextPaint()
+              stateBuilder.processChunk(type, eventData)
+              updateAssistantMessage(assistantMsgId, stateBuilder)
+              if (type === 'content') {
+                contentChunkCount += 1
+                if (contentChunkCount % STREAM_PAINT_INTERVAL_CHUNKS === 0) {
+                  await waitForNextPaint()
+                }
               }
             }
-          }
-          abortControllerRef.current = null
+            abortControllerRef.current = null
 
-          // Mark optimistic messages as real
-          setMessages((prev) =>
-            prev.map(msg => msg.id.startsWith('temp-')
-              ? { ...msg, isOptimistic: false }
-              : msg
-            )
-          )
-        } catch (streamErr: any) {
-          if (streamErr?.name === 'AbortError') {
-            finishCurrentAssistantMessage()
-            return
-          }
-
-          const errorMsg = streamErr?.message || 'Failed to stream response'
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMsgId
-                ? {
-                    ...msg,
-                    streamingState: 'error' as const,
-                    isStreaming: false,
-                    content: `❌ ${errorMsg}`,
-                  }
+            // Mark optimistic messages as real
+            setMessages((prev) =>
+              prev.map(msg => msg.id.startsWith('temp-')
+                ? { ...msg, isOptimistic: false }
                 : msg
+              )
             )
-          )
-        }
-      })
-    } catch (err: any) {
-      setError(err?.message || 'Failed to send queued messages')
+          } catch (streamErr: unknown) {
+            if (isAbortError(streamErr)) {
+              finishCurrentAssistantMessage()
+              return
+            }
+
+            const errorMsg = getErrorMessage(streamErr, 'Failed to stream response')
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMsgId
+                  ? {
+                      ...msg,
+                      streamingState: 'error' as const,
+                      isStreaming: false,
+                      content: `❌ ${errorMsg}`,
+                    }
+                  : msg
+              )
+            )
+          }
+        })
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, 'Failed to send queued messages'))
+      }
+    },
+    [updateAssistantMessage, finishCurrentAssistantMessage]
+  )
+
+  // ==================== Effects ====================
+
+  useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => { return () => { cleanup() } }, [cleanup])
+
+  useEffect(() => {
+    return () => {
+      if (isCreatingConversation) {
+        queueRef.current = new MessageQueue()
+        setIsCreatingConversation(false)
+      }
     }
-  }
+  }, [isCreatingConversation])
+
+  useEffect(() => {
+    if (!activeConversationId || !mounted || !isAuthenticated || isCreatingConversation) {
+      return
+    }
+    setMessages([])
+    sourcesStore.replaceForConversation(activeConversationId, [])
+    loadConversation(activeConversationId)
+  }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation, loadConversation, sourcesStore])
+
+  useEffect(() => {
+    if (!activeConversationId && mounted && isAuthenticated && !isCreatingConversation) {
+      cleanup()
+      queueRef.current = new MessageQueue()
+      failedMessageRef.current = null
+      conversationError.current = null
+      setError(null)
+      setMessages([])
+      // Reset sources panel when switching to new chat
+      sourcesStore.reset()
+    }
+  }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation, cleanup, sourcesStore])
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return
@@ -402,11 +426,11 @@ export function useSimpleChat() {
             }
           }
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
+      } catch (err: unknown) {
+        if (isAbortError(err)) {
           finishCurrentAssistantMessage()
         } else {
-          const errorMsg = err?.message || 'Failed to send message. Please check your connection.'
+          const errorMsg = getErrorMessage(err, 'Failed to send message. Please check your connection.')
           setError(errorMsg)
           setMessages((prev) =>
             prev.map((msg) =>
@@ -484,8 +508,8 @@ export function useSimpleChat() {
           )
         )
         setIsCreatingConversation(false)
-      } catch (err: any) {
-        setError(err?.message || 'Failed to create conversation. Please try again.')
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, 'Failed to create conversation. Please try again.'))
         failedMessageRef.current = content
         queueRef.current = new MessageQueue()
         setIsCreatingConversation(false)
@@ -498,8 +522,10 @@ export function useSimpleChat() {
     cleanup,
     isCreatingConversation,
     addOptimistic,
-    isAuthenticated,
-    mounted,
+    isLoading,
+    flushQueuedMessages,
+    updateAssistantMessage,
+    finishCurrentAssistantMessage,
   ])
 
   const clearMessages = useCallback(() => {
@@ -509,7 +535,7 @@ export function useSimpleChat() {
     setError(null)
     // Reset sources panel
     sourcesStore.reset()
-  }, [setActiveConversation, cleanup])
+  }, [setActiveConversation, cleanup, sourcesStore])
 
   const retryMessage = useCallback(() => {
     if (failedMessageRef.current) {
@@ -524,7 +550,7 @@ export function useSimpleChat() {
     abortControllerRef.current = null
     finishCurrentAssistantMessage()
     setIsLoading(false)
-  }, [])
+  }, [finishCurrentAssistantMessage])
 
   return {
     messages,

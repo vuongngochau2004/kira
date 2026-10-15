@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { X, Search, FileText, Loader2, CheckCircle, AlertTriangle, XCircle, Info, Eye } from 'lucide-react'
+import { X, Search, FileText, Loader2, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { CitationBadge } from './CitationBadge'
 import { documentsAPI } from '@/lib/api/simple-client'
 import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
 
@@ -67,7 +66,7 @@ export function CitationPanel({
   const [isDragging, setIsDragging] = useState(false)
   const resizeRef = useRef<HTMLDivElement>(null)
 
-  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: any }>>>({})
+  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }>>>({})
   const [fetchingChunks, setFetchingChunks] = useState<Record<string, boolean>>({})
   const [expandedViewMode, setExpandedViewMode] = useState<Record<string, 'snippet' | 'context'>>({})
   const [previewDocId, setPreviewDocId] = useState<string | null>(null)
@@ -350,7 +349,7 @@ export function CitationPanel({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto divide-y bg-muted/5">
-        {groupedCitations.map((group, groupIndex) => {
+        {groupedCitations.map((group) => {
           const docKey = group.document_id || group.title || group.source || 'unknown'
           const isDocExpanded = expandedDocKeys.has(docKey)
           const hasActiveChunkInDoc = activeChunkId && group.citations.some(c => c.chunk_id === activeChunkId)

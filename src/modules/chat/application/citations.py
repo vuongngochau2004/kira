@@ -16,16 +16,22 @@ class EnrichCitations:
     async def execute(self, citations: list[dict]) -> list[dict]:
         document_ids = list(
             {
-                str(citation.get("document_id") or (citation.get("metadata") or {}).get("document_id"))
+                str(
+                    citation.get("document_id")
+                    or (citation.get("metadata") or {}).get("document_id")
+                )
                 for citation in citations
-                if citation.get("document_id") or (citation.get("metadata") or {}).get("document_id")
+                if citation.get("document_id")
+                or (citation.get("metadata") or {}).get("document_id")
             }
         )
         if not document_ids:
             return citations
         filenames = await self._documents.get_filenames(document_ids)
         for citation in citations:
-            document_id = citation.get("document_id") or (citation.get("metadata") or {}).get("document_id")
+            document_id = citation.get("document_id") or (citation.get("metadata") or {}).get(
+                "document_id"
+            )
             filename = filenames.get(str(document_id))
             if filename:
                 citation.update({"filename": filename, "source": filename, "title": filename})

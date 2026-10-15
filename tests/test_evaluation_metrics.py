@@ -3,13 +3,13 @@
 import asyncio
 
 from src.modules.evaluation.domain.models import (
-    BatchEvaluationResponse,
     DEFAULT_METRICS,
+    BatchEvaluationResponse,
     EvaluationMetric,
+    EvaluationRequest,
     EvaluationResponse,
     MetricResult,
 )
-from src.modules.evaluation.domain.models import EvaluationRequest
 from src.modules.evaluation.domain.service import DeepEvalEvaluationService
 from src.modules.evaluation.metrics import hit_rate_at_k, mean_reciprocal_rank, recall_at_k
 from src.modules.evaluation.reports.reporter import EvaluationReporter

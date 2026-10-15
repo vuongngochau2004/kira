@@ -12,27 +12,27 @@ Architecture:
                               [Regenerate] or [END]
 """
 
-from loguru import logger
 from typing import Literal, Optional
 from uuid import UUID
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
+from loguru import logger
 
-from src.modules.rag.orchestration.state.rag_state import (
-    RAGState,
-    create_initial_state,
-    OrchestratorAgentConfig,
-    RetrievalAgentConfig,
-    GenerationAgentConfig,
-    QualityAgentConfig,
-    get_quality_score,
-    should_regenerate,
-    increment_orchestrator_iteration,
-)
-from src.modules.rag.orchestration.agents.orchestrator_agent import OrchestratorAgent
-from src.modules.rag.orchestration.agents.retrieval_agent import RetrievalAgent
 from src.modules.rag.orchestration.agents.generation_agent import GenerationAgent
+from src.modules.rag.orchestration.agents.orchestrator_agent import OrchestratorAgent
 from src.modules.rag.orchestration.agents.quality_agent import QualityAgent
+from src.modules.rag.orchestration.agents.retrieval_agent import RetrievalAgent
+from src.modules.rag.orchestration.state.rag_state import (
+    GenerationAgentConfig,
+    OrchestratorAgentConfig,
+    QualityAgentConfig,
+    RAGState,
+    RetrievalAgentConfig,
+    create_initial_state,
+    get_quality_score,
+    increment_orchestrator_iteration,
+    should_regenerate,
+)
 from src.modules.retrieval.application.search_use_case import SearchUseCase
 from src.shared.ports.embedding import EmbeddingPort
 from src.shared.ports.llm import LLMPort
@@ -126,10 +126,7 @@ class LangGraphRAGPipeline:
         graph.add_conditional_edges(
             "orchestrator",
             self._should_route_to_retrieval,
-            {
-                "retrieval": "retrieval",
-                "fallback": END
-            }
+            {"retrieval": "retrieval", "fallback": END},
         )
 
         # Add fixed edge: retrieval → generation
@@ -140,12 +137,7 @@ class LangGraphRAGPipeline:
 
         # Add conditional edge: quality → regenerate or END
         graph.add_conditional_edges(
-            "quality",
-            self._should_regenerate_or_finish,
-            {
-                "regenerate": "generation",
-                "end": END
-            }
+            "quality", self._should_regenerate_or_finish, {"regenerate": "generation", "end": END}
         )
 
         # Compile graph
@@ -275,7 +267,9 @@ class LangGraphRAGPipeline:
 
         # Quality gate passed
         if quality_score >= threshold:
-            logger.info(f"✅ <green>[RAG QUALITY GATE PASSED]</green> score={quality_score:.2f} >= threshold={threshold:.2f}")
+            logger.info(
+                f"✅ <green>[RAG QUALITY GATE PASSED]</green> score={quality_score:.2f} >= threshold={threshold:.2f}"
+            )
             return "end"
 
         # Quality failed but max iterations reached
@@ -306,10 +300,7 @@ class LangGraphRAGPipeline:
     # ==============================================================================
 
     async def run(
-        self,
-        query: str,
-        user_id: str,
-        conversation_id: Optional[UUID] = None
+        self, query: str, user_id: str, conversation_id: Optional[UUID] = None
     ) -> RAGState:
         """
         Run the LangGraph RAG pipeline.
@@ -333,23 +324,22 @@ class LangGraphRAGPipeline:
         # Invoke graph
         try:
             result = await self.graph.ainvoke(initial_state)
-            logger.info("✅ <green>[RAG PIPELINE COMPLETED]</green> LangGraph RAG pipeline execution finished successfully.")
+            logger.info(
+                "✅ <green>[RAG PIPELINE COMPLETED]</green> LangGraph RAG pipeline execution finished successfully."
+            )
             return result
 
         except Exception as e:
-            logger.error(f"❌ <red>[RAG PIPELINE ERROR]</red> LangGraph pipeline failed: {e}", exc_info=True)
+            logger.error(
+                f"❌ <red>[RAG PIPELINE ERROR]</red> LangGraph pipeline failed: {e}", exc_info=True
+            )
             # Return error state
             initial_state["errors"].append(f"LangGraph pipeline error: {str(e)}")
             initial_state["should_fallback"] = True
             initial_state["fallback_reason"] = str(e)
             return initial_state
 
-    async def run_stream(
-        self,
-        query: str,
-        user_id: str,
-        conversation_id: Optional[UUID] = None
-    ):
+    async def run_stream(self, query: str, user_id: str, conversation_id: Optional[UUID] = None):
         """
         Run the LangGraph RAG pipeline with streaming updates.
 
@@ -381,7 +371,10 @@ class LangGraphRAGPipeline:
             ):
                 yield {"mode": mode, "chunk": chunk}
         except Exception as e:
-            logger.error(f"❌ <red>[RAG PIPELINE STREAM ERROR]</red> LangGraph streaming failed: {e}", exc_info=True)
+            logger.error(
+                f"❌ <red>[RAG PIPELINE STREAM ERROR]</red> LangGraph streaming failed: {e}",
+                exc_info=True,
+            )
             yield {"mode": "error", "chunk": {"error": str(e)}}
 
     def get_graph_visualization(self) -> str:
@@ -401,6 +394,7 @@ class LangGraphRAGPipeline:
 # ==============================================================================
 # Factory Function
 # ==============================================================================
+
 
 def create_langgraph_pipeline(
     orchestrator_config: Optional[OrchestratorAgentConfig] = None,

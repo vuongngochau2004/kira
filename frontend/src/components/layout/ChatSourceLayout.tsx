@@ -5,7 +5,7 @@
 
 'use client'
 
-import { memo, useState, useCallback, useMemo } from 'react'
+import { memo, useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { PanelResizer } from '@/components/sources/components/PanelResizer'
 
@@ -45,14 +45,6 @@ export const ChatSourceLayout = memo<ChatSourceLayoutProps>(
   }) => {
     const [sourceWidth, setSourceWidth] = useState(defaultSourceWidth)
     const [isResizing, setIsResizing] = useState(false)
-
-    // Calculate widths as percentages for better responsiveness
-    const totalWidth = 100 // 100%
-    const sourceWidthPercent = useMemo(() => {
-      return (sourceWidth / window.innerWidth) * 100
-    }, [sourceWidth])
-
-    const chatWidth = totalWidth - sourceWidthPercent
 
     // Handle resize
     const handleResize = useCallback(

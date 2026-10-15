@@ -44,7 +44,7 @@ export function useDocumentsUpload() {
         if (savedStarts) {
           setDocumentStarts(JSON.parse(savedStarts))
         }
-      } catch (e) {
+      } catch {
         // localStorage read failed silently
       }
     }
@@ -133,7 +133,7 @@ export function useDocumentsUpload() {
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('kira-upload-durations', JSON.stringify(nextDurations))
-        } catch (e) {
+        } catch {
           // localStorage write failed silently
         }
       }
@@ -168,7 +168,7 @@ export function useDocumentsUpload() {
         if (typeof window !== 'undefined') {
           try {
             localStorage.setItem('kira-document-starts', JSON.stringify(next))
-          } catch (e) {
+          } catch {
             // localStorage write failed silently
           }
         }

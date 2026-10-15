@@ -28,13 +28,20 @@ class InterceptHandler(logging.Handler):
         while frame:
             filename = frame.f_code.co_filename
             # Walk up to skip frames inside this logger config and the logging standard library
-            if "logger.py" in filename or filename == logging.__file__ or "logging/__init__.py" in filename or frame.f_globals.get("__name__", "").startswith("logging"):
+            if (
+                "logger.py" in filename
+                or filename == logging.__file__
+                or "logging/__init__.py" in filename
+                or frame.f_globals.get("__name__", "").startswith("logging")
+            ):
                 frame = frame.f_back
                 depth += 1
             else:
                 break
 
-        logger.opt(depth=depth, exception=record.exc_info, colors=True).log(level, record.getMessage())
+        logger.opt(depth=depth, exception=record.exc_info, colors=True).log(
+            level, record.getMessage()
+        )
 
 
 def log_filter(record: dict[str, Any]) -> bool:
@@ -79,10 +86,7 @@ def setup_logging(debug: bool = True, log_file_path: Union[str, Path] = "logs/ki
 
     # Define file format (no ANSI escape codes for file)
     file_format = (
-        "{time:YYYY-MM-DD HH:mm:ss.SSS} | "
-        "{level: <8} | "
-        "{name}:{function}:{line} - "
-        "{message}"
+        "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}"
     )
 
     # Configure Loguru sinks

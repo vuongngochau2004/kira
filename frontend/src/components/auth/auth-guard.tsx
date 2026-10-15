@@ -40,7 +40,7 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
     isAuthenticated = authStore.isAuthenticated
     isHydrated = authStore.isHydrated
     isVerified = authStore.isVerified ?? false
-  } catch (error) {
+  } catch {
     // Auth store failed - treat as unauthenticated for safety
     setHasError(true)
   }
@@ -53,7 +53,7 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
       try {
         sessionStorage.setItem('returnUrl', pathname)
         router.push('/')
-      } catch (error) {
+      } catch {
         // Ignore redirect errors
       }
     }

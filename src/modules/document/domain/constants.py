@@ -3,22 +3,66 @@
 import re
 
 SUPPORTED_TYPES = {
-    "pdf", "docx", "pptx", "xlsx", "html", "md", "txt",
+    "pdf",
+    "docx",
+    "pptx",
+    "xlsx",
+    "html",
+    "md",
+    "txt",
 }
 
 OCR_TYPES = {"png", "jpg", "jpeg", "tiff", "bmp", "gif", "webp"}
 
-VIETNAMESE_DIACRITICS = set(
-    "áàảãạâấầẩẫậăắằẳẵặéèẻẽẹêếềểễệíìỉĩị"
-    "óòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđĐ"
-)
+VIETNAMESE_DIACRITICS = set("áàảãạâấầẩẫậăắằẳẵặéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđĐ")
 
 VIETNAMESE_UNACCENTED_SIGNAL_WORDS = {
-    "bach", "ban", "bo", "can", "cac", "chinh", "cho", "cong", "cua", "dao",
-    "dai", "dan", "danh", "dieu", "dinh", "doc", "duc", "duoc", "giao", "hoc",
-    "hoa", "hoat", "hoi", "khoa", "khoan", "ly", "nam", "ngay", "nghi", "nguoi",
-    "phuc", "quyet", "quy", "quan", "so", "tac", "tao", "thang", "thinh",
-    "to", "truong", "tu", "van", "ve", "viet", "xa",
+    "bach",
+    "ban",
+    "bo",
+    "can",
+    "cac",
+    "chinh",
+    "cho",
+    "cong",
+    "cua",
+    "dao",
+    "dai",
+    "dan",
+    "danh",
+    "dieu",
+    "dinh",
+    "doc",
+    "duc",
+    "duoc",
+    "giao",
+    "hoc",
+    "hoa",
+    "hoat",
+    "hoi",
+    "khoa",
+    "khoan",
+    "ly",
+    "nam",
+    "ngay",
+    "nghi",
+    "nguoi",
+    "phuc",
+    "quyet",
+    "quy",
+    "quan",
+    "so",
+    "tac",
+    "tao",
+    "thang",
+    "thinh",
+    "to",
+    "truong",
+    "tu",
+    "van",
+    "ve",
+    "viet",
+    "xa",
 }
 
 MOJIBAKE_OR_PLACEHOLDER_PATTERN = re.compile(r"[□ñ]|[A-Za-z][!&*][A-Za-z]")
@@ -40,4 +84,3 @@ CHUNKER_PAGE_MARKER_PATTERN = re.compile(r"<!--\s*page\s+(\d+)\s*-->")
 LEGAL_HEADING_PATTERN = re.compile(
     r"(?im)^(?:#{1,6}\s*)?(?:\*\*)?\s*(Điều\s+\d+[^\n]*|Chương\s+[IVXLCDM\d]+[^\n]*|Phụ\s*lục[^\n]*)"
 )
-

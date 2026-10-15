@@ -8,7 +8,13 @@ delegating to the shared agents.llm module.
 from src.modules.chat.infrastructure.llm.client import LLMClientAdapter
 
 # Re-export LLM types for convenience
-from src.shared.infrastructure.llm.client import LLMClient, LLMProvider, LLMError, LLMTimeoutError, LLMStreamError
+from src.shared.infrastructure.llm.client import (
+    LLMClient,
+    LLMError,
+    LLMProvider,
+    LLMStreamError,
+    LLMTimeoutError,
+)
 
 __all__ = [
     "LLMClientAdapter",

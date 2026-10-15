@@ -17,26 +17,25 @@ Import examples:
 """
 
 # Application layer (use cases and DTOs) - lightweight, no heavy deps
+# API layer (DTOs) - lightweight Pydantic models
+from src.modules.chat.api import (
+    ChatCompletionRequest,
+    ChatResponse,
+    ChatStreamRequest,
+)
 from src.modules.chat.application import (
-    ChatUseCase,
     ChatGraph,
-    StreamingUseCase,
     ChatQuery,
     ChatResult,
+    ChatUseCase,
     StreamChunk,
+    StreamingUseCase,
 )
 
 # Domain layer (services) - lightweight, no heavy deps
 from src.modules.chat.domain.services import (
-    RAGService,
     ConversationService,
-)
-
-# API layer (DTOs) - lightweight Pydantic models
-from src.modules.chat.api import (
-    ChatStreamRequest,
-    ChatCompletionRequest,
-    ChatResponse,
+    RAGService,
 )
 
 # Infrastructure layer (handlers) - lazy import to avoid circular deps

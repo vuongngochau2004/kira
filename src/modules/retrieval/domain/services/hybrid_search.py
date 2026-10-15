@@ -13,7 +13,6 @@ from typing import Any
 from src.config.config import settings
 from src.modules.retrieval.domain.prompts import RERANKING_SYSTEM_PROMPT, build_reranking_prompt
 
-
 logger = logging.getLogger(__name__)
 
 DEFAULT_RRF_K = 60

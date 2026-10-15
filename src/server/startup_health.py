@@ -10,12 +10,12 @@ from dataclasses import dataclass
 from loguru import logger
 
 from src.config.config import settings
+from src.modules.document.infrastructure.storage.storage import get_client as get_minio_client
 from src.shared.adapters.embedding import create_embedding_adapter
 from src.shared.adapters.llm.glm_adapter import GLMAdapter
 from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
 from src.shared.adapters.vector.qdrant_adapter import QdrantAdapter
 from src.shared.infrastructure.llm.client import LLMClient
-from src.modules.document.infrastructure.storage.storage import get_client as get_minio_client
 from src.worker.celery_app import celery_app
 
 
@@ -41,7 +41,9 @@ async def _check_service(
             return ServiceHealth(result.name, result.state, result.detail, latency_ms)
         if result is False:
             return ServiceHealth(name, "DOWN", "health check returned false", latency_ms)
-        return ServiceHealth(name, "UP", result if isinstance(result, str) else "reachable", latency_ms)
+        return ServiceHealth(
+            name, "UP", result if isinstance(result, str) else "reachable", latency_ms
+        )
     except Exception as exc:
         latency_ms = (time.perf_counter() - started_at) * 1000
         return ServiceHealth(name, "DOWN", f"{type(exc).__name__}: {exc}", latency_ms)
@@ -104,7 +106,9 @@ async def log_startup_service_health(llm_client: LLMClient) -> list[ServiceHealt
         _check_service("Redis", _check_redis),
         _check_service("Celery worker", _check_celery_worker),
         _check_service("Embedding API", create_embedding_adapter().health_check),
-        _check_service(f"LLM ({settings.llm_provider})", GLMAdapter(client=llm_client).health_check),
+        _check_service(
+            f"LLM ({settings.llm_provider})", GLMAdapter(client=llm_client).health_check
+        ),
         _check_service("PaddleOCR", _check_ocr),
         _check_service("Docling", _check_docling),
     )

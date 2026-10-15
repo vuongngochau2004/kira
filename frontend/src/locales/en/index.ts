@@ -1,4 +1,4 @@
-export default {
+const enLocale = {
   common: {
     loading: 'Loading...',
     error: 'An error occurred',
@@ -17,3 +17,5 @@ export default {
     settings: 'Settings',
   },
 };
+
+export default enLocale;

@@ -19,10 +19,19 @@ class FakeUsers:
         return self.users.get(email)
 
     async def get_active_by_id(self, user_id):
-        return next((user for user in self.users.values() if str(user.id) == user_id and user.is_active), None)
+        return next(
+            (user for user in self.users.values() if str(user.id) == user_id and user.is_active),
+            None,
+        )
 
     async def create(self, *, email, hashed_password, full_name):
-        user = SimpleNamespace(id=uuid4(), email=email, hashed_password=hashed_password, full_name=full_name, is_active=True)
+        user = SimpleNamespace(
+            id=uuid4(),
+            email=email,
+            hashed_password=hashed_password,
+            full_name=full_name,
+            is_active=True,
+        )
         self.users[email] = user
         return user
 
@@ -51,7 +60,11 @@ class FakeDocumentRepository:
 
 @pytest.mark.asyncio
 async def test_identity_register_authenticate_and_active_lookup():
-    service = IdentityService(FakeUsers(), lambda password: f"hash:{password}", lambda raw, hashed: hashed == f"hash:{raw}")
+    service = IdentityService(
+        FakeUsers(),
+        lambda password: f"hash:{password}",
+        lambda raw, hashed: hashed == f"hash:{raw}",
+    )
     user = await service.register(email="a@example.com", password="secret", full_name="A")
 
     assert (await service.authenticate(email="a@example.com", password="secret")).id == user.id
@@ -79,8 +92,12 @@ async def test_document_chunks_enforce_owner_scope():
     repository = FakeDocumentRepository(SimpleNamespace(id=uuid4(), user_id=owner_id))
     service = GetDocumentChunks(repository)
 
-    denied = await service.execute(GetDocumentChunksRequest(document_id=repository.document.id, user_id=uuid4()))
-    allowed = await service.execute(GetDocumentChunksRequest(document_id=repository.document.id, user_id=owner_id))
+    denied = await service.execute(
+        GetDocumentChunksRequest(document_id=repository.document.id, user_id=uuid4())
+    )
+    allowed = await service.execute(
+        GetDocumentChunksRequest(document_id=repository.document.id, user_id=owner_id)
+    )
 
     assert denied is None
     assert allowed is not None

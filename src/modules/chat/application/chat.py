@@ -7,15 +7,15 @@ Delegates workflow routing to ChatGraph:
 3. Handler result is converted to the application DTO
 """
 
-from loguru import logger
 import time
 from typing import Any
 
-from src.shared.ports.classification import Intent
-from src.shared.ports.handlers import QueryHandlerBase
+from loguru import logger
 
 from src.modules.chat.application.dto import ChatQuery, ChatResult, StreamChunk
 from src.modules.chat.application.graph import ChatGraph
+from src.shared.ports.classification import Intent
+from src.shared.ports.handlers import QueryHandlerBase
 
 
 class ChatUseCase:
@@ -70,7 +70,7 @@ class ChatUseCase:
             f"📥 <blue>[USER REQUEST]</blue> user_id='{query.user_id}', "
             f"conversation_id='{conv_id or 'None'}'"
         )
-        logger.info(f"💬 <blue>[MESSAGE]</blue> \"{query.message}\"")
+        logger.info(f'💬 <blue>[MESSAGE]</blue> "{query.message}"')
 
         try:
             state = await self.graph.run(query)
@@ -91,7 +91,7 @@ class ChatUseCase:
                 latency_ms=latency_ms,
             )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Application boundary handler catches all errors to prevent unhandled crash
             latency_ms = (time.perf_counter() - t0) * 1000
             logger.error(
                 f"❌ <red>[ERROR]</red> ChatUseCase execute failed: {e}. "
@@ -126,7 +126,7 @@ class ChatUseCase:
             f"📥 <blue>[USER REQUEST STREAM]</blue> user_id='{query.user_id}', "
             f"conversation_id='{conv_id or 'None'}'"
         )
-        logger.info(f"💬 <blue>[MESSAGE]</blue> \"{query.message}\"")
+        logger.info(f'💬 <blue>[MESSAGE]</blue> "{query.message}"')
 
         try:
             async for chunk in self.graph.run_stream(query):
@@ -138,7 +138,7 @@ class ChatUseCase:
                 f"Latency: <yellow>{latency_ms:.2f}ms</yellow>"
             )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Stream boundary handler catches all errors to stream error chunk
             latency_ms = (time.perf_counter() - t0) * 1000
             logger.error(
                 f"❌ <red>[STREAM ERROR]</red> ChatUseCase stream failed: {e}. "

@@ -11,8 +11,7 @@ from dataclasses import dataclass
 from typing import Any, TypeVar
 from uuid import UUID
 
-from src.shared.ports.classification import ClassificationResult, ClassificationCacheBase
-
+from src.shared.ports.classification import ClassificationCacheBase, ClassificationResult
 
 T = TypeVar("T")
 
@@ -88,12 +87,7 @@ class AsyncLRUCache(ClassificationCacheBase):
 
             return entry.value
 
-    async def set(
-        self,
-        key: str,
-        value: ClassificationResult,
-        ttl: int | None = None
-    ) -> None:
+    async def set(self, key: str, value: ClassificationResult, ttl: int | None = None) -> None:
         """
         Cache classification result with TTL.
 
@@ -164,10 +158,7 @@ class AsyncLRUCache(ClassificationCacheBase):
             Number of entries removed
         """
         async with self._lock:
-            expired_keys = [
-                key for key, entry in self._cache.items()
-                if entry.is_expired()
-            ]
+            expired_keys = [key for key, entry in self._cache.items() if entry.is_expired()]
 
             for key in expired_keys:
                 del self._cache[key]

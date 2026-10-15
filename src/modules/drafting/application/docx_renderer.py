@@ -10,7 +10,6 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 
-
 BODY_FONT_SIZE = 13
 TITLE_MARKERS = ("CÔNG VĂN", "TỜ TRÌNH", "QUYẾT ĐỊNH", "THÔNG BÁO", "KẾ HOẠCH", "BIÊN BẢN")
 
@@ -72,7 +71,9 @@ def render_administrative_docx(content: str) -> bytes:
             run.italic = True
         else:
             paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            if not _looks_like_list_item(line) and not line.lower().startswith(("số:", "kính gửi:")):
+            if not _looks_like_list_item(line) and not line.lower().startswith(
+                ("số:", "kính gửi:")
+            ):
                 paragraph.paragraph_format.first_line_indent = Cm(1)
             paragraph.add_run(line)
 
@@ -205,9 +206,7 @@ def _looks_like_subtitle(line: str) -> bool:
 
 def _looks_like_signature_block(line: str) -> bool:
     upper = line.upper()
-    return upper.startswith(
-        ("THỦ TRƯỞNG", "HIỆU TRƯỞNG", "GIÁM ĐỐC", "TRƯỞNG PHÒNG", "NGƯỜI KÝ")
-    )
+    return upper.startswith(("THỦ TRƯỞNG", "HIỆU TRƯỞNG", "GIÁM ĐỐC", "TRƯỞNG PHÒNG", "NGƯỜI KÝ"))
 
 
 def _looks_like_place_and_date(line: str) -> bool:

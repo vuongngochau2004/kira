@@ -2,9 +2,9 @@
 
 from src.modules.evaluation.domain.dataset import DatasetManager, get_dataset_manager
 from src.modules.evaluation.domain.models import (
+    DEFAULT_METRICS,
     BatchEvaluationRequest,
     BatchEvaluationResponse,
-    DEFAULT_METRICS,
     EvaluationHistory,
     EvaluationMetric,
     EvaluationRequest,

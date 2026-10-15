@@ -35,9 +35,9 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import TypeVar, Type, Any, Callable, Awaitable
 from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Awaitable, Callable, Type, TypeVar
 
 T = TypeVar("T")
 
@@ -56,6 +56,7 @@ __all__ = [
 # ============================================================================
 # DATA MODELS (formerly in src.protocols.container)
 # ============================================================================
+
 
 class Lifecycle(str, Enum):
     """
@@ -117,6 +118,7 @@ class ServiceDescriptor:
 # ABC INTERFACES
 # ============================================================================
 
+
 class DependencyContainerBase(ABC):
     """
     Base class for dependency injection container.
@@ -137,11 +139,7 @@ class DependencyContainerBase(ABC):
     """
 
     @abstractmethod
-    async def register_singleton(
-        self,
-        interface: Type[T],
-        implementation: Type[T] | T
-    ) -> None:
+    async def register_singleton(self, interface: Type[T], implementation: Type[T] | T) -> None:
         """
         Register singleton service (one instance for app lifetime).
 
@@ -155,11 +153,7 @@ class DependencyContainerBase(ABC):
         ...
 
     @abstractmethod
-    async def register_transient(
-        self,
-        interface: Type[T],
-        implementation: Type[T]
-    ) -> None:
+    async def register_transient(self, interface: Type[T], implementation: Type[T]) -> None:
         """
         Register transient service (new instance each time).
 
@@ -174,10 +168,7 @@ class DependencyContainerBase(ABC):
 
     @abstractmethod
     async def register_scoped(
-        self,
-        interface: Type[T],
-        implementation: Type[T],
-        scope_id: str | None = None
+        self, interface: Type[T], implementation: Type[T], scope_id: str | None = None
     ) -> None:
         """
         Register scoped service (one instance per scope).
@@ -194,9 +185,7 @@ class DependencyContainerBase(ABC):
 
     @abstractmethod
     async def register_factory(
-        self,
-        interface: Type[T],
-        factory: Callable[..., T] | Callable[..., Awaitable[T]]
+        self, interface: Type[T], factory: Callable[..., T] | Callable[..., Awaitable[T]]
     ) -> None:
         """
         Register factory function for custom instantiation.
@@ -414,10 +403,7 @@ class ScopeManagerBase(ABC):
 
     @abstractmethod
     async def get_scoped_service(
-        self,
-        interface: Type[T],
-        scope_id: str,
-        container: "DependencyContainerBase"
+        self, interface: Type[T], scope_id: str, container: "DependencyContainerBase"
     ) -> T:
         """
         Get service within scope.

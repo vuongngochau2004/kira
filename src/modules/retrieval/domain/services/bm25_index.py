@@ -20,6 +20,7 @@ def _tokenize(text: str) -> list[str]:
     normalized = _normalize(text)
     try:
         from pyvi import ViTokenizer
+
         tokenized = ViTokenizer.tokenize(normalized)
     except ImportError:
         tokenized = normalized
@@ -42,7 +43,7 @@ class BM25Index:
         self.idf: dict[str, float] = {}
         self.doc_texts: list[str] = []
         self.doc_metadata: list[dict] = []
-        self.avg_doc_len = 0
+        self.avg_doc_len: float = 0.0
 
     @property
     def document_count(self) -> int:
@@ -76,18 +77,18 @@ class BM25Index:
         if n_docs == 0:
             return
 
-        doc_len_sum = sum(len(freq) for freq in self.doc_freqs)
-        self.avg_doc_len = doc_len_sum / n_docs
+        doc_len_sum = sum(len(f) for f in self.doc_freqs)
+        self.avg_doc_len = float(doc_len_sum) / n_docs
 
         # Count document frequency for each term
         df: dict[str, int] = {}
-        for freq in self.doc_freqs:
-            for term in freq:
+        for doc_term_freq in self.doc_freqs:
+            for term in doc_term_freq:
                 df[term] = df.get(term, 0) + 1
 
         # Compute IDF using standard BM25 formula
-        for term, freq in df.items():
-            self.idf[term] = math.log((n_docs - freq + 0.5) / (freq + 0.5) + 1)
+        for term, term_freq in df.items():
+            self.idf[term] = math.log((n_docs - term_freq + 0.5) / (term_freq + 0.5) + 1)
 
     def search(self, query: str, k: int = 5) -> list[dict]:
         """Search for documents using BM25 scoring.
@@ -129,14 +130,16 @@ class BM25Index:
         results = []
         for idx, score in scores[:k]:
             metadata = self.doc_metadata[idx]
-            results.append({
-                "text": self.doc_texts[idx],
-                "content": self.doc_texts[idx],  # Alias for consistency
-                "metadata": metadata,
-                "document_id": metadata.get("document_id"),
-                "chunk_index": metadata.get("chunk_index"),
-                "score": score,
-            })
+            results.append(
+                {
+                    "text": self.doc_texts[idx],
+                    "content": self.doc_texts[idx],  # Alias for consistency
+                    "metadata": metadata,
+                    "document_id": metadata.get("document_id"),
+                    "chunk_index": metadata.get("chunk_index"),
+                    "score": score,
+                }
+            )
 
         return results
 

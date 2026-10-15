@@ -16,8 +16,8 @@ Example:
 """
 
 from dataclasses import dataclass, field
-from uuid import UUID, uuid4
 from typing import Any
+from uuid import UUID, uuid4
 
 
 @dataclass

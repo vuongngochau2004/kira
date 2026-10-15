@@ -4,6 +4,7 @@ Application core depends on this ABC, NOT on a specific embedding model.
 Allows swapping Vietnamese-v2 ↔ BAAI/bge ↔ OpenAI text-embedding-3
 without changing business logic.
 """
+
 from abc import ABC, abstractmethod
 
 
@@ -54,3 +55,12 @@ class EmbeddingPort(ABC):
             Integer dimension (e.g. 768, 1024, 1536)
         """
         ...
+
+    async def health_check(self) -> bool:
+        """Check availability of the underlying embedding service.
+
+        Returns:
+            True if healthy, False otherwise
+        """
+        return True
+

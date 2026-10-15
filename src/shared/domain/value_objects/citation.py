@@ -2,6 +2,7 @@
 
 An immutable record of a retrieved document chunk used as a citation.
 """
+
 from dataclasses import dataclass, field
 from typing import Any
 

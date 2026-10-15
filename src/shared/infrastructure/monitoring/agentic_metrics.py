@@ -29,12 +29,12 @@ from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
 
-
 logger = logging.getLogger(__name__)
 
 
 class MetricCategory(Enum):
     """Categories of metrics."""
+
     PERFORMANCE = "performance"
     QUALITY = "quality"
     COST = "cost"
@@ -44,6 +44,7 @@ class MetricCategory(Enum):
 @dataclass
 class AgentCallMetric:
     """Metric for a single agent call."""
+
     call_id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: datetime = field(default_factory=datetime.utcnow)
     agent_name: str = ""
@@ -74,6 +75,7 @@ class AgentCallMetric:
 @dataclass
 class GraphExecutionMetric:
     """Metric for graph execution."""
+
     execution_id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: datetime = field(default_factory=datetime.utcnow)
     iteration_count: int = 0
@@ -102,6 +104,7 @@ class GraphExecutionMetric:
 @dataclass
 class UserFeedbackMetric:
     """Metric for user feedback."""
+
     feedback_id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: datetime = field(default_factory=datetime.utcnow)
     user_id: Optional[str] = None
@@ -128,6 +131,7 @@ class UserFeedbackMetric:
 @dataclass
 class CostMetric:
     """Metric for cost tracking."""
+
     metric_id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: datetime = field(default_factory=datetime.utcnow)
     query_id: Optional[str] = None
@@ -210,7 +214,9 @@ class AgenticMetricsCollector:
             user_id=user_id,
         )
         self._graph_executions.append(metric)
-        logger.debug(f"[METRICS] Recorded graph execution: {iteration_count} iterations, {retry_count} retries")
+        logger.debug(
+            f"[METRICS] Recorded graph execution: {iteration_count} iterations, {retry_count} retries"
+        )
 
     def record_user_feedback(
         self,
@@ -266,8 +272,7 @@ class AgenticMetricsCollector:
 
         if agent_name:
             recent_calls = [
-                m for m in self._agent_calls
-                if m.agent_name == agent_name and m.timestamp > cutoff
+                m for m in self._agent_calls if m.agent_name == agent_name and m.timestamp > cutoff
             ]
         else:
             recent_calls = [m for m in self._agent_calls if m.timestamp > cutoff]
@@ -288,7 +293,9 @@ class AgenticMetricsCollector:
             "failed_calls": failed_calls,
             "success_rate": successful_calls / total_calls if total_calls > 0 else 0,
             "avg_latency_ms": avg_latency,
-            "p95_latency_ms": sorted(latencies)[int(len(latencies) * 0.95)] if len(latencies) > 1 else (latencies[0] if latencies else 0),
+            "p95_latency_ms": sorted(latencies)[int(len(latencies) * 0.95)]
+            if len(latencies) > 1
+            else (latencies[0] if latencies else 0),
         }
 
     def get_graph_metrics(self, time_window_hours: int = 1) -> dict[str, Any]:
@@ -338,7 +345,9 @@ class AgenticMetricsCollector:
         thumbs_down = sum(1 for m in recent_feedback if m.feedback_type == "thumbs_down")
         ratings = [m.rating for m in recent_feedback if m.rating is not None]
         avg_rating = sum(ratings) / len(ratings) if ratings else 0
-        satisfaction_rate = thumbs_up / (thumbs_up + thumbs_down) if (thumbs_up + thumbs_down) > 0 else 0
+        satisfaction_rate = (
+            thumbs_up / (thumbs_up + thumbs_down) if (thumbs_up + thumbs_down) > 0 else 0
+        )
 
         return {
             "total_feedback": total_feedback,

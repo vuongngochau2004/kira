@@ -33,11 +33,14 @@ async def _run(args: argparse.Namespace) -> int:
     user_id = args.user_id
     if not user_id:
         from pathlib import Path
+
         project_root = Path(__file__).resolve().parents[3]
         user_id_path = project_root / "dataset" / "user_id.txt"
         if user_id_path.exists():
             user_id = user_id_path.read_text().strip()
-            print(f"WARNING: user-id parameter was empty. Loaded auto user_id from {user_id_path}: {user_id}")
+            print(
+                f"WARNING: user-id parameter was empty. Loaded auto user_id from {user_id_path}: {user_id}"
+            )
 
     config = EvaluationRunConfig(
         dataset_path=args.dataset,

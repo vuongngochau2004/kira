@@ -1,16 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAutoRedirect, usePostLoginRedirect } from '@/lib/hooks/use-post-login-redirect'
-import { Mail, Lock, User, Eye, EyeOff, Loader2, Github, Chrome, Check } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Mail, Lock, User, Eye, EyeOff, Loader2, Github, Chrome } from 'lucide-react'
 import { KiraLogoIcon } from '@/components/common/KiraLogo'
 import { ThemeToggleCompact } from '@/components/common/ThemeToggle'
 
 export default function AuthLandingPage() {
-  const router = useRouter()
   const { isAuthenticated, isHydrated, isVerified, login, register, isLoading, error, clearError } = useAuthStore()
   const { handleRedirect } = usePostLoginRedirect()
 
@@ -45,7 +42,7 @@ export default function AuthLandingPage() {
       }
 
       handleRedirect()
-    } catch (err) {
+    } catch {
       // Managed in auth store
     }
   }

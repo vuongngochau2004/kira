@@ -8,10 +8,10 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
-from src.shared.ports.classification import ClassificationStrategyBase, ClassificationResult, Intent
-from src.shared.infrastructure.llm.client import chat_async
-from src.shared.utils.agent import parse_json_response
 from src.modules.classification.domain.prompts import ROUTING_CLASSIFIER_PROMPT
+from src.shared.infrastructure.llm.client import chat_async
+from src.shared.ports.classification import ClassificationResult, ClassificationStrategyBase, Intent
+from src.shared.utils.agent import parse_json_response
 
 
 class LLMStrategy(ClassificationStrategyBase):
@@ -33,12 +33,7 @@ class LLMStrategy(ClassificationStrategyBase):
         >>> assert result.intent == Intent.RAG
     """
 
-    def __init__(
-        self,
-        temperature: float = 0.1,
-        max_tokens: int = 100,
-        timeout: int = 30
-    ):
+    def __init__(self, temperature: float = 0.1, max_tokens: int = 100, timeout: int = 30):
         """
         Initialize LLM strategy.
 
@@ -65,10 +60,7 @@ class LLMStrategy(ClassificationStrategyBase):
         return bool(query and query.strip())
 
     async def classify(
-        self,
-        query: str,
-        user_id: str | UUID,
-        context: dict[str, Any] | None = None
+        self, query: str, user_id: str | UUID, context: dict[str, Any] | None = None
     ) -> ClassificationResult:
         """
         Classify query using LLM.
@@ -86,16 +78,13 @@ class LLMStrategy(ClassificationStrategyBase):
         """
         if not query or not query.strip():
             return ClassificationResult(
-                intent=Intent.CONVERSATIONAL,
-                confidence=0.0,
-                reason="Empty query"
+                intent=Intent.CONVERSATIONAL, confidence=0.0, reason="Empty query"
             )
 
         try:
             # Run LLM call with timeout
             result = await asyncio.wait_for(
-                self._classify_with_llm(query, context),
-                timeout=self.timeout
+                self._classify_with_llm(query, context), timeout=self.timeout
             )
 
             return result
@@ -106,7 +95,7 @@ class LLMStrategy(ClassificationStrategyBase):
                 intent=Intent.RAG,  # Safer default
                 confidence=0.3,
                 reason=f"LLM timeout after {self.timeout}s, using default RAG",
-                metadata={"strategy": "llm", "error": "timeout"}
+                metadata={"strategy": "llm", "error": "timeout"},
             )
 
         except Exception as e:
@@ -115,13 +104,11 @@ class LLMStrategy(ClassificationStrategyBase):
                 intent=Intent.RAG,  # Safer default
                 confidence=0.3,
                 reason=f"LLM classification error: {str(e)}",
-                metadata={"strategy": "llm", "error": str(e)}
+                metadata={"strategy": "llm", "error": str(e)},
             )
 
     async def _classify_with_llm(
-        self,
-        query: str,
-        context: dict[str, Any] | None = None
+        self, query: str, context: dict[str, Any] | None = None
     ) -> ClassificationResult:
         """
         Internal method to classify with LLM.
@@ -152,7 +139,7 @@ class LLMStrategy(ClassificationStrategyBase):
                 intent=Intent.RAG,
                 confidence=0.5,
                 reason="JSON parsing failed, using default RAG",
-                metadata={"strategy": "llm", "parse_error": True}
+                metadata={"strategy": "llm", "parse_error": True},
             )
 
         # Map intent string to Intent enum
@@ -170,7 +157,7 @@ class LLMStrategy(ClassificationStrategyBase):
             confidence=confidence,
             reason=reason,
             metadata={"strategy": "llm"},
-            handler_hint=self._get_handler_hint(intent)
+            handler_hint=self._get_handler_hint(intent),
         )
 
     def _map_intent(self, intent_str: str) -> Intent:

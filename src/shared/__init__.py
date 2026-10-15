@@ -5,32 +5,32 @@ that are shared across all modules in the modular monolith architecture.
 """
 
 # Shared Kernel - ABC interfaces, DI, base classes
-from src.shared.ports import (
-    ClassificationStrategyBase,
-    ClassificationResult,
-    ClassificationCacheBase,
-    Intent,
-    QueryHandlerBase,
-    HandlerResult,
-    HandlerConfig,
-    Citation,
-    RetrieverBase,
-    DenseRetrieverBase,
-    BM25RetrieverBase,
-    HybridRetrieverBase,
-    Document,
-    Lifecycle,
-    DependencyContainerBase,
-    ServiceRegistryBase,
-    ScopeManagerBase,
-    ServiceDescriptor,
-)
-from src.shared.kernel.di import ServiceContainer, ServiceRegistry, FeatureFlagManager
+from src.shared.domain.entities.conversation import ConversationEntity
 
 # Shared Domain - Domain entities and value objects
 from src.shared.domain.entities.document import DocumentEntity
-from src.shared.domain.entities.conversation import ConversationEntity
 from src.shared.domain.entities.user import UserEntity
+from src.shared.kernel.di import FeatureFlagManager, ServiceContainer, ServiceRegistry
+from src.shared.ports import (
+    BM25RetrieverBase,
+    Citation,
+    ClassificationCacheBase,
+    ClassificationResult,
+    ClassificationStrategyBase,
+    DenseRetrieverBase,
+    DependencyContainerBase,
+    Document,
+    HandlerConfig,
+    HandlerResult,
+    HybridRetrieverBase,
+    Intent,
+    Lifecycle,
+    QueryHandlerBase,
+    RetrieverBase,
+    ScopeManagerBase,
+    ServiceDescriptor,
+    ServiceRegistryBase,
+)
 
 __all__ = [
     # Classification

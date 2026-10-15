@@ -115,7 +115,9 @@ class RAGPipelineEvaluationRunner:
             metadata={
                 "sample_id": sample.id,
                 "tags": sample.tags,
-                "source_file": sample.metadata.get("source_file"),
+                "source_file": getattr(sample, "metadata", {}).get("source_file")
+                if isinstance(getattr(sample, "metadata", None), dict)
+                else None,
                 "expected_context_ids": sample.expected_context_ids,
                 "retrieved_context_ids": self._retrieved_context_ids(docs),
                 "quality_agent_output": state.get("quality_agent_output", {}),

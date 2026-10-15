@@ -8,12 +8,11 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from src.shared.ports.classification import ClassificationResult, Intent
+from src.modules.classification.domain.strategies.cached import CachedStrategy
 from src.modules.classification.domain.strategies.composite import CompositeClassifier
 from src.modules.classification.domain.strategies.keyword import KeywordStrategy
 from src.modules.classification.domain.strategies.llm import LLMStrategy
-from src.modules.classification.domain.strategies.cached import CachedStrategy
-
+from src.shared.ports.classification import ClassificationResult, Intent
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ class Classification:
         self,
         classifier: CompositeClassifier | None = None,
         cache_size: int = 1000,
-        cache_ttl: int = 3600
+        cache_ttl: int = 3600,
     ):
         """
         Initialize classification use case.
@@ -56,24 +55,16 @@ class Classification:
             keyword_strategy = KeywordStrategy()
             llm_strategy = LLMStrategy(temperature=0.1)
             cached_llm = CachedStrategy(
-                underlying=llm_strategy,
-                cache_size=cache_size,
-                ttl=cache_ttl
+                underlying=llm_strategy, cache_size=cache_size, ttl=cache_ttl
             )
 
-            classifier = CompositeClassifier([
-                keyword_strategy,
-                cached_llm
-            ])
+            classifier = CompositeClassifier([keyword_strategy, cached_llm])
 
         self.classifier = classifier
         self.cache = cache_size
 
     async def classify(
-        self,
-        query: str,
-        user_id: str | UUID,
-        context: dict[str, Any] | None = None
+        self, query: str, user_id: str | UUID, context: dict[str, Any] | None = None
     ) -> ClassificationResult:
         """
         Classify query intent using strategy chain with fallback.
@@ -99,7 +90,7 @@ class Classification:
                 intent=Intent.CONVERSATIONAL,
                 confidence=0.0,
                 reason="Empty query",
-                metadata={"use_case": "Classification"}
+                metadata={"use_case": "Classification"},
             )
 
         try:
@@ -110,11 +101,8 @@ class Classification:
                 intent=result.intent,
                 confidence=result.confidence,
                 reason=result.reason,
-                metadata={
-                    **result.metadata,
-                    "use_case": "Classification"
-                },
-                handler_hint=result.handler_hint
+                metadata={**result.metadata, "use_case": "Classification"},
+                handler_hint=result.handler_hint,
             )
 
         except Exception as e:
@@ -125,18 +113,12 @@ class Classification:
                 intent=Intent.RAG,
                 confidence=0.3,
                 reason=f"Classification error: {str(e)}",
-                metadata={
-                    "use_case": "Classification",
-                    "error": str(e),
-                    "fallback": True
-                },
-                handler_hint="RAGHandler"
+                metadata={"use_case": "Classification", "error": str(e), "fallback": True},
+                handler_hint="RAGHandler",
             )
 
     async def classify_batch(
-        self,
-        queries: list[tuple[str, str | UUID]],
-        context: dict[str, Any] | None = None
+        self, queries: list[tuple[str, str | UUID]], context: dict[str, Any] | None = None
     ) -> list[ClassificationResult]:
         """
         Classify multiple queries in batch.
@@ -174,5 +156,5 @@ class Classification:
         return {
             "strategy_count": self.classifier.get_strategy_count(),
             "strategy_names": self.classifier.get_strategy_names(),
-            "cache_size": self.cache
+            "cache_size": self.cache,
         }

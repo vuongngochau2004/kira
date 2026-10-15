@@ -18,15 +18,15 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
 from enum import Enum
-
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class RoutingMethod(Enum):
     """Routing method types."""
+
     QUICK_FILTER = "quick_filter"
     LLM_CLASSIFICATION = "llm_classification"
     FALLBACK = "fallback"
@@ -87,10 +87,7 @@ class RoutingMetricsCollector:
 
         now = time.time()
         cutoff = now - time_window_seconds
-        recent_decisions = [
-            d for d in self._decisions
-            if d.get("timestamp", 0) > cutoff
-        ]
+        recent_decisions = [d for d in self._decisions if d.get("timestamp", 0) > cutoff]
 
         if not recent_decisions:
             return RoutingMetrics()
@@ -154,10 +151,7 @@ class RoutingMetricsCollector:
         limit: int = 10,
     ) -> list[dict]:
         """Get queries with low confidence scores."""
-        problematic = [
-            d for d in self._decisions
-            if d.get("confidence", 1.0) < min_confidence
-        ]
+        problematic = [d for d in self._decisions if d.get("confidence", 1.0) < min_confidence]
         problematic.sort(key=lambda x: x.get("confidence", 0))
         return problematic[:limit]
 
@@ -172,8 +166,7 @@ class RoutingMetricsCollector:
             hour_key = datetime.fromtimestamp(hour_start).strftime("%Y-%m-%d %H:00")
 
             hour_decisions = [
-                d for d in self._decisions
-                if hour_start <= d.get("timestamp", 0) < hour_end
+                d for d in self._decisions if hour_start <= d.get("timestamp", 0) < hour_end
             ]
 
             method_counts = defaultdict(int)
@@ -189,44 +182,59 @@ class RoutingMetricsCollector:
         """Analyze baseline metrics for Go/No-Go decision."""
         metrics = self.get_metrics_summary()
 
-        analysis = {
+        analysis_detail: dict[str, str] = {}
+        recommendations: list[str] = []
+
+        analysis: dict[str, Any] = {
             "metrics": metrics.to_dict(),
-            "analysis": {},
-            "recommendations": [],
+            "analysis": analysis_detail,
+            "recommendations": recommendations,
         }
 
         llm_rate = metrics.llm_classification_rate
         analysis["llm_classification_rate"] = llm_rate
 
         if llm_rate > 0.5:
-            analysis["analysis"]["llm_classification"] = "HIGH - Problem validated"
-            analysis["recommendations"].append("GO: LLM classification rate > 50% justifies optimization")
+            analysis_detail["llm_classification"] = "HIGH - Problem validated"
+            recommendations.append(
+                "GO: LLM classification rate > 50% justifies optimization"
+            )
         elif llm_rate < 0.3:
-            analysis["analysis"]["llm_classification"] = "LOW - Problem may be overstated"
-            analysis["recommendations"].append("NO-GO: LLM classification rate < 30%, minimal optimization needed")
+            analysis_detail["llm_classification"] = "LOW - Problem may be overstated"
+            recommendations.append(
+                "NO-GO: LLM classification rate < 30%, minimal optimization needed"
+            )
         else:
-            analysis["analysis"]["llm_classification"] = "MEDIUM - Marginal case"
-            analysis["recommendations"].append("EVALUATE: LLM classification rate 30-50%, assess other factors")
+            analysis_detail["llm_classification"] = "MEDIUM - Marginal case"
+            recommendations.append(
+                "EVALUATE: LLM classification rate 30-50%, assess other factors"
+            )
 
         avg_latency = metrics.avg_latency_ms.get(RoutingMethod.LLM_CLASSIFICATION.value, 0)
         analysis["avg_llm_latency_ms"] = avg_latency
 
         if avg_latency > 500:
-            analysis["analysis"]["latency"] = "HIGH - Performance concern"
-            analysis["recommendations"].append("GO: Average LLM latency > 500ms indicates performance issue")
+            analysis_detail["latency"] = "HIGH - Performance concern"
+            recommendations.append(
+                "GO: Average LLM latency > 500ms indicates performance issue"
+            )
         else:
-            analysis["analysis"]["latency"] = "ACCEPTABLE"
-            analysis["recommendations"].append("Latency within acceptable range")
+            analysis_detail["latency"] = "ACCEPTABLE"
+            recommendations.append("Latency within acceptable range")
 
         quick_coverage = metrics.quick_filter_coverage
         analysis["quick_filter_coverage"] = quick_coverage
 
         if quick_coverage < 0.2:
-            analysis["analysis"]["quick_filter"] = "LOW - Room for improvement"
-            analysis["recommendations"].append("GO: Quick filter coverage < 20%, significant improvement possible")
+            analysis_detail["quick_filter"] = "LOW - Room for improvement"
+            recommendations.append(
+                "GO: Quick filter coverage < 20%, significant improvement possible"
+            )
         elif quick_coverage > 0.5:
-            analysis["analysis"]["quick_filter"] = "HIGH - Already effective"
-            analysis["recommendations"].append("NO-GO: Quick filter coverage > 50%, already performing well")
+            analysis_detail["quick_filter"] = "HIGH - Already effective"
+            recommendations.append(
+                "NO-GO: Quick filter coverage > 50%, already performing well"
+            )
 
         go_votes = sum(1 for rec in analysis["recommendations"] if rec.startswith("GO"))
         no_go_votes = sum(1 for rec in analysis["recommendations"] if rec.startswith("NO-GO"))
@@ -236,7 +244,9 @@ class RoutingMetricsCollector:
         elif no_go_votes >= 2:
             analysis["overall_recommendation"] = "NO-GO - Problem not significant enough"
         else:
-            analysis["overall_recommendation"] = "EVALUATE - Mixed signals, assess business priorities"
+            analysis["overall_recommendation"] = (
+                "EVALUATE - Mixed signals, assess business priorities"
+            )
 
         return analysis
 

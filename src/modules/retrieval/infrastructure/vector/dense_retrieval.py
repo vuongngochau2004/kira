@@ -18,8 +18,8 @@ def dense_search(
     Returns:
         List of retrieved chunks with standardized structure
     """
-    from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
     from src.config.config import settings
+    from src.modules.retrieval.infrastructure.vector.qdrant_store import search_similar
 
     results = search_similar(
         query_embedding=query_embedding,

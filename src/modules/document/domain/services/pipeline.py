@@ -9,17 +9,18 @@ import tempfile
 import uuid
 from pathlib import Path
 from uuid import UUID
-from src.modules.document.domain.models import Chunk
-from src.modules.document.domain.services.extractor import extract_content_sync
-from src.modules.document.domain.services.cleaner import clean_document
-from src.modules.document.domain.services.chunker import chunk_document
+
 from src.constants import (
-    DocumentStatus,
-    ERR_NO_CONTENT,
-    ERR_NO_CHUNKS,
     ERR_EXTRACTION_FAILED,
+    ERR_NO_CHUNKS,
+    ERR_NO_CONTENT,
     ERR_PROCESSING_FAILED,
+    DocumentStatus,
 )
+from src.modules.document.domain.models import Chunk
+from src.modules.document.domain.services.chunker import chunk_document
+from src.modules.document.domain.services.cleaner import clean_document
+from src.modules.document.domain.services.extractor import extract_content_sync
 from src.shared.ports.document_repository import DocumentRepositoryPort
 from src.shared.ports.embedding import EmbeddingPort
 from src.shared.ports.ocr import OCRPort
@@ -68,7 +69,9 @@ async def process_document(
 
         document = await repository.get_document(document_id=document_id, user_id=user_id)
         if not document or document.status == DocumentStatus.CANCELLED.value:
-            logger.info("Document %s was cancelled before final persistence; cleaning vectors.", document_id)
+            logger.info(
+                "Document %s was cancelled before final persistence; cleaning vectors.", document_id
+            )
             try:
                 await vector_store.delete_document(document_id)
             except Exception:
@@ -124,7 +127,7 @@ def _process_sync(
         logger.info(
             "Extraction complete. Method: %s, Raw length: %d characters.",
             ext_method.upper(),
-            len(extraction_result.text)
+            len(extraction_result.text),
         )
 
         # Export OCR text for inspection if OCR was used
@@ -227,7 +230,7 @@ def _prepare_vector_documents(
     vector_documents = []
     qdrant_ids = []
 
-    for i, (chunk, chunk_embedding) in enumerate(zip(chunk_data, embeddings)):
+    for i, (chunk, chunk_embedding) in enumerate(zip(chunk_data, embeddings, strict=False)):
         chunk_index = chunk.get("index", i)
         point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{document_id}_chunk_{chunk_index}"))
         qdrant_ids.append(point_id)
@@ -266,9 +269,11 @@ async def _update_document_status_result(
             status=DocumentStatus.COMPLETED.value,
             chunk_count=result["chunk_count"],
         )
-        logger.info(">>> SUCCESS: Document %s fully processed and indexed successfully!", document_id)
+        logger.info(
+            ">>> SUCCESS: Document %s fully processed and indexed successfully!", document_id
+        )
     else:
-        logger.error("Document processing failed for %s: %s", document_id, result.get('error'))
+        logger.error("Document processing failed for %s: %s", document_id, result.get("error"))
         await repository.update_document_status(
             document_id=document_id,
             status=DocumentStatus.FAILED.value,
