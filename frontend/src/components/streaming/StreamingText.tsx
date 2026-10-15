@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useEffect, useState, useRef } from 'react'
+import { memo, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
@@ -25,14 +25,13 @@ interface StreamingTextProps {
 // Preprocess content for citation links
 const preprocessContent = (content: string) => {
   if (!content) return ''
-  return content.replace(/(?<!\[)\[(\d+)\](?!\]|\()/g, '[$1](#source-$1)')
+  // No preprocessing: citations are displayed via SourceCitation list below message
+  return content
 }
 
 // Streaming component: plain text with smooth cursor animation
 const StreamingContent = memo(({ content }: { content: string }) => {
-  const [visibleContent, setVisibleContent] = useState(content)
   const [cursorVisible, setCursorVisible] = useState(true)
-  const prevContentRef = useRef(content)
 
   // Smooth cursor blink
   useEffect(() => {
@@ -42,24 +41,12 @@ const StreamingContent = memo(({ content }: { content: string }) => {
     return () => clearInterval(interval)
   }, [])
 
-  // Update visible content when streaming
-  useEffect(() => {
-    if (content !== prevContentRef.current) {
-      // Small delay for smoother appearance
-      const timer = setTimeout(() => {
-        setVisibleContent(content)
-        prevContentRef.current = content
-      }, 10)
-      return () => clearTimeout(timer)
-    }
-  }, [content])
-
   return (
     <div className={cn(
       'whitespace-pre-wrap leading-relaxed text-foreground',
       'text-[15px] md:text-base'
     )}>
-      {visibleContent}
+      {content}
       <span
         className={cn(
           'inline-block w-0.5 h-4 bg-primary ml-0.5 align-middle',

@@ -16,7 +16,6 @@ export function ConversationItem({
   conversation,
   isActive,
   onClick,
-  onDelete,
 }: ConversationItemProps) {
   return (
     <button
@@ -54,7 +53,7 @@ export function ConversationItem({
                 const parsed = new Date(dateStr)
                 if (isNaN(parsed.getTime())) return ''
                 return formatDistanceToNow(parsed, { addSuffix: true })
-              } catch (e) {
+              } catch {
                 return ''
               }
             })()}

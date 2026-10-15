@@ -97,6 +97,7 @@ export function DocumentPreviewDialog({
           ) : isImage ? (
             // Centered Image Lightbox
             <div className="p-6 max-w-full max-h-[70vh] flex items-center justify-center overflow-auto">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={downloadUrl}
                 alt={filename}
@@ -116,6 +117,6 @@ export function DocumentPreviewDialog({
 }
 
 // Utility to handle conditional Tailwind classnames safely
-function cn(...classes: any[]) {
+function cn(...classes: (string | boolean | null | undefined)[]) {
   return classes.filter(Boolean).join(" ")
 }

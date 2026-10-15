@@ -23,7 +23,7 @@ export function LoginForm() {
     try {
       await login(email, password)
       handleRedirect()
-    } catch (err) {
+    } catch {
       // Error handled by store
     }
   }

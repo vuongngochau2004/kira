@@ -1,0 +1,32 @@
+"""Document store infrastructure.
+
+Provides database operations for document metadata and chunks.
+"""
+
+from .document_repository import (
+    cancel_document,
+    create_chunks,
+    create_deletion_retry_job,
+    create_document,
+    delete_document,
+    get_document,
+    get_document_chunks,
+    get_documents_batch,
+    list_documents,
+    update_document_processing_task,
+    update_document_status,
+)
+
+__all__ = [
+    "create_document",
+    "cancel_document",
+    "update_document_status",
+    "update_document_processing_task",
+    "get_document",
+    "get_documents_batch",
+    "list_documents",
+    "delete_document",
+    "create_deletion_retry_job",
+    "create_chunks",
+    "get_document_chunks",
+]

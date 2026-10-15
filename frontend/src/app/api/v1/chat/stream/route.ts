@@ -1,6 +1,11 @@
 import { NextRequest } from 'next/server'
+import { getBackendUrl } from '@/lib/api/backend-url'
 
-const BACKEND_URL = process.env.KIRA_API_URL || 'http://127.0.0.1:8006'
+const BACKEND_URL = getBackendUrl()
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +34,7 @@ export async function POST(req: NextRequest) {
         'Cookie': req.headers.get('cookie') || '',
       },
       body: JSON.stringify({ message, conversation_id }),
+      cache: 'no-store',
     })
 
     if (!response.ok) {
@@ -39,40 +45,19 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Stream the response
-    const reader = response.body?.getReader()
-    if (!reader) {
+    if (!response.body) {
       return new Response('No response body', { status: 500 })
     }
 
-    // Create a TransformStream to process and forward chunks
-    const stream = new ReadableStream({
-      async start(controller) {
-        const decoder = new TextDecoder()
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-
-            // Forward raw bytes directly
-            controller.enqueue(value)
-          }
-          controller.close()
-        } catch (error) {
-          controller.error(error)
-        }
-      },
-    })
-
-    return new Response(stream, {
+    return new Response(response.body, {
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no', // Disable nginx buffering
       },
     })
-  } catch (error) {
+  } catch {
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

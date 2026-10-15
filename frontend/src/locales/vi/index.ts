@@ -1,4 +1,4 @@
-export default {
+const viLocale = {
   common: {
     loading: 'Đang tải...',
     error: 'Đã xảy ra lỗi',
@@ -17,3 +17,5 @@ export default {
     settings: 'Cài đặt',
   },
 };
+
+export default viLocale;

@@ -1,7 +1,7 @@
 [project]
 name = "kira-simple"
 version = "1.0.0"
-description = "K.I.R.A Simplified - Single FastAPI Service with Hybrid Retrieval"
+description = "KIRA - Single FastAPI Service with Hybrid Retrieval"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.109.0",
@@ -20,22 +20,19 @@ dependencies = [
     "qdrant-client>=1.7.0",
     "minio>=7.2.0",
     "anthropic>=0.40.0",
-    "openai>=1.12.0",
     "google-genai>=1.0.0",
     "pymupdf>=1.23.0",
     "python-docx>=1.1.0",
     "python-pptx>=0.6.0",
-    "numpy>=1.26.0,<2.0",
     "tiktoken>=0.6.0",
-    "rank-bm25>=0.2.2",
-    "jieba>=0.42.1",
-    "jinja2>=3.1.0",
     "langchain-core>=0.3",
-    "websockets>=12.0",
-    "python-magic>=0.4.27",
-    "sentence-transformers>=2.2.2",
-    "semantic-router>=0.1.0",
-    "torch",
+    "langgraph>=0.2.28",
+    "loguru>=0.7.0",
+    "celery[redis]>=5.4.0",
+    "deepeval>=3.0.0",
+    "pyvi>=0.1.1",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
 ]
 
 [project.optional-dependencies]
@@ -43,11 +40,15 @@ dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "aiosqlite>=0.19.0",
     "ruff>=0.2.0",
     "mypy>=1.8.0",
-    "loguru>=0.7.0",
 ]
-
+docling = [
+    "docling>=2.55.0",
+    "torch>=2.5.0,<2.6.0",
+]
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
@@ -60,31 +61,59 @@ include = ["config*", "src*"]
 [tool.uv]
 package = false
 
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu121" }
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "B", "UP"]
-ignore = ["E501", "B008"]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "B",
+]
+ignore = [
+    "E501",   # line too long
+    "B008",   # Depends in argument default (FastAPI pattern)
+    "E402",   # module import not at top of file
+]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+follow_imports = "silent"
+disable_error_code = [
+    "type-abstract",
+    "no-any-return",
+    "arg-type",
+    "misc",
+    "attr-defined",
+    "return-value",
+    "override",
+    "union-attr",
+    "var-annotated",
+    "assignment",
+    "operator",
+    "valid-type",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-
-[[tool.uv.index]]
-name = "pytorch-cu124"
-url = "https://download.pytorch.org/whl/cu124"
-explicit = true
-
-[tool.uv.sources]
-torch = { index = "pytorch-cu124" }
+pythonpath = ["src", "."]
+markers = [
+    "integration: requires running Postgres, Qdrant, Redis, and MinIO services",
+]

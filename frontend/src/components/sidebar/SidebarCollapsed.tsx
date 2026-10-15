@@ -1,9 +1,10 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Search, Upload, MessageSquarePlus, ChevronRight } from 'lucide-react'
+import { Search, Upload, MessageSquarePlus, ChevronRight, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { KiraLogoIcon } from '@/components/common/KiraLogo'
+import { useAuthStore } from '@/lib/stores/auth-store'
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +19,7 @@ interface SidebarCollapsedProps {
 
 export function SidebarCollapsed({ onToggle, onCreateConversation }: SidebarCollapsedProps) {
   const router = useRouter()
+  const { user } = useAuthStore()
 
   return (
     <div className="flex flex-col h-full w-[72px] bg-background border-r">
@@ -106,6 +108,25 @@ export function SidebarCollapsed({ onToggle, onCreateConversation }: SidebarColl
               <p>Tải lên tài liệu</p>
             </TooltipContent>
           </Tooltip>
+
+          {user?.role === 'admin' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10"
+                  onClick={() => router.push('/admin')}
+                  aria-label="Admin Dashboard"
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Admin Dashboard</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </TooltipProvider>
     </div>

@@ -1,5 +1,6 @@
-# K.I.R.A Simplified - Makefile
-.PHONY: help dev backend frontend infra infra-stop infra-restart test install clean lint
+SHELL := /bin/bash
+# KIRA - Makefile
+.PHONY: help dev backend frontend dev-worker infra infra-stop infra-restart test install clean lint eval-rag
 
 # Default target
 .DEFAULT_GOAL := help
@@ -21,7 +22,7 @@ FRONTEND_PORT := 3001
 ##@ General
 
 help: ## Show this help message
-	@echo "$(BLUE)K.I.R.A Simplified - Available commands:$(NC)"
+	@echo "$(BLUE)KIRA - Available commands:$(NC)"
 	@echo ""
 	@grep -E '^##@|^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-15s$(NC) %s\n", $$1, $$2}' | sed 's/^##@//'
 	@echo ""
@@ -29,15 +30,20 @@ help: ## Show this help message
 ##@ Development
 
 dev: ## Start both backend and frontend (requires tmux)
-	@echo "$(BLUE)Starting K.I.R.A Simplified...$(NC)"
-	@tmux new-session -d -s kira -n backend "cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.main"
-	@tmux new-window -t kira:1 -n frontend "cd $(FRONTEND_DIR) && npm run dev"
+	@echo "$(BLUE)Starting KIRA...$(NC)"
+	@tmux new-session -d -s kira -n backend "cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.server.main"
+	@tmux new-window -t kira:1 -n worker "cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-1}"
+	@tmux new-window -t kira:2 -n frontend "cd $(FRONTEND_DIR) && npm run dev"
 	@tmux attach-session -t kira
 	@echo "$(GREEN)Both services started in tmux session 'kira'$(NC)"
 
 dev-backend: ## Start backend only
 	@echo "$(BLUE)Starting backend on port $(BACKEND_PORT)...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.main
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.server.main
+
+dev-worker: ## Start Celery document worker
+	@echo "$(BLUE)Starting Celery worker...$(NC)"
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-1}
 
 dev-frontend: ## Start frontend only
 	@echo "$(BLUE)Starting frontend on port $(FRONTEND_PORT)...$(NC)"
@@ -109,6 +115,10 @@ test-backend: ## Run backend tests
 	@echo "$(BLUE)Running backend tests...$(NC)"
 	@cd $(BACKEND_DIR) && source .venv/bin/activate && pytest tests/ -v
 
+eval-rag: ## Run DeepEval RAG benchmark. Usage: make eval-rag USER_ID=<uuid> DATASET=docs/examples/evaluation/golden_sample.json
+	@echo "$(BLUE)Running DeepEval RAG benchmark...$(NC)"
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.modules.evaluation.cli run --dataset $${DATASET:-docs/examples/evaluation/golden_sample.json} --user-id $$USER_ID --output-dir reports/evaluation
+
 test-frontend: ## Run frontend tests
 	@echo "$(BLUE)Running frontend tests...$(NC)"
 	@cd $(FRONTEND_DIR) && npm test
@@ -142,13 +152,19 @@ clean-backend: ## Clean backend artifacts
 	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	@find . -type f -name "*.pyo" -delete 2>/dev/null || true
-	@rm -rf .pytest_cache .ruff_cache
+	@find . -name ".DS_Store" -delete 2>/dev/null || true
+	@rm -rf .pytest_cache .ruff_cache output/
 	@echo "$(GREEN)Backend cleaned$(NC)"
 
 clean-frontend: ## Clean frontend artifacts
 	@echo "$(BLUE)Cleaning frontend...$(NC)"
 	@cd $(FRONTEND_DIR) && rm -rf .next out
 	@echo "$(GREEN)Frontend cleaned$(NC)"
+
+charts: ## Generate RAG evaluation charts
+	@echo "$(BLUE)Generating RAG evaluation charts...$(NC)"
+	@python3 scripts/generate_rag_evaluation_charts.py
+	@echo "$(GREEN)Charts generated in reports/evaluation/charts$(NC)"
 
 logs: ## Show backend and infrastructure logs
 	@echo "$(BLUE)Backend logs (Ctrl+C to exit):$(NC)"

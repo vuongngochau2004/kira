@@ -39,7 +39,7 @@ export function KiraLogoIcon({ size = 64, className, variant = 'default' }: Logo
       return (
         <svg {...baseProps}>
           <defs>
-            <linearGradient id="kiraGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id="KIRAGradient" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#FF9A44" />
               <stop offset="50%" stopColor="#FF7A33" />
               <stop offset="100%" stopColor="#FF6A22" />
@@ -48,27 +48,27 @@ export function KiraLogoIcon({ size = 64, className, variant = 'default' }: Logo
           {/* Hexagon Frame */}
           <path
             d="M32 4L56 18V46L32 60L8 46V18L32 4Z"
-            stroke="url(#kiraGradient)"
+            stroke="url(#KIRAGradient)"
             strokeWidth="2"
             fill="none"
           />
           {/* Inner Neural Pattern */}
-          <circle cx="32" cy="32" r="8" fill="url(#kiraGradient)" opacity="0.8" />
-          <circle cx="32" cy="32" r="14" stroke="url(#kiraGradient)" strokeWidth="1.5" opacity="0.6" />
+          <circle cx="32" cy="32" r="8" fill="url(#KIRAGradient)" opacity="0.8" />
+          <circle cx="32" cy="32" r="14" stroke="url(#KIRAGradient)" strokeWidth="1.5" opacity="0.6" />
           {/* Neural Nodes */}
-          <circle cx="32" cy="18" r="3" fill="url(#kiraGradient)" />
-          <circle cx="44" cy="26" r="3" fill="url(#kiraGradient)" />
-          <circle cx="44" cy="38" r="3" fill="url(#kiraGradient)" />
-          <circle cx="32" cy="46" r="3" fill="url(#kiraGradient)" />
-          <circle cx="20" cy="38" r="3" fill="url(#kiraGradient)" />
-          <circle cx="20" cy="26" r="3" fill="url(#kiraGradient)" />
+          <circle cx="32" cy="18" r="3" fill="url(#KIRAGradient)" />
+          <circle cx="44" cy="26" r="3" fill="url(#KIRAGradient)" />
+          <circle cx="44" cy="38" r="3" fill="url(#KIRAGradient)" />
+          <circle cx="32" cy="46" r="3" fill="url(#KIRAGradient)" />
+          <circle cx="20" cy="38" r="3" fill="url(#KIRAGradient)" />
+          <circle cx="20" cy="26" r="3" fill="url(#KIRAGradient)" />
           {/* Neural Connections */}
-          <line x1="32" y1="21" x2="32" y2="24" stroke="url(#kiraGradient)" strokeWidth="1.5" />
-          <line x1="41" y1="26" x2="38" y2="28" stroke="url(#kiraGradient)" strokeWidth="1.5" />
-          <line x1="41" y1="38" x2="38" y2="36" stroke="url(#kiraGradient)" strokeWidth="1.5" />
-          <line x1="32" y1="43" x2="32" y2="40" stroke="url(#kiraGradient)" strokeWidth="1.5" />
-          <line x1="23" y1="38" x2="26" y2="36" stroke="url(#kiraGradient)" strokeWidth="1.5" />
-          <line x1="23" y1="26" x2="26" y2="28" stroke="url(#kiraGradient)" strokeWidth="1.5" />
+          <line x1="32" y1="21" x2="32" y2="24" stroke="url(#KIRAGradient)" strokeWidth="1.5" />
+          <line x1="41" y1="26" x2="38" y2="28" stroke="url(#KIRAGradient)" strokeWidth="1.5" />
+          <line x1="41" y1="38" x2="38" y2="36" stroke="url(#KIRAGradient)" strokeWidth="1.5" />
+          <line x1="32" y1="43" x2="32" y2="40" stroke="url(#KIRAGradient)" strokeWidth="1.5" />
+          <line x1="23" y1="38" x2="26" y2="36" stroke="url(#KIRAGradient)" strokeWidth="1.5" />
+          <line x1="23" y1="26" x2="26" y2="28" stroke="url(#KIRAGradient)" strokeWidth="1.5" />
         </svg>
       )
 
@@ -114,7 +114,7 @@ export function KiraLogoIcon({ size = 64, className, variant = 'default' }: Logo
       return (
         <svg {...baseProps}>
           <defs>
-            <linearGradient id="kiraFilledGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id="KIRAFilledGradient" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#FF9A44" />
               <stop offset="100%" stopColor="#FF7A33" />
             </linearGradient>
@@ -122,7 +122,7 @@ export function KiraLogoIcon({ size = 64, className, variant = 'default' }: Logo
           {/* Filled Hexagon */}
           <path
             d="M32 4L56 18V46L32 60L8 46V18L32 4Z"
-            fill="url(#kiraFilledGradient)"
+            fill="url(#KIRAFilledGradient)"
           />
           {/* White K */}
           <text
@@ -175,7 +175,7 @@ export function KiraLogoIcon({ size = 64, className, variant = 'default' }: Logo
 // FULL LOGO WITH TEXT
 // ============================================================================
 
-interface KiraLogoProps {
+interface KIRALogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl'
   className?: string
   variant?: 'default' | 'gradient' | 'minimal' | 'outline' | 'filled'
@@ -190,9 +190,9 @@ const sizeConfig = {
 }
 
 /**
- * Full K.I.R.A Logo with name and optional tagline
+ * Full KIRA Logo with name and optional tagline
  */
-export function KiraLogo({ size = 'lg', className, variant = 'default', showTagline = true }: KiraLogoProps) {
+export function KIRALogo({ size = 'lg', className, variant = 'default', showTagline = true }: KIRALogoProps) {
   const config = sizeConfig[size]
 
   return (
@@ -202,7 +202,7 @@ export function KiraLogo({ size = 'lg', className, variant = 'default', showTagl
 
       {/* Brand Name */}
       <h1 className={cn('font-bold tracking-wider', config.text)}>
-        K.I.R.A
+        KIRA
       </h1>
 
       {/* Tagline */}
@@ -219,7 +219,7 @@ export function KiraLogo({ size = 'lg', className, variant = 'default', showTagl
 // WELCOME STATE COMPONENT
 // ============================================================================
 
-interface KiraWelcomeProps {
+interface KIRAWelcomeProps {
   className?: string
   variant?: 'default' | 'gradient' | 'minimal' | 'outline' | 'filled'
 }
@@ -227,7 +227,7 @@ interface KiraWelcomeProps {
 /**
  * Welcome screen with logo, tagline, and helpful hints
  */
-export function KiraWelcome({ className, variant = 'gradient' }: KiraWelcomeProps) {
+export function KIRAWelcome({ className, variant = 'gradient' }: KIRAWelcomeProps) {
   return (
     <div className={cn('flex flex-col items-center justify-center py-12', className)}>
       {/* Animated Logo */}
@@ -238,7 +238,7 @@ export function KiraWelcome({ className, variant = 'gradient' }: KiraWelcomeProp
       </div>
 
       {/* Brand Name */}
-      <h2 className="text-2xl font-semibold mb-2 tracking-wider">K.I.R.A</h2>
+      <h2 className="text-2xl font-semibold mb-2 tracking-wider">KIRA</h2>
 
       {/* Tagline */}
       <p className="text-sm text-muted-foreground mb-6 max-w-xs text-center">
@@ -264,7 +264,7 @@ export function KiraWelcome({ className, variant = 'gradient' }: KiraWelcomeProp
 // LOADING SPINNER WITH LOGO
 // ============================================================================
 
-interface KiraLogoLoaderProps {
+interface KIRALogoLoaderProps {
   size?: number
   className?: string
 }
@@ -272,7 +272,7 @@ interface KiraLogoLoaderProps {
 /**
  * Animated logo loader for loading states
  */
-export function KiraLogoLoader({ size = 32, className }: KiraLogoLoaderProps) {
+export function KIRALogoLoader({ size = 32, className }: KIRALogoLoaderProps) {
   return (
     <div className={cn('relative', className)} style={{ width: size, height: size }}>
       {/* Spinning Ring */}
@@ -303,4 +303,4 @@ export function KiraLogoLoader({ size = 32, className }: KiraLogoLoaderProps) {
 // EXPORT ALL
 // ============================================================================
 
-export default KiraLogo
+export default KIRALogo

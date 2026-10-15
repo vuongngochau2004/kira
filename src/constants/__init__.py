@@ -1,29 +1,53 @@
 """Application constants."""
 
-# HTTP Status
-HTTP_OK = 200
-HTTP_CREATED = 201
-HTTP_BAD_REQUEST = 400
-HTTP_UNAUTHORIZED = 401
-HTTP_FORBIDDEN = 403
-HTTP_NOT_FOUND = 404
-HTTP_UNPROCESSABLE_ENTITY = 422
-HTTP_INTERNAL_SERVER_ERROR = 500
+from enum import Enum
 
-# Document Status
-DOC_STATUS_UPLOADING = "uploading"
-DOC_STATUS_PROCESSING = "processing"
-DOC_STATUS_COMPLETED = "completed"
-DOC_STATUS_FAILED = "failed"
+# =============================================================================
+# ENUMS - Categorical constants
+# =============================================================================
 
-# Message Role
-ROLE_USER = "user"
-ROLE_ASSISTANT = "assistant"
-ROLE_SYSTEM = "system"
 
-# User Role
-USER_ROLE_USER = "user"
-USER_ROLE_ADMIN = "admin"
+class HTTPStatus(int, Enum):
+    """HTTP status codes."""
+
+    OK = 200
+    CREATED = 201
+    BAD_REQUEST = 400
+    UNAUTHORIZED = 401
+    FORBIDDEN = 403
+    NOT_FOUND = 404
+    UNPROCESSABLE_ENTITY = 422
+    INTERNAL_SERVER_ERROR = 500
+
+
+class DocumentStatus(str, Enum):
+    """Document processing statuses."""
+
+    UPLOADING = "uploading"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class MessageRole(str, Enum):
+    """Message roles in conversations."""
+
+    USER = "user"
+    ASSISTANT = "assistant"
+    SYSTEM = "system"
+
+
+class UserRole(str, Enum):
+    """User roles in the system."""
+
+    USER = "user"
+    ADMIN = "admin"
+
+
+# =============================================================================
+# CONFIGURATION CONSTANTS - Numeric/string values
+# =============================================================================
 
 # Pagination
 DEFAULT_LIMIT = 100
@@ -37,13 +61,17 @@ DEFAULT_LLM_TIMEOUT = 60.0
 
 # Processing
 DEFAULT_PROCESSING_TIMEOUT = 600
-STREAM_CHUNK_SIZE = 10
 
 # RAG
 MAX_CONTEXT_TOKENS = 4096
 MIN_CONTEXT_LENGTH = 200
+MIN_RETRIEVAL_SCORE = 0.70  # Minimum average score for context to be considered relevant
+MIN_RETRIEVAL_DOCS = 1  # Minimum documents needed for sufficient context
 
-# Error Messages
+# =============================================================================
+# ERROR MESSAGES - User-facing text (ready for i18n)
+# =============================================================================
+
 ERR_DOC_NOT_FOUND = "Document not found"
 ERR_CONVERSATION_NOT_FOUND = "Conversation not found"
 ERR_PROCESSING_FAILED = "Processing failed"
@@ -52,23 +80,12 @@ ERR_NO_CHUNKS = "No chunks created"
 ERR_EXTRACTION_FAILED = "Extraction failed"
 
 __all__ = [
-    "HTTP_OK",
-    "HTTP_CREATED",
-    "HTTP_BAD_REQUEST",
-    "HTTP_UNAUTHORIZED",
-    "HTTP_FORBIDDEN",
-    "HTTP_NOT_FOUND",
-    "HTTP_UNPROCESSABLE_ENTITY",
-    "HTTP_INTERNAL_SERVER_ERROR",
-    "DOC_STATUS_UPLOADING",
-    "DOC_STATUS_PROCESSING",
-    "DOC_STATUS_COMPLETED",
-    "DOC_STATUS_FAILED",
-    "ROLE_USER",
-    "ROLE_ASSISTANT",
-    "ROLE_SYSTEM",
-    "USER_ROLE_USER",
-    "USER_ROLE_ADMIN",
+    # Enums
+    "HTTPStatus",
+    "DocumentStatus",
+    "MessageRole",
+    "UserRole",
+    # Configuration Constants
     "DEFAULT_LIMIT",
     "DEFAULT_OFFSET",
     "DEFAULT_CONVERSATION_LIMIT",
@@ -76,9 +93,11 @@ __all__ = [
     "DEFAULT_MAX_TOKENS",
     "DEFAULT_LLM_TIMEOUT",
     "DEFAULT_PROCESSING_TIMEOUT",
-    "STREAM_CHUNK_SIZE",
     "MAX_CONTEXT_TOKENS",
     "MIN_CONTEXT_LENGTH",
+    "MIN_RETRIEVAL_SCORE",
+    "MIN_RETRIEVAL_DOCS",
+    # Error Messages
     "ERR_DOC_NOT_FOUND",
     "ERR_CONVERSATION_NOT_FOUND",
     "ERR_PROCESSING_FAILED",

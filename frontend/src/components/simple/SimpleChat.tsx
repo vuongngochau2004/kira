@@ -1,27 +1,20 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
-import { Send, Loader2, X, Paperclip } from 'lucide-react'
+import { Check, Copy, Download, FileText, Paperclip, Pencil, Send, Square, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ThinkingHierarchy } from '@/components/thinking'
-import { ThinkingBlock } from '@/components/streaming/ThinkingBlock'
+
 import { SourceCitation } from '@/components/streaming/SourceCitation'
 import { SourcePanel } from '@/components/streaming/SourcePanel'
 import { StreamingText } from '@/components/streaming/StreamingText'
 import { CitationRichText } from '@/components/streaming/CitationRichText'
 import { CitationPanel, type CitationSource, type VerificationStats } from '@/components/streaming/CitationPanel'
 import { useSourcesStore } from '@/lib/stores/sources-store'
-import { KiraWelcome } from '@/components/common/KiraLogo'
-import type { ThinkingHierarchy as ThinkingHierarchyType } from '@/types/thinking'
+import { KIRAWelcome } from '@/components/common/KiraLogo'
+import type { Attachment } from '@/lib/streaming'
 
 // ==================== Types ====================
 
-export interface ThinkingStep {
-  node: string
-  status: 'pending' | 'running' | 'complete'
-  duration?: number
-  timestamp?: number
-}
 
 export interface SourceChunk {
   id: string
@@ -30,6 +23,12 @@ export interface SourceChunk {
   score: number
   document_id?: string
   chunk_index?: number
+  title?: string
+  source?: string
+  snippet?: string
+  page_number?: number
+  grounding_score?: number
+  type?: 'pdf' | 'docx' | 'web'
 }
 
 export interface Message {
@@ -38,8 +37,7 @@ export interface Message {
   content: string
   timestamp: Date
   sources?: SourceChunk[]
-  thinking?: ThinkingStep[]  // Legacy, for backward compatibility
-  thinkingHierarchy?: ThinkingHierarchyType  // NEW structured thinking
+  attachments?: Attachment[]
   isStreaming?: boolean
   streamingState?: 'connecting' | 'routing' | 'retrieving' | 'generating' | 'complete' | 'error'
   citation_verification?: VerificationStats
@@ -52,9 +50,11 @@ interface SimpleChatProps {
   optimisticMessages?: Message[]  // NEW: Optimistic messages for first-message UX
   isLoading: boolean
   onSendMessage: (content: string) => void
+  onStopGenerating?: () => void
   onClearChat: () => void
   error?: string | null
   className?: string
+  activeConversationId?: string | null
   isNewChat?: boolean
   isOptimistic?: boolean  // NEW: Show optimistic state indicator
   retryMessage?: () => void  // NEW: Retry failed message
@@ -76,6 +76,61 @@ const UserMessage = memo(({ content }: { content: string }) => (
 ))
 UserMessage.displayName = 'UserMessage'
 
+const SPINNER_WORDS = [
+  'Thinking...',
+  'Processing...',
+  'Reading...',
+  'Checking...',
+  'Composing...',
+]
+
+const ThinkingWordSpinner = memo(() => {
+  const [wordIndex, setWordIndex] = useState(0)
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setWordIndex((current) => (current + 1) % SPINNER_WORDS.length)
+    }, 1100)
+
+    return () => window.clearInterval(interval)
+  }, [])
+
+  return (
+    <div
+      aria-label="Đang tạo câu trả lời"
+      className="mb-2 text-xs font-medium text-muted-foreground/70 animate-pulse"
+    >
+      {SPINNER_WORDS[wordIndex]}
+    </div>
+  )
+})
+ThinkingWordSpinner.displayName = 'ThinkingWordSpinner'
+
+const MessageAttachments = memo(({ attachments }: { attachments?: Attachment[] }) => {
+  if (!attachments || attachments.length === 0) return null
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {attachments.map((attachment) => (
+        <a
+          key={attachment.id}
+          href={attachment.download_url}
+          download={attachment.filename}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          title={attachment.filename}
+        >
+          <FileText className="h-4 w-4 shrink-0 text-primary" />
+          <span className="truncate">{attachment.filename}</span>
+          <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </a>
+      ))}
+    </div>
+  )
+})
+MessageAttachments.displayName = 'MessageAttachments'
+
 /**
  * Assistant message component with streaming support
  */
@@ -90,19 +145,9 @@ const AssistantMessage = memo((
 
   return (
     <>
-      {/* Thinking Block - Use new ThinkingHierarchy if available, fallback to legacy */}
-      {message.thinkingHierarchy ? (
-        <ThinkingHierarchy hierarchy={message.thinkingHierarchy} />
-      ) : (
-        <ThinkingBlock
-          steps={message.thinking || []}
-          isLoading={isLoading}
-          streamingState={message.streamingState}
-        />
-      )}
-
       {/* Content */}
       <div className="text-base py-2 text-foreground">
+        {isStreaming && <ThinkingWordSpinner />}
         {message.use_new_citation_format ? (
           <CitationRichText
             content={message.content || ''}
@@ -110,8 +155,15 @@ const AssistantMessage = memo((
             className="text-[15px] md:text-base leading-relaxed"
             citations={message.sources as unknown as CitationSource[]}
             onCitationClick={(chunkId, citation) => {
-              // Handle citation click - will open CitationPanel
-              onCitationClick?.(parseInt(chunkId, 36), message.sources?.[0] || citation as any)
+              const citationIndex = message.sources?.findIndex((source) => {
+                const sourceId = source.chunk_id || source.id
+                return sourceId === chunkId
+              }) ?? -1
+
+              onCitationClick?.(
+                citationIndex >= 0 ? citationIndex : 0,
+                (citation || message.sources?.[0]) as SourceChunk
+              )
             }}
           />
         ) : (
@@ -133,16 +185,21 @@ AssistantMessage.displayName = 'AssistantMessage'
  * Message row component
  */
 const MessageRow = memo((
-  { message, isLoading, isLast, onCitationClick }: {
+  { message, isLoading, isLast, copiedMessageId, onCitationClick, onCopyMessage, onEditMessage }: {
     message: Message
     isLoading: boolean
     isLast: boolean
+    copiedMessageId: string | null
     onCitationClick: (index: number, source: SourceChunk) => void
+    onCopyMessage: (message: Message) => void
+    onEditMessage: (message: Message) => void
   }
 ) => (
   <div
+    data-message-id={message.id}
+    data-message-role={message.role}
     className={cn(
-      'flex gap-3 mb-6',
+      'group/message flex gap-3 mb-6',
       message.role === 'user' ? 'justify-end' : 'justify-start',
       // NEW: Optimistic indicator - slight opacity for optimistic messages
       message.isOptimistic && 'opacity-70'
@@ -194,10 +251,87 @@ const MessageRow = memo((
           </button>
         </div>
       )}
+
+      {message.role === 'assistant' && (
+        <MessageAttachments attachments={message.attachments} />
+      )}
+
+      <div
+        className={cn(
+          'mt-2 flex items-center gap-1 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/message:opacity-100 focus-within:opacity-100',
+          message.role === 'user' ? 'justify-end' : 'justify-start'
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => onCopyMessage(message)}
+          className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Sao chép tin nhắn"
+          title="Sao chép"
+        >
+          {copiedMessageId === message.id ? (
+            <Check className="h-3.5 w-3.5 text-primary" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
+          <span>{copiedMessageId === message.id ? 'Đã copy' : 'Copy'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onEditMessage(message)}
+          className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Sửa tin nhắn"
+          title="Sửa"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          <span>Sửa</span>
+        </button>
+      </div>
     </div>
   </div>
 ))
 MessageRow.displayName = 'MessageRow'
+
+function collectConversationSources(messages: Message[]): SourceChunk[] {
+  const seen = new Set<string>()
+  const sources: SourceChunk[] = []
+
+  messages.forEach((message) => {
+    if (message.role !== 'assistant' || !message.sources?.length) return
+
+    message.sources.forEach((rawSource, index) => {
+      const source = rawSource as SourceChunk & CitationSource
+      const sourceId =
+        source.chunk_id ||
+        source.id ||
+        `${message.id}-source-${index}`
+      const dedupeKey =
+        sourceId ||
+        `${source.document_id || source.title || source.source || 'source'}-${source.content || source.snippet || index}`
+
+      if (seen.has(dedupeKey)) return
+      seen.add(dedupeKey)
+
+      sources.push({
+        ...source,
+        id: sourceId,
+        chunk_id: source.chunk_id || sourceId,
+        content: source.content || source.snippet || '',
+        score: typeof source.score === 'number'
+          ? source.score
+          : typeof source.grounding_score === 'number'
+            ? source.grounding_score
+            : 0.9,
+        document_id: source.document_id,
+        chunk_index: source.chunk_index,
+        title: source.title || source.source || 'Tài liệu',
+        type: source.type,
+      })
+    })
+  })
+
+  return sources
+}
 
 // ==================== Main Component ====================
 
@@ -206,20 +340,29 @@ export function SimpleChat({
   optimisticMessages,
   isLoading,
   onSendMessage,
+  onStopGenerating,
   onClearChat,
   error,
   className,
+  activeConversationId = null,
   isNewChat = true,
   isOptimistic = false,
   retryMessage,
   isRetryable = false,
-  errorType
 }: SimpleChatProps) {
-  const store = useSourcesStore()
+  const sources = useSourcesStore((state) => state.sources)
+  const isSourcesOpen = useSourcesStore((state) => state.isOpen)
+  const activeSourceId = useSourcesStore((state) => state.activeSourceId)
+  const setSources = useSourcesStore((state) => state.setSources)
+  const setSourcesOpen = useSourcesStore((state) => state.setIsOpen)
+  const setActiveSourceId = useSourcesStore((state) => state.setActiveSourceId)
+  const replaceSourcesForConversation = useSourcesStore((state) => state.replaceForConversation)
+  const resetSources = useSourcesStore((state) => state.reset)
   const [input, setInput] = useState('')
   const [sourcePanelOpen, setSourcePanelOpen] = useState(false)
   const [citationPanelOpen, setCitationPanelOpen] = useState(false)
   const [activeCitationChunkId, setActiveCitationChunkId] = useState<string | null>(null)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -248,22 +391,13 @@ export function SimpleChat({
       (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
     )
 
-    // DEBUG: Log assistant messages with thinking hierarchy
-    const assistantMsgs = merged.filter(m => m.role === 'assistant' && m.thinkingHierarchy)
-    console.log('[DEBUG SimpleChat] displayMessages:', {
-      total: merged.length,
-      withThinking: assistantMsgs.length,
-      assistantMsgs: assistantMsgs.map(m => ({
-        id: m.id,
-        hasThinking: !!m.thinkingHierarchy,
-        status: m.thinkingHierarchy?.status,
-        execution: m.thinkingHierarchy?.execution?.length,
-        isOptimistic: m.isOptimistic,
-      }))
-    })
 
     return merged
   }, [messages, optimisticMessages])
+  const conversationSources = useMemo(
+    () => collectConversationSources(displayMessages),
+    [displayMessages]
+  )
 
   // Welcome screen state
   const [welcomeVisible, setWelcomeVisible] = useState(isNewChat)
@@ -274,15 +408,68 @@ export function SimpleChat({
   const hasNewCitationFormat = latestAssistantMessage?.use_new_citation_format
   const citationSources = hasNewCitationFormat ? (latestAssistantMessage?.sources as unknown as CitationSource[]) : undefined
   const verificationStats = latestAssistantMessage?.citation_verification
+  const scrollAnchorSpacerHeight = (isLoading || isOptimistic) ? 'calc(100dvh - 220px)' : 0
 
   // ==================== Effects ====================
+
+  useEffect(() => {
+    if (isNewChat || !activeConversationId) {
+      resetSources()
+      return
+    }
+
+    replaceSourcesForConversation(activeConversationId, conversationSources)
+  }, [
+    activeConversationId,
+    conversationSources,
+    isNewChat,
+    replaceSourcesForConversation,
+    resetSources,
+  ])
 
   /**
    * Auto-scroll to bottom on new messages
    * Scrolls smoothly when new messages arrive or content updates during streaming
    */
   const prevMessagesLengthRef = useRef<number>(0)
+  const prevLatestUserMessageIdRef = useRef<string | null>(null)
+  const didInitializeScrollTrackingRef = useRef<boolean>(false)
   const isUserScrolledRef = useRef<boolean>(false)
+  const topAlignedUserMessageIdRef = useRef<string | null>(null)
+  const pendingTopScrollMessageIdRef = useRef<string | null>(null)
+
+  const scrollMessageToTop = useCallback((messageId: string, behavior: ScrollBehavior = 'smooth') => {
+    const container = messagesContainerRef.current
+    if (!container) {
+      pendingTopScrollMessageIdRef.current = messageId
+      return
+    }
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const target = container.querySelector<HTMLElement>(
+          `[data-message-id="${CSS.escape(messageId)}"]`
+        )
+
+        if (!target) {
+          pendingTopScrollMessageIdRef.current = messageId
+          return
+        }
+
+        const containerRect = container.getBoundingClientRect()
+        const targetRect = target.getBoundingClientRect()
+        const nextTop = container.scrollTop + targetRect.top - containerRect.top - 16
+
+        container.scrollTo({
+          top: Math.max(nextTop, 0),
+          behavior,
+        })
+        pendingTopScrollMessageIdRef.current = null
+        topAlignedUserMessageIdRef.current = messageId
+        isUserScrolledRef.current = false
+      })
+    })
+  }, [])
 
   useEffect(() => {
     const container = messagesContainerRef.current
@@ -302,9 +489,33 @@ export function SimpleChat({
     const container = messagesContainerRef.current
     if (!container) return
 
-    // Scroll if: new message arrived OR (loading and user hasn't scrolled up)
-    const isNewMessage = messages.length > prevMessagesLengthRef.current
-    const shouldAutoScroll = isNewMessage || (isLoading && !isUserScrolledRef.current)
+    const latestUserMessage = [...displayMessages].reverse().find((message) => message.role === 'user')
+    const isNewMessage = displayMessages.length > prevMessagesLengthRef.current
+    const isNewUserMessage =
+      !!latestUserMessage &&
+      latestUserMessage.id !== prevLatestUserMessageIdRef.current
+
+    if (!didInitializeScrollTrackingRef.current) {
+      didInitializeScrollTrackingRef.current = true
+      prevMessagesLengthRef.current = displayMessages.length
+      prevLatestUserMessageIdRef.current = latestUserMessage?.id ?? null
+      return
+    }
+
+    if (isNewUserMessage && (isLoading || isOptimistic)) {
+      pendingTopScrollMessageIdRef.current = latestUserMessage.id
+      scrollMessageToTop(latestUserMessage.id)
+      prevMessagesLengthRef.current = displayMessages.length
+      prevLatestUserMessageIdRef.current = latestUserMessage.id
+      return
+    }
+
+    const shouldKeepUserMessageAtTop =
+      (isLoading || isOptimistic) &&
+      (topAlignedUserMessageIdRef.current || pendingTopScrollMessageIdRef.current)
+    const shouldAutoScroll =
+      (isNewMessage && !shouldKeepUserMessageAtTop) ||
+      (isLoading && !isUserScrolledRef.current && !shouldKeepUserMessageAtTop)
 
     if (shouldAutoScroll) {
       container.scrollTo({
@@ -313,14 +524,38 @@ export function SimpleChat({
       })
     }
 
-    prevMessagesLengthRef.current = messages.length
-  }, [messages, isLoading])
+    if (!isLoading) {
+      topAlignedUserMessageIdRef.current = null
+    }
+
+    prevMessagesLengthRef.current = displayMessages.length
+    prevLatestUserMessageIdRef.current = latestUserMessage?.id ?? null
+  }, [displayMessages, isLoading, isOptimistic, scrollMessageToTop])
+
+  useEffect(() => {
+    if (welcomeVisible) return
+    const pendingMessageId = pendingTopScrollMessageIdRef.current
+    if (pendingMessageId) {
+      scrollMessageToTop(pendingMessageId)
+    }
+  }, [welcomeVisible, displayMessages, scrollMessageToTop])
+
+  /**
+   * Sync welcomeVisible with isNewChat prop
+   */
+  useEffect(() => {
+    setWelcomeVisible(isNewChat)
+    setWelcomeExiting(false)
+  }, [isNewChat])
 
   /**
    * Handle welcome screen fade-out
    */
   useEffect(() => {
-    if (messages.length > 0 && welcomeVisible) {
+    // Only fade out if we have messages AND (we are not in a new chat OR at least one message is optimistic/new)
+    const hasNewChatMessages = displayMessages.length > 0 && (!isNewChat || displayMessages.some(msg => msg.isOptimistic))
+
+    if (hasNewChatMessages && welcomeVisible) {
       setWelcomeExiting(true)
       const timer = setTimeout(() => {
         setWelcomeVisible(false)
@@ -328,7 +563,7 @@ export function SimpleChat({
       }, 300)
       return () => clearTimeout(timer)
     }
-  }, [messages.length, welcomeVisible])
+  }, [displayMessages, welcomeVisible, isNewChat])
 
   // ==================== Handlers ====================
 
@@ -348,6 +583,10 @@ export function SimpleChat({
     })
   }, [input, isLoading, onSendMessage])
 
+  const handleStopGenerating = useCallback(() => {
+    onStopGenerating?.()
+  }, [onStopGenerating])
+
   /**
    * Handle keyboard events
    */
@@ -365,6 +604,27 @@ export function SimpleChat({
     fileInputRef.current?.click()
   }, [])
 
+  const handleCopyMessage = useCallback(async (message: Message) => {
+    try {
+      await navigator.clipboard.writeText(message.content || '')
+      setCopiedMessageId(message.id)
+      window.setTimeout(() => {
+        setCopiedMessageId((current) => current === message.id ? null : current)
+      }, 1600)
+    } catch (err) {
+      console.error('Failed to copy message:', err)
+    }
+  }, [])
+
+  const handleEditMessage = useCallback((message: Message) => {
+    setInput(message.content || '')
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+      const length = message.content.length
+      textareaRef.current?.setSelectionRange(length, length)
+    })
+  }, [])
+
   /**
    * Handle citation click - memoized to prevent re-renders
    */
@@ -375,18 +635,18 @@ export function SimpleChat({
 
     if (useNewFormat) {
       // Use new CitationPanel
-      const citation = (allSources || message?.sources || [])[citationIndex] as unknown as CitationSource
-      setActiveCitationChunkId(citation?.chunk_id || null)
+      const candidate = source || (allSources || message?.sources || [])[citationIndex]
+      setActiveCitationChunkId(candidate?.chunk_id || candidate?.id || null)
       setCitationPanelOpen(true)
     } else {
       // Use old SourcePanel
-      const sources = allSources || messages.find(m => m.id === source.id)?.sources || []
-      store.setSources(sources)
-      store.setIsOpen(true)
+      const citationSources = allSources || messages.find(m => m.id === source.id)?.sources || []
+      setSources(citationSources)
+      setSourcesOpen(true)
       const targetId = source.chunk_id || source.id || `source-${citationIndex}`
-      store.setActiveSourceId(targetId)
+      setActiveSourceId(targetId)
     }
-  }, [store, messages])
+  }, [messages, setActiveSourceId, setSources, setSourcesOpen])
 
   // ==================== Render ====================
 
@@ -404,7 +664,7 @@ export function SimpleChat({
                 welcomeExiting ? 'opacity-0' : 'opacity-100'
               )}
             >
-              <KiraWelcome className="min-h-full" variant="gradient" />
+              <KIRAWelcome className="min-h-full" variant="gradient" />
             </div>
           ) : (
             <>
@@ -414,11 +674,19 @@ export function SimpleChat({
                   message={message}
                   isLoading={isLoading}
                   isLast={index === visibleMessages.length - 1}
+                  copiedMessageId={copiedMessageId}
                   onCitationClick={(idx, src) => handleCitationClick(idx, src, message.sources)}
+                  onCopyMessage={handleCopyMessage}
+                  onEditMessage={handleEditMessage}
                 />
               ))}
 
               <div ref={bottomRef} />
+              <div
+                aria-hidden="true"
+                className="shrink-0 transition-[height] duration-200"
+                style={{ height: scrollAnchorSpacerHeight }}
+              />
             </>
           )}
         </div>
@@ -520,8 +788,9 @@ export function SimpleChat({
 
               {/* Send Button - Prominent primary action */}
               <button
-                type="submit"
-                disabled={!input.trim() || isLoading}
+                type={isLoading ? 'button' : 'submit'}
+                onClick={isLoading ? handleStopGenerating : undefined}
+                disabled={!isLoading && !input.trim()}
                 className={cn(
                   'shrink-0 h-10 px-4 rounded-xl flex items-center justify-center gap-2',
                   'bg-primary text-primary-foreground font-medium text-sm',
@@ -533,9 +802,11 @@ export function SimpleChat({
                   // Disabled states
                   'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-md'
                 )}
+                title={isLoading ? 'Dừng sinh câu trả lời' : 'Gửi tin nhắn'}
+                aria-label={isLoading ? 'Dừng sinh câu trả lời' : 'Gửi tin nhắn'}
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Square className="w-4 h-4 fill-current" />
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
@@ -559,19 +830,19 @@ export function SimpleChat({
 
       {/* Source Panel - Mobile/Tablet only */}
       <SourcePanel
-        sources={store.sources.map((s) => ({
+        sources={sources.map((s) => ({
           id: s.id,
           content: s.snippet,
           score: s.score,
           document_id: s.document_id || undefined,
           chunk_index: s.page !== undefined ? s.page - 1 : undefined,
         }))}
-        isOpen={store.isOpen || sourcePanelOpen}
+        isOpen={isSourcesOpen || sourcePanelOpen}
         onClose={() => {
-          store.setIsOpen(false)
+          setSourcesOpen(false)
           setSourcePanelOpen(false)
         }}
-        activeSourceId={store.activeSourceId}
+        activeSourceId={activeSourceId}
         className="lg:hidden"
       />
 

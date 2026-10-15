@@ -87,7 +87,7 @@ export function ThemeToggleCompact({ className }: { className?: string }) {
         'hover:bg-muted text-muted-foreground hover:text-foreground',
         className
       )}
-      title={theme === 'system' ? `Hệ thống (${effectiveTheme === 'dark' ? 'Tối' : 'Sáng'})` : (effectiveTheme === 'dark' ? 'Tối' : 'Sáng')}
+      title={mounted ? (theme === 'system' ? `Hệ thống (${effectiveTheme === 'dark' ? 'Tối' : 'Sáng'})` : (effectiveTheme === 'dark' ? 'Tối' : 'Sáng')) : 'Giao diện'}
     >
       <Icon className="w-4 h-4" />
       {theme === 'system' && (

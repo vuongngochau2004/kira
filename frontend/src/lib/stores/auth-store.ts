@@ -2,10 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 const getApiBase = () => {
-  if (typeof window !== 'undefined') {
-    return '/api/v1'
-  }
-  return 'http://127.0.0.1:8888/api/v1'
+  return '/api/v1'
 }
 
 
@@ -40,7 +37,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       access_token: null,
       refresh_token: null,
@@ -90,7 +87,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isVerified: true,
           })
-        } catch (error) {
+        } catch {
           // Network error or auth failed - clear state
           set({
             user: null,
@@ -231,7 +228,7 @@ export const useAuthStore = create<AuthState>()(
             method: 'POST',
             credentials: 'include',  // Send/receive httpOnly cookies
           })
-        } catch (error) {
+        } catch {
           // Ignore logout errors
         } finally {
           // Always clear local state

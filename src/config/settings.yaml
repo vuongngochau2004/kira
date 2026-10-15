@@ -1,0 +1,122 @@
+# K.I.R.A Static Configuration
+# Model parameters, chunking, retrieval settings that rarely change
+
+# Embedding
+embedding:
+  dim: 1024                    # Vector dimension for Qdrant
+  base_url: "http://localhost:8001"   # Embedding API server
+
+# Retrieval
+retrieval:
+  k: 5                         # Top-k chunks to retrieve
+  rrf_k: 60                    # RRF constant (higher → more diversity)
+  min_score_threshold: 0.65    # Minimum similarity score for results (0.0-1.0)
+                               # Results below this threshold are filtered out
+                               # Helps prevent irrelevant documents from being retrieved
+
+# Reranking (LLM-based document reranking)
+reranking:
+  enabled: true                # ✅ Enable LLM reranking for improved precision
+  mode: "llm"                  # "llm" for LLM-based, "score" for individual scoring
+  top_k_before: 20             # Number of candidates to rerank
+  top_k_after: 5               # Number of top results after reranking
+  min_score_threshold: 0.55    # Minimum relevance score after reranking
+  timeout_ms: 10000             # Timeout for LLM reranking calls
+
+# Context compression before generation/evaluation
+context_compression:
+  enabled: true
+  max_sentences_per_doc: 3
+  max_chars_per_doc: 1600
+  max_total_chars: 6000
+
+# Citations
+citations:
+  max_citations: 10            # Maximum citations to return (was hard-coded 5)
+  min_score_threshold: 0.3     # Minimum score for citations
+  snippet_length: 1000           # Character length for citation snippets with surrounding context
+
+# Citation Verification (New: Hybrid Citation System)
+citation_verification:
+  enabled: true                 # Enable citation verification and regenerate
+  grounding_threshold: 0.7      # Minimum similarity for verified status (0-1)
+  max_regenerate_attempts: 2    # Max regenerations to prevent infinite loops
+  enable_warnings: true         # Show warning tags for weak grounding
+
+# Chunking
+chunking:
+  size: 1024                   # Token limit per chunk
+  overlap: 128                 # Overlap tokens
+
+# Qdrant
+qdrant:
+  collection: "document_chunks"
+  vector_dim: 1024
+
+# Semantic Routing
+semantic_routing:
+  enabled: true                 # Feature flag for semantic routing
+  threshold: 0.75              # Similarity threshold (0.0-1.0)
+
+# Classification fast-path keyword configuration
+classification:
+  file_keywords:
+    - "tài liệu"
+    - "doc"
+    - "pdf"
+    - "file"
+    - "hỏi về"
+    - "trong"
+    - "có"
+    - "liên quan"
+    - "về"
+    - "chương"
+    - "mục"
+    - "điều"
+    - "khoản"
+    - "bản"
+    - "phụ lục"
+  drafting_actions:
+    - "soạn"
+    - "soạn thảo"
+    - "lập"
+    - "viết"
+    - "tạo"
+    - "chuẩn bị"
+  drafting_keywords:
+    - "công văn"
+    - "tờ trình"
+    - "quyết định"
+    - "thông báo"
+    - "kế hoạch"
+    - "biên bản"
+    - "văn bản hành chính"
+    - "đơn đề nghị"
+    - "giấy mời"
+    - "báo cáo"
+
+# Lightweight query expansion before retrieval
+query_expansion:
+  synonyms:
+    hỏi:
+      - "đặt câu hỏi"
+      - "tìm hiểu"
+    tài liệu:
+      - "văn bản"
+      - "hồ sơ"
+    hợp đồng:
+      - "thỏa thuận"
+      - "biên bản"
+
+# Feature Flags
+# Gradual rollout flags for new architecture phases
+feature_flags:
+  use_new_classification: false  # Phase 02: New classification strategies (Keyword + Cached + LLM)
+  use_new_handlers: false       # Phase 03: New handler architecture (RAG + Conversational)
+  enable_semantic_router: true  # Semantic routing (existing feature)
+  enable_llmlite_provider: false # Experimental: LLMlite provider
+
+# DeepEval benchmark defaults
+evaluation:
+  threshold: 0.7
+  report_dir: reports/evaluation

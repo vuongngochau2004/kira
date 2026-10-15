@@ -1,0 +1,3829 @@
+{
+  "batch_id": "6868533f-9698-472e-8c0f-d6f3b37c54ea",
+  "total_queries": 23,
+  "successful_evaluations": 23,
+  "failed_evaluations": 0,
+  "results": [
+    {
+      "evaluation_id": "007367e3-16c6-4c64-9cf0-9fd18edd012e",
+      "sample_id": "07_Daotao_QD405_BH_Quy_dinh_DT_trinh_do__chunk_0000_fact_1",
+      "query": "Quyết định số 405/QĐ-ĐHBK ban hành quy định về nội dung gì?",
+      "answer": "Quyết định số 405/QĐ-ĐHBK ban hành Quy định đào tạo trình độ tiến sĩ tại Trường Đại học Bách khoa, Đại học Đà Nẵng.\n\nNội dung của quy định này bao gồm các vấn đề sau:\n- Chương trình đào tạo.\n- Tổ chức và quản lý hoạt động đào tạo.\n- Tiêu chuẩn, nhiệm vụ và quyền của các cá nhân và cán bộ đơn vị liên quan.\n- Luận án, đánh giá và bảo vệ luận án.\n- Thẩm định quy trình đào tạo, chất lượng luận án và cấp bằng tiến sĩ.\n- Khiếu nại, tố cáo, thanh tra, kiểm tra và xử lý vi phạm.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output perfectly addresses the input without any irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the retrieval contexts are perfectly ranked! The first three nodes provide direct information on the doctoral training regulations, while the irrelevant nodes, such as the fourth node referring to 'Số: 1980/QĐ-ĐHBK' and the fifth node regarding 'Số: 04/QĐ-ĐHBK', are correctly placed at the bottom.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the expected output is perfectly captured in node(s) in retrieval context 1!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:06:33.420352",
+      "duration_seconds": 38.15960645675659,
+      "metadata": {
+        "sample_id": "07_Daotao_QD405_BH_Quy_dinh_DT_trinh_do__chunk_0000_fact_1",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "22377e76-8ff7-4379-832b-0e0cea43c794:0"
+        ],
+        "retrieved_context_ids": [
+          "22377e76-8ff7-4379-832b-0e0cea43c794:0",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:5",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:48",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "596cde86-71d4-4274-addc-39066eb4613b:0",
+          "596cde86-71d4-4274-addc-39066eb4613b"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 7851,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:05:53.177850+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.0896453857421875,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 4583.738327026367,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1768.6426639556885,
+            "metadata": {
+              "response_length": 475,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 2081.6144943237305,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "ade82f57-8b5d-42a4-a026-d153a2e7ed08",
+      "sample_id": "07_Daotao_QD405_BH_Quy_dinh_DT_trinh_do__chunk_0000_fact_2",
+      "query": "Quyết định số 405/QĐ-ĐHBK được ban hành vào ngày tháng năm nào?",
+      "answer": "Quyết định số 405/QĐ-ĐHBK được ban hành vào ngày 05 tháng 03 năm 2019.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output is perfectly focused and contains no irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the retrieval contexts are perfectly ranked, with the most relevant nodes appearing first!",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the date in sentence 1 is perfectly captured in node(s) in retrieval context 1 and 2. Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:07:36.640892",
+      "duration_seconds": 52.50718426704407,
+      "metadata": {
+        "sample_id": "07_Daotao_QD405_BH_Quy_dinh_DT_trinh_do__chunk_0000_fact_2",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "22377e76-8ff7-4379-832b-0e0cea43c794:0"
+        ],
+        "retrieved_context_ids": [
+          "22377e76-8ff7-4379-832b-0e0cea43c794:0",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:48",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "596cde86-71d4-4274-addc-39066eb4613b:0",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.87,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.745,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.75,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.75"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 7986,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:06:42.675283+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.061511993408203125,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 6807.6331615448,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 2445.3861713409424,
+            "metadata": {
+              "response_length": 70,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1457.1568965911865,
+            "metadata": {
+              "quality_score": 0.87,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "409b840a-f2c1-488d-81e6-fbd0edbe765b",
+      "sample_id": "07_Daotao_QD405_BH_Quy_dinh_DT_trinh_do__chunk_0050_fact_1",
+      "query": "Luận án tiến sĩ được viết bằng ngôn ngữ nào và biên soạn bằng phần mềm gì?",
+      "answer": "Luận án tiến sĩ được viết bằng tiếng Việt hoặc bằng tiếng nước ngoài và được biên soạn bằng phần mềm Microsoft Office hoặc LaTeX.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output perfectly addresses the input without any irrelevant content. Great job!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly aligned with the retrieval context, with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the most relevant node in the retrieval contexts is perfectly ranked at the first node, stating that 'Luận án được viết bằng tiếng Việt hoặc bằng tiếng nước ngoài' and 'Tệp tin luận án được biên soạn bằng phần mềm Microsoft Office hoặc LaTeX.' Great job!",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the entire expected output is perfectly supported by node(s) in retrieval context 1!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:08:12.028395",
+      "duration_seconds": 28.65882658958435,
+      "metadata": {
+        "sample_id": "07_Daotao_QD405_BH_Quy_dinh_DT_trinh_do__chunk_0050_fact_1",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "22377e76-8ff7-4379-832b-0e0cea43c794:50"
+        ],
+        "retrieved_context_ids": [
+          "22377e76-8ff7-4379-832b-0e0cea43c794:50",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:29",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:27",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:41",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:11",
+          "22377e76-8ff7-4379-832b-0e0cea43c794"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 13942,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:07:41.480367+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.06794929504394531,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 3556.751012802124,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1280.8856964111328,
+            "metadata": {
+              "response_length": 129,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1887.9430294036865,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "4db2a997-a8f3-40d3-9270-3767303b4f43",
+      "sample_id": "07_Daotao_QD405_BH_Quy_dinh_DT_trinh_do__chunk_0050_summary_2",
+      "query": "Cấu trúc của luận án tiến sĩ bao gồm những nội dung chính nào?",
+      "answer": "Cấu trúc của luận án tiến sĩ bao gồm các nội dung chính sau:\n\n*   **Mở đầu:** Bao gồm lý do lựa chọn đề tài, câu hỏi nghiên cứu, mục đích, đối tượng, phạm vi nghiên cứu, phương pháp nghiên cứu và ý nghĩa khoa học hoặc thực tiễn của đề tài.\n*   **Tổng quan về vấn đề nghiên cứu:** Phân tích và đánh giá các công trình nghiên cứu liên quan trực tiếp đến đề tài đã được công bố trong và ngoài nước; xác định mục tiêu, nội dung và phương pháp nghiên cứu (hoặc chỉ ra những vấn đề luận án sẽ tập trung giải quyết).\n*   **Cơ sở lý thuyết và phương pháp:** Bao gồm cơ sở lý thuyết, lý luận, luận giải, giả thiết khoa học, cách tiếp cận vấn đề và phương pháp nghiên cứu.\n*   **Kết quả nghiên cứu:** Trình bày kết quả nghiên cứu và phân tích, đánh giá.\n*   **Kết luận và kiến nghị:** Trình bày những phát hiện mới, các kết luận rút ra từ kết quả nghiên cứu và kiến nghị về những hướng nghiên cứu tiếp theo.\n*   **Danh mục tài liệu tham khảo:** Các tài liệu được trích dẫn và sử dụng trong luận án theo quy định.\n*   **Danh mục các bài báo/công trình khoa học:** Danh sách các công trình đã công bố liên quan đến đề tài của nghiên cứu sinh, kèm theo văn bản đồng ý của các đồng tác giả (nếu có).\n*   **Phụ lục:** Có hoặc không tùy theo nhu cầu.\n\nNgoài ra, luận án phải có cam đoan và chữ ký của nghiên cứu sinh về nội dung luận án.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output perfectly addresses the input without any irrelevant content. Great job!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the most relevant nodes in the retrieval contexts are perfectly ranked at the top!",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because all components of the expected output are perfectly detailed in node(s) in retrieval context 1! Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:09:04.454980",
+      "duration_seconds": 35.68883919715881,
+      "metadata": {
+        "sample_id": "07_Daotao_QD405_BH_Quy_dinh_DT_trinh_do__chunk_0050_summary_2",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "summary",
+          "medium"
+        ],
+        "expected_context_ids": [
+          "22377e76-8ff7-4379-832b-0e0cea43c794:50"
+        ],
+        "retrieved_context_ids": [
+          "22377e76-8ff7-4379-832b-0e0cea43c794:50",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:27",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:29",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:11",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:16",
+          "22377e76-8ff7-4379-832b-0e0cea43c794"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.89,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.775,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.85,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.85"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 12960,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:08:27.343954+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.06175041198730469,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 11182.104349136353,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 4131.4756870269775,
+            "metadata": {
+              "response_length": 1321,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1420.9492206573486,
+            "metadata": {
+              "quality_score": 0.89,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "95441dbc-9404-4d1a-b634-79e6b4a8e9cc",
+      "sample_id": "06_Daotao_QD04_BH_Quy_dinh_bien_soan_tha_chunk_0000_fact_1",
+      "query": "Quyết định số 04/QĐ-ĐHBK ban hành quy định về nội dung gì?",
+      "answer": "Quyết định số 04/QĐ-ĐHBK ban hành Quy định về việc biên soạn, thẩm định và đánh giá, lựa chọn, duyệt sách phục vụ đào tạo của Trường Đại học Bách khoa, Đại học Đà Nẵng.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response perfectly addresses the input question without any irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because all retrieved nodes are perfectly ranked, with the first node through the fifth node in the retrieval contexts all providing highly relevant information regarding the regulations of Decision 04/QĐ-ĐHBK!",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the entire expected output (sentence 1) is perfectly captured in node 1 in retrieval context. Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:09:37.321217",
+      "duration_seconds": 22.402451753616333,
+      "metadata": {
+        "sample_id": "06_Daotao_QD04_BH_Quy_dinh_bien_soan_tha_chunk_0000_fact_1",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "596cde86-71d4-4274-addc-39066eb4613b:0"
+        ],
+        "retrieved_context_ids": [
+          "596cde86-71d4-4274-addc-39066eb4613b:0",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:51",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:31",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:40",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:29",
+          "596cde86-71d4-4274-addc-39066eb4613b"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 4877,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:09:13.086663+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.06413459777832031,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 4065.2236938476562,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 4564.684152603149,
+            "metadata": {
+              "response_length": 168,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1830.8148384094238,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "8700a79d-6df4-4678-a5c4-7b7c344ae8f7",
+      "sample_id": "06_Daotao_QD04_BH_Quy_dinh_bien_soan_tha_chunk_0000_fact_2",
+      "query": "Quyết định số 04/QĐ-ĐHBK được ban hành vào ngày tháng năm nào?",
+      "answer": "Quyết định số 04/QĐ-ĐHBK được ban hành vào ngày 02 tháng 01 năm 2020.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response is perfectly concise and directly answers the input question without any irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because all relevant nodes are perfectly ranked at the top! The first, second, third, and fourth nodes in the retrieval contexts are all highly precise, with the first node explicitly mentioning 'Số: 04/QĐ-ĐHBK' and providing the date 'ngày 02 tháng 01 năm 2020', while the irrelevant fifth node in the retrieval contexts is correctly placed at the bottom as it 'does not mention the issuance date of Quyết định số 04/QĐ-ĐHBK'.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the date in sentence 1 is clearly and accurately found in nodes 1, 2, 3, and 4 in the retrieval context. Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:10:20.572552",
+      "duration_seconds": 29.443729639053345,
+      "metadata": {
+        "sample_id": "06_Daotao_QD04_BH_Quy_dinh_bien_soan_tha_chunk_0000_fact_2",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "596cde86-71d4-4274-addc-39066eb4613b:0"
+        ],
+        "retrieved_context_ids": [
+          "596cde86-71d4-4274-addc-39066eb4613b:0",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:51",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:31",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:40",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:38",
+          "596cde86-71d4-4274-addc-39066eb4613b"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.87,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.745,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.75,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.75"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 6855,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:09:49.882904+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.0629425048828125,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 7769.976377487183,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 4789.837837219238,
+            "metadata": {
+              "response_length": 69,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1244.7302341461182,
+            "metadata": {
+              "quality_score": 0.87,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "2c3852b7-0f40-4e77-8c96-9de8be3d8ada",
+      "sample_id": "06_Daotao_QD04_BH_Quy_dinh_bien_soan_tha_chunk_0086_responsibility_1",
+      "query": "Những ai chịu trách nhiệm thi hành Quyết định này theo Điều 3?",
+      "answer": "Vì bạn không nêu rõ là Quyết định nào, tôi xin cung cấp thông tin về những người chịu trách nhiệm thi hành theo Điều 3 của từng văn bản trong ngữ cảnh như sau:\n\n*   **Quy định về mời thỉnh giảng và quản lý công tác thỉnh giảng (Quyết định 152/QĐ-DHBK):** Trưởng phòng Tổ chức Hành chính, Trưởng phòng Đào tạo, Trưởng các đơn vị, cùng các tổ chức và cá nhân có liên quan.\n*   **Quyết định sửa đổi, bổ sung một số điều của Quy định về liêm chính học thuật:** Trưởng phòng Đào tạo, Trưởng các đơn vị và người học của Trường Đại học Bách khoa.\n*   **Quy định Đào tạo trình độ tiến sĩ (Quyết định 405/QĐ-ĐHBK):** Trưởng Phòng Tổ chức - Hành chính, Trưởng Phòng Đào tạo, Trưởng các phòng chức năng, Trưởng các đơn vị và cá nhân liên quan.\n*   **Quy định về biên soạn, thẩm định, đánh giá, lựa chọn, duyệt sách phục vụ đào tạo (Quyết định 64/QĐ-ĐHBK):** Trưởng phòng Đào tạo, Trưởng các đơn vị và các cá nhân liên quan.\n*   **Quy định Tổ chức đánh giá học tập của sinh viên đại học, học viên cao học (Quyết định 1980/QĐ-ĐHBK):** Trưởng phòng Khảo thí và Đảm bảo chất lượng giáo dục, Trưởng đơn vị, cán bộ viên chức của Trường Đại học Bách khoa và các cơ sở giáo dục đại học thành viên có liên quan, cùng sinh viên và học viên.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 0.8571428571428571,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 0.86 because the output correctly identifies the responsible parties, but it is not higher due to the inclusion of a meta-comment about the input instead of focusing solely on the answer.",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because all relevant nodes are perfectly ranked above the irrelevant one! The first four nodes in the retrieval contexts are highly precise, mentioning \"Điều 3\" and the correct responsible parties, while the fifth node is correctly ranked last as it lists the \"Trưởng phòng Khảo thí và Đảm bảo chất lượng giáo dục\", which is not part of the expected output.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 0.0,
+          "threshold": 0.7,
+          "passed": false,
+          "reason": "The score is 0.00 because although node(s) in retrieval context 1 and 3 mention some titles, they do not contain 'Trường phòng Kế hoạch - Tài chính' or 'các giảng viên có tên ở Điều 1' as required by sentence 1 of the expected output.",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 0.8095238095238094,
+      "passed": false,
+      "evaluated_at": "2026-06-14T17:11:20.775963",
+      "duration_seconds": 43.086182594299316,
+      "metadata": {
+        "sample_id": "06_Daotao_QD04_BH_Quy_dinh_bien_soan_tha_chunk_0086_responsibility_1",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "responsibility",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "596cde86-71d4-4274-addc-39066eb4613b:86"
+        ],
+        "retrieved_context_ids": [
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:3",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:4",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:3",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "596cde86-71d4-4274-addc-39066eb4613b:2",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:3",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.89,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.775,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.85,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.85"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 3573,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:10:36.439960+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.06961822509765625,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 7347.215890884399,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 8518.396854400635,
+            "metadata": {
+              "response_length": 1219,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1248.5780715942383,
+            "metadata": {
+              "quality_score": 0.89,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "7afe4138-2eae-49b1-9327-1f83b9a6ed85",
+      "sample_id": "06_Daotao_QD04_BH_Quy_dinh_bien_soan_tha_chunk_0086_condition_2",
+      "query": "Để được đề nghị Hiệu trưởng duyệt làm tài liệu tham khảo trong biên bản họp hội đồng, cần có ý kiến đề xuất chọn của ít nhất bao nhiêu thành viên Hội đồng?",
+      "answer": "Để được kết luận lựa chọn sách làm giáo trình (từ sách tham khảo), Hội đồng cần có ý kiến đề xuất chọn của ít nhất 4/5 thành viên hội đồng.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 0.0,
+          "threshold": 0.7,
+          "passed": false,
+          "reason": "The score is 0.00 because the output provides the requirements for selecting a textbook rather than the specific requirements for proposing a reference document for the Principal's approval as requested in the input.",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because all relevant nodes are perfectly ranked above the irrelevant nodes! The first, second, and third nodes in the retrieval contexts all contain the necessary information, such as \"Hội đồng kết luận lựa chọn giáo trình khi có ý kiến đề xuất chọn của ít nhí nh nhất 4/5 thành viên Hội đồng\", while the irrelevant nodes are correctly placed at the bottom.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the expected output is perfectly supported by nodes 1, 2, and 3 in the retrieval context, which all explicitly confirm the 4/5 member requirement!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 0.8333333333333334,
+      "passed": false,
+      "evaluated_at": "2026-06-14T17:12:21.914765",
+      "duration_seconds": 45.929667949676514,
+      "metadata": {
+        "sample_id": "06_Daotao_QD04_BH_Quy_dinh_bien_soan_tha_chunk_0086_condition_2",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "condition",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "596cde86-71d4-4274-addc-39066eb4613b:86"
+        ],
+        "retrieved_context_ids": [
+          "596cde86-71d4-4274-addc-39066eb4613b:22",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:77",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:25",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:21",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:18",
+          "596cde86-71d4-4274-addc-39066eb4613b"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 12520,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:11:34.411780+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.060558319091796875,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 12273.324251174927,
+            "metadata": {
+              "refined_queries": 3,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1360.6834411621094,
+            "metadata": {
+              "response_length": 139,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1571.768045425415,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "04936d7c-b806-4765-85b9-4000e457b31a",
+      "sample_id": "05_Daotao_QD_1274_sua_doi_BS_mot_so_dieu_chunk_0000_fact_1",
+      "query": "Quyết định số 1274/QĐ-ĐHBK được ban hành vào ngày tháng năm nào?",
+      "answer": "Quyết định số 1274/QĐ-ĐHBK được ban hành vào ngày 08 tháng 5 năm 2019.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response is perfectly focused and contains no irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because all relevant nodes are perfectly ranked at the top! The first, second, and third nodes in the retrieval contexts provide the correct date, while irrelevant nodes like the fourth and fifth nodes are correctly placed below them.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the date in sentence 1 is explicitly mentioned in nodes 1, 2, and 3 in the retrieval context. Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:14:25.928655",
+      "duration_seconds": 94.16698217391968,
+      "metadata": {
+        "sample_id": "05_Daotao_QD_1274_sua_doi_BS_mot_so_dieu_chunk_0000_fact_1",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:0"
+        ],
+        "retrieved_context_ids": [
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:0",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:45",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "596cde86-71d4-4274-addc-39066eb4613b:0",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:0",
+          "22377e76-8ff7-4379-832b-0e0cea43c794"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.87,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.745,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.75,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.75"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 8173,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:12:50.316878+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.08893013000488281,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 26988.481044769287,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1411.7507934570312,
+            "metadata": {
+              "response_length": 70,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1443.4521198272705,
+            "metadata": {
+              "quality_score": 0.87,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "c312236d-98dc-4b52-a1ff-c5a6af3f5e73",
+      "sample_id": "05_Daotao_QD_1274_sua_doi_BS_mot_so_dieu_chunk_0000_responsibility_2",
+      "query": "Quyết định số 1274/QĐ-ĐHBK về việc sửa đổi, bổ sung một số điều của “Quy định về liêm chính học thuật của Trường Đại học Bách khoa - Đại học Đà Nẵng” căn cứ trên đề nghị của ai?",
+      "answer": "Quyết định số 1274/QĐ-ĐHBK về việc sửa đổi, bổ sung một số điều của “Quy định về liêm chính học thuật của Trường Đại học Bách khoa - Đại học Đà Nẵng” căn cứ trên đề nghị của Trưởng Phòng Đào tạo.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response is perfectly relevant and contains no irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the most relevant node is perfectly ranked at the top! The first node in the retrieval contexts contains the exact answer, stating 'Xét đề nghị của Trưởng Phòng Đào tạo', while all subsequent nodes are irrelevant.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the expected output in sentence 1 is perfectly captured in nodes 1, 4, and 5 in retrieval context. Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:15:24.148270",
+      "duration_seconds": 40.07082533836365,
+      "metadata": {
+        "sample_id": "05_Daotao_QD_1274_sua_doi_BS_mot_so_dieu_chunk_0000_responsibility_2",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "responsibility",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:0"
+        ],
+        "retrieved_context_ids": [
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:0",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:1",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "596cde86-71d4-4274-addc-39066eb4613b:0",
+          "596cde86-71d4-4274-addc-39066eb4613b"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 10444,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:14:42.292241+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.0629425048828125,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 14895.802736282349,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1465.9664630889893,
+            "metadata": {
+              "response_length": 195,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1783.8940620422363,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "6a755197-dc52-4d28-8568-20f6a34227e0",
+      "sample_id": "05_Daotao_QD_1274_sua_doi_BS_mot_so_dieu_chunk_0005_fact_1",
+      "query": "Biên bản xử lý thí sinh vi phạm quy định liêm chính học thuật được ban hành kèm theo quyết định nào?",
+      "answer": "Biên bản xử lý thí sinh vi phạm quy định liêm chính học thuật được ban hành kèm theo Quyết định số ……/QĐ-ĐHBK ngày……tháng 5 năm 2019 của Hiệu trưởng Trường Đại học Bách khoa.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output is perfectly aligned with the input and contains no irrelevant information. Great job!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 0.0,
+          "threshold": 0.7,
+          "passed": false,
+          "reason": "The score is 0.00 because the output incorrectly identifies Decision No. 1274/QĐ-ĐHBK as a 'Biên bản xử lý thí sinh vi phạm' (Violation Handling Minutes), whereas the context states it actually modified and supplemented the 'Regulations on academic integrity'.",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the most relevant node in the retrieval contexts is perfectly ranked first, as the first node explicitly states the report is \"(Ban hành kèm theo Quyết định số ……/QĐ-ĐHBK ngày……tháng 5 năm 2019 của Hiệu trưởng Trường Đại học Bách khoa)\"!",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the entire expected output is perfectly captured in node 1 in retrieval context! Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 0.8333333333333334,
+      "passed": false,
+      "evaluated_at": "2026-06-14T17:16:14.057631",
+      "duration_seconds": 34.02097463607788,
+      "metadata": {
+        "sample_id": "05_Daotao_QD_1274_sua_doi_BS_mot_so_dieu_chunk_0005_fact_1",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:5"
+        ],
+        "retrieved_context_ids": [
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:5",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:45",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:1",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:2",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:23",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 11160,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:15:38.656488+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.06031990051269531,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 3896.1331844329834,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 3993.614912033081,
+            "metadata": {
+              "response_length": 174,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 5270.857810974121,
+            "metadata": {
+              "quality_score": 0.68,
+              "critique_quality": "acceptable",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 2
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1344.5191383361816,
+            "metadata": {
+              "response_length": 174,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1378.9095878601074,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "08218510-6611-408f-9066-9dbf12479ad0",
+      "sample_id": "05_Daotao_QD_1274_sua_doi_BS_mot_so_dieu_chunk_0005_responsibility_2",
+      "query": "Trong biên bản xử lý thí sinh vi phạm quy định liêm chính học thuật, những ai là người ký tên xác nhận?",
+      "answer": "Trong biên bản xử lý thí sinh vi phạm quy định liêm chính học thuật, những người ký tên xác nhận bao gồm:\n\n*   Cán bộ coi thi 1.\n*   Cán bộ coi thi 2 (hoặc người làm chứng).\n*   Thí sinh vi phạm.\n*   Trưởng Ban coi thi (trong trường hợp kỳ thi có thành lập Ban coi thi, người này ký quyết định hình thức đình chỉ thi).",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 0.8,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 0.80 because the response correctly identifies the signatories but includes an irrelevant mention of signing a suspension decision instead of focusing solely on the record of violation.",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the most relevant node is perfectly ranked at the top! The first node in the retrieval contexts provides the exact signatories required, such as 'Cán bộ coi thi 1' and 'Thí sinh vi phạm', while all subsequent nodes are irrelevant.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because all roles mentioned in the expected output are perfectly captured in node(s) in retrieval context 1. Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 0.9666666666666667,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:17:08.765633",
+      "duration_seconds": 44.353346824645996,
+      "metadata": {
+        "sample_id": "05_Daotao_QD_1274_sua_doi_BS_mot_so_dieu_chunk_0005_responsibility_2",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "responsibility",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:5"
+        ],
+        "retrieved_context_ids": [
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:5",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:1",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:2",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:45",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:23",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.89,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.775,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.85,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.85"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 11160,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:16:23.104148+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.0743865966796875,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 7488.379001617432,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1556.1702251434326,
+            "metadata": {
+              "response_length": 318,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1306.917428970337,
+            "metadata": {
+              "quality_score": 0.89,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "12aa60ac-1e22-4c84-b908-c5e5df3ca445",
+      "sample_id": "04_Daotao_1562_QD_BH_Quy_dinh_moi_thinh__chunk_0000_fact_1",
+      "query": "Quyết định số 1562/QĐ-ĐHBK ban hành quy định về nội dung gì?",
+      "answer": "Quyết định số 1562/QĐ-ĐHBK ban hành Quy định mời thỉnh giảng và quản lý công tác thỉnh giảng tại Trường Đại học Bách khoa, Đại học Đà Nẵng.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response is perfectly concise and directly addresses the input without any irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the retrieval system performed perfectly, placing all relevant nodes at the top! The first node mentions 'Số: 1562/QĐ-ĐHBK' and the second node contains forms 'Ban hành kèm theo Quyết định số 1562/QĐ-ĐHBK', both correctly preceding irrelevant nodes like the third node which refers to 'Số: 1980/QĐ-ĐHBK' and the fourth node concerning 'Quy định đào tạo trình độ tiến sĩ'.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the retrieval context perfectly captures the expected output, with sentence 1 being explicitly stated in node 1 in retrieval context. Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:18:32.627841",
+      "duration_seconds": 73.30703902244568,
+      "metadata": {
+        "sample_id": "04_Daotao_1562_QD_BH_Quy_dinh_moi_thinh__chunk_0000_fact_1",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:0"
+        ],
+        "retrieved_context_ids": [
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:34",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:40",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:0",
+          "22377e76-8ff7-4379-832b-0e0cea43c794"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 15130,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:17:16.004724+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.06079673767089844,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 5784.446716308594,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1452.83842086792,
+            "metadata": {
+              "response_length": 139,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 3314.758539199829,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "e5285218-b52e-42f3-9c38-793d273bff43",
+      "sample_id": "04_Daotao_1562_QD_BH_Quy_dinh_moi_thinh__chunk_0000_fact_2",
+      "query": "Quyết định số 1562/QĐ-ĐHBK được ban hành vào ngày tháng năm nào?",
+      "answer": "Có sự mâu thuẫn về ngày ban hành Quyết định số 1562/QĐ-ĐHBK trong các tài liệu được cung cấp:\n\n- Tại trang 1 của Document 1, ngày ban hành được ghi là ngày **04 tháng 6 năm 2021**.\n- Tuy nhiên, tại Mẫu M1 (trang 13) và Mẫu M2 (trang 14) của Document 2, ngày ban hành được ghi là ngày **02 tháng 6 năm 2021**.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response is perfectly relevant and contains no irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 0.3333333333333333,
+          "threshold": 0.7,
+          "passed": false,
+          "reason": "The score is 0.33 because the actual output incorrectly attributes the date of June 2, 2021 to Decision No. 1562/QĐ-ĐHBK, whereas the retrieval context states that decision was issued on June 4, 2021 and June 2 is associated with Decision No. 142/QĐ-ĐHBK.",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the most relevant node in the retrieval contexts is perfectly ranked at the first node, as it \"explicitly mentions 'Số: 1562/QĐ-ĐHBK' and the date 'Đà Nẵng, ngày 04 tháng 6 năm 2021'\"!",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the expected output in sentence 1 is perfectly captured by node(s) in retrieval context 1!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 0.8888888888888888,
+      "passed": false,
+      "evaluated_at": "2026-06-14T17:19:35.028101",
+      "duration_seconds": 37.45047211647034,
+      "metadata": {
+        "sample_id": "04_Daotao_1562_QD_BH_Quy_dinh_moi_thinh__chunk_0000_fact_2",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:0"
+        ],
+        "retrieved_context_ids": [
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:34",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:0",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:0",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.89,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.775,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.85,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.85"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 11621,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:18:56.091041+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.060558319091796875,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 6107.081651687622,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 17354.32505607605,
+            "metadata": {
+              "response_length": 308,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1485.2714538574219,
+            "metadata": {
+              "quality_score": 0.89,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "13242f88-5022-44ce-a37f-d85b6b659401",
+      "sample_id": "04_Daotao_1562_QD_BH_Quy_dinh_moi_thinh__chunk_0042_fact_1",
+      "query": "Mẫu M9 dùng để báo cáo nội dung gì và được ban hành kèm theo quyết định nào?",
+      "answer": "Mẫu M9 được dùng để báo cáo kết quả thỉnh giảng tại đơn vị ngoài và được ban hành kèm theo Quyết định số 457/QĐ-ĐHBK ngày 12 tháng 6 năm 2021.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output is perfectly relevant and addresses all parts of the input without any unnecessary information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the most relevant node is perfectly ranked at the first node in the retrieval contexts!",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the retrieval context perfectly covers the expected output, with node(s) in retrieval context 1 providing all the necessary details for the sentence!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:20:40.530920",
+      "duration_seconds": 56.601839780807495,
+      "metadata": {
+        "sample_id": "04_Daotao_1562_QD_BH_Quy_dinh_moi_thinh__chunk_0042_fact_1",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:42"
+        ],
+        "retrieved_context_ids": [
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:42",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:41",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:34",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:40",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "596cde86-71d4-4274-addc-39066eb4613b:60",
+          "596cde86-71d4-4274-addc-39066eb4613b"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.89,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.775,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.85,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.85"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 23377,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:19:41.394921+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.10704994201660156,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 4402.323961257935,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1962.195873260498,
+            "metadata": {
+              "response_length": 142,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 2532.917022705078,
+            "metadata": {
+              "quality_score": 0.89,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "7161d14e-372b-47ad-96d8-9dc03978fa6f",
+      "sample_id": "04_Daotao_1562_QD_BH_Quy_dinh_moi_thinh__chunk_0042_responsibility_2",
+      "query": "Trong Báo cáo kết quả thỉnh giảng tại đơn vị ngoài (Mẫu M9), người viết đơn phải cam đoan điều gì?",
+      "answer": "Trong Báo cáo kết quả thỉnh giảng tại đơn vị ngoài (Mẫu M9), người viết đơn phải cam đoan nội dung báo cáo là hoàn toàn đúng sự thật và xin chịu trách nhiệm trước pháp luật nếu có thông tin sai lệch.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response perfectly addresses the input without any irrelevant statements. Great job!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the most relevant node is perfectly ranked at the top! The first node in the retrieval contexts provides the exact commitment required in 'Mẫu M9 – Báo cáo kết quả thỉnh giảng tại đơn vị ngoài', while subsequent nodes are correctly ranked lower as they either only mention the form without the commitment or discuss unrelated documents.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the retrieval context provides perfect coverage, with node(s) in retrieval context 1 containing the exact information needed to support the entire expected output!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:21:45.570468",
+      "duration_seconds": 52.05358386039734,
+      "metadata": {
+        "sample_id": "04_Daotao_1562_QD_BH_Quy_dinh_moi_thinh__chunk_0042_responsibility_2",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "responsibility",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:42"
+        ],
+        "retrieved_context_ids": [
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:42",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:24",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:16",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:40",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:28",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 12262,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:20:52.150770+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.08893013000488281,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 4176.993846893311,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 7440.67907333374,
+            "metadata": {
+              "response_length": 199,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1364.8779392242432,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "b18bc961-8bab-4c32-b943-0a60b776d79d",
+      "sample_id": "DT_2019_DHBK_1980_QD_Danh_Gia_HocTap_SV__chunk_0000_fact_1",
+      "query": "Quyết định số 1980/QĐ-ĐHBK được ban hành vào ngày tháng năm nào?",
+      "answer": "Quyết định số 1980/QĐ-ĐHBK được ban hành vào ngày 18 tháng 7 năm 2019.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response is perfectly focused and directly answers the input question without any irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the most relevant node in the retrieval contexts is perfectly ranked at the first node, as it \"explicitly mentions 'Số: 1980/QĐ-ĐHBK' and provides the date 'Đà Nẵng, ngày 18 tháng 7 năm 2019'\"!",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the date in sentence 1 is perfectly captured in node(s) in retrieval context 1!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:22:29.595365",
+      "duration_seconds": 36.38581562042236,
+      "metadata": {
+        "sample_id": "DT_2019_DHBK_1980_QD_Danh_Gia_HocTap_SV__chunk_0000_fact_1",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:0"
+        ],
+        "retrieved_context_ids": [
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "596cde86-71d4-4274-addc-39066eb4613b:0",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:0",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:0",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:34",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.87,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.745,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.75,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.75"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 11906,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:21:51.207738+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.05841255187988281,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 4285.748481750488,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1349.6911525726318,
+            "metadata": {
+              "response_length": 70,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 2000.6170272827148,
+            "metadata": {
+              "quality_score": 0.87,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "e8d65a9c-fbb4-416e-8e36-b864130d2f61",
+      "sample_id": "DT_2019_DHBK_1980_QD_Danh_Gia_HocTap_SV__chunk_0000_responsibility_2",
+      "query": "Quyết định số 1980/QĐ-ĐHBK được ban hành căn cứ trên đề nghị của ai?",
+      "answer": "Quyết định số 1980/QĐ-ĐHBK được ban hành căn cứ trên đề nghị của Trưởng phòng Khảo thí và Đảm bảo chất lượng giáo dục.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response perfectly addresses the input without any irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the most relevant node is perfectly ranked at the top! The first node in the retrieval contexts directly answers the query as it \"states 'Xét đề nghị của Trưởng phòng Khảo thí và Đảm bảo chất lượng giáo dục'\", while all subsequent nodes are irrelevant.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the expected output (Sentence 1) is perfectly supported by node(s) in retrieval context 1!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:24:05.753141",
+      "duration_seconds": 45.47742462158203,
+      "metadata": {
+        "sample_id": "DT_2019_DHBK_1980_QD_Danh_Gia_HocTap_SV__chunk_0000_responsibility_2",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "responsibility",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:0"
+        ],
+        "retrieved_context_ids": [
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "596cde86-71d4-4274-addc-39066eb4613b:73",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:0",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:71",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:11",
+          "22377e76-8ff7-4379-832b-0e0cea43c794"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 10193,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:22:34.704358+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.08058547973632812,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 3849.6689796447754,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1257.5299739837646,
+            "metadata": {
+              "response_length": 118,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 45570.141553878784,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "102ca04a-0592-4e0d-a641-334518b0faad",
+      "sample_id": "DT_2019_DHBK_1980_QD_Danh_Gia_HocTap_SV__chunk_0051_fact_1",
+      "query": "Quy định này có hiệu lực thi hành từ khi nào?",
+      "answer": "Vì bạn không nêu rõ đang hỏi về văn bản nào, tôi xin cung cấp thông tin về hiệu lực thi hành của các tài liệu có trong ngữ cảnh như sau:\n\n*   **Quy định về biên soạn, thẩm định và đánh giá lựa chọn duyệt sách phục vụ đào tạo (Document 1):** Có hiệu lực kể từ ngày ký.\n*   **Quy định đào tạo trình độ tiến sĩ (Document 2):** Có hiệu lực kể từ ngày ký và áp dụng đối với các khóa tuyển sinh từ năm 2019.\n*   **Quy định mời thỉnh giảng và quản lý công tác thỉnh giảng (Document 3):** Có hiệu lực kể từ ngày ký.\n*   **Quy định về đánh giá học tập sinh viên/học viên (Document 4):** Có hiệu lực kể từ ngày ký.\n\nĐối với tài liệu về sửa đổi, bổ sung một số điều của Quy định về liêm chính học thuật (Document 5), nội dung cung cấp không đề cập đến thời điểm có hiệu lực thi hành.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 0.8571428571428571,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 0.86 because the response correctly answers the question, but it is slightly lowered by the inclusion of a meta-comment about the user's input.",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because all relevant nodes are perfectly ranked at the top! The first, second, third, and fourth nodes in the retrieval contexts all accurately state 'Quy định này có hiệu lực kể từ ngày ký.' before any irrelevant nodes appear.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the entire expected output (sentence 1) is perfectly supported by nodes 1, 2, 3, and 4 in retrieval context. Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 0.9761904761904762,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:24:50.207482",
+      "duration_seconds": 35.69870448112488,
+      "metadata": {
+        "sample_id": "DT_2019_DHBK_1980_QD_Danh_Gia_HocTap_SV__chunk_0051_fact_1",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "fact",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:51"
+        ],
+        "retrieved_context_ids": [
+          "596cde86-71d4-4274-addc-39066eb4613b:29",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:47",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:33",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:51",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767:1",
+          "dadd7a1c-0992-4e9f-bd41-21b4d43d8767"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.89,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.775,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.85,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.85"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 7870,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:24:12.538236+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.05650520324707031,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 4284.653902053833,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 2498.615026473999,
+            "metadata": {
+              "response_length": 772,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1969.334363937378,
+            "metadata": {
+              "quality_score": 0.89,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "4b27685b-b685-4b76-8b1b-bd13120bea48",
+      "sample_id": "DT_2019_DHBK_1980_QD_Danh_Gia_HocTap_SV__chunk_0051_responsibility_2",
+      "query": "Khi có vướng mắc, bất cập hoặc vấn đề cần bổ sung, sửa đổi trong quá trình thực hiện, các đơn vị và cá nhân liên quan cần phản ánh với bộ phận nào?",
+      "answer": "Tùy vào nội dung của quy định đang được thực hiện mà các đơn vị và cá nhân liên quan sẽ phản ánh về các bộ phận khác nhau:\n\n*   **Đối với quy định về mời thỉnh giảng và quản lý công tác thỉnh giảng, cũng như quy định về đào tạo trình độ tiến sĩ:** Phản ánh kịp thời về **Phòng Đào tạo** để tổng hợp ý kiến trình Hiệu trưởng xem xét và quyết định.\n*   **Đối với quy định về đánh giá học tập của sinh viên và học viên:** Phản ánh kịp thời với **Phòng Khảo thí và Đảm bảo chất lượng giáo dục** để tổng hợp ý kiến trình Hiệu trưởng xem xét quyết định.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response is perfectly aligned with the user's query and contains no irrelevant information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "contextual_precision",
+          "score": 0.16666666666666666,
+          "threshold": 0.7,
+          "passed": false,
+          "reason": "The score is 0.17 because the only relevant node in the retrieval contexts is ranked sixth. The score is not higher because the first five nodes are irrelevant, such as the first node which states 'các đơn vị, cá nhân có liên quan phản ánh kịp thời về Phòng Đào tạo' and the second node which is merely a 'template for inviting guest lecturers', both of which should be ranked lower than the sixth node that explicitly identifies the 'Phòng Khảo thí và Đảm bảo chất lượng giáo dục' as the correct contact.",
+          "error": null
+        },
+        {
+          "metric": "contextual_recall",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the expected output in sentence 1 is perfectly captured by nodes 3, 4, and 5 in retrieval context! Great job!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "Matched 1/1 expected citations.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer did not refuse, as expected.",
+          "error": null
+        }
+      ],
+      "overall_score": 0.8611111111111112,
+      "passed": false,
+      "evaluated_at": "2026-06-14T17:25:26.028657",
+      "duration_seconds": 28.092493057250977,
+      "metadata": {
+        "sample_id": "DT_2019_DHBK_1980_QD_Danh_Gia_HocTap_SV__chunk_0051_responsibility_2",
+        "tags": [
+          "llm-generated",
+          "answerable",
+          "responsibility",
+          "easy"
+        ],
+        "expected_context_ids": [
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:51"
+        ],
+        "retrieved_context_ids": [
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:34",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:47",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:51",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:24",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:22",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.89,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.775,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.85,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.85"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 13187,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:24:56.547030+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.11539459228515625,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 4329.738140106201,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 2007.4243545532227,
+            "metadata": {
+              "response_length": 547,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1387.932300567627,
+            "metadata": {
+              "quality_score": 0.89,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "0040096d-933f-4d32-b63d-2f8607f0f516",
+      "sample_id": "no_answer_001",
+      "query": "Các văn bản này có quy định mức học phí cho năm 2099 là bao nhiêu không?",
+      "answer": "Các văn bản được cung cấp không có quy định về mức học phí cho năm 2099.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the response perfectly addresses the user's question without any irrelevant information. Great job!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "No expected citations were defined for this sample.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 0.0,
+          "threshold": 0.7,
+          "passed": false,
+          "reason": "The answer should have refused but attempted to answer.",
+          "error": null
+        }
+      ],
+      "overall_score": 0.75,
+      "passed": false,
+      "evaluated_at": "2026-06-14T17:27:15.375078",
+      "duration_seconds": 79.47972106933594,
+      "metadata": {
+        "sample_id": "no_answer_001",
+        "tags": [
+          "llm-generated",
+          "no-answer",
+          "refusal"
+        ],
+        "expected_context_ids": [],
+        "retrieved_context_ids": [
+          "596cde86-71d4-4274-addc-39066eb4613b:29",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:36",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:5",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "596cde86-71d4-4274-addc-39066eb4613b:5",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "596cde86-71d4-4274-addc-39066eb4613b:18",
+          "596cde86-71d4-4274-addc-39066eb4613b"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.87,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.745,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.75,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.75"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 9116,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:25:52.958318+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.06508827209472656,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 25334.68747138977,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1593.0607318878174,
+            "metadata": {
+              "response_length": 72,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 2935.8630180358887,
+            "metadata": {
+              "quality_score": 0.87,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "98dd9274-3f99-4ef1-80c4-ce3ab4494b7d",
+      "sample_id": "no_answer_002",
+      "query": "Có văn bản nào nêu lịch nghỉ Tết năm 2099 của Trường Đại học Bách khoa không?",
+      "answer": "Trong các văn bản được cung cấp, không có thông tin nào nêu về lịch nghỉ Tết năm 2099 của Trường Đại học Bách khoa.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output is perfectly relevant and contains no unnecessary information!",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "No expected citations were defined for this sample.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer correctly refused due to missing evidence.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:27:47.424154",
+      "duration_seconds": 14.418593645095825,
+      "metadata": {
+        "sample_id": "no_answer_002",
+        "tags": [
+          "llm-generated",
+          "no-answer",
+          "refusal"
+        ],
+        "expected_context_ids": [],
+        "retrieved_context_ids": [
+          "596cde86-71d4-4274-addc-39066eb4613b:86",
+          "596cde86-71d4-4274-addc-39066eb4613b",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:7",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:34",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:40",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0:5",
+          "60cb5011-5ce3-46f2-a991-eaff2618f6d0"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 16495,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:27:20.719373+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.06794929504394531,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 3896.6448307037354,
+            "metadata": {
+              "refined_queries": 1,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1445.8093643188477,
+            "metadata": {
+              "response_length": 115,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 12284.942388534546,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    },
+    {
+      "evaluation_id": "c476f300-2bf2-41a6-b80d-7b0cb146f1a3",
+      "sample_id": "no_answer_003",
+      "query": "Các tài liệu này có công bố danh sách mật khẩu tài khoản sinh viên không?",
+      "answer": "Dựa trên các tài liệu được cung cấp, không có thông tin nào đề cập đến việc công bố danh sách mật khẩu tài khoản sinh viên.",
+      "results": [
+        {
+          "metric": "answer_relevancy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the output is perfectly relevant and contains no irrelevant statements.",
+          "error": null
+        },
+        {
+          "metric": "faithfulness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions found!",
+          "error": null
+        },
+        {
+          "metric": "citation_accuracy",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "No expected citations were defined for this sample.",
+          "error": null
+        },
+        {
+          "metric": "refusal_correctness",
+          "score": 1.0,
+          "threshold": 0.7,
+          "passed": true,
+          "reason": "The answer correctly refused due to missing evidence.",
+          "error": null
+        }
+      ],
+      "overall_score": 1.0,
+      "passed": true,
+      "evaluated_at": "2026-06-14T17:28:26.662144",
+      "duration_seconds": 32.07023358345032,
+      "metadata": {
+        "sample_id": "no_answer_003",
+        "tags": [
+          "llm-generated",
+          "no-answer",
+          "refusal"
+        ],
+        "expected_context_ids": [],
+        "retrieved_context_ids": [
+          "22377e76-8ff7-4379-832b-0e0cea43c794:37",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "22377e76-8ff7-4379-832b-0e0cea43c794:30",
+          "22377e76-8ff7-4379-832b-0e0cea43c794",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:38",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:48",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e:16",
+          "d2ca4292-3c7e-44da-b270-bc452280ba2e"
+        ],
+        "quality_agent_output": {
+          "quality_score": 0.88,
+          "critique": {
+            "quality_level": "excellent",
+            "confidence_score": 1.0,
+            "issues": [],
+            "suggestions": [],
+            "should_regenerate": false
+          },
+          "verification": {
+            "is_verified": false,
+            "confidence": 0.76,
+            "factual_consistency": 0.7,
+            "citation_accuracy": 0.8,
+            "reasoning_quality": 0.7999999999999999,
+            "verification_checks": [
+              "Factual consistency: 0.70",
+              "Citation accuracy: 0.80",
+              "Reasoning quality: 0.80"
+            ]
+          },
+          "suggestions": [
+            "Factual consistency: 0.70",
+            "Citation accuracy: 0.80"
+          ],
+          "should_regenerate": true
+        },
+        "generation_metadata": {
+          "model": "glm-4.5",
+          "temperature": 0.7,
+          "max_tokens": 2000,
+          "context_size": 11128,
+          "documents_used": 5,
+          "generated_at": "2026-06-14T17:27:53.284942+00:00"
+        },
+        "agent_results": [
+          {
+            "agent_name": "OrchestratorAgent",
+            "status": "completed",
+            "execution_time_ms": 0.05888938903808594,
+            "metadata": {
+              "langgraph_node": true,
+              "next_agent": "RetrievalAgent"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "RetrievalAgent",
+            "status": "completed",
+            "execution_time_ms": 3956.768035888672,
+            "metadata": {
+              "refined_queries": 3,
+              "retrieved_docs": 10,
+              "reranked_docs": 5,
+              "strategy": "hybrid"
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "GenerationAgent",
+            "status": "completed",
+            "execution_time_ms": 1902.1248817443848,
+            "metadata": {
+              "response_length": 123,
+              "citations_count": 5,
+              "documents_used": 5
+            },
+            "error_message": null
+          },
+          {
+            "agent_name": "QualityAgent",
+            "status": "completed",
+            "execution_time_ms": 1305.7196140289307,
+            "metadata": {
+              "quality_score": 0.88,
+              "critique_quality": "excellent",
+              "verification_passed": false,
+              "should_regenerate": true,
+              "issues_count": 0
+            },
+            "error_message": null
+          }
+        ]
+      }
+    }
+  ],
+  "aggregated_scores": {
+    "answer_relevancy": 0.9354037267080745,
+    "faithfulness": 0.9275362318840579,
+    "contextual_precision": 0.9583333333333334,
+    "contextual_recall": 0.95,
+    "citation_accuracy": 1.0,
+    "refusal_correctness": 0.9565217391304348,
+    "overall_score": 0.9530020703933747,
+    "pass_rate": 0.7391304347826086
+  },
+  "started_at": "2026-06-14T17:05:46.820630",
+  "completed_at": "2026-06-14T17:28:26.662229",
+  "total_duration_seconds": 1359.841607093811
+}

@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { X, Search, FileText, Loader2, Eye } from 'lucide-react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { X, Search, FileText, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SourceChunk } from './SourceCitation'
+import { documentsAPI } from '@/lib/api/simple-client'
+import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
 
 interface SourcePanelProps {
   sources: SourceChunk[]
@@ -13,55 +15,136 @@ interface SourcePanelProps {
   className?: string
 }
 
+interface GroupedSource {
+  document_id: string | null
+  title: string
+  type: 'pdf' | 'docx' | 'web'
+  maxScore: number
+  chunks: Array<{
+    id: string
+    content: string
+    chunk_index?: number
+    score: number
+  }>
+}
+
 export function SourcePanel({ sources, isOpen, onClose, activeSourceId, className }: SourcePanelProps) {
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
+  const [expandedDocKeys, setExpandedDocKeys] = useState<Set<string>>(new Set())
   const activeRef = useRef<HTMLDivElement>(null)
+  
+  const [docChunks, setDocChunks] = useState<Record<string, Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }> | null>>({})
+  const [fetchingDocIds, setFetchingDocIds] = useState<Set<string>>(new Set())
+
+  // Modal preview state for mobile
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null)
+  const [previewFilename, setPreviewFilename] = useState<string>('')
+
+  // Group sources by document
+  const groupedSources = useMemo(() => {
+    const groups: Record<string, GroupedSource> = {}
+    
+    sources.forEach((source) => {
+      const title = source.title || 'Tài liệu'
+      const type = source.type || 'pdf'
+      const key = source.document_id || title
+      
+      if (!groups[key]) {
+        groups[key] = {
+          document_id: source.document_id || null,
+          title,
+          type,
+          maxScore: source.score,
+          chunks: []
+        }
+      }
+      
+      groups[key].chunks.push({
+        id: source.id,
+        content: source.content,
+        chunk_index: source.chunk_index,
+        score: source.score
+      })
+      
+      if (source.score > groups[key].maxScore) {
+        groups[key].maxScore = source.score
+      }
+    })
+    
+    return Object.values(groups)
+  }, [sources])
 
   // Auto-expand active source and scroll into view
   useEffect(() => {
     if (isOpen && activeSourceId) {
-      setExpandedIds((prev) => {
-        const next = new Set(prev)
-        if (!next.has(activeSourceId)) {
-          next.add(activeSourceId)
-          // Simulate lazy loading
-          setLoadingIds((load) => new Set(load).add(activeSourceId))
-          setTimeout(() => {
-            setLoadingIds((load) => {
-              const nextLoad = new Set(load)
-              nextLoad.delete(activeSourceId)
-              return nextLoad
-            })
-          }, 300)
-        }
-        return next
-      })
-      // Scroll to active source
-      setTimeout(() => {
-        activeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }, 400)
+      const activeSource = sources.find(s => s.id === activeSourceId)
+      if (activeSource) {
+        const docKey = activeSource.document_id || activeSource.title || 'Tài liệu'
+        setExpandedDocKeys((prev) => {
+          const next = new Set(prev)
+          next.add(docKey)
+          return next
+        })
+        
+        // Scroll to active source card
+        setTimeout(() => {
+          activeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }, 400)
+      }
     }
-  }, [isOpen, activeSourceId])
+  }, [isOpen, activeSourceId, sources])
+
+  // Load full document content when a document group is expanded
+  useEffect(() => {
+    expandedDocKeys.forEach((key) => {
+      const group = groupedSources.find(g => (g.document_id || g.title) === key)
+      if (group && group.document_id && docChunks[group.document_id] === undefined && !fetchingDocIds.has(group.document_id)) {
+        const docId = group.document_id
+        setFetchingDocIds((prev) => {
+          const next = new Set(prev)
+          next.add(docId)
+          return next
+        })
+        documentsAPI.getChunks(docId)
+          .then(chunks => {
+            setDocChunks(prev => ({ ...prev, [docId]: chunks }))
+          })
+          .catch(err => {
+            console.warn('[SourcePanel] Failed to load chunks (will fallback to RAG snippets):', err?.message || err)
+            // Mark as null to prevent infinite loop of retries on failure
+            setDocChunks(prev => ({ ...prev, [docId]: null }))
+          })
+          .finally(() => {
+            setFetchingDocIds((prev) => {
+              const next = new Set(prev)
+              next.delete(docId)
+              return next
+            })
+          })
+      }
+    })
+  }, [expandedDocKeys, groupedSources, docChunks, fetchingDocIds])
+
+  // Scroll to active chunk on mobile when chunks are loaded
+  useEffect(() => {
+    expandedDocKeys.forEach((key) => {
+      setTimeout(() => {
+        const el = document.getElementById(`active-chunk-mobile-${key}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+      }, 300)
+    })
+  }, [expandedDocKeys, docChunks])
 
   if (!isOpen) return null
 
-  const toggleExpand = (id: string) => {
-    setExpandedIds((prev) => {
+  const toggleExpand = (key: string) => {
+    setExpandedDocKeys((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
+      if (next.has(key)) {
+        next.delete(key)
       } else {
-        next.add(id)
-        // Simulate lazy loading
-        setLoadingIds((load) => new Set(load).add(id))
-        setTimeout(() => {
-          setLoadingIds((load) => {
-            const nextLoad = new Set(load)
-            nextLoad.delete(id)
-            return nextLoad
-          })
-        }, 300)
+        next.add(key)
       }
       return next
     })
@@ -79,7 +162,7 @@ export function SourcePanel({ sources, isOpen, onClose, activeSourceId, classNam
         <div className="flex items-center gap-2">
           <Search className="w-4 h-4 text-muted-foreground" />
           <h3 className="font-semibold">Nguồn tham khảo</h3>
-          <span className="text-muted-foreground text-xs">({sources.length})</span>
+          <span className="text-muted-foreground text-xs">({groupedSources.length})</span>
         </div>
         <button
           onClick={onClose}
@@ -91,30 +174,30 @@ export function SourcePanel({ sources, isOpen, onClose, activeSourceId, classNam
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto divide-y">
-        {sources.map((source, index) => {
-          const sourceKey = source.id || `source-${index}`
-          const isExpanded = expandedIds.has(sourceKey)
-          const isLoading = loadingIds.has(sourceKey)
-          const isActive = sourceKey === activeSourceId
+        {groupedSources.map((group, index) => {
+          const groupKey = group.document_id || group.title
+          const isExpanded = expandedDocKeys.has(groupKey)
+          const isActive = activeSourceId ? sources.find(s => s.id === activeSourceId)?.document_id === group.document_id : false
 
           return (
             <div
-              key={sourceKey}
+              key={groupKey}
               ref={isActive ? activeRef : null}
               className={cn(
                 "p-3 transition-all",
                 isActive && "bg-primary/5 border-l-2 border-primary"
               )}
             >
-              <button
-                onClick={() => toggleExpand(sourceKey)}
-                className="flex items-start gap-2 w-full text-left hover:bg-muted/50 rounded-md p-2 -m-2 transition-colors"
+              {/* Outer Card converted to div to allow inner buttons without nesting errors */}
+              <div
+                onClick={() => toggleExpand(groupKey)}
+                className="flex items-start gap-2 w-full text-left hover:bg-muted/50 rounded-md p-2 -m-2 cursor-pointer transition-colors"
               >
                 <FileText className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm truncate">
-                      #{index + 1}
+                    <span className="font-semibold text-sm truncate text-foreground pr-2">
+                      #{index + 1} {group.title}
                     </span>
                     {isActive && (
                       <span className={cn(
@@ -125,51 +208,76 @@ export function SourcePanel({ sources, isOpen, onClose, activeSourceId, classNam
                         Đang xem
                       </span>
                     )}
-                    {source.score && (
+                    {group.maxScore && (
                       <span className={cn(
-                        'text-xs px-1.5 py-0.5 rounded',
-                        source.score > 0.8
+                        'text-xs px-1.5 py-0.5 rounded ml-auto shrink-0',
+                        group.maxScore > 0.8
                           ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                           : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
                       )}>
-                        {(source.score * 100).toFixed(0)}%
+                        {(group.maxScore * 100).toFixed(0)}%
                       </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                    <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">
+                      {group.chunks.length} trích dẫn
+                    </span>
+                    {group.document_id && group.type === 'pdf' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setPreviewDocId(group.document_id)
+                          setPreviewFilename(group.title)
+                        }}
+                        className="inline-flex items-center gap-1 text-primary hover:text-primary/80 font-semibold transition-colors ml-2 cursor-pointer"
+                      >
+                        <Eye className="w-3 h-3" />
+                        Xem bản gốc
+                      </button>
                     )}
                   </div>
                   {!isExpanded && (
                     <p className="text-muted-foreground text-xs line-clamp-2 mt-1">
-                      {source.content}
+                      {group.chunks[0]?.content}
                     </p>
                   )}
                 </div>
-              </button>
+              </div>
 
               {isExpanded && (
                 <div className={cn(
-                  "ml-6 mt-2 text-sm text-foreground p-3 rounded-lg",
-                  isActive && "bg-primary/10 border border-primary/20"
+                  "ml-6 mt-2 text-sm text-foreground p-3 rounded-lg bg-muted/20 border border-muted",
+                  isActive && "bg-primary/5 border-primary/20"
                 )}>
-                  {isLoading ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Đang tải...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="whitespace-pre-wrap">{source.content}</p>
-                      {isActive && (
-                        <div className="mt-3 pt-3 border-t border-primary/20">
-                          <p className="text-xs text-muted-foreground italic">
-                            ✦ Đây là nội dung được tham chiếu từ câu trả lời
-                          </p>
+                  <div className="mt-3 space-y-2.5 max-h-80 overflow-y-auto custom-scrollbar pr-1 select-text">
+                    {group.chunks.map((c, chunkIdx) => {
+                      const isExactCurrentSource = activeSourceId ? activeSourceId === c.id : false
+                      return (
+                        <div 
+                          key={c.id || chunkIdx}
+                          className={cn(
+                            "text-xs leading-relaxed p-3 rounded-xl transition-all border",
+                            isExactCurrentSource
+                              ? "bg-primary/10 border-primary/30 text-foreground font-semibold shadow-sm"
+                              : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          )}
+                        >
+                          <div className="text-[10px] font-sans font-semibold text-primary/70 mb-1 select-none flex items-center justify-between">
+                            <span>Trích dẫn #{chunkIdx + 1}</span>
+                          </div>
+                          <p className="text-justify font-sans">{c.content}</p>
                         </div>
-                      )}
-                    </>
-                  )}
-                  {source.chunk_index !== undefined && (
-                    <p className="text-muted-foreground text-xs mt-2">
-                      Chunk #{source.chunk_index}
-                    </p>
+                      )
+                    })}
+                  </div>
+                  
+                  {isActive && (
+                    <div className="mt-3 pt-3 border-t border-primary/20">
+                      <p className="text-xs text-muted-foreground italic">
+                        ✦ Đây là nội dung được tham chiếu từ câu trả lời
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
@@ -177,6 +285,18 @@ export function SourcePanel({ sources, isOpen, onClose, activeSourceId, classNam
           )
         })}
       </div>
+
+      {previewDocId && (
+        <DocumentPreviewDialog
+          documentId={previewDocId}
+          filename={previewFilename}
+          isOpen={!!previewDocId}
+          onClose={() => {
+            setPreviewDocId(null)
+            setPreviewFilename('')
+          }}
+        />
+      )}
     </div>
   )
 }

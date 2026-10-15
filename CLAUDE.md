@@ -1,603 +1,280 @@
-# CLAUDE.md - Development Guidelines
+# CLAUDE.md - KIRA Development Guide
 
-## Project Overview
+This file gives AI coding assistants and maintainers the operating context for the KIRA repository.
 
-**K.I.R.A Simplified** is a production-ready RAG (Retrieval-Augmented Generation) system with multi-stage query routing, hybrid retrieval, and intelligent OCR fallback. This document provides context for AI assistants working on this codebase.
+## Communication Policy
 
-## System Architecture
+- Respond to user-facing questions in Vietnamese unless the user asks otherwise.
+- Keep code, identifiers, inline comments, commit text, and technical documentation in English unless specifically requested.
+- Be concise, factual, and implementation-oriented.
 
-### Overall System Architecture
+## Project Snapshot
 
-```mermaid
-graph TB
-    subgraph Clients["Client Layer"]
-        WebUI[Web UI<br/>Next.js 16]
-        APIKey[API Client]
-    end
+KIRA is a full-stack RAG application for authenticated document upload, hybrid retrieval, citation-aware chat, and RAG evaluation.
 
-    subgraph Serving["Serving Layer (src/api/)"]
-        FastAPI[FastAPI Server]
-        AuthJWT[JWT Auth Middleware]
-        SSE[SSE Streaming]
-        
-        AuthEP[Auth Endpoints]
-        DocEP[Document Endpoints]
-        ChatEP[Chat Endpoints]
-    end
+- Backend: FastAPI, Python 3.12, SQLAlchemy asyncio
+- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS
+- Storage: PostgreSQL 16 + pgvector, Qdrant, MinIO
+- Jobs: Celery + Redis for document processing
+- Retrieval: dense vector search, BM25 keyword search, RRF hybrid fusion, optional reranking
+- AI: GLM/Z.ai default, Gemini/OpenAI-compatible/Ollama options, external embedding API
+- Architecture: hexagonal modular monolith
 
-    subgraph AgentLayer["Agent/Tools Layer (src/agents/)"]
-        Orchestrator[OrchestratorAgent]
-        RouterRegistry[RouterRegistry]
-        QueryClassifier[QueryClassifier]
-        
-        subgraph Routers["Routers"]
-            RAGRouter[RAGRouter]
-            ConvRouter[ConversationalRouter]
-        end
-        
-        AgenticRAG[AgenticRAG Agent]
-        LLMClient[LLM Client]
-    end
+## Current Entry Points
 
-    subgraph Tools["Tools Layer (src/tools/)"]
-        RetrievalTools[retrieval_tools.py]
-        IngestionTools[ingestion_tools.py]
-    end
+### Backend
 
-    subgraph Retrieval["Retrieval Layer"]
-        DenseRetrieval[dense.py<br/>Vector Search]
-        BM25Retrieval[bm25.py<br/>Keyword Search]
-        HybridRetrieval[hybrid.py<br/>RRF Fusion]
-    end
+- FastAPI app: `src/server/main.py`
+- Runtime settings: `src/config/config.py`
+- Static settings: `src/config/settings.yaml`
+- Database session: `src/shared/infrastructure/persistence/database/session.py`
+- Database models: `src/shared/infrastructure/persistence/database/models.py`
+- Celery app: `src/worker/celery_app.py`
+- Document task: `src/worker/document_tasks.py`
 
-    subgraph Indexing["Indexing Layer"]
-        QdrantStore[qdrant_store.py]
-        DocStore[document_store.py]
-        FileStore[file_store.py]
-    end
+### API Routers
 
-    subgraph Ingestion["Ingestion Layer"]
-        Extractor[extractor.py<br/>OCR Fallback]
-        PaddleOCR[paddleocr_client.py]
-        Cleaner[cleaner.py]
-        Chunker[chunker.py]
-        Embedding[embedding.py]
-        BM25Builder[bm25_builder.py]
-        Pipelines[pipelines.py]
-    end
+- Auth: `src/server/api/v1/auth/endpoints.py`
+- Chat: `src/modules/chat/api/endpoints.py`
+- Documents: `src/modules/document/api/endpoints.py`
+- Evaluation: `src/server/api/v1/evaluation/endpoints.py`
+- Metrics: `src/server/api/v1/metrics/endpoints.py`
 
-    subgraph Storage["External Storage"]
-        QdrantDB[(Qdrant<br/>Vector DB)]
-        PGDB[(PostgreSQL<br/>Metadata)]
-        MinIO[(MinIO<br/>Files)]
-        LLMService[(LLM API<br/>GLM/Claude/GPT)]
-        EmbedAPI[(Embedding API<br/>Vietnamese)]
-    end
+All routers are mounted in `src/server/main.py` under `/api/v1/...`.
 
-    WebUI --> FastAPI
-    APIKey --> FastAPI
-    FastAPI --> AuthJWT
-    AuthJWT --> AuthEP
-    AuthJWT --> DocEP
-    AuthJWT --> ChatEP
-    
-    ChatEP --> SSE
-    SSE --> Orchestrator
-    
-    Orchestrator --> RouterRegistry
-    RouterRegistry --> QueryClassifier
-    RouterRegistry --> Routers
-    Routers --> AgenticRAG
-    AgenticRAG --> LLMClient
-    LLMClient --> LLMService
-    
-    RAGRouter --> RetrievalTools
-    RetrievalTools --> DenseRetrieval
-    RetrievalTools --> BM25Retrieval
-    DenseRetrieval --> HybridRetrieval
-    BM25Retrieval --> HybridRetrieval
-    
-    HybridRetrieval --> QdrantStore
-    QdrantStore --> QdrantDB
-    HybridRetrieval --> DocStore
-    DocStore --> PGDB
-    
-    DocEP --> IngestionTools
-    IngestionTools --> Pipelines
-    Pipelines --> Extractor
-    Extractor --> PaddleOCR
-    Pipelines --> Cleaner
-    Pipelines --> Chunker
-    Pipelines --> Embedding
-    Pipelines --> BM25Builder
-    Pipelines --> QdrantStore
-    
-    Embedding --> EmbedAPI
-    Chunker --> BM25Builder
-    
-    FileStore --> MinIO
-    Extractor --> FileStore
-    
-    style WebUI fill:#e1f5fe
-    style AgentLayer fill:#f3e5f5
-    style Retrieval fill:#fce4ec
-    style Ingestion fill:#e0f2f1
+### Frontend
+
+- App routes: `frontend/src/app/`
+- Main auth landing page: `frontend/src/app/page.tsx`
+- Conversation page: `frontend/src/app/conversation/page.tsx`
+- Upload page: `frontend/src/app/uploads/page.tsx`
+- API client: `frontend/src/lib/api/simple-client.ts`
+- Chat hooks: `frontend/src/lib/hooks/use-simple-chat.ts`, `use-streaming-chat.ts`
+- Stores: `frontend/src/lib/stores/`
+- Shared UI components: `frontend/src/components/ui/`
+
+## Architecture Rules
+
+The backend uses a hexagonal modular monolith. Preserve the dependency direction:
+
+```text
+src/server/ and module api/
+        -> application use cases
+        -> domain services and rules
+        -> shared ports/contracts
+        -> adapters/infrastructure
 ```
 
-### Multi-Agent Routing Architecture
+### Layer Responsibilities
 
-```mermaid
-flowchart TD
-    subgraph Stage1["Stage 1: Quick Filter"]
-        QueryInput[User Query + User ID]
-        
-        FileMatch{Fuzzy File<br/>Matching}
-        FileMatch -->|Filename Found| RAGPath1
-        FileMatch -->|No Match| KeywordCheck{File Keywords?}
-        
-        KeywordCheck -->|Has Keywords| RAGPath1
-        KeywordCheck -->|No Keywords| RouterCheck{Router<br/>Confidence}
-        
-        RouterCheck -->|> 80%| DirectPath[Direct Route]
-        RouterCheck -->|< 80%| Stage2
-    end
+- `src/server/`: FastAPI app setup, cross-cutting HTTP concerns, top-level router mounting
+- `src/modules/<module>/api/`: module-owned request/response schemas and endpoint functions
+- `src/modules/<module>/application/`: use cases, orchestration, application DTOs
+- `src/modules/<module>/domain/`: business rules, prompts, strategies, domain services
+- `src/modules/<module>/infrastructure/`: module-specific persistence or integrations
+- `src/shared/ports/`: contracts for external services
+- `src/shared/adapters/`: concrete implementations of ports
+- `src/shared/infrastructure/`: DB, auth, monitoring, LLM clients, technical concerns
+- `src/shared/kernel/`: dependency injection, base abstractions, registries
 
-    subgraph Stage2["Stage 2: LLM Classification"]
-        Classify[QueryClassifier<br/>LLM-Based]
-        Intent{Intent<br/>Detection}
-        
-        Intent -->|RAG Intent| RAGPath2
-        Intent -->|Chat Intent| ConvPath
-        Intent -->|Uncertain| DefaultPath[Default RAG]
-        
-        Intent -->|Low Confidence| DefaultPath
-    end
+### Rules To Enforce
 
-    subgraph Stage3["Stage 3: Router Dispatch"]
-        RAGPath1[RAGRouter]
-        RAGPath2[RAGRouter]
-        DirectPath[RAGRouter]
-        ConvPath[ConversationalRouter]
-        DefaultPath[RAGRouter]
-        
-        RAGPath1 --> RAGExecution
-        RAGPath2 --> RAGExecution
-        DirectPath --> RAGExecution
-        DefaultPath --> RAGExecution
-        ConvPath --> ConvExecution
-    end
+- Do not put business logic in FastAPI endpoint functions.
+- Do not import concrete adapters into application/domain code when a port exists.
+- Do not query SQLAlchemy directly from application/domain code; use repositories or owned infrastructure boundaries.
+- Keep per-user isolation intact for documents, conversations, retrieval, and citations.
+- Register/wire concrete services centrally instead of constructing them throughout the codebase.
+- Avoid new global mutable state unless it matches an existing service singleton pattern.
 
-    subgraph RAGExecution["RAG Execution"]
-        Retrieval[Hybrid Retrieval<br/>Dense + BM25]
-        ContextBuild[Context Building]
-        LLMGen[LLM Generation<br/>with Citations]
-        Retrieval --> ContextBuild
-        ContextBuild --> LLMGen
-    end
+## Module Map
 
-    subgraph ConvExecution["Conversational Execution"]
-        DirectLLM[Direct LLM Chat<br/>No Retrieval]
-    end
+- `chat`: chat use cases, handler selection, SSE streaming, conversation/message persistence
+- `classification`: query intent routing, keyword/cache/LLM strategies
+- `document`: upload, delete, download, chunk listing, background processing
+- `retrieval`: Qdrant dense retrieval, BM25, hybrid search, reranking service
+- `rag`: agentic/LangGraph RAG orchestration, state, agents, prompts
+- `evaluation`: DeepEval evaluation service, golden datasets, CLI runner
 
-    LLMGen --> Response
-    DirectLLM --> Response
-    
-    subgraph Response["Streaming Response"]
-        StreamRouter[Routing Chunk]
-        StreamRetrieval[Retrieval Chunk]
-        StreamContent[Content Chunks]
-        StreamMeta[Metadata Chunk]
-        StreamDone[Done Signal]
-    end
+## Runtime Behavior
 
-    QueryInput --> FileMatch
-    RAGPath1 --> RAGExecution
+### Backend Startup
 
-    style Stage1 fill:#c8e6c9
-    style Stage2 fill:#fff9c4
-    style Stage3 fill:#bbdefb
-    style RAGExecution fill:#f8bbd0
-    style ConvExecution fill:#e1bee7
-    style Response fill:#b2dfdb
+`src/server/main.py` lifespan currently:
+
+1. Initializes database connections.
+2. Checks the embedding API through `EmbeddingAPIAdapter().health_check()`.
+3. Initializes retrieval and ingestion tools.
+4. Creates an LLM client for reranking/hybrid search support.
+5. Initializes the reranking service and hybrid-search LLM client.
+6. Closes DB connections on shutdown.
+
+If backend startup fails early, check database availability, embedding API availability, and required environment variables.
+
+### Document Upload Flow
+
+```text
+POST /api/v1/documents/upload
+  -> authenticate user
+  -> store original file in MinIO
+  -> create PostgreSQL document row
+  -> enqueue Celery task documents.process
+  -> worker extracts/cleans/chunks/embeds
+  -> upsert chunks into Qdrant
+  -> update BM25/index metadata and document status
 ```
 
-### Data Flow: Query Processing
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant UI as Frontend
-    participant API as FastAPI
-    participant Orch as Orchestrator
-    participant Classifier as QueryClassifier
-    participant RAG as RAGRouter
-    participant Retrieval as Retrieval Layer
-    participant LLM as LLM Service
-
-    User->>UI: Send Query
-    UI->>API: POST /chat/stream
-    API->>Orch: query_stream(query, user_id)
-    
-    Orch->>Orch: Quick Filter Check
-    alt Quick Match Found
-        Orch->>RAG: Direct Dispatch
-    else No Quick Match
-        Orch->>Classifier: classify(query)
-        Classifier-->>Orch: Intent + Confidence
-        Orch->>RAG: Route by Intent
-    end
-    
-    RAG->>Retrieval: hybrid_search(query, user_id)
-    Retrieval-->>RAG: Ranked Documents
-    
-    RAG->>LLM: Generate Response
-    loop Streaming
-        LLM-->>RAG: Content Chunk
-        RAG-->>Orch: Chunk Data
-        Orch-->>API: SSE Event
-        API-->>UI: data: {...}
-        UI-->>User: Display Chunk
-    end
-    
-    LLM-->>RAG: Final Metadata
-    RAG-->>Orch: Citations + Sources
-    Orch-->>API: Final SSE
-    API-->>UI: Done Signal
-```
-
-### Data Flow: Document Ingestion
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant API as FastAPI
-    participant MinIO as MinIO Storage
-    participant Pipeline as Ingestion Pipeline
-    participant Extractor as Extractor
-    participant OCR as PaddleOCR
-    participant Embed as Embedding API
-    participant Qdrant as Qdrant
-    participant PG as PostgreSQL
-    participant BM25 as BM25 Index
-
-    User->>API: Upload File
-    API->>MinIO: Store File
-    API-->>User: Document Created
-    
-    API->>Pipeline: Process Document (Background)
-    
-    Pipeline->>Extractor: extract_content(file_path)
-    
-    Extractor->>Extractor: PyMuPDF Native Text
-    Extractor->>Extractor: Quality Check
-    
-    alt Low Quality Text
-        Extractor->>OCR: OCR Image Bytes
-        OCR-->>Extractor: OCR Text
-        Extractor->>Extractor: 2D Layout Sort
-    end
-    
-    Extractor-->>Pipeline: Extracted Text
-    
-    Pipeline->>Pipeline: Clean Text
-    Pipeline->>Pipeline: Chunk Document
-    
-    par Parallel Processing
-        Pipeline->>Embed: embed(chunks)
-        Embed-->>Pipeline: Vectors
-        Pipeline->>Qdrant: Store Vectors
-    and
-        Pipeline->>BM25: Index Chunks
-    and
-        Pipeline->>PG: Update Metadata
-    end
-    
-    Pipeline-->>API: Processing Complete
-```
-
-## Architecture Principles
-
-### 4-Layer Architecture
-
-The project follows a strict 4-layer architecture pattern:
-
-1. **SERVING Layer** (`src/api/`)
-   - FastAPI endpoints, authentication, request/response handling
-   - SSE streaming for real-time responses
-   - No business logic - only HTTP concerns
-
-2. **AGENT/TOOLS Layer** (`src/agents/`, `src/tools/`)
-   - Multi-stage routing: Quick Filter → LLM Classification → Router Dispatch
-   - LangChain tools for agent integration
-   - RAG and Conversational routers
-
-3. **RETRIEVAL Layer** (`src/retrieval/`, `src/indexing/`)
-   - Dense (Qdrant) + BM25 (keyword) search
-   - RRF fusion for hybrid results
-   - Per-user BM25 indexes
-
-4. **INGESTION Layer** (`src/ingestion/`)
-   - Extract → Clean → Chunk → Embed → Index pipeline
-   - PaddleOCR fallback for low-quality PDFs
-   - Per-user document processing
-
-### Key Design Patterns
-
-- **Per-User Isolation**: BM25 indexes, document filtering, and conversations are scoped to `user_id`
-- **Async-First**: All I/O operations use async/await patterns
-- **LangChain Tools**: Retrieval and ingestion operations use `@tool` decorators
-- **SSE Streaming**: Chat responses stream structured chunks (routing, retrieval, content, metadata)
-- **Soft Delete**: Conversations use soft delete pattern (`deleted_at` timestamp)
-
-## Code Organization
-
-### File Naming Conventions
-
-- Use **kebab-case** for long, descriptive filenames
-- Examples: `paddleocr_client.py`, `document_store.py`, `conversation_router.py`
-- This makes files self-documenting for LLM tools (Grep, Glob, Search)
-
-### Module Structure
-
-```
-src/
-├── api/              # HTTP endpoints only
-├── agents/           # Routing and LLM logic
-│   └── routers/      # Router implementations
-├── tools/            # LangChain tools
-├── retrieval/        # Search algorithms
-├── indexing/         # Database/Vector DB clients
-├── ingestion/        # ETL pipeline
-├── auth/             # JWT authentication
-├── database/         # SQLAlchemy models
-├── models/           # Pydantic schemas
-├── constants/        # Application constants
-└── main.py           # FastAPI entry point
-```
-
-## Key Features Implementation
-
-### Multi-Stage Query Routing
-
-Located in `src/agents/routers/registry.py`:
-
-1. **Quick Filter**: Fast path for file-related queries
-   - Fuzzy filename matching against user documents
-   - File keyword detection (tài liệu, doc, pdf, etc.)
-   - Router confidence checks
-
-2. **LLM Classification**: For complex queries
-   - Intent detection (rag vs conversational)
-   - Confidence scoring
-   - Fallback to default router if low confidence
-
-3. **Router Dispatch**: Route to appropriate handler
-   - `RAGRouter`: Document retrieval + LLM generation
-   - `ConversationalRouter`: Direct LLM chat
-
-### Intelligent OCR Fallback
-
-Located in `src/ingestion/extractor.py`:
-
-- **Low-quality detection**: Checks for excessive single-char words, low Vietnamese diacritics ratio
-- **Hybrid extraction**: PyMuPDF native text → PaddleOCR for scanned pages
-- **2D layout sorting**: OCR lines sorted in reading order (top-to-bottom, left-to-right)
-
-### Per-User BM25 Index
-
-Located in `src/ingestion/bm25_builder.py`:
-
-- In-memory BM25 index per user
-- Bulk add/remove operations
-- Query with user-scoped search
-
-### Hybrid Retrieval with RRF
-
-Located in `src/retrieval/hybrid.py`:
-
-- Parallel dense (Qdrant) and BM25 retrieval
-- Reciprocal Rank Fusion (RRF) for result merging
-- Configurable `k` parameter for RRF scoring
-
-## Environment Configuration
-
-### Configuration Hierarchy
-
-1. **Static config** (`config/settings.yaml`):
-   - Chunking parameters (size, overlap)
-   - Retrieval parameters (k, rrf_k)
-   - Qdrant collection settings
-
-2. **Environment variables** (`.env`):
-   - Database credentials
-   - API keys (LLM, embedding)
-   - OCR service URL
-   - CORS origins
-
-3. **Settings class** (`config/config.py`):
-   - Pydantic-based validation
-   - Fail-fast for production with default secrets
-
-### Required Environment Variables
+Local upload processing requires Redis and a running Celery worker:
 
 ```bash
-# Database
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5433
-POSTGRES_USER=kira
-POSTGRES_PASSWORD=kira_secret
-POSTGRES_DB=kira_dev
-
-# JWT
-JWT_SECRET_KEY=your-secret-key-here
-
-# LLM
-LLM_PROVIDER=glm
-GLM_API_KEY=your-glm-api-key
-
-# Embedding
-EMBEDDING_BASE_URL=http://your-embedding-api:8888
-
-# OCR (optional)
-OCR_ENABLED=true
-OCR_BASE_URL=http://paddleocr-service:8868
+celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
 ```
 
-## API Response Patterns
+### Chat Streaming Flow
 
-### SSE Streaming Format
-
-Chat streaming (`POST /api/v1/chat/stream`) yields structured chunks:
-
-```json
-// Routing decision
-{"type": "routing", "data": {"router": "RAGRouter", "intent": "rag", "confidence": 0.95}}
-
-// Retrieval progress
-{"type": "retrieval", "data": {"iteration": 1, "strategy": "hybrid", "docs_retrieved": 5}}
-
-// Content chunks
-{"type": "content", "data": {"text": "Response chunk..."}}
-
-// Final metadata
-{"type": "metadata", "data": {"status": "success", "citations": [...], "conversation_id": "..."}}
-
-// Done signal
-{"type": "done"}
+```text
+POST /api/v1/chat/stream
+  -> authenticate user
+  -> load/create conversation
+  -> classify query intent
+  -> select conversational/RAG/drafting handler
+  -> retrieve context when needed
+  -> stream SSE events
+  -> persist user and assistant messages
 ```
 
-### Standard Response Format
+The frontend expects structured SSE event shapes. Be careful when changing event types or payload fields.
 
-Non-streaming responses follow this structure:
+## Configuration Notes
 
-```json
-{
-  "content": "Answer text...",
-  "citations": [{"filename": "doc.pdf", "page": 1, "text": "..."}],
-  "conversation_id": "uuid",
-  "message_id": "uuid",
-  "metadata": {"router": "RAGRouter", "agent": "rag", "latency_ms": 1234}
-}
-```
+- `JWT_SECRET_KEY` is required by Pydantic settings.
+- `APP_ENV=production` rejects known default JWT secrets.
+- Backend dev port is `8006`.
+- Frontend dev port is `3001`.
+- Docker Compose exposes PostgreSQL on host port `5433`.
+- Qdrant vector dimension is `1024` by default and must match the embedding API output.
+- Static retrieval/reranking/citation/chunking defaults live in `src/config/settings.yaml`.
+- `.env` values override Pydantic runtime settings in `src/config/config.py`.
 
-## Development Guidelines
-
-### When Adding New Features
-
-1. **New Router?** Add to `src/agents/routers/`:
-   - Inherit from `BaseRouter`
-   - Implement `can_handle()`, `handle()`, `handle_stream()`
-   - Register in `RouterRegistry`
-
-2. **New Tool?** Add to `src/tools/`:
-   - Use `@tool` decorator from LangChain
-   - Include docstring for tool description
-   - Export from `__init__.py`
-
-3. **New Endpoint?** Add to `src/api/`:
-   - Use FastAPI router pattern
-   - Add JWT auth via `Depends(get_current_user)`
-   - Use async/await for I/O
-
-4. **Database Change?** Update:
-   - `src/database/models.py` (SQLAlchemy model)
-   - `src/models/*.py` (Pydantic schemas)
-   - Create Alembic migration
-
-### Error Handling
-
-- Use `src/constants/` for error messages
-- Return structured errors in API responses
-- Log errors with appropriate level
-- Use soft delete for data that shouldn't be permanently removed
-
-### Testing
-
-- Tests located in `tests/`
-- Use pytest with async support
-- Test with real database (docker-compose services)
-- Mock external API calls (LLM, embedding, OCR)
-
-## Common Tasks
-
-### Adding a New LLM Provider
-
-1. Add configuration to `config/config.py`
-2. Create client in `src/agents/llm.py`
-3. Update `LLM_PROVIDER` in `.env`
-
-### Adding a New Router
-
-1. Create file in `src/agents/routers/`
-2. Implement `BaseRouter` interface
-3. Register in `orchestrator.py`
-
-### Modifying Retrieval Strategy
-
-1. Update `config/settings.yaml` for parameters
-2. Modify retrieval logic in `src/retrieval/`
-3. Test with different query types
-
-## Vietnamese Language Support
-
-The system is optimized for Vietnamese:
-
-- **Embeddings**: BAAI/bge-m3 or Vietnamese-embedding-v2
-- **OCR**: PaddleOCR with Vietnamese language model
-- **LLM**: GLM-4.5 (Zhipu AI) with strong Vietnamese support
-- **Text Cleaning**: Preserves Vietnamese diacritics during normalization
-
-## Frontend Notes
-
-The frontend is a **separate Next.js 16 application**:
-
-- Located in `frontend/`
-- Uses shadcn/ui components
-- Zustand for state management
-- TanStack Query for API calls
-- i18n support (Vietnamese/English)
-- **Port**: 3001 (different from default 3000)
-
-## Deployment
+## Development Commands
 
 ### Infrastructure
 
-All infrastructure runs in Docker Compose:
+```bash
+docker compose up -d
+docker compose ps
+docker compose logs -f
+docker compose down
+```
 
-- PostgreSQL 16 with pgvector
-- Qdrant vector database
-- MinIO object storage
+### Backend
 
-### Production Checklist
+```bash
+pip install -e ".[dev]"
+python -m src.server.main
+pytest tests/ -v
+ruff check src/ tests/
+ruff format src/ tests/
+mypy src/
+```
 
-- Set `APP_ENV=production`
-- Use strong `JWT_SECRET_KEY`
-- Configure CORS origins properly
-- Enable `AUTH_ENABLED=true`
-- Set up PaddleOCR service (if using OCR)
-- Configure external LLM and embedding APIs
+### Worker
 
-## Troubleshooting
+```bash
+celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
+```
 
-### Common Issues
+### Frontend
 
-1. **BM25 index empty**: Check BM25 builder initialization, ensure documents processed
-2. **OCR not working**: Verify `OCR_BASE_URL` and service health
-3. **No retrieval results**: Check Qdrant collection, verify embeddings generated
-4. **Auth errors**: Verify JWT token, check `AUTH_ENABLED` setting
+```bash
+cd frontend
+npm install --legacy-peer-deps
+npm run dev
+npm run lint
+npm run build
+npm test
+```
 
-### Debug Mode
+### Makefile
 
-Set `DEBUG=true` in `.env` for detailed logging.
+```bash
+make help
+make infra
+make dev-backend
+make dev-worker
+make dev-frontend
+make test-backend
+make test-frontend
+make lint
+make format
+```
 
-## Resources
+`make dev`, `make dev-backend`, and `make dev-worker` assume `.venv/bin/activate` exists.
 
-- **Architecture**: 4-layer pattern from agentic-rag
-- **Hybrid Retrieval**: RRF (Reciprocal Rank Fusion) algorithm
-- **OCR**: PaddleOCR HTTP API
-- **Vector DB**: Qdrant documentation
-- **Frontend**: Next.js 16 + shadcn/ui
+## Testing Guidance
 
----
+Use focused tests for narrow behavior and broader checks for shared contracts.
 
-*This document is maintained alongside the codebase. Update when architecture or patterns change.*
+- Document pipeline: `tests/test_document_clean_chunk.py`, `tests/test_document_extractor_quality.py`
+- Retrieval/reranking: `tests/test_retrieval_agent_reranking.py`
+- Database checks: `test_db.py`
+- Qdrant checks: `test_qdrant.py`
+- Evaluation scripts: `scripts/validate_eval_dataset.py`, `scripts/evaluate_extraction_quality.py`
+
+Run broader tests when touching:
+
+- authentication
+- database models/session behavior
+- document processing
+- retrieval contracts
+- SSE streaming shapes
+- shared ports/adapters
+- frontend API client contracts
+
+## Code Standards
+
+### Python
+
+- Use Python 3.12 syntax.
+- Follow Ruff settings in `pyproject.toml`.
+- Use absolute imports from `src...`.
+- Add type hints for public functions and methods.
+- Keep async behavior consistent for DB, HTTP, and streaming paths.
+- Keep line length near 100 characters where practical.
+- Do not silently swallow exceptions; log useful context and preserve safe API errors.
+
+### Frontend
+
+- Keep TypeScript typed at component, hook, and API boundaries.
+- Reuse `frontend/src/components/ui/` and existing stores/hooks before adding new patterns.
+- Keep app screens operational and direct; this is not a marketing site.
+- Keep user-facing text consistent with the current Vietnamese/English locale structure.
+- Preserve current SSE streaming compatibility unless updating frontend and backend together.
+
+### Documentation
+
+- Update `README.md` for setup, architecture, API, or product-facing workflow changes.
+- Update `CLAUDE.md` for assistant/developer guidance, entry points, boundaries, or command changes.
+- Use `docs/` for deeper technical documentation.
+- Put README screenshots in `docs/assets/` and reference stable relative paths.
+
+## Safety Notes For AI Agents
+
+- Check `git status --short` before editing.
+- Do not revert unrelated user changes.
+- Use `rg` or `rg --files` for search.
+- Use `apply_patch` for manual file edits.
+- Do not run destructive commands such as `git reset --hard`, `git checkout --`, or broad deletes unless explicitly requested.
+- Be careful with `make db-reset`; it deletes local database volumes after confirmation.
+- Do not add dependencies unless the existing stack cannot reasonably solve the task.
+- If a command fails because infrastructure is unavailable, state the missing service instead of hiding the requirement.
+
+## Common Pitfalls
+
+- Use `src/server/main.py` as the ASGI/FastAPI entry point.
+- Chat and document endpoints live under module API folders, not only under `src/server/api/v1/`.
+- Frontend uses port `3001`, while CORS may still include `3000` for compatibility.
+- Upload succeeds only when Redis and Celery can enqueue/process the task.
+- Embedding API health is checked during backend startup.
+- Qdrant collection/vector dimension must match configured embeddings.
+- Keep retrieval and document queries scoped by `user_id`.
+- Evaluation uses DeepEval naming in current code and docs; do not introduce a separate RAGAS-only path without checking implementation.

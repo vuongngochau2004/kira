@@ -1,4 +1,5 @@
 /** Simple API client for chat, documents, and auth */
+import { getBackendUrl } from './backend-url'
 
 const getApiBase = () => {
   if (typeof window !== 'undefined') {
@@ -6,7 +7,7 @@ const getApiBase = () => {
     return ''
   }
   // Server-side default
-  return process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, '') || 'http://127.0.0.1:8006'
+  return getBackendUrl()
 }
 
 const API_BASE = getApiBase()
@@ -24,7 +25,9 @@ export interface Document {
   file_type: string
   file_size: number
   status: 'uploading' | 'processing' | 'completed' | 'failed' | string
+  chunk_count?: number
   error_message?: string
+  processing_task_id?: string
   created_at: string
   updated_at?: string
 }
@@ -61,7 +64,7 @@ async function fetchAPI<T>(
       },
       credentials: 'include',  // CRITICAL: Send/receive httpOnly cookies
     })
-  } catch (error) {
+  } catch {
     throw new ApiError('Network error', undefined)
   }
 
@@ -90,7 +93,7 @@ async function fetchAPI<T>(
 
 export interface SSEChunk {
   type: 'routing' | 'retrieval' | 'content' | 'thinking' | 'metadata' | 'done' | 'error'
-  data: any
+  data: unknown
 }
 
 export interface RoutingData {
@@ -102,7 +105,10 @@ export interface RoutingData {
 export interface RetrievalData {
   iteration: number
   strategy: string
-  docs_retrieved: number
+  chunks_retrieved?: number  // New field name
+  unique_documents?: number  // New field
+  top_documents?: string[]   // New field
+  docs_retrieved?: number   // Deprecated: legacy field name
 }
 
 export interface ContentData {
@@ -110,7 +116,8 @@ export interface ContentData {
 }
 
 export interface MetadataData {
-  citations?: any[]
+  citations?: Array<Record<string, unknown>>
+  attachments?: Array<Record<string, unknown>>
   conversation_id?: string
   message_id?: string
 }
@@ -136,9 +143,11 @@ export class SSEClient {
    */
   async *stream(
     endpoint: string,
-    body: any
+    body: unknown,
+    signal?: AbortSignal
   ): AsyncGenerator<SSEChunk, void, unknown> {
     this.controller = new AbortController()
+    const requestSignal = signal || this.controller.signal
 
     try {
       const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -147,7 +156,7 @@ export class SSEClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-        signal: this.controller.signal,
+        signal: requestSignal,
         credentials: 'include',
       })
 
@@ -160,7 +169,7 @@ export class SSEClient {
             return { detail: text }
           })
           errorMessage = errorData?.error?.message || errorData?.detail || errorData?.message || errorMessage
-        } catch (e) {
+        } catch {
           // Ignore parse errors
         }
         throw new ApiError(errorMessage, response.status)
@@ -193,7 +202,7 @@ export class SSEClient {
             try {
               const data = JSON.parse(match[1])
               yield data
-            } catch (e) {
+            } catch {
               // Ignore parse errors
             }
           }
@@ -244,13 +253,14 @@ export const chatAPI = {
    */
   streamMessage: (
     message: string,
-    conversationId?: string
+    conversationId?: string,
+    signal?: AbortSignal
   ): AsyncGenerator<SSEChunk, void, unknown> => {
     const client = new SSEClient()
     return client.stream('/api/v1/chat/stream', {
       message,
       conversation_id: conversationId,
-    })
+    }, signal)
   },
 }
 
@@ -261,7 +271,7 @@ export const documentsAPI = {
     return data.documents || data.items || []
   },
 
-  upload: async (file: File): Promise<Document> => {
+  upload: async (file: File, signal?: AbortSignal): Promise<Document> => {
     const formData = new FormData()
     formData.append('file', file)
 
@@ -269,6 +279,7 @@ export const documentsAPI = {
       method: 'POST',
       credentials: 'include',  // CRITICAL: Send httpOnly cookies
       body: formData,
+      signal,
     })
 
     if (!response.ok) {
@@ -286,10 +297,20 @@ export const documentsAPI = {
     })
   },
 
+  cancel: async (id: string): Promise<{ document_id: string; success: boolean; message: string; status?: string }> => {
+    return fetchAPI<{ document_id: string; success: boolean; message: string; status?: string }>(`/api/v1/documents/${id}/cancel`, {
+      method: 'POST',
+    })
+  },
+
 
   getDownloadUrl: (id: string): string => {
     // No token needed - httpOnly cookies are sent automatically
     return `${API_BASE}/api/v1/documents/${id}/download`
+  },
+
+  getChunks: async (id: string): Promise<Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }>> => {
+    return fetchAPI<Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }>>(`/api/v1/documents/${id}/chunks`)
   },
 }
 
@@ -363,7 +384,7 @@ export interface Message {
   content: string
   metadata: Record<string, unknown>
   created_at: string
-  sources?: any[]
+  sources?: Array<Record<string, unknown>>
 }
 
 export interface ConversationDetail extends Conversation {
@@ -379,7 +400,14 @@ export interface ConversationListResponse {
 
 export const conversationsAPI = {
   list: async (page = 1, pageSize = 20): Promise<ConversationListResponse> => {
-    const data = await fetchAPI<any>(
+    interface RawConversationListResponse {
+      total: number
+      page?: number
+      page_size?: number
+      conversations?: Conversation[]
+      items?: Conversation[]
+    }
+    const data = await fetchAPI<RawConversationListResponse>(
       `/api/v1/chat/conversations?page=${page}&page_size=${pageSize}`
     )
     return {
@@ -407,4 +435,62 @@ export const conversationsAPI = {
 
   delete: (id: string) =>
     fetchAPI(`/api/v1/chat/conversations/${id}`, { method: 'DELETE' }),
+}
+
+export interface AdminOverview {
+  generated_at: string
+  system: {
+    status: 'ok' | 'degraded' | 'error' | string
+    services: Array<{
+      name: string
+      status: 'ok' | 'configured' | 'missing' | 'error' | string
+      detail?: string
+    }>
+  }
+  documents: {
+    total: number
+    completed: number
+    processing: number
+    failed: number
+    status_counts: Record<string, number>
+    total_chunks: number
+    recent: Document[]
+    failed_items: Document[]
+    deletion_jobs: {
+      status_counts: Record<string, number>
+      latest_error?: string | null
+    }
+  }
+  retrieval: {
+    avg_source_score: number | null
+    citation_coverage: number | null
+    avg_sources_per_answer: number | null
+    answers_with_sources: number
+    answers_sampled: number
+    needs_review: number
+  }
+  answers: {
+    avg_quality_score: number | null
+    quality_gate_pass_rate: number | null
+    low_quality_count: number
+    recent_reviews: Array<{
+      id: string
+      conversation_id: string
+      created_at: string
+      reason: string
+      source_count: number
+      quality_score: number | null
+      preview: string
+    }>
+  }
+  activity: {
+    total_conversations: number
+    conversations_24h: number
+    messages_24h: number
+    assistant_messages_24h: number
+  }
+}
+
+export const adminAPI = {
+  overview: () => fetchAPI<AdminOverview>('/api/v1/admin/overview'),
 }

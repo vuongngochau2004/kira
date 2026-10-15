@@ -1,0 +1,33 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">KIRA chat interface placeholder</title>
+  <desc id="desc">A clean product mockup showing a document-grounded chat interface with citations.</desc>
+  <rect width="1280" height="720" rx="24" fill="#0F172A"/>
+  <rect x="32" y="32" width="268" height="656" rx="18" fill="#111827" stroke="#263244"/>
+  <rect x="328" y="32" width="920" height="656" rx="18" fill="#F8FAFC"/>
+  <circle cx="78" cy="82" r="22" fill="#14B8A6"/>
+  <text x="112" y="90" fill="#E5E7EB" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">KIRA</text>
+  <rect x="56" y="140" width="220" height="42" rx="10" fill="#1F2937"/>
+  <rect x="56" y="202" width="182" height="18" rx="9" fill="#475569"/>
+  <rect x="56" y="238" width="204" height="18" rx="9" fill="#334155"/>
+  <rect x="56" y="274" width="154" height="18" rx="9" fill="#334155"/>
+  <rect x="56" y="602" width="220" height="42" rx="10" fill="#14B8A6"/>
+  <text x="88" y="628" fill="#042F2E" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700">New conversation</text>
+  <text x="372" y="88" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">Document-grounded answer</text>
+  <text x="372" y="120" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="16">Streaming response with retrieved evidence and citations</text>
+  <rect x="372" y="160" width="726" height="74" rx="16" fill="#E2E8F0"/>
+  <text x="400" y="192" fill="#1E293B" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700">User</text>
+  <text x="400" y="217" fill="#334155" font-family="Inter, Arial, sans-serif" font-size="16">What does the academic integrity policy say about plagiarism?</text>
+  <rect x="372" y="258" width="792" height="242" rx="18" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="400" y="294" fill="#0F766E" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="800">KIRA</text>
+  <rect x="400" y="318" width="688" height="13" rx="6.5" fill="#CBD5E1"/>
+  <rect x="400" y="346" width="628" height="13" rx="6.5" fill="#CBD5E1"/>
+  <rect x="400" y="374" width="712" height="13" rx="6.5" fill="#CBD5E1"/>
+  <rect x="400" y="420" width="128" height="34" rx="17" fill="#CCFBF1"/>
+  <text x="426" y="442" fill="#0F766E" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Citation 1</text>
+  <rect x="544" y="420" width="128" height="34" rx="17" fill="#DBEAFE"/>
+  <text x="570" y="442" fill="#1D4ED8" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700">Citation 2</text>
+  <rect x="372" y="530" width="792" height="64" rx="16" fill="#F1F5F9" stroke="#CBD5E1"/>
+  <text x="402" y="568" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="16">Ask about your uploaded documents...</text>
+  <circle cx="1126" cy="562" r="22" fill="#14B8A6"/>
+  <path d="M1118 562H1134M1134 562L1128 556M1134 562L1128 568" stroke="#042F2E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

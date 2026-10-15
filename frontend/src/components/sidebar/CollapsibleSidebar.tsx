@@ -6,8 +6,6 @@ import { useSidebarCollapse } from './useSidebarCollapse'
 import { SidebarCollapsed } from './SidebarCollapsed'
 import { SidebarExpanded, SidebarPage } from './SidebarExpanded'
 import { cn } from '@/lib/utils'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { conversationsAPI } from '@/lib/api/simple-client'
 import { useConversationStore } from '@/lib/stores/conversation-store'
 
 interface CollapsibleSidebarProps {
@@ -15,9 +13,11 @@ interface CollapsibleSidebarProps {
 }
 
 function getPageFromPath(pathname: string): SidebarPage {
+  if (pathname === '/conversation' || pathname.startsWith('/conversation/')) return 'conversation'
   if (pathname === '/conversations') return 'conversations'
   if (pathname === '/uploads') return 'uploads'
-  return 'chat'
+  if (pathname === '/admin') return 'admin'
+  return 'conversation'
 }
 
 export function CollapsibleSidebar({ customContent }: CollapsibleSidebarProps) {
@@ -26,7 +26,6 @@ export function CollapsibleSidebar({ customContent }: CollapsibleSidebarProps) {
   const router = useRouter()
   const [currentPage, setCurrentPage] = React.useState<SidebarPage>(() => getPageFromPath(pathname))
   const { setActiveConversation } = useConversationStore()
-  const queryClient = useQueryClient()
 
   // Update page when pathname changes
   React.useEffect(() => {
@@ -37,18 +36,9 @@ export function CollapsibleSidebar({ customContent }: CollapsibleSidebarProps) {
     setCurrentPage(newPage)
   }
 
-  // Create conversation mutation
-  const createMutation = useMutation({
-    mutationFn: () => conversationsAPI.create(),
-    onSuccess: (conversation) => {
-      setActiveConversation(conversation.id)
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      router.push('/chat')
-    },
-  })
-
   const handleCreateConversation = () => {
-    createMutation.mutate()
+    setActiveConversation(null)
+    router.push('/conversation')
   }
 
   // On mobile (< 768px), sidebar is always hidden

@@ -1,0 +1,1 @@
+"""Administrative document drafting module."""

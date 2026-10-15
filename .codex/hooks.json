@@ -1,0 +1,107 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/descriptive-name.cjs'"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Glob|Grep|Read|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/scout-block.cjs'"
+          },
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/privacy-block.cjs'"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/write-compact-marker.cjs'"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/session-init.cjs'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/dev-rules-reminder.cjs'"
+          },
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/usage-context-awareness.cjs'",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/subagent-init.cjs'"
+          }
+        ]
+      },
+      {
+        "matcher": "content-creator|copywriter|social-media-manager|email-wizard|sale-enabler",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/brand-guidelines-reminder.cjs'"
+          }
+        ]
+      },
+      {
+        "matcher": "campaign-manager|campaign-debugger|social-media-manager|email-wizard|content-creator|analytics-analyst",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/campaign-tracking.cjs'"
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/approval-workflow.cjs'"
+          },
+          {
+            "type": "command",
+            "command": "node '/Users/user/Workplace/projects/university/granduate/kira-simple/.codex/hooks/subagent-init.cjs'"
+          }
+        ]
+      }
+    ]
+  }
+}
