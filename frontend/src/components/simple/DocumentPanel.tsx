@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState, useEffect } from 'react'
-import { Upload, FileText, Trash2, Loader2, File, Clock, MoreVertical, Plus } from 'lucide-react'
+import { Upload, FileText, Trash2, Loader2, File, MoreVertical, Plus } from 'lucide-react'
 import { Document } from '@/lib/api/simple-client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -64,27 +64,7 @@ export function DocumentPanel({
     setIsDragging(false)
   }, [])
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-    setShowUploadZone(false)
-
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length > 0) {
-      await uploadFile(files[0])
-    }
-  }, [])
-
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      await uploadFile(file)
-    }
-    // Reset input
-    e.target.value = ''
-  }, [])
-
-  const uploadFile = async (file: File) => {
+  const uploadFile = useCallback(async (file: File) => {
     const allowedTypes = ['pdf', 'docx', 'doc', 'txt', 'png', 'jpg', 'jpeg', 'tiff', 'pptx', 'ppt']
     const ext = file.name.split('.').pop()?.toLowerCase() || ''
 
@@ -100,10 +80,30 @@ export function DocumentPanel({
 
     try {
       await onUpload(file)
-    } catch (err) {
+    } catch {
       // Error handled by UI feedback
     }
-  }
+  }, [onUpload])
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    setShowUploadZone(false)
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length > 0) {
+      await uploadFile(files[0])
+    }
+  }, [uploadFile])
+
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      await uploadFile(file)
+    }
+    // Reset input
+    e.target.value = ''
+  }, [uploadFile])
 
 
   const formatFileSize = (bytes: number) => {

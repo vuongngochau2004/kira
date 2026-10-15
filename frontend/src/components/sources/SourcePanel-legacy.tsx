@@ -249,7 +249,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
       await navigator.clipboard.writeText(text)
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 2000)
-    } catch (err) {}
+    } catch {}
   }
 
   const getCleanSearchPhrase = (snippet: string) => {
@@ -373,7 +373,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
         }
       }, 200)
     }
-  }, [previewTab, activeChunkInfo?.id])
+  }, [previewTab, activeChunkInfo?.id, activeChunkInfo?.dbChunkId])
 
   return (
     <aside

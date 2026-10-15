@@ -349,7 +349,6 @@ export function SimpleChat({
   isOptimistic = false,
   retryMessage,
   isRetryable = false,
-  errorType
 }: SimpleChatProps) {
   const sources = useSourcesStore((state) => state.sources)
   const isSourcesOpen = useSourcesStore((state) => state.isOpen)
