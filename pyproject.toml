@@ -31,6 +31,8 @@ dependencies = [
     "celery[redis]>=5.4.0",
     "deepeval>=3.0.0",
     "pyvi>=0.1.1",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
 ]
 
 [project.optional-dependencies]
