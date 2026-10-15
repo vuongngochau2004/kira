@@ -2,8 +2,6 @@
 
 import asyncio
 
-from src.shared.adapters.embedding import create_embedding_adapter
-
 
 def embed(texts: list[str]) -> list[list[float]]:
     """Generate embeddings for a list of texts via API.
@@ -44,6 +42,8 @@ async def aembed(texts: list[str]) -> list[list[float]]:
     """
     if not texts:
         return []
+
+    from src.shared.adapters.embedding.factory import create_embedding_adapter
 
     return await create_embedding_adapter().embed_batch(texts)
 
