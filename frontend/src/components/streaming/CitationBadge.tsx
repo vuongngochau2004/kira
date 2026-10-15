@@ -113,9 +113,11 @@ export interface CitationInfo {
  */
 export function parseContentWithCitations(
   content: string,
-  _citations?: CitationInfo[],
-  _onCitationClick?: (chunkId: string, citation: CitationInfo) => void
+  citations?: CitationInfo[],
+  onCitationClick?: (chunkId: string, citation: CitationInfo) => void
 ): Array<string | React.ReactElement> {
+  void citations
+  void onCitationClick
   if (!content) return []
 
   // Clean up inline [source:...] citations along with any leading spaces as requested by user

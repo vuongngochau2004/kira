@@ -349,7 +349,7 @@ export function CitationPanel({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto divide-y bg-muted/5">
-        {groupedCitations.map((group, groupIndex) => {
+        {groupedCitations.map((group) => {
           const docKey = group.document_id || group.title || group.source || 'unknown'
           const isDocExpanded = expandedDocKeys.has(docKey)
           const hasActiveChunkInDoc = activeChunkId && group.citations.some(c => c.chunk_id === activeChunkId)

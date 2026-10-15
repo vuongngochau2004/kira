@@ -237,10 +237,12 @@ function findPartialPhraseMatch(
  * Reconstruct original text with proper casing
  */
 function reconstructOriginalMatch(
-  _normalizedFull: string,
+  normalizedFull: string,
   normalizedMatch: string,
-  _matchIndex: number
+  matchIndex: number
 ): string {
+  void normalizedFull
+  void matchIndex
   // This is a simplified version - assumes character positions align
   // In production, you'd need to track original vs normalized positions
   return normalizedMatch

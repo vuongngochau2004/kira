@@ -64,7 +64,7 @@ async function fetchAPI<T>(
       },
       credentials: 'include',  // CRITICAL: Send/receive httpOnly cookies
     })
-  } catch (error) {
+  } catch {
     throw new ApiError('Network error', undefined)
   }
 
