@@ -22,7 +22,7 @@ Example:
 """
 
 import time
-from typing import Any, AsyncIterator, Dict, Optional
+from typing import Any, AsyncIterator, Dict, Optional, cast
 
 from loguru import logger
 
@@ -447,12 +447,12 @@ class OrchestratorAgent:
             if len(handle_params) >= 1 and handle_params[0] in ["state", "self"]:
                 # Multi-Agent agent - pass RAGState directly
                 logger.debug(f"Executing {agent_name} with Multi-Agent interface")
-                state = await agent.handle(state, context={"orchestrator": True})
+                state = await cast(Any, agent).handle(state, context={"orchestrator": True})
             else:
                 # QueryHandlerBase interface - pass (query, user_id, classification)
                 logger.debug(f"Executing {agent_name} with QueryHandlerBase interface")
                 classification = ClassificationResult(
-                    intent=Intent.RAG, confidence=0.8, reasoning="Orchestrator routing"
+                    intent=Intent.RAG, confidence=0.8, reason="Orchestrator routing"
                 )
                 state = await agent.handle(state["query"], state["user_id"], classification)
 

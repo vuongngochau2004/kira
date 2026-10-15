@@ -182,28 +182,31 @@ class RoutingMetricsCollector:
         """Analyze baseline metrics for Go/No-Go decision."""
         metrics = self.get_metrics_summary()
 
-        analysis = {
+        analysis_detail: dict[str, str] = {}
+        recommendations: list[str] = []
+
+        analysis: dict[str, Any] = {
             "metrics": metrics.to_dict(),
-            "analysis": {},
-            "recommendations": [],
+            "analysis": analysis_detail,
+            "recommendations": recommendations,
         }
 
         llm_rate = metrics.llm_classification_rate
         analysis["llm_classification_rate"] = llm_rate
 
         if llm_rate > 0.5:
-            analysis["analysis"]["llm_classification"] = "HIGH - Problem validated"
-            analysis["recommendations"].append(
+            analysis_detail["llm_classification"] = "HIGH - Problem validated"
+            recommendations.append(
                 "GO: LLM classification rate > 50% justifies optimization"
             )
         elif llm_rate < 0.3:
-            analysis["analysis"]["llm_classification"] = "LOW - Problem may be overstated"
-            analysis["recommendations"].append(
+            analysis_detail["llm_classification"] = "LOW - Problem may be overstated"
+            recommendations.append(
                 "NO-GO: LLM classification rate < 30%, minimal optimization needed"
             )
         else:
-            analysis["analysis"]["llm_classification"] = "MEDIUM - Marginal case"
-            analysis["recommendations"].append(
+            analysis_detail["llm_classification"] = "MEDIUM - Marginal case"
+            recommendations.append(
                 "EVALUATE: LLM classification rate 30-50%, assess other factors"
             )
 
@@ -211,25 +214,25 @@ class RoutingMetricsCollector:
         analysis["avg_llm_latency_ms"] = avg_latency
 
         if avg_latency > 500:
-            analysis["analysis"]["latency"] = "HIGH - Performance concern"
-            analysis["recommendations"].append(
+            analysis_detail["latency"] = "HIGH - Performance concern"
+            recommendations.append(
                 "GO: Average LLM latency > 500ms indicates performance issue"
             )
         else:
-            analysis["analysis"]["latency"] = "ACCEPTABLE"
-            analysis["recommendations"].append("Latency within acceptable range")
+            analysis_detail["latency"] = "ACCEPTABLE"
+            recommendations.append("Latency within acceptable range")
 
         quick_coverage = metrics.quick_filter_coverage
         analysis["quick_filter_coverage"] = quick_coverage
 
         if quick_coverage < 0.2:
-            analysis["analysis"]["quick_filter"] = "LOW - Room for improvement"
-            analysis["recommendations"].append(
+            analysis_detail["quick_filter"] = "LOW - Room for improvement"
+            recommendations.append(
                 "GO: Quick filter coverage < 20%, significant improvement possible"
             )
         elif quick_coverage > 0.5:
-            analysis["analysis"]["quick_filter"] = "HIGH - Already effective"
-            analysis["recommendations"].append(
+            analysis_detail["quick_filter"] = "HIGH - Already effective"
+            recommendations.append(
                 "NO-GO: Quick filter coverage > 50%, already performing well"
             )
 

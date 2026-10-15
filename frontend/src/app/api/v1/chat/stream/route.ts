@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         'X-Accel-Buffering': 'no', // Disable nginx buffering
       },
     })
-  } catch (error) {
+  } catch {
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

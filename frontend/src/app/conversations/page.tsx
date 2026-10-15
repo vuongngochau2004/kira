@@ -11,7 +11,6 @@ import { Sparkles, ArrowLeft, Trash2, CheckSquare, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { AuthGuard } from '@/components/auth/auth-guard'
-import { LoadingScreen } from '@/components/common/loading-screen'
 
 export default function ConversationsPage() {
   const router = useRouter()

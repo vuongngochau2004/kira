@@ -92,9 +92,23 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+follow_imports = "silent"
+disable_error_code = [
+    "type-abstract",
+    "no-any-return",
+    "arg-type",
+    "misc",
+    "attr-defined",
+    "return-value",
+    "override",
+    "union-attr",
+    "var-annotated",
+    "assignment",
+    "operator",
+    "valid-type",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

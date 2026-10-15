@@ -231,7 +231,7 @@ export default function UploadsPage() {
     setIsDragging(false)
   }, [])
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = useCallback(async (file: File) => {
     const allowedTypes = ['pdf', 'docx', 'doc', 'txt', 'png', 'jpg', 'jpeg', 'tiff', 'pptx', 'ppt']
     const ext = file.name.split('.').pop()?.toLowerCase() || ''
 
@@ -247,10 +247,10 @@ export default function UploadsPage() {
 
     try {
       await documents.uploadDocument(file)
-    } catch (err) {
+    } catch {
       // Error handled by UI feedback
     }
-  }
+  }, [documents])
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()

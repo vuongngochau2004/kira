@@ -264,19 +264,23 @@ class LangSmithTracer:
         for trace in recent_traces:
             traces_by_type[trace["trace_type"]].append(trace)
 
-        metrics = {
+        by_type: dict[str, int] = {}
+        performance: dict[str, Any] = {}
+        costs: dict[str, Any] = {}
+
+        metrics: dict[str, Any] = {
             "total_traces": len(recent_traces),
-            "by_type": {},
-            "performance": {},
-            "costs": {},
+            "by_type": by_type,
+            "performance": performance,
+            "costs": costs,
         }
 
         for trace_type, traces in traces_by_type.items():
-            metrics["by_type"][trace_type] = len(traces)
+            by_type[trace_type] = len(traces)
 
         latencies = [t["latency_ms"] for t in recent_traces if t["latency_ms"] > 0]
         if latencies:
-            metrics["performance"] = {
+            performance.update({
                 "avg_latency_ms": sum(latencies) / len(latencies),
                 "p95_latency_ms": sorted(latencies)[int(len(latencies) * 0.95)]
                 if len(latencies) > 1
@@ -284,10 +288,10 @@ class LangSmithTracer:
                 "p99_latency_ms": sorted(latencies)[int(len(latencies) * 0.99)]
                 if len(latencies) > 1
                 else latencies[0],
-            }
+            })
 
         errors = [t for t in recent_traces if not t["success"]]
-        metrics["performance"]["error_rate"] = (
+        performance["error_rate"] = (
             len(errors) / len(recent_traces) if recent_traces else 0
         )
 
@@ -362,7 +366,7 @@ class TraceContext:
         self.tracer._start_trace(self.metadata)
         return self.metadata
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit trace context."""
         if self.start_time:
             self.metadata.latency_ms = (time.time() - self.start_time) * 1000
