@@ -169,21 +169,6 @@ export class StreamingStateBuilder {
       case 'error':
         this.processError(data as ErrorChunkData)
         break
-    }
-  }
-        break
-
-      case 'metadata':
-        this.processMetadata(data)
-        break
-
-      case 'done':
-        this.processDone()
-        break
-
-      case 'error':
-        this.processError(data)
-        break
 
       default:
         console.log(`[StreamingStateBuilder] Unknown chunk type: ${type}`)

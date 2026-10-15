@@ -169,7 +169,7 @@ export class SSEClient {
             return { detail: text }
           })
           errorMessage = errorData?.error?.message || errorData?.detail || errorData?.message || errorMessage
-        } catch (e) {
+        } catch {
           // Ignore parse errors
         }
         throw new ApiError(errorMessage, response.status)
@@ -202,7 +202,7 @@ export class SSEClient {
             try {
               const data = JSON.parse(match[1])
               yield data
-            } catch (e) {
+            } catch {
               // Ignore parse errors
             }
           }
