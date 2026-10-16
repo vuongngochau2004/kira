@@ -6,6 +6,7 @@ Registers and configures all services for the DI container.
 
 from typing import Optional
 
+from src.config.config import settings
 from src.shared.kernel.di.container import ServiceContainer
 from src.shared.ports.classification import ClassificationStrategyBase
 
@@ -61,8 +62,20 @@ class ServiceRegistry:
             llm_strategy = LLMStrategy()
             cached_llm = CachedStrategy(llm_strategy, cache_size=1000, ttl=3600)
 
+            strategies: list[ClassificationStrategyBase] = [keyword_strategy, cached_llm]
+            if settings.legal_enabled:
+                from src.modules.classification.domain.strategies.legal import (
+                    LegalKeywordStrategy,
+                )
+                from src.modules.legal.domain.extraction import DOCUMENT_NUMBER_PATTERN
+
+                # Legal corpus cues must win over the broad file keywords ("điều", "về", ...).
+                strategies.insert(
+                    0,
+                    LegalKeywordStrategy(settings.legal_routing_keywords, DOCUMENT_NUMBER_PATTERN),
+                )
             classifier = CompositeClassifier(
-                strategies=[keyword_strategy, cached_llm],
+                strategies=strategies,
                 thresholds={"keyword": 0.7, "cached": 0.6, "llm": 0.5},
             )
 
@@ -143,6 +156,13 @@ class ServiceRegistry:
                     storage=storage,
                 ),
             )
+            if settings.legal_enabled:
+                from src.modules.legal.composition import create_legal_qa_handler
+                from src.modules.legal.infrastructure.chat_handler import LegalQAHandler
+
+                await container.register_singleton(
+                    LegalQAHandler, create_legal_qa_handler(llm=llm, embedding=embedding)
+                )
         except ImportError as e:
             print(f"Warning: Could not import handlers: {e}")
 

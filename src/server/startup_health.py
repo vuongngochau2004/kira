@@ -12,6 +12,7 @@ from loguru import logger
 from src.config.config import settings
 from src.modules.document.infrastructure.storage.storage import get_client as get_minio_client
 from src.shared.adapters.embedding import create_embedding_adapter
+from src.shared.adapters.graph.neo4j_adapter import Neo4jLegalGraphAdapter
 from src.shared.adapters.llm.glm_adapter import GLMAdapter
 from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
 from src.shared.adapters.vector.qdrant_adapter import QdrantAdapter
@@ -98,10 +99,21 @@ async def _check_ocr() -> bool | ServiceHealth:
     return await PaddleOCRAdapter().health_check()
 
 
+async def _check_neo4j() -> bool | str | ServiceHealth:
+    if not settings.legal_enabled:
+        return ServiceHealth("Neo4j", "SKIP", "LEGAL_ENABLED=false")
+    graph = Neo4jLegalGraphAdapter.from_settings()
+    try:
+        return "bolt reachable" if await graph.health_check() else False
+    finally:
+        await graph.close()
+
+
 async def log_startup_service_health(llm_client: LLMClient) -> list[ServiceHealth]:
     """Run non-database checks concurrently and emit their Loguru status report."""
     dependency_checks = await asyncio.gather(
         _check_service("Qdrant", QdrantAdapter().health_check),
+        _check_service("Neo4j", _check_neo4j),
         _check_service("MinIO", _check_minio),
         _check_service("Redis", _check_redis),
         _check_service("Celery worker", _check_celery_worker),

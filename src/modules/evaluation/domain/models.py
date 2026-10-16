@@ -20,6 +20,9 @@ class EvaluationMetric(str, Enum):
     RECALL_AT_K = "recall_at_k"
     CITATION_ACCURACY = "citation_accuracy"
     REFUSAL_CORRECTNESS = "refusal_correctness"
+    LEGAL_TEMPORAL_DATES = "legal_temporal_dates"
+    LEGAL_TEMPORAL_CORRECTNESS = "legal_temporal_correctness"
+    LEGAL_CITATION_EXACTNESS = "legal_citation_exactness"
 
     # Backward-compatible spelling used by older evaluation clients.
     CONTEXT_PRECISION = "context_precision"
@@ -39,6 +42,15 @@ DEFAULT_METRICS = [
     EvaluationMetric.ANSWER_RELEVANCY,
     EvaluationMetric.FAITHFULNESS,
     EvaluationMetric.CONTEXTUAL_RECALL,
+]
+
+DEFAULT_LEGAL_METRICS = [
+    EvaluationMetric.LEGAL_TEMPORAL_DATES,
+    EvaluationMetric.LEGAL_TEMPORAL_CORRECTNESS,
+    EvaluationMetric.LEGAL_CITATION_EXACTNESS,
+    EvaluationMetric.REFUSAL_CORRECTNESS,
+    EvaluationMetric.FAITHFULNESS,
+    EvaluationMetric.ANSWER_RELEVANCY,
 ]
 
 

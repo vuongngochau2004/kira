@@ -489,7 +489,10 @@ async def _chat_openai_async(
         resp.raise_for_status()
         data = resp.json()
 
-    content = data["choices"][0]["message"]["content"]
+    message = data["choices"][0].get("message", {})
+    content = message.get("content") or ""
+    if not content and message.get("reasoning_content"):
+        content = message["reasoning_content"]
     return {"content": content, "model": model, "provider": LLMProvider.OPENAI_COMPATIBLE.value}
 
 

@@ -1,5 +1,6 @@
 import pytest
 
+from src.config.config import settings
 from src.modules.retrieval.domain.services.hybrid_search import hybrid_search, set_llm_client
 
 
@@ -27,6 +28,7 @@ class FakeRerankerLLM:
 
 @pytest.mark.asyncio
 async def test_hybrid_search_uses_candidate_pool_before_llm_reranking(monkeypatch):
+    monkeypatch.setattr(settings, "reranking_mode", "llm")
     requested_dense_k = []
 
     def dense_search_fn(query_embedding, user_id=None, k=5):
@@ -63,7 +65,8 @@ async def test_hybrid_search_uses_candidate_pool_before_llm_reranking(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_hybrid_search_keeps_final_k_when_reranking_has_no_llm():
+async def test_hybrid_search_keeps_final_k_when_reranking_has_no_llm(monkeypatch):
+    monkeypatch.setattr(settings, "reranking_mode", "llm")
     def dense_search_fn(query_embedding, user_id=None, k=5):
         return [
             {

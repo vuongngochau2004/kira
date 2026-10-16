@@ -146,20 +146,37 @@ async def hybrid_search(
         fused = fused[:candidate_k]
         logger.debug("RRF fusion completed: %d results", len(fused))
 
-    # Apply LLM reranking if enabled
-    if enable_rerank and _llm_client is not None:
-        fused = await rerank_documents_with_llm(
-            query=query_text,
-            candidates=fused,
-            llm_client=_llm_client,
-            top_k=k,
-            timeout_seconds=settings.reranking_timeout_ms / 1000,
-        )
-        logger.debug("LLM reranking applied: %d final results", len(fused))
+    # Apply reranking if enabled
+    if enable_rerank:
+        rerank_mode = getattr(settings, "reranking_mode", "llm")
+        if rerank_mode == "tei":
+            from src.modules.retrieval.domain.services.reranking.tei_reranker import (
+                rerank_documents_with_tei,
+            )
+
+            fused = await rerank_documents_with_tei(
+                query=query_text,
+                candidates=fused,
+                top_k=k,
+                timeout_seconds=settings.reranking_timeout_ms / 1000,
+            )
+            logger.debug("TEI cross-encoder reranking applied: %d final results", len(fused))
+        elif _llm_client is not None:
+            fused = await rerank_documents_with_llm(
+                query=query_text,
+                candidates=fused,
+                llm_client=_llm_client,
+                top_k=k,
+                timeout_seconds=settings.reranking_timeout_ms / 1000,
+            )
+            logger.debug("LLM reranking applied: %d final results", len(fused))
+        else:
+            logger.debug(
+                "Reranking skipped (no LLM client and reranking_mode is not tei)"
+            )
+            fused = fused[:k]
     else:
-        logger.debug(
-            "LLM reranking %s", "disabled" if not enable_rerank else "skipped (no LLM client)"
-        )
+        logger.debug("Reranking disabled")
         fused = fused[:k]
 
     return fused

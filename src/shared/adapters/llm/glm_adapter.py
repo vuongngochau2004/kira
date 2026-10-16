@@ -92,8 +92,8 @@ class GLMAdapter(LLMPort):
         """Check LLM provider health by sending a minimal request."""
         try:
             result = await self._client.chat_async(
-                messages=[{"role": "user", "content": "ping"}],
-                max_tokens=5,
+                messages=[{"role": "user", "content": "Respond with pong immediately."}],
+                max_tokens=50,
                 temperature=0.1,
             )
             return bool(result.get("content"))

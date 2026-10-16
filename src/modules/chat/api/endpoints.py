@@ -36,11 +36,22 @@ from src.shared.infrastructure.persistence.database.session import get_session
 router = APIRouter()
 logger = logging.getLogger(__name__)
 MAX_STREAM_TEXT_PART_CHARS = 48
+def citation_contexts(citations: list[dict]) -> list[str]:
+    """Evaluation contexts from citations; handlers put the excerpt in `content` or `text`."""
+    contexts: list[str] = []
+    for citation in citations:
+        value = citation.get("content") or citation.get("text")
+        if value:
+            contexts.append(str(value))
+    return contexts
+
+
 PERSISTED_METADATA_KEYS = (
     "attachments",
     "drafting",
     "document_type",
     "documents_used",
+    "legal",
 )
 
 
@@ -586,7 +597,7 @@ async def _stream_generator(
                         yield f"data: {json.dumps({'type': 'evaluation_start', 'data': {}})}\n\n"
 
                         # Build contexts from citations
-                        contexts = [c.get("content", "") for c in citations if c.get("content")]
+                        contexts = citation_contexts(citations)
 
                         if contexts:
                             from src.modules.evaluation.api.schemas import (

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
 
@@ -10,26 +9,9 @@ from src.modules.document.application import ProcessDocumentRequest
 from src.modules.document.composition import process_document_service
 from src.shared.infrastructure.persistence.database.session import async_session_factory
 from src.worker.celery_app import celery_app
+from src.worker.event_loop import get_worker_event_loop
 
 logger = logging.getLogger(__name__)
-
-
-# Worker-local event loop cache to avoid "Future attached to a different loop"
-_worker_event_loop: asyncio.AbstractEventLoop | None = None
-
-
-def _get_worker_event_loop() -> asyncio.AbstractEventLoop:
-    """Get or create a worker-local event loop for async task execution.
-
-    This ensures all async operations in a worker process use the same event loop,
-    preventing 'Future attached to a different loop' errors when multiple tasks
-    run concurrently.
-    """
-    global _worker_event_loop
-    if _worker_event_loop is None or _worker_event_loop.is_closed():
-        _worker_event_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(_worker_event_loop)
-    return _worker_event_loop
 
 
 @celery_app.task(
@@ -55,7 +37,7 @@ def process_document_task(
         user_id,
         storage_path,
     )
-    loop = _get_worker_event_loop()
+    loop = get_worker_event_loop()
     result = loop.run_until_complete(
         _process_document_async(
             document_id=document_id,

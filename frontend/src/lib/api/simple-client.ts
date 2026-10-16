@@ -49,8 +49,29 @@ export class ApiError extends Error {
   }
 }
 
+/** Human-readable message from a FastAPI/KIRA error body (a 422 `detail` is a list). */
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  const body = (error ?? {}) as {
+    error?: { message?: string }
+    detail?: unknown
+    message?: unknown
+  }
+  if (body.error?.message) return body.error.message
+  if (typeof body.detail === 'string') return body.detail
+  if (Array.isArray(body.detail)) {
+    const parts = body.detail
+      .map((item) =>
+        item && typeof item === 'object' && 'msg' in item ? String((item as { msg: unknown }).msg) : '',
+      )
+      .filter(Boolean)
+    if (parts.length > 0) return parts.join('; ')
+  }
+  if (typeof body.message === 'string') return body.message
+  return fallback
+}
+
 /** Simple fetch wrapper with auth (uses httpOnly cookies) */
-async function fetchAPI<T>(
+export async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
@@ -82,17 +103,20 @@ async function fetchAPI<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    const message = error?.error?.message || error?.detail || error?.message || 'API Error'
-    throw new ApiError(message, response.status)
+    throw new ApiError(apiErrorMessage(error, 'API Error'), response.status)
   }
 
-  return response.json()
+  if (response.status === 204) {
+    return undefined as T
+  }
+  const body = await response.text()
+  return (body ? JSON.parse(body) : undefined) as T
 }
 
 // ==================== SSE Streaming Types ====================
 
 export interface SSEChunk {
-  type: 'routing' | 'retrieval' | 'content' | 'thinking' | 'metadata' | 'done' | 'error'
+  type: 'routing' | 'retrieval' | 'content' | 'thinking' | 'status' | 'metadata' | 'done' | 'error'
   data: unknown
 }
 

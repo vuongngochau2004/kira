@@ -119,6 +119,10 @@ eval-rag: ## Run DeepEval RAG benchmark. Usage: make eval-rag USER_ID=<uuid> DAT
 	@echo "$(BLUE)Running DeepEval RAG benchmark...$(NC)"
 	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.modules.evaluation.cli run --dataset $${DATASET:-docs/examples/evaluation/golden_sample.json} --user-id $$USER_ID --output-dir reports/evaluation
 
+eval-legal: ## Run the legal QA benchmark. Usage: make eval-legal DATASET=dataset/legal/golden.json
+	@echo "$(BLUE)Running legal QA benchmark...$(NC)"
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && python scripts/validate_legal_eval_dataset.py $${DATASET:-docs/examples/evaluation/legal_golden_example.json} && python -m src.modules.evaluation.cli run-legal --dataset $${DATASET:-docs/examples/evaluation/legal_golden_example.json} --output-dir reports/evaluation
+
 test-frontend: ## Run frontend tests
 	@echo "$(BLUE)Running frontend tests...$(NC)"
 	@cd $(FRONTEND_DIR) && npm test

@@ -11,6 +11,8 @@ import { CitationRichText } from '@/components/streaming/CitationRichText'
 import { CitationPanel, type CitationSource, type VerificationStats } from '@/components/streaming/CitationPanel'
 import { useSourcesStore } from '@/lib/stores/sources-store'
 import { KIRAWelcome } from '@/components/common/KiraLogo'
+import { LegalAnswerNote } from '@/components/legal/LegalAnswerNote'
+import type { LegalAnswerInfo } from '@/lib/legal/types'
 import type { Attachment } from '@/lib/streaming'
 
 // ==================== Types ====================
@@ -43,6 +45,7 @@ export interface Message {
   citation_verification?: VerificationStats
   use_new_citation_format?: boolean  // Use [source:chunk_id] format
   isOptimistic?: boolean  // NEW: Mark optimistic messages for UI indication
+  legal?: LegalAnswerInfo  // Applied date(s) and notices of a legal answer
 }
 
 interface SimpleChatProps {
@@ -217,6 +220,10 @@ const MessageRow = memo((
         />
       ) : (
         <UserMessage content={message.content} />
+      )}
+
+      {message.role === 'assistant' && message.legal && (
+        <LegalAnswerNote info={message.legal} className="mt-2" />
       )}
 
       {/* Source Citation */}
