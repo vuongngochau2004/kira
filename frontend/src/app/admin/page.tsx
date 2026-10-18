@@ -12,6 +12,7 @@ import {
   Loader2,
   MessageSquareText,
   RefreshCw,
+  Scale,
   Shield,
 } from 'lucide-react'
 import { AuthGuard } from '@/components/auth/auth-guard'
@@ -148,10 +149,18 @@ export default function AdminPage() {
                 <p className="text-xs text-muted-foreground">Giám sát vận hành hệ thống</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={loadOverview} disabled={isLoading || user?.role !== 'admin'}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Làm mới
-            </Button>
+            <div className="flex items-center gap-2">
+              {user?.role === 'admin' && (
+                <Button variant="outline" size="sm" onClick={() => router.push('/admin/legal')}>
+                  <Scale className="h-4 w-4" />
+                  Văn bản pháp luật
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={loadOverview} disabled={isLoading || user?.role !== 'admin'}>
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Làm mới
+              </Button>
+            </div>
           </div>
         </header>
 

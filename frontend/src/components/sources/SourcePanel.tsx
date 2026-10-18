@@ -42,6 +42,7 @@ export function SourcePanel({ isOpen }: SourcePanelProps) {
         snippet: source.snippet,
         page: source.page,
         score: source.score,
+        legal: source.legal,
       });
 
       if (source.score > groups[key].maxScore) {

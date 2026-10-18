@@ -31,6 +31,7 @@ KIRA is a full-stack RAG application for authenticated document upload, hybrid r
 - Database models: `src/shared/infrastructure/persistence/database/models.py`
 - Celery app: `src/worker/celery_app.py`
 - Document task: `src/worker/document_tasks.py`
+- Legal tasks: `src/worker/legal_tasks.py` (`legal.process`, `legal.publish`)
 
 ### API Routers
 
@@ -39,6 +40,7 @@ KIRA is a full-stack RAG application for authenticated document upload, hybrid r
 - Documents: `src/modules/document/api/endpoints.py`
 - Evaluation: `src/server/api/v1/evaluation/endpoints.py`
 - Metrics: `src/server/api/v1/metrics/endpoints.py`
+- Legal (admin, mounted only when `LEGAL_ENABLED=true`): `src/modules/legal/api/endpoints.py`
 
 All routers are mounted in `src/server/main.py` under `/api/v1/...`.
 
@@ -52,6 +54,8 @@ All routers are mounted in `src/server/main.py` under `/api/v1/...`.
 - Chat hooks: `frontend/src/lib/hooks/use-simple-chat.ts`, `use-streaming-chat.ts`
 - Stores: `frontend/src/lib/stores/`
 - Shared UI components: `frontend/src/components/ui/`
+- Legal corpus admin: `frontend/src/app/admin/legal/` (list/upload, `[id]` review); legal chat UI: `frontend/src/components/legal/`
+- Frontend tests: Vitest + Testing Library (`frontend/vitest.config.ts`, `src/**/*.test.ts(x)`)
 
 ## Architecture Rules
 
@@ -94,6 +98,7 @@ src/server/ and module api/
 - `retrieval`: Qdrant dense retrieval, BM25, hybrid search, reranking service
 - `rag`: agentic/LangGraph RAG orchestration, state, agents, prompts
 - `evaluation`: DeepEval evaluation service, golden datasets, CLI runner
+- `legal`: shared Vietnamese legal corpus — upload, structure parsing, relation review, Neo4j/Qdrant publishing
 
 ## Runtime Behavior
 
@@ -136,7 +141,9 @@ POST /api/v1/chat/stream
   -> authenticate user
   -> load/create conversation
   -> classify query intent
-  -> select conversational/RAG/drafting handler
+  -> select conversational/RAG/drafting/legal_qa handler
+     (legal_qa only when LEGAL_ENABLED=true: date resolution, Qdrant + BM25 on provisions
+      in force at that date, Neo4j context expansion, citations with a `legal` object)
   -> retrieve context when needed
   -> stream SSE events
   -> persist user and assistant messages
@@ -154,6 +161,7 @@ The frontend expects structured SSE event shapes. Be careful when changing event
 - Qdrant vector dimension is `1024` by default and must match the embedding API output.
 - Static retrieval/reranking/citation/chunking defaults live in `src/config/settings.yaml`.
 - `.env` values override Pydantic runtime settings in `src/config/config.py`.
+- The legal knowledge graph needs the `neo4j` compose service, `NEO4J_*` settings, and `LEGAL_ENABLED=true`.
 
 ## Development Commands
 
@@ -219,6 +227,7 @@ Use focused tests for narrow behavior and broader checks for shared contracts.
 - Database checks: `test_db.py`
 - Qdrant checks: `test_qdrant.py`
 - Evaluation scripts: `scripts/validate_eval_dataset.py`, `scripts/evaluate_extraction_quality.py`
+- Legal QA evaluation: `docs/evaluation/legal-golden-dataset.md`, `scripts/validate_legal_eval_dataset.py`, `make eval-legal`
 
 Run broader tests when touching:
 

@@ -39,7 +39,8 @@ class InterceptHandler(logging.Handler):
             else:
                 break
 
-        logger.opt(depth=depth, exception=record.exc_info, colors=True).log(
+        # Third-party messages are plain text, not Loguru color markup ("<POOL>" would raise).
+        logger.opt(depth=depth, exception=record.exc_info).log(
             level, record.getMessage()
         )
 

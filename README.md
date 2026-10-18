@@ -32,7 +32,7 @@ Requirements: Python 3.12+, Node.js 20+, Docker, an LLM API key, and an embeddin
 ```bash
 git clone https://github.com/vuongngochau2004/kira.git
 cd kira
-docker compose up -d        # PostgreSQL, Qdrant, MinIO, Redis
+docker compose up -d        # PostgreSQL, Qdrant, MinIO, Redis, Neo4j (legal graph)
 ```
 
 - ### Environment

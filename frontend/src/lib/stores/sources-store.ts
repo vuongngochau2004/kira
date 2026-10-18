@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { LegalCitationInfo } from '@/lib/legal/types'
 
 export interface SourceItem {
   id: string
@@ -10,6 +11,7 @@ export interface SourceItem {
   document_id?: string
   content_length?: number  // For "view more" UI decision
   parent_document?: ParentDocumentInfo  // NEW: Link to parent document (grouped format)
+  legal?: LegalCitationInfo
 }
 
 export interface ParentDocumentInfo {
@@ -37,6 +39,7 @@ export interface RawSourceItem {
   total_chunks_used?: number
   relevance_score?: number
   chunks?: RawSourceItem[]
+  legal?: LegalCitationInfo
   [key: string]: unknown
 }
 
@@ -119,6 +122,7 @@ function mapSources(rawSources: RawSourceItem[] | null | undefined): SourceItem[
       document_id: documentId,
       content_length: source.content_length || (source.content ? source.content.length : undefined),
       parent_document: undefined,
+      legal: source.legal,
     }
   })
 }

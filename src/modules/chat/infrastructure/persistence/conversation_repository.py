@@ -54,6 +54,7 @@ async def create_message(
             "drafting",
             "document_type",
             "documents_used",
+            "legal",
         }
         validated_metadata = {
             key: value

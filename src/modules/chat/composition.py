@@ -1,5 +1,6 @@
 """Dependency composition for the chat module."""
 
+from src.config.config import settings
 from src.modules.chat.application.chat import ChatUseCase
 from src.modules.chat.application.citations import EnrichCitations
 from src.modules.chat.infrastructure.handlers.conversational import ConversationalHandler
@@ -32,14 +33,16 @@ async def get_chat_use_case() -> ChatUseCase:
         rag_handler = await container.get(RAGHandler)
         drafting_handler = await container.get(AdministrativeDraftingHandler)
 
-        _chat_use_case = ChatUseCase(
-            classifier=classifier,
-            handlers={
-                Intent.CONVERSATIONAL: conversational_handler,
-                Intent.RAG: rag_handler,
-                Intent.DRAFTING: drafting_handler,
-            },
-        )
+        handlers = {
+            Intent.CONVERSATIONAL: conversational_handler,
+            Intent.RAG: rag_handler,
+            Intent.DRAFTING: drafting_handler,
+        }
+        if settings.legal_enabled:
+            from src.modules.legal.infrastructure.chat_handler import LegalQAHandler
+
+            handlers[Intent.LEGAL_QA] = await container.get(LegalQAHandler)
+        _chat_use_case = ChatUseCase(classifier=classifier, handlers=handlers)
     return _chat_use_case
 
 

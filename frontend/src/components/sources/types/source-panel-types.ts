@@ -3,6 +3,8 @@
  * Defines all data structures for the source panel component system
  */
 
+import type { LegalCitationInfo } from "@/lib/legal/types";
+
 // ============================================
 // Core Source Data Types
 // ============================================
@@ -12,6 +14,7 @@ export interface SourceChunk {
   snippet: string;
   page?: number;
   score: number;
+  legal?: LegalCitationInfo;
 }
 
 export interface Source {

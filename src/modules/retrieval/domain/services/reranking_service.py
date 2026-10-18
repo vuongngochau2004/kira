@@ -142,6 +142,49 @@ def score_and_rerank(
             return json.dumps([], ensure_ascii=False)
 
 
+@tool
+def tei_rerank(
+    query: str,
+    documents: str,
+    top_k: int = 5,
+) -> str:
+    """Rerank documents using TEI Cross-Encoder service (BAAI/bge-reranker-v2-m3).
+
+    Args:
+        query: The user's search query
+        documents: JSON string of retrieved documents to rerank
+        top_k: Number of top documents to return
+
+    Returns:
+        JSON string of cross-encoder reranked documents
+    """
+    try:
+        from src.modules.retrieval.domain.services.reranking.tei_reranker import (
+            rerank_documents_with_tei,
+        )
+
+        doc_list = json.loads(documents)
+        if not doc_list:
+            return json.dumps([], ensure_ascii=False)
+
+        reranked = asyncio.run(
+            rerank_documents_with_tei(
+                query=query,
+                candidates=doc_list,
+                top_k=top_k,
+            )
+        )
+        return json.dumps(reranked[:top_k], ensure_ascii=False)
+
+    except Exception as e:
+        logger.error("Error in tei_rerank: %s", e, exc_info=True)
+        try:
+            doc_list = json.loads(documents)
+            return json.dumps(doc_list[:top_k], ensure_ascii=False)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return json.dumps([], ensure_ascii=False)
+
+
 # Backward-compatible private aliases
 _run_llm_rerank = run_llm_rerank
 _format_documents_for_reranking = format_documents_for_reranking
@@ -157,6 +200,7 @@ __all__ = [
     "get_llm_client",
     "llm_rerank",
     "score_and_rerank",
+    "tei_rerank",
     # Underlying functions
     "rerank_documents_with_llm",
     "score_and_filter_documents",

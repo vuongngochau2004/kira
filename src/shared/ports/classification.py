@@ -54,6 +54,7 @@ class Intent(str, Enum):
     RAG = "rag"
     CONVERSATIONAL = "conversational"
     DRAFTING = "drafting"
+    LEGAL_QA = "legal_qa"
     SEMANTIC = "semantic"
     UNKNOWN = "unknown"
 

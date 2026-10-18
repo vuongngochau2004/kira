@@ -7,6 +7,7 @@ import asyncio
 import sys
 
 from src.modules.evaluation.domain.models import (
+    DEFAULT_LEGAL_METRICS,
     DEFAULT_METRICS,
     EvaluationMetric,
     EvaluationRunConfig,
@@ -17,9 +18,11 @@ from src.modules.rag.composition import create_default_rag_pipeline_service
 from src.shared.adapters.llm.glm_adapter import GLMAdapter
 
 
-def _parse_metrics(raw: str | None) -> list[EvaluationMetric]:
+def _parse_metrics(
+    raw: str | None, default: list[EvaluationMetric] = DEFAULT_METRICS
+) -> list[EvaluationMetric]:
     if not raw:
-        return DEFAULT_METRICS.copy()
+        return list(default)
     values = []
     for item in raw.split(","):
         name = item.strip()
@@ -71,6 +74,50 @@ async def _run(args: argparse.Namespace) -> int:
     return 0 if report.aggregated_scores.get("pass_rate", 0.0) >= args.min_pass_rate else 1
 
 
+def build_legal_runner(threshold: float):
+    """Compose the legal QA runner with real services; returns (runner, async closer)."""
+    from src.modules.evaluation.runners import LegalQAEvaluationRunner
+    from src.modules.legal.composition import create_answer_legal_question, legal_graph
+    from src.shared.adapters.embedding import create_embedding_adapter
+
+    llm = GLMAdapter()
+    embedding = create_embedding_adapter()
+    graph = legal_graph()
+    runner = LegalQAEvaluationRunner(
+        answer_factory=lambda today: create_answer_legal_question(
+            llm, embedding, today=today, graph=graph
+        ),
+        evaluator=DeepEvalEvaluationService(judge_llm=llm, threshold=threshold),
+    )
+    return runner, graph.close
+
+
+async def _run_legal(args: argparse.Namespace) -> int:
+    from src.modules.evaluation.runners import LegalEvaluationRunConfig
+
+    config = LegalEvaluationRunConfig(
+        dataset_path=args.dataset,
+        output_dir=args.output_dir,
+        metrics=_parse_metrics(args.metrics, DEFAULT_LEGAL_METRICS),
+        threshold=args.threshold,
+        max_samples=args.max_samples,
+        run_name=args.run_name,
+    )
+    runner, close = build_legal_runner(config.threshold)
+    try:
+        report, paths = await runner.run(config)
+    finally:
+        await close()
+
+    print("Legal QA benchmark completed")
+    print(f"Samples: {report.successful_evaluations}/{report.total_queries} successful")
+    print(f"Overall: {report.aggregated_scores.get('overall_score', 0.0):.3f}")
+    print(f"Pass rate: {report.aggregated_scores.get('pass_rate', 0.0):.3f}")
+    print(f"JSON report: {paths['json']}")
+    print(f"Markdown report: {paths['markdown']}")
+    return 0 if report.aggregated_scores.get("pass_rate", 0.0) >= args.min_pass_rate else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run DeepEval benchmark for the RAG pipeline.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -100,6 +147,21 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--max-samples", type=int, default=None, help="Limit number of samples for a smoke run."
     )
+
+    legal = subparsers.add_parser(
+        "run-legal", help="Run a legal golden dataset through the legal QA use case."
+    )
+    legal.add_argument("--dataset", required=True, help="Path to the legal golden dataset JSON.")
+    legal.add_argument("--output-dir", default="reports/evaluation", help="Report directory.")
+    legal.add_argument("--run-name", default=None, help="Optional report file stem.")
+    legal.add_argument(
+        "--metrics", default=None, help="Comma-separated metric names. Defaults to legal metrics."
+    )
+    legal.add_argument("--threshold", type=float, default=0.7, help="Metric pass threshold.")
+    legal.add_argument(
+        "--min-pass-rate", type=float, default=0.0, help="Exit non-zero below this pass rate."
+    )
+    legal.add_argument("--max-samples", type=int, default=None, help="Limit samples (smoke run).")
     return parser
 
 
@@ -108,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "run":
         return asyncio.run(_run(args))
+    if args.command == "run-legal":
+        return asyncio.run(_run_legal(args))
     parser.error(f"Unknown command: {args.command}")
     return 2
 

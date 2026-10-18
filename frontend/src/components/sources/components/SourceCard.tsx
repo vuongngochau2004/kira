@@ -7,6 +7,7 @@ import React, { memo } from "react";
 import { ChevronDown, Eye, FileText, Globe, Quote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SourceCardProps, SourceChunk } from "../types/source-panel-types";
+import { LegalCitationMeta } from "@/components/legal/LegalCitationMeta";
 
 const FILE_ICONS = {
   pdf: FileText,
@@ -144,6 +145,7 @@ export const SourceCard = memo<SourceCardProps>((props) => {
                             Trích dẫn {chunkIndex + 1}
                           </span>
                         </div>
+                        {chunk.legal && <LegalCitationMeta legal={chunk.legal} />}
 
                         <span
                           className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors group-hover/citation:text-primary"

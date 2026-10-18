@@ -11,8 +11,18 @@ from src.modules.evaluation.metrics.custom import (
     recall_at_k_text,
     refusal_correctness,
 )
+from src.modules.evaluation.metrics.legal import (
+    citation_exactness,
+    cited_sources,
+    temporal_correctness,
+    temporal_date_accuracy,
+)
 
 __all__ = [
+    "citation_exactness",
+    "cited_sources",
+    "temporal_correctness",
+    "temporal_date_accuracy",
     "citation_accuracy",
     "hit_rate_at_k",
     "hit_rate_at_k_text",

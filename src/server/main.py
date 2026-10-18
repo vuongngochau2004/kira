@@ -8,6 +8,7 @@ from loguru import logger
 from src.config.config import settings
 from src.modules.chat.api.endpoints import router as chat_router
 from src.modules.document.api.endpoints import router as documents_router
+from src.modules.legal.api.endpoints import router as legal_router
 from src.modules.retrieval.domain.services.hybrid_search import set_llm_client
 from src.modules.retrieval.domain.services.reranking_service import init_reranking_service
 from src.server.api.v1.admin.endpoints import router as admin_router
@@ -47,9 +48,19 @@ async def lifespan(app: FastAPI):
 def _create_llm_client() -> LLMClient:
     """Build the configured LLM client with its provider enum, not a raw string."""
     provider = LLMProvider(settings.llm_provider)
+    model = None
+    if provider is LLMProvider.GLM:
+        model = settings.glm_model
+    elif provider is LLMProvider.OPENAI_COMPATIBLE:
+        model = settings.bk_llm_model
+    elif provider is LLMProvider.OLLAMA:
+        model = settings.ollama_model
+    elif provider is LLMProvider.GEMINI:
+        model = settings.gemini_model
+
     return LLMClient(
         provider=provider,
-        model=settings.glm_model if provider is LLMProvider.GLM else None,
+        model=model,
         temperature=0.1,  # Low temperature for consistent reranking
         max_tokens=512,
         timeout=30.0,
@@ -84,6 +95,8 @@ def _setup_routes(app: FastAPI) -> None:
     app.include_router(evaluation_router, prefix="/api/v1/evaluation", tags=["evaluation"])
     app.include_router(metrics_router, prefix="/api/v1/metrics", tags=["metrics"])
     app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
+    if settings.legal_enabled:
+        app.include_router(legal_router, prefix="/api/v1/legal", tags=["legal"])
 
 
 def _setup_health_checks(app: FastAPI) -> None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from src.modules.evaluation.adapters import DeepEvalLLMAdapter
@@ -19,10 +19,13 @@ from src.modules.evaluation.domain.models import (
 )
 from src.modules.evaluation.metrics import (
     citation_accuracy,
+    citation_exactness,
     hit_rate_at_k,
     mean_reciprocal_rank,
     recall_at_k,
     refusal_correctness,
+    temporal_correctness,
+    temporal_date_accuracy,
 )
 from src.shared.ports.llm import LLMPort
 
@@ -84,6 +87,11 @@ class DeepEvalEvaluationService:
 
             if metric in self._RETRIEVAL_METRICS:
                 score, reason = self._retrieval_metric(metric, request)
+                results.append(self._metric_result(metric, score, reason=reason))
+                continue
+
+            if metric in self._LEGAL_METRICS:
+                score, reason = self._legal_metric(metric, request)
                 results.append(self._metric_result(metric, score, reason=reason))
                 continue
 
@@ -282,9 +290,38 @@ class DeepEvalEvaluationService:
             return recall_at_k(expected, retrieved, request.retrieval_k)
         raise EvaluationError(f"Unsupported retrieval metric: {metric.value}")
 
+    _LEGAL_METRICS = frozenset(
+        {
+            EvaluationMetric.LEGAL_TEMPORAL_DATES,
+            EvaluationMetric.LEGAL_TEMPORAL_CORRECTNESS,
+            EvaluationMetric.LEGAL_CITATION_EXACTNESS,
+        }
+    )
+
+    @staticmethod
+    def _legal_metric(metric: EvaluationMetric, request: EvaluationRequest) -> tuple[float, str]:
+        expected = request.metadata["legal_expected"]
+        actual = request.metadata["legal_actual"]
+        expected_dates = [date.fromisoformat(value) for value in expected.get("dates", [])]
+        actual_dates = [date.fromisoformat(value) for value in actual.get("dates", [])]
+        citations = actual.get("citations", [])
+        if metric == EvaluationMetric.LEGAL_TEMPORAL_DATES:
+            return temporal_date_accuracy(
+                expected.get("mode", ""), expected_dates, actual.get("mode", ""), actual_dates
+            )
+        if metric == EvaluationMetric.LEGAL_TEMPORAL_CORRECTNESS:
+            # Judge against the dates the question is about, not what the resolver picked.
+            return temporal_correctness(expected.get("mode", ""), expected_dates, citations)
+        return citation_exactness(expected.get("provisions", []), citations)
+
     @staticmethod
     def _should_skip_metric(metric: EvaluationMetric, request: EvaluationRequest) -> bool:
         """Skip DeepEval metrics that are not meaningful for refusal samples."""
+        if metric in DeepEvalEvaluationService._LEGAL_METRICS:
+            if "legal_expected" not in request.metadata or "legal_actual" not in request.metadata:
+                return True
+            cited = request.metadata["legal_actual"].get("citations") or []
+            return metric == EvaluationMetric.LEGAL_TEMPORAL_CORRECTNESS and not cited
         if metric in DeepEvalEvaluationService._RETRIEVAL_METRICS and not request.metadata.get(
             "expected_context_ids"
         ):
@@ -422,6 +459,22 @@ class DeepEvalEvaluationService:
         if failed("refusal_correctness"):
             categories.append("refusal_policy")
             actions.append("Tune no-answer detection and refusal wording.")
+
+        if failed("legal_temporal_dates"):
+            categories.append("legal_temporal_resolution")
+            actions.append("Fix the temporal resolver rules or LLM fallback for this question.")
+
+        if failed("legal_temporal_correctness"):
+            categories.append("legal_version_selection")
+            actions.append(
+                "Check validity intervals, timeline rebuilds and date filtering of provision versions."
+            )
+
+        if failed("legal_citation_exactness"):
+            categories.append("legal_citation")
+            actions.append(
+                "Check retrieval of the expected provisions and that the answer cites them with [n]."
+            )
 
         if not categories:
             categories.append("passed")

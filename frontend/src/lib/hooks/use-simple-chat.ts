@@ -21,6 +21,8 @@ import {
   type SourceChunk,
   type Attachment,
 } from '@/lib/streaming'
+import { toLegalAnswerInfo } from '@/lib/legal/format'
+import type { LegalAnswerInfo } from '@/lib/legal/types'
 
 // ==================== Types ====================
 
@@ -34,6 +36,7 @@ export interface Message {
   streamingState?: StreamingState
   isStreaming?: boolean
   isOptimistic?: boolean
+  legal?: LegalAnswerInfo
 }
 
 // ==================== Constants ====================
@@ -141,6 +144,7 @@ export function useSimpleChat() {
                 content: state.content,
                 sources: state.sources.length > 0 ? [...state.sources] : undefined,
                 attachments: state.attachments.length > 0 ? [...state.attachments] : undefined,
+                legal: state.legal ?? undefined,
                 streamingState: state.status,
                 isStreaming: state.status !== 'complete',
               }
@@ -187,6 +191,7 @@ export function useSimpleChat() {
                 (msg.sources as SourceChunk[]) || (metadata?.sources as SourceChunk[]) || undefined
               ) as SourceChunk[] | undefined,
               attachments: (metadata?.attachments as Attachment[]) || undefined,
+              legal: toLegalAnswerInfo(metadata?.legal),
               streamingState: 'complete' as const,
               isStreaming: false,
             }

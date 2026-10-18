@@ -120,3 +120,25 @@ feature_flags:
 evaluation:
   threshold: 0.7
   report_dir: reports/evaluation
+
+# Vietnamese legal knowledge graph
+legal:
+  qdrant_collection: "legal_provisions"
+  auto_approve_types:            # AMENDS/REPEALS/REPLACES are never auto-approved
+    - "BASED_ON"
+  llm_extraction_max_provisions: 40
+  routing_keywords:              # questions naming legal instruments go to legal_qa
+    - "luật"
+    - "bộ luật"
+    - "nghị định"
+    - "thông tư"
+    - "pháp lệnh"
+    - "pháp luật"
+    - "mức phạt"
+    - "xử phạt"
+    - "bị phạt"
+  seed_top_k: 20
+  final_top_k: 8
+  max_guides: 5
+  keyword_index_ttl_seconds: 600
+  min_relevance_score: 0.5        # dense similarity floor; below it the answer is "not found"

@@ -6,6 +6,9 @@
  * - Clear separation of concerns
  */
 
+import { toLegalAnswerInfo } from '@/lib/legal/format'
+import type { LegalAnswerInfo, LegalCitationInfo } from '@/lib/legal/types'
+
 // ==================== Types ====================
 
 export type StreamingState = 'connecting' | 'routing' | 'retrieving' | 'generating' | 'complete' | 'error'
@@ -30,6 +33,8 @@ export interface SourceChunk {
   score: number
   document_id?: string
   chunk_index?: number
+  /** Present only on citations from the shared legal corpus */
+  legal?: LegalCitationInfo
 }
 
 export interface Attachment {
@@ -61,6 +66,8 @@ export interface MessageState {
   error: string | null
   /** Timestamp of last update */
   timestamp: number
+  /** Applied date(s) and notices of a legal answer */
+  legal: LegalAnswerInfo | null
 }
 
 // ==================== Constants ====================
@@ -74,6 +81,7 @@ const INITIAL_STATE: MessageState = {
   attachments: [],
   error: null,
   timestamp: Date.now(),
+  legal: null,
 }
 
 // ==================== StreamingStateBuilder ====================
@@ -111,6 +119,12 @@ export interface ErrorChunkData {
   [key: string]: unknown
 }
 
+export interface StatusChunkData {
+  stage?: string
+  metadata?: Record<string, unknown>
+  [key: string]: unknown
+}
+
 export interface RawCitationItem {
   id?: string
   chunk_id?: string
@@ -133,6 +147,7 @@ export interface RawCitationItem {
     [key: string]: unknown
   }
   chunks?: RawCitationItem[]
+  legal?: LegalCitationInfo
   [key: string]: unknown
 }
 
@@ -162,6 +177,10 @@ export class StreamingStateBuilder {
         this.processMetadata(data as MetadataChunkData)
         break
 
+      case 'status':
+        this.processStatus(data as StatusChunkData)
+        break
+
       case 'done':
         this.processDone()
         break
@@ -188,6 +207,7 @@ export class StreamingStateBuilder {
       attachments: [...this.state.attachments],
       error: this.state.error,
       timestamp: this.state.timestamp,
+      legal: this.state.legal,
     }
   }
 
@@ -261,6 +281,25 @@ export class StreamingStateBuilder {
     if (data?.attachments) {
       this.state.attachments = data.attachments
     }
+
+    if (data && 'legal' in data) {
+      // An invalid object (e.g. {error: 'unavailable'}) means the legal answer failed:
+      // drop the applied date announced by the earlier status event.
+      this.state.legal = toLegalAnswerInfo(data.legal) ?? null
+    }
+  }
+
+  private processStatus(data: StatusChunkData): void {
+    if (data?.stage !== 'temporal') return
+    const metadata = data.metadata ?? {}
+    const legal = toLegalAnswerInfo({
+      mode: metadata.mode,
+      dates: metadata.dates,
+      temporal_source: metadata.source,
+    })
+    if (legal) {
+      this.state.legal = { ...legal, notices: this.state.legal?.notices ?? [] }
+    }
   }
 
   private processDone(): void {
@@ -301,7 +340,8 @@ export function ensureFlatSources(rawSources: RawCitationItem[] | undefined): Re
         grounding_score: citation.grounding_score ?? citation.score ?? citation.confidence,
         document_id: citation.document_id ?? citation.metadata?.document_id,
         chunk_index: citation.chunk_index ?? citation.metadata?.chunk_index ?? idx,
-        page: citation.page_number ?? citation.page
+        page: citation.page_number ?? citation.page,
+        ...(citation.legal ? { legal: citation.legal } : {}),
       }
     })
   }

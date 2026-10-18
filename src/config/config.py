@@ -18,6 +18,7 @@ class EmbeddingProvider(str, Enum):
 
     AIVN = "aivn"
     OLLAMA = "ollama"
+    TEI = "tei"
 
 
 class Settings(BaseSettings):
@@ -115,17 +116,17 @@ class Settings(BaseSettings):
     jwt_audience: str = "kira-clients"
 
     # ----- LLM Provider -----
-    llm_provider: str = "glm"  # glm, gemini, openai_compatible, ollama
+    llm_provider: str = "openai_compatible"  # glm, gemini, openai_compatible, ollama
 
-    # Z.ai GLM (Anthropic-compatible, default for Vietnamese)
-    glm_api_url: str = "https://api.z.ai/api/anthropic"
-    glm_api_key: str = ""
-    glm_model: str = "glm-4.5"
-
-    # BK Self-hosted LLM (OpenAI-compatible)
+    # OpenAI-compatible / Self-hosted LLM
     bk_llm_base_url: str = ""
     bk_llm_model: str = ""
     bk_api_key: str = ""
+
+    # Z.ai GLM (Anthropic-compatible)
+    glm_api_url: str = "https://api.z.ai/api/anthropic"
+    glm_api_key: str = ""
+    glm_model: str = "glm-4.5"
 
     # Google Gemini (backup)
     gemini_api_key: str = ""
@@ -156,6 +157,13 @@ class Settings(BaseSettings):
     ollama_embedding_base_url: str = "https://ollama.com/api"
     ollama_embedding_model: str = "embeddinggemma"
     ollama_embedding_dim: int = 768
+
+    # DUT AI / HuggingFace TEI (Text Embeddings Inference & Reranking)
+    tei_base_url: str = "https://textembedding.dutai.io.vn"
+    tei_api_key: str = ""
+    tei_embedding_model: str = "BAAI/bge-m3"
+    tei_embedding_dim: int = 1024
+    tei_reranker_model: str = "BAAI/bge-reranker-v2-m3"
 
     # ----- Retrieval (from settings.yaml) -----
     retrieval_k: int = _static_config.get("retrieval", {}).get("k", 5)
@@ -224,7 +232,7 @@ class Settings(BaseSettings):
     ocr_timeout: int = Field(30)  # seconds per request
     ocr_max_retries: int = Field(3)
     ocr_batch_size: int = Field(5)  # concurrent pages
-    pdf_extractor: str = Field("vlm")  # vlm, progressive, docling, pymupdf
+    pdf_extractor: str = Field("progressive")  # progressive, vlm, docling, pymupdf
     docling_quality_gate_enabled: bool = Field(True)
     docling_quality_fallback_score: int = Field(3)
     pdf_render_dpi: int = Field(300)
@@ -301,6 +309,36 @@ class Settings(BaseSettings):
     )
     evaluation_report_dir: str = Field(
         default=_static_config.get("evaluation", {}).get("report_dir", "reports/evaluation")
+    )
+
+    # ----- Legal knowledge graph -----
+    legal_enabled: bool = False
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = "kira_neo4j_password"
+    neo4j_database: str = "neo4j"
+    legal_qdrant_collection: str = Field(
+        default=_static_config.get("legal", {}).get("qdrant_collection", "legal_provisions")
+    )
+    legal_auto_approve_types: list[str] = Field(
+        default_factory=lambda: list(
+            _static_config.get("legal", {}).get("auto_approve_types", ["BASED_ON"])
+        )
+    )
+    legal_llm_extraction_max_provisions: int = Field(
+        default=_static_config.get("legal", {}).get("llm_extraction_max_provisions", 40)
+    )
+    legal_routing_keywords: list[str] = Field(
+        default_factory=lambda: list(_static_config.get("legal", {}).get("routing_keywords", []))
+    )
+    legal_seed_top_k: int = Field(default=_static_config.get("legal", {}).get("seed_top_k", 20))
+    legal_final_top_k: int = Field(default=_static_config.get("legal", {}).get("final_top_k", 8))
+    legal_max_guides: int = Field(default=_static_config.get("legal", {}).get("max_guides", 5))
+    legal_keyword_index_ttl_seconds: int = Field(
+        default=_static_config.get("legal", {}).get("keyword_index_ttl_seconds", 600)
+    )
+    legal_min_relevance_score: float = Field(
+        default=_static_config.get("legal", {}).get("min_relevance_score", 0.5)
     )
 
     @property

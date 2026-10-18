@@ -8,6 +8,7 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
+from src.config.config import settings
 from src.modules.classification.domain.prompts import ROUTING_CLASSIFIER_PROMPT
 from src.shared.infrastructure.llm.client import chat_async
 from src.shared.ports.classification import ClassificationResult, ClassificationStrategyBase, Intent
@@ -183,9 +184,14 @@ class LLMStrategy(ClassificationStrategyBase):
             "conversational": Intent.CONVERSATIONAL,
             "conversation": Intent.CONVERSATIONAL,
             "chat": Intent.CONVERSATIONAL,
+            "legal": Intent.LEGAL_QA,
+            "legal_qa": Intent.LEGAL_QA,
         }
 
-        return intent_map.get(intent_str.lower(), Intent.RAG)
+        intent = intent_map.get(intent_str.lower(), Intent.RAG)
+        if intent is Intent.LEGAL_QA and not settings.legal_enabled:
+            return Intent.RAG
+        return intent
 
     def _get_handler_hint(self, intent: Intent) -> str | None:
         """
@@ -206,6 +212,7 @@ class LLMStrategy(ClassificationStrategyBase):
             Intent.RAG: "RAGHandler",
             Intent.DRAFTING: "AdministrativeDraftingHandler",
             Intent.CONVERSATIONAL: "ConversationalHandler",
+            Intent.LEGAL_QA: "LegalQAHandler",
         }
 
         return handler_map.get(intent)

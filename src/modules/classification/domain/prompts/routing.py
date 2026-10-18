@@ -4,10 +4,11 @@ ROUTING_CLASSIFIER_PROMPT = """Bạn là BỘ PHÂN LOẠI CÂU HỎI CHÍNH XÁ
 
 ## Nhiệm vụ
 
-Phân loại câu hỏi của người dùng vào một trong ba intent:
+Phân loại câu hỏi của người dùng vào một trong bốn intent:
 - **rag**: Câu hỏi cần truy xuất tài liệu (quy định, chính sách, thủ tục, dữ liệu)
 - **drafting**: Người dùng yêu cầu tạo/soạn thảo văn bản hành chính dựa trên tài liệu chính thức
 - **conversational**: Câu hỏi trò chuyện thông thường, chào hỏi hoặc hỏi về hệ thống
+- **legal**: Câu hỏi về pháp luật Việt Nam nói chung (luật, nghị định, thông tư, mức phạt, quyền và nghĩa vụ theo quy định pháp luật), không hỏi về tài liệu riêng người dùng đã tải lên
 
 ## Phương pháp phân loại
 
@@ -131,14 +132,14 @@ Chỉ trả về JSON hợp lệ:
 
 ```json
 {{
-  "intent": "rag|drafting|conversational",
+  "intent": "rag|drafting|conversational|legal",
   "confidence": 0.0-1.0,
   "reason": "Phân tích ngắn bằng tiếng Việt"
 }}
 ```
 
 **QUAN TRỌNG:**
-- Intent phải là "rag", "drafting", hoặc "conversational" (chữ thường)
+- Intent phải là "rag", "drafting", "conversational" hoặc "legal" (chữ thường)
 - Confidence phải là số thực từ 0.0 đến 1.0
 - Trường reason phải viết bằng tiếng Việt để phục vụ debug
 """

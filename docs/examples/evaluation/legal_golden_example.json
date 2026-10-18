@@ -1,0 +1,60 @@
+{
+  "dataset_id": "legal-example",
+  "name": "Legal QA golden dataset — format example",
+  "description": "Illustrative only: document numbers ending in /2099/ are fictional. Write the real dataset against the loaded corpus (see docs/evaluation/legal-golden-dataset.md).",
+  "samples": [
+    {
+      "id": "current-001",
+      "query": "Hiện nay Luật Thử nghiệm quy định thế nào về quy hoạch sử dụng đất?",
+      "today": "2026-10-15",
+      "category": "current",
+      "expected_mode": "single",
+      "expected_dates": ["2026-10-15"],
+      "expected_provisions": [{"provision_key": "1/2099/QH99#D3.K1", "valid_from": "2026-07-01"}],
+      "expected_answer": "Nhà nước quyết định quy hoạch và kế hoạch sử dụng đất (Khoản 1 Điều 3 Luật số 1/2099/QH99, đã sửa đổi).",
+      "notes": "Amended by 2/2099/QH99 from 2026-07-01; the answer must use the new version."
+    },
+    {
+      "id": "past-001",
+      "query": "Năm 2025 Luật Thử nghiệm quy định thế nào về quy hoạch sử dụng đất?",
+      "today": "2026-10-15",
+      "category": "past",
+      "expected_mode": "single",
+      "expected_dates": ["2025-12-31"],
+      "expected_provisions": [{"provision_key": "1/2099/QH99#D3.K1", "valid_from": "2024-08-01"}],
+      "notes": "Must cite the version before the 2026-07-01 amendment and flag the later change."
+    },
+    {
+      "id": "compare-001",
+      "query": "So sánh quy định về quy hoạch sử dụng đất trước và sau 1/7/2026",
+      "today": "2026-10-15",
+      "category": "compare",
+      "expected_mode": "compare",
+      "expected_dates": ["2026-06-30", "2026-07-01"],
+      "expected_provisions": [
+        {"provision_key": "1/2099/QH99#D3.K1", "valid_from": "2024-08-01"},
+        {"provision_key": "1/2099/QH99#D3.K1", "valid_from": "2026-07-01"}
+      ]
+    },
+    {
+      "id": "guide-001",
+      "query": "Hiện nay trình tự lập quy hoạch sử dụng đất được hướng dẫn thế nào?",
+      "today": "2026-10-15",
+      "category": "guide",
+      "expected_mode": "single",
+      "expected_dates": ["2026-10-15"],
+      "expected_provisions": [{"provision_key": "3/2099/NĐ-CP#D5"}],
+      "notes": "Answer needs the guiding decree's provision, found through the GUIDES relation."
+    },
+    {
+      "id": "no-answer-001",
+      "query": "Hiện nay mức thuế nhập khẩu xe máy điện là bao nhiêu?",
+      "today": "2026-10-15",
+      "category": "no_answer",
+      "expected_mode": "single",
+      "expected_dates": ["2026-10-15"],
+      "should_refuse": true,
+      "notes": "Not covered by the corpus; the answer must say no provision was found."
+    }
+  ]
+}

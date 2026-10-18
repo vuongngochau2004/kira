@@ -1,10 +1,10 @@
 """SQLAlchemy ORM models with soft delete and performance optimizations."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 
-from sqlalchemy import BigInteger, ForeignKey, Index, String, Text, text
+from sqlalchemy import BigInteger, Date, Float, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -348,3 +348,90 @@ class Message(Base):
 
     def __repr__(self) -> str:
         return f"<Message(id={self.id}, role={self.role})>"
+
+
+class LegalDocument(Base):
+    """Shared legal corpus document (staging state; graph data lives in Neo4j)."""
+
+    __tablename__ = "legal_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    number: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    doc_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    issuer: Mapped[str] = mapped_column(String(255), nullable=False)
+    issued_date: Mapped[date] = mapped_column(Date, nullable=False)
+    effective_date: Mapped[date] = mapped_column(Date, nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    file_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    file_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="uploaded", server_default=text("'uploaded'")
+    )
+    parsed_structure: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    warnings: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    error_detail: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    uploaded_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    published_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    published_keys: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow, server_default=text("NOW()")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow, server_default=text("NOW()"), onupdate=datetime.utcnow
+    )
+
+    __table_args__ = (Index("idx_legal_document_status", "status"),)
+
+
+class LegalRelationCandidate(Base):
+    """Relation proposed by an extractor, waiting for or carrying admin review."""
+
+    __tablename__ = "legal_relation_candidates"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    legal_document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("legal_documents.id", ondelete="CASCADE"), nullable=False
+    )
+    type: Mapped[str] = mapped_column(String(16), nullable=False)
+    source_provision_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    target_number: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_provision_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    effective_date: Mapped[date] = mapped_column(Date, nullable=False)
+    new_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_text: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    extractor: Mapped[str] = mapped_column(String(16), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="pending", server_default=text("'pending'")
+    )
+    flags: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    review_note: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow, server_default=text("NOW()")
+    )
+
+    __table_args__ = (
+        Index("idx_legal_candidate_document", "legal_document_id"),
+        Index("idx_legal_candidate_target", "target_number", "status"),
+    )
