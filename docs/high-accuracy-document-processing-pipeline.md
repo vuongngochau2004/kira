@@ -8,17 +8,42 @@ chính xác cao. Mục tiêu là không embed trực tiếp text OCR nhiễu, m�
 
 Pipeline mới:
 
-```text
-PDF
--> render từng trang ảnh 300-400 DPI
--> Docling lấy layout/thứ tự vùng nếu hữu ích
--> VLM transcription từng trang từ ảnh gốc
--> LLM correction + verification theo ảnh gốc
--> tạo canonical_text theo Điều/Khoản/Điểm
--> quality gate cuối
--> chunk theo cấu trúc pháp lý
--> embed canonical_text
--> lưu page image + VLM transcript + canonical text + confidence để audit
+```mermaid
+---
+config:
+  theme: default
+---
+flowchart TD
+    PDFFile["📄 File PDF Gốc"] --> RenderPages["🖼️ Render từng trang ảnh<br/>(PyMuPDF 300-400 DPI)"]
+    
+    subgraph LayoutAnalysis["1. Phân tích Bố cục & Thứ tự"]
+        RenderPages --> DoclingRun["Docling Parser"]
+        DoclingRun --> ExtractLayout["Nhận diện Bảng biểu, Tiêu đề & Vùng nội dung"]
+    end
+
+    subgraph TranscriptionLayer["2. Trích xuất Text Độ trung thực cao"]
+        RenderPages --> VLMRun["VLM Page Transcription<br/>(Vision-Language Model đọc ảnh gốc)"]
+        ExtractLayout -. Bổ trợ cấu trúc .-> VLMRun
+        VLMRun --> RawTranscript["Bản Transcript thô từng trang"]
+    end
+
+    subgraph QualityVerification["3. Hiệu chỉnh & Kiểm chứng (Quality Gate)"]
+        RawTranscript --> LLMCorrect["LLM Correction & Verification<br/>(Đối chiếu ảnh gốc, ghép dòng vỡ, sửa lỗi chính tả)"]
+        LLMCorrect --> CanonicalText["Tạo canonical_text chuẩn hoá<br/>(Unicode NFC • Điều / Khoản / Điểm)"]
+        CanonicalText --> QualityCheck{"Quality Gate Check<br/>(Tỷ lệ dấu, Độ phủ, Mojibake)"}
+    end
+
+    QualityCheck -->|Không đạt chuẩn| NeedsReview["⚠️ Gán nhãn 'needs_review'<br/>Lưu vào Báo cáo Audit & Chờ duyệt"]
+    
+    subgraph IngestionOutput["4. Phân đoạn & Vector hoá"]
+        QualityCheck -->|Đạt chuẩn| LegalChunk["Chunking theo cấu trúc pháp lý<br/>(Size: 2048, Overlap: 256)"]
+        LegalChunk --> EmbedText["Embedding canonical_text<br/>(TEI BGE-M3 1024-dim)"]
+        EmbedText --> UpsertDB[("Qdrant Vector DB & PostgreSQL")]
+    end
+
+    subgraph AuditStorage["5. Lưu trữ Kiểm tra (Audit Artifacts)"]
+        CanonicalText & RawTranscript & RenderPages --> MinIOAudit[("MinIO S3 Storage<br/>• Ảnh trang 300DPI<br/>• VLM Transcript<br/>• Canonical Text<br/>• Quality Scores")]
+    end
 ```
 
 Nguyên tắc chính:

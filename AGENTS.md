@@ -1,280 +1,241 @@
-# AGENTS.md - KIRA Development Guide
+# AGENTS.md - KIRA Development & Engineering Guide
 
-This file gives AI coding assistants and maintainers the operating context for the KIRA repository.
+This file provides comprehensive guidelines, architectural boundaries, coding standards, and operating context for AI coding assistants and developers working on the KIRA codebase.
 
-## Communication Policy
+---
 
-- Respond to user-facing questions in Vietnamese unless the user asks otherwise.
-- Keep code, identifiers, inline comments, commit text, and technical documentation in English unless specifically requested.
-- Be concise, factual, and implementation-oriented.
+## 1. Core Philosophy: The Boy Scout Rule (Anti-Drift)
 
-## Project Snapshot
+> **"Older parts of the codebase may contain legacy debt. The agent MUST NOT copy existing anti-patterns. All new code and refactored functions must adhere strictly to the clean standards below. Always leave the codebase cleaner than you found it."**
 
-KIRA is a full-stack RAG application for authenticated document upload, hybrid retrieval, citation-aware chat, and RAG evaluation.
+- **Do not propagate bad patterns**: If an existing file lacks type hints, has untyped `any`, inline imports, or 400-line functions, do NOT follow that style.
+- **Incremental refactoring**: Improve type hints, modularity, and error handling whenever modifying existing files without introducing breaking changes.
 
-- Backend: FastAPI, Python 3.12, SQLAlchemy asyncio
-- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS
-- Storage: PostgreSQL 16 + pgvector, Qdrant, MinIO
-- Jobs: Celery + Redis for document processing
-- Retrieval: dense vector search, BM25 keyword search, RRF hybrid fusion, optional reranking
-- AI: GLM/Z.ai default, Gemini/OpenAI-compatible/Ollama options, external embedding API
-- Architecture: hexagonal modular monolith
+---
 
-## Current Entry Points
+## 2. Communication Policy
 
-### Backend
+- **Language for conversation**: Respond to user queries in **Vietnamese** unless explicitly requested otherwise.
+- **Technical identifiers & code**: Keep all code, variable names, function names, class names, schema definitions, docstrings, inline comments, commit messages, and documentation in **English**.
+- **Tone**: Concise, factual, implementation-focused, and proactive in identifying potential edge cases or bugs.
 
-- FastAPI app: `src/server/main.py`
-- Runtime settings: `src/config/config.py`
-- Static settings: `src/config/settings.yaml`
-- Database session: `src/shared/infrastructure/persistence/database/session.py`
-- Database models: `src/shared/infrastructure/persistence/database/models.py`
-- Celery app: `src/worker/celery_app.py`
-- Document task: `src/worker/document_tasks.py`
+---
 
-### API Routers
+## 3. Project Overview & Tech Stack
 
-- Auth: `src/server/api/v1/auth/endpoints.py`
-- Chat: `src/modules/chat/api/endpoints.py`
-- Documents: `src/modules/document/api/endpoints.py`
-- Evaluation: `src/server/api/v1/evaluation/endpoints.py`
-- Metrics: `src/server/api/v1/metrics/endpoints.py`
+KIRA is a production-grade full-stack RAG (Retrieval-Augmented Generation) application featuring authenticated document ingestion, hybrid search, citation-aware streaming chat, and comprehensive evaluation.
 
-All routers are mounted in `src/server/main.py` under `/api/v1/...`.
+| Layer | Technologies & Runtimes |
+|---|---|
+| **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 (asyncio + asyncpg), Alembic, Pydantic v2 |
+| **Frontend** | Node.js 20+, Next.js 16 (App Router), React 19, TypeScript 5, Tailwind CSS v4, Radix UI, Zustand, TanStack Query |
+| **Storage & Vectors** | PostgreSQL 16 (+ pgvector), Qdrant (dense vector collection), MinIO (S3-compatible object storage) |
+| **Background Processing**| Redis 7, Celery 5.4+ (document chunking, extraction, embedding) |
+| **Search & Retrieval** | Dense vectors (1024-dim), BM25 keyword search, Reciprocal Rank Fusion (RRF), cross-encoder / LLM reranking |
+| **AI / LLM Providers** | GLM / ZhipuAI (default), Google Gemini (`google-genai`), OpenAI-compatible API, LangGraph, DeepEval |
+| **Architecture** | Hexagonal Architecture (Ports & Adapters) inside a Modular Monolith |
 
-### Frontend
+---
 
-- App routes: `frontend/src/app/`
-- Main auth landing page: `frontend/src/app/page.tsx`
-- Conversation page: `frontend/src/app/conversation/page.tsx`
-- Upload page: `frontend/src/app/uploads/page.tsx`
-- API client: `frontend/src/lib/api/simple-client.ts`
-- Chat hooks: `frontend/src/lib/hooks/use-simple-chat.ts`, `use-streaming-chat.ts`
-- Stores: `frontend/src/lib/stores/`
-- Shared UI components: `frontend/src/components/ui/`
+## 4. Architecture & Boundary Rules
 
-## Architecture Rules
+### 4.1 Dependency Rule (Hexagonal Architecture)
 
-The backend uses a hexagonal modular monolith. Preserve the dependency direction:
+Preserve strict dependency direction:
 
 ```text
-src/server/ and module api/
-        -> application use cases
-        -> domain services and rules
-        -> shared ports/contracts
-        -> adapters/infrastructure
+src/server/ (FastAPI Routers & Middleware)
+    └──> src/modules/<module>/api/ (Endpoints & Schemas)
+            └──> src/modules/<module>/application/ (Use Cases & DTOs)
+                    └──> src/modules/<module>/domain/ (Entities, Rules, Ports)
+                            └──> src/modules/<module>/infrastructure/ (DB Repositories, Adapters)
+                                    └──> src/shared/ (Shared Kernel, Ports & Common Adapters)
 ```
 
-### Layer Responsibilities
+### 4.2 Module Boundaries & Responsibilities
 
-- `src/server/`: FastAPI app setup, cross-cutting HTTP concerns, top-level router mounting
-- `src/modules/<module>/api/`: module-owned request/response schemas and endpoint functions
-- `src/modules/<module>/application/`: use cases, orchestration, application DTOs
-- `src/modules/<module>/domain/`: business rules, prompts, strategies, domain services
-- `src/modules/<module>/infrastructure/`: module-specific persistence or integrations
-- `src/shared/ports/`: contracts for external services
-- `src/shared/adapters/`: concrete implementations of ports
-- `src/shared/infrastructure/`: DB, auth, monitoring, LLM clients, technical concerns
-- `src/shared/kernel/`: dependency injection, base abstractions, registries
+- `src/modules/chat/`: Chat session management, message history, SSE streaming responses, citation binding.
+- `src/modules/classification/`: Query intent classification (conversational, RAG, direct QA, drafting).
+- `src/modules/document/`: Document upload, parsing/extraction, chunking, status tracking, MinIO integration.
+- `src/modules/retrieval/`: Hybrid retrieval engine (Qdrant dense + BM25 keyword + RRF fusion + Reranking).
+- `src/modules/rag/`: LangGraph RAG orchestration, multi-agent workflows, state management, prompt templates.
+- `src/modules/evaluation/`: DeepEval test runners, evaluation datasets, metric generation.
+- `src/shared/`: Shared kernel, common domain models, port interfaces, infrastructure clients (DB, MinIO, Redis).
+- `src/server/`: FastAPI initialization, lifespan management, router mounting, CORS, global exception handlers.
 
-### Rules To Enforce
+### 4.3 Key Architectural Constraints
 
-- Do not put business logic in FastAPI endpoint functions.
-- Do not import concrete adapters into application/domain code when a port exists.
-- Do not query SQLAlchemy directly from application/domain code; use repositories or owned infrastructure boundaries.
-- Keep per-user isolation intact for documents, conversations, retrieval, and citations.
-- Register/wire concrete services centrally instead of constructing them throughout the codebase.
-- Avoid new global mutable state unless it matches an existing service singleton pattern.
+1. **No Business Logic in Endpoints**: FastAPI router functions must only handle HTTP validation, call application use cases, and return responses.
+2. **Ports & Adapters Isolation**: Application and domain code must depend only on port interfaces (`src/shared/ports/` or module-internal ports), never directly on concrete adapter implementations.
+3. **No Direct DB Queries in Use Cases**: Application services must access persistence exclusively through repository interfaces.
+4. **Strict Multi-Tenancy**: Every document, chunk, conversation, message, and retrieval query MUST be filtered by `user_id`. Never leak context across users.
+5. **Centralized Service Registration**: Wire dependencies in dependency injection containers or lifespan setup (`src/server/main.py`), not ad-hoc across modules.
+6. **No Global Mutable State**: Use FastAPI dependencies (`Depends`) and service instances managed via lifespan.
 
-## Module Map
+---
 
-- `chat`: chat use cases, handler selection, SSE streaming, conversation/message persistence
-- `classification`: query intent routing, keyword/cache/LLM strategies
-- `document`: upload, delete, download, chunk listing, background processing
-- `retrieval`: Qdrant dense retrieval, BM25, hybrid search, reranking service
-- `rag`: agentic/LangGraph RAG orchestration, state, agents, prompts
-- `evaluation`: DeepEval evaluation service, golden datasets, CLI runner
+## 5. Code Style & Language Guidelines
 
-## Runtime Behavior
+### 5.1 Python Standards (PEP 8 & Clean Code)
 
-### Backend Startup
+- **Python Version**: Python 3.12+.
+- **Formatting**: Max line length **100 characters** (enforced by Ruff). Use 4 spaces for indentation.
+- **Top-Level Imports Only**: All imports must be placed at the top level of the file. Group imports into 3 distinct blocks separated by a blank line:
+  1. Standard library (`import os`, `from typing import ...`)
+  2. Third-party packages (`from fastapi import ...`, `import torch`)
+  3. Internal application packages (`from src.modules.chat...`, `from src.shared...`)
+  - **No inline imports**: Never place `import` inside functions or methods.
+  - **No import fallbacks**: Avoid `try...except ImportError` fallback patterns. Declare all required dependencies in `pyproject.toml`.
+- **Type Annotations**:
+  - Full type hints are **mandatory** on all function arguments and return types.
+  - Use modern Python 3.12 union syntax: `str | None` instead of `Optional[str]`, `list[str]` instead of `List[str]`.
+- **Categorical Options**: Always use Python `enum.StrEnum` for finite categorical choices (e.g., document status, message roles, intent types) instead of arbitrary string literals.
+- **Docstrings (PEP 257)**: Use Google docstring style for public classes, methods, and functions.
+- **Error Handling**:
+  - Do not silently swallow exceptions (`except Exception: pass` is strictly forbidden).
+  - Log errors with contextual data using `loguru.logger` and raise domain/HTTP exceptions appropriately.
 
-`src/server/main.py` lifespan currently:
+### 5.2 TypeScript & Frontend Standards
 
-1. Initializes database connections.
-2. Checks the embedding API through `EmbeddingAPIAdapter().health_check()`.
-3. Initializes retrieval and ingestion tools.
-4. Creates an LLM client for reranking/hybrid search support.
-5. Initializes the reranking service and hybrid-search LLM client.
-6. Closes DB connections on shutdown.
+- **TypeScript Version**: TypeScript 5+ with strict mode enabled.
+- **Strict Typing Policy**:
+  - **Zero `any` tolerance**: Never use `any`. Use `unknown` combined with type guards, or define explicit generic types / interfaces.
+  - Exported functions, hooks, and React components must have explicit return types and typed props.
+- **Schema Validation**: Use **Zod** (`zod`) as the single source of truth for API schemas, form schemas, and runtime validation.
+- **Component Architecture**:
+  - Distinguish clearly between Next.js Server Components and Client Components (`"use client"`).
+  - Keep client components focused on interaction and UI state; delegate data mutations to hooks or API clients.
+  - Reuse shared UI components in `frontend/src/components/ui/` (Radix UI / Tailwind primitives) instead of building custom raw inputs/buttons.
+- **State Management**:
+  - Local component state: `useState`, `useReducer`.
+  - Global / Cross-component UI state: **Zustand** stores (`frontend/src/lib/stores/`).
+  - Server state & caching: **TanStack React Query** (`@tanstack/react-query`).
+- **Naming Conventions**:
+  - Components & Types: `PascalCase` (e.g., `ChatPanel.tsx`, `ChatMessageProps`).
+  - Hooks: `camelCase` with `use` prefix (e.g., `useStreamingChat.ts`).
+  - Utilities & Helpers: `camelCase` (e.g., `formatTimestamp.ts`).
+  - Directories: `kebab-case` or Next.js route conventions.
 
-If backend startup fails early, check database availability, embedding API availability, and required environment variables.
+---
 
-### Document Upload Flow
+## 6. Pre-Commit Verification (Zero-Error Policy)
 
-```text
-POST /api/v1/documents/upload
-  -> authenticate user
-  -> store original file in MinIO
-  -> create PostgreSQL document row
-  -> enqueue Celery task documents.process
-  -> worker extracts/cleans/chunks/embeds
-  -> upsert chunks into Qdrant
-  -> update BM25/index metadata and document status
-```
+Before committing any changes, the agent or developer **MUST** run and pass the following verification checks without any errors or unhandled warnings:
 
-Local upload processing requires Redis and a running Celery worker:
-
+### Backend Checks
 ```bash
-celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
-```
-
-### Chat Streaming Flow
-
-```text
-POST /api/v1/chat/stream
-  -> authenticate user
-  -> load/create conversation
-  -> classify query intent
-  -> select conversational/RAG/drafting handler
-  -> retrieve context when needed
-  -> stream SSE events
-  -> persist user and assistant messages
-```
-
-The frontend expects structured SSE event shapes. Be careful when changing event types or payload fields.
-
-## Configuration Notes
-
-- `JWT_SECRET_KEY` is required by Pydantic settings.
-- `APP_ENV=production` rejects known default JWT secrets.
-- Backend dev port is `8006`.
-- Frontend dev port is `3001`.
-- Docker Compose exposes PostgreSQL on host port `5433`.
-- Qdrant vector dimension is `1024` by default and must match the embedding API output.
-- Static retrieval/reranking/citation/chunking defaults live in `src/config/settings.yaml`.
-- `.env` values override Pydantic runtime settings in `src/config/config.py`.
-
-## Development Commands
-
-### Infrastructure
-
-```bash
-docker compose up -d
-docker compose ps
-docker compose logs -f
-docker compose down
-```
-
-### Backend
-
-```bash
-pip install -e ".[dev]"
-python -m src.server.main
-pytest tests/ -v
+# 1. Lint and style check
 ruff check src/ tests/
-ruff format src/ tests/
+
+# 2. Format check
+ruff format --check src/ tests/
+
+# 3. Static type check
 mypy src/
+
+# 4. Unit & regression tests
+pytest tests/ -v
 ```
 
-### Worker
-
+### Frontend Checks
 ```bash
-celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
-```
-
-### Frontend
-
-```bash
+# From the frontend/ directory:
 cd frontend
-npm install --legacy-peer-deps
-npm run dev
+
+# 1. ESLint check
 npm run lint
-npm run build
+
+# 2. TypeScript compilation check
+npx tsc --noEmit
+
+# 3. Component and unit tests
 npm test
 ```
 
-### Makefile
+> **IMPORTANT**: Committing code with failed linting, broken type checks, or failing tests is strictly prohibited.
 
-```bash
-make help
-make infra
-make dev-backend
-make dev-worker
-make dev-frontend
-make test-backend
-make test-frontend
-make lint
-make format
+---
+
+## 7. Git & Commit Workflow
+
+### 7.1 Conventional Commits v1.0.0
+All commit messages must follow the Conventional Commits specification:
+
+```text
+<type>(<scope>): <short imperative description>
+
+[optional body]
+
+[optional footer(s)]
 ```
 
-`make dev`, `make dev-backend`, and `make dev-worker` assume `.venv/bin/activate` exists.
+- **Types**: `feat`, `fix`, `refactor`, `perf`, `test`, `chore`, `docs`, `style`.
+- **Approved Scopes**:
+  - `chat`: Chat APIs, streaming handlers, message persistence.
+  - `retrieval`: Qdrant vector search, BM25, hybrid fusion, reranking.
+  - `document`: Ingestion, extraction, chunking, MinIO storage.
+  - `classification`: Query classification, intent routing.
+  - `rag`: LangGraph agent workflows, prompt engineering.
+  - `eval`: DeepEval evaluation pipelines and datasets.
+  - `auth`: JWT authentication, permissions, user management.
+  - `frontend` or `ui`: Next.js pages, React components, Tailwind styling, Zustand stores.
+  - `infra`: Docker Compose, PostgreSQL, Qdrant, MinIO, Redis configurations.
+  - `deps`: Dependency updates.
 
-## Testing Guidance
+### 7.2 Safety & Secret Prevention
+- **Never commit credentials**: Never stage `.env`, private keys, API tokens, passwords, or production secrets.
+- **Never commit generated artifacts**: Ignore `__pycache__`, `.pytest_cache`, `.ruff_cache`, `.next`, `dist`, `coverage`.
 
-Use focused tests for narrow behavior and broader checks for shared contracts.
+---
 
-- Document pipeline: `tests/test_document_clean_chunk.py`, `tests/test_document_extractor_quality.py`
-- Retrieval/reranking: `tests/test_retrieval_agent_reranking.py`
-- Database checks: `test_db.py`
-- Qdrant checks: `test_qdrant.py`
-- Evaluation scripts: `scripts/validate_eval_dataset.py`, `scripts/evaluate_extraction_quality.py`
+## 8. Runtime & Operational Procedures
 
-Run broader tests when touching:
+### 8.1 Key Service Ports
 
-- authentication
-- database models/session behavior
-- document processing
-- retrieval contracts
-- SSE streaming shapes
-- shared ports/adapters
-- frontend API client contracts
+- Backend API: `http://localhost:8006`
+- Frontend Web: `http://localhost:3001`
+- PostgreSQL: `localhost:5433` (Docker Compose mapping)
+- Qdrant Vector DB: `localhost:6333`
+- MinIO S3 API: `localhost:9000` (Console on `9001`)
+- Redis: `localhost:6379`
 
-## Code Standards
+### 8.2 Common Development Commands
 
-### Python
+```bash
+# Start all infrastructure services
+make infra
 
-- Use Python 3.12 syntax.
-- Follow Ruff settings in `pyproject.toml`.
-- Use absolute imports from `src...`.
-- Add type hints for public functions and methods.
-- Keep async behavior consistent for DB, HTTP, and streaming paths.
-- Keep line length near 100 characters where practical.
-- Do not silently swallow exceptions; log useful context and preserve safe API errors.
+# Start backend server
+make dev-backend
+# Or: python -m src.server.main
 
-### Frontend
+# Start Celery worker for document processing
+make dev-worker
+# Or: celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
 
-- Keep TypeScript typed at component, hook, and API boundaries.
-- Reuse `frontend/src/components/ui/` and existing stores/hooks before adding new patterns.
-- Keep app screens operational and direct; this is not a marketing site.
-- Keep user-facing text consistent with the current Vietnamese/English locale structure.
-- Preserve current SSE streaming compatibility unless updating frontend and backend together.
+# Start frontend application
+make dev-frontend
+# Or: cd frontend && npm run dev
 
-### Documentation
+# Run comprehensive test suites
+make test-backend
+make test-frontend
+```
 
-- Update `README.md` for setup, architecture, API, or product-facing workflow changes.
-- Update `AGENTS.md` for assistant/developer guidance, entry points, boundaries, or command changes.
-- Use `docs/` for deeper technical documentation.
-- Put README screenshots in `docs/assets/` and reference stable relative paths.
+### 8.3 Core Data Flows
 
-## Safety Notes For AI Agents
+1. **Document Ingestion**:
+   `POST /api/v1/documents/upload` $\rightarrow$ Authenticate user $\rightarrow$ Store original file in MinIO $\rightarrow$ Insert DB record (`status=pending`) $\rightarrow$ Enqueue Celery task `documents.process` $\rightarrow$ Extract text/tables $\rightarrow$ Clean & chunk $\rightarrow$ Generate embeddings $\rightarrow$ Upsert to Qdrant $\rightarrow$ Build BM25 index $\rightarrow$ Update DB record (`status=completed`).
 
-- Check `git status --short` before editing.
-- Do not revert unrelated user changes.
-- Use `rg` or `rg --files` for search.
-- Use `apply_patch` for manual file edits.
-- Do not run destructive commands such as `git reset --hard`, `git checkout --`, or broad deletes unless explicitly requested.
-- Be careful with `make db-reset`; it deletes local database volumes after confirmation.
-- Do not add dependencies unless the existing stack cannot reasonably solve the task.
-- If a command fails because infrastructure is unavailable, state the missing service instead of hiding the requirement.
+2. **SSE Streaming Chat**:
+   `POST /api/v1/chat/stream` $\rightarrow$ Authenticate $\rightarrow$ Load conversation $\rightarrow$ Classify query intent $\rightarrow$ Retrieve relevant chunks (dense + sparse + rerank) $\rightarrow$ Stream SSE tokens/citations to frontend $\rightarrow$ Save user & assistant messages to PostgreSQL.
 
-## Common Pitfalls
+---
 
-- Use `src/server/main.py` as the ASGI/FastAPI entry point.
-- Chat and document endpoints live under module API folders, not only under `src/server/api/v1/`.
-- Frontend uses port `3001`, while CORS may still include `3000` for compatibility.
-- Upload succeeds only when Redis and Celery can enqueue/process the task.
-- Embedding API health is checked during backend startup.
-- Qdrant collection/vector dimension must match configured embeddings.
-- Keep retrieval and document queries scoped by `user_id`.
-- Evaluation uses DeepEval naming in current code and docs; do not introduce a separate RAGAS-only path without checking implementation.
+## 9. Common Pitfalls & Safety Rules
+
+1. **Embedding Dimension Match**: Qdrant vector dimension is `1024` by default. It MUST match the external embedding model dimensions.
+2. **Celery Worker Requirement**: File uploads will remain stuck in `pending` if Redis or the Celery worker is not running.
+3. **Startup Health Check**: The backend lifespan verifies the Embedding API health on boot. If the embedding service is down, backend startup will fail.
+4. **SSE Contract Integrity**: The frontend relies on exact SSE event structures (`token`, `citation`, `error`, `done`). Do not alter SSE message payloads without updating `frontend/src/lib/hooks/use-streaming-chat.ts`.
+5. **No Destructive Operations**: Never run `git reset --hard`, `git checkout --`, or `make db-reset` without explicit user confirmation.
