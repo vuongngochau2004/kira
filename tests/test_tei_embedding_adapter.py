@@ -1,12 +1,13 @@
 """Unit tests for TEIEmbeddingAdapter (DUT AI BAAI/bge-m3)."""
 
-import pytest
-import httpx
 from unittest.mock import AsyncMock, patch
 
-from src.shared.adapters.embedding.tei_adapter import TEIEmbeddingAdapter
-from src.shared.adapters.embedding.factory import create_embedding_adapter
+import httpx
+import pytest
+
 from src.config.config import EmbeddingProvider, settings
+from src.shared.adapters.embedding.factory import create_embedding_adapter
+from src.shared.adapters.embedding.tei_adapter import TEIEmbeddingAdapter
 
 
 @pytest.fixture

@@ -1,16 +1,17 @@
 """Unit tests for TEI Cross-Encoder Reranker."""
 
-import pytest
-import httpx
 from unittest.mock import AsyncMock, patch
 
+import httpx
+import pytest
+
+from src.config.config import settings
+from src.modules.retrieval.domain.services.hybrid_search import hybrid_search
 from src.modules.retrieval.domain.services.reranking.tei_reranker import (
     extract_document_text,
     health_check_tei_reranker,
     rerank_documents_with_tei,
 )
-from src.modules.retrieval.domain.services.hybrid_search import hybrid_search
-from src.config.config import settings
 
 
 def test_extract_document_text():

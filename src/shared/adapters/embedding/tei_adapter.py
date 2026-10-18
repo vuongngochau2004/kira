@@ -5,7 +5,6 @@ Supports both TEI native (/embed) and OpenAI-compatible (/v1/embeddings) endpoin
 """
 
 import logging
-from typing import Any
 
 import httpx
 
