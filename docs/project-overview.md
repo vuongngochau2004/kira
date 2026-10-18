@@ -75,31 +75,48 @@ Development servers:
 
 ## Main Request Flows
 
-### Chat
+### Chat Flow
 
-```text
-Frontend message
-  -> POST /api/v1/chat/stream
-  -> JWT authentication
-  -> conversation load/create
-  -> query classification
-  -> conversational/RAG/drafting handler selection
-  -> retrieval and generation when needed
-  -> SSE response events
-  -> message persistence
+```mermaid
+---
+config:
+  theme: default
+---
+flowchart LR
+    Msg["1. User Message (Web UI)"] --> StreamAPI["2. POST /api/v1/chat/stream"]
+    StreamAPI --> Auth["3. JWT Auth Verification"]
+    Auth --> Conv["4. Load / Create Conversation"]
+    Conv --> Classify{"5. Query Classification"}
+    
+    Classify -->|Conversational| DirectLLM["6a. Direct LLM Stream"]
+    Classify -->|RAG / Legal| HybridSearch["6b. Hybrid Search (Dense + BM25)"]
+    
+    HybridSearch --> Rerank["7. TEI Cross-Encoder Rerank"]
+    Rerank --> LangGraph["8. LangGraph Synthesis"]
+    LangGraph --> SSE["9. Stream SSE Events (Tokens + Citations)"]
+    DirectLLM --> SSE
+    
+    SSE --> Persist[("10. Persist Messages in PostgreSQL")]
 ```
 
-### Document Upload
+### Document Upload Flow
 
-```text
-File upload
-  -> POST /api/v1/documents/upload
-  -> MinIO original-file storage
-  -> PostgreSQL document row
-  -> Celery task enqueue
-  -> extraction, cleaning, chunking, embedding
-  -> Qdrant upsert and search index update
-  -> document status update
+```mermaid
+---
+config:
+  theme: default
+---
+flowchart LR
+    Upload["1. File Upload (PDF/DOCX)"] --> DocAPI["2. POST /api/v1/documents/upload"]
+    DocAPI --> MinIO[("3. Store in MinIO S3")]
+    MinIO --> PGRecord[("4. Insert 'pending' in PostgreSQL")]
+    PGRecord --> Enqueue["5. Enqueue Celery Task (Redis)"]
+    
+    Enqueue --> Worker["6. Celery Worker (Docling/PyMuPDF)"]
+    Worker --> ChunkClean["7. Cleaning & Legal Chunking"]
+    ChunkClean --> Embed["8. TEI BGE-M3 (1024-dim)"]
+    Embed --> Index[("9. Upsert Qdrant & Update BM25")]
+    Index --> Complete[("10. Update 'completed' in PostgreSQL")]
 ```
 
 ## Important Configuration

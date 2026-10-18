@@ -8,13 +8,28 @@ bị ngắt khi Docling chưa khả dụng hoặc gặp file khó.
 
 Pipeline mới ưu tiên chất lượng text đầu vào cho RAG:
 
-```text
-PDF upload
--> Docling document conversion
--> nếu Docling thành công: dùng Markdown/text từ Docling
--> nếu Docling lỗi/chưa cài: render PDF page bằng PyMuPDF
--> OCR toàn bộ trang bằng PaddleOCR service hiện tại
--> chunk/embed/index như pipeline cũ
+```mermaid
+---
+config:
+  theme: default
+---
+flowchart TD
+    Upload["📥 PDF Upload"] --> TryDocling["1. Thử nghiệm Chuyển đổi bằng Docling"]
+    
+    TryDocling --> CheckDocling{"Docling thành công &<br/>Chất lượng đạt chuẩn?"}
+    
+    CheckDocling -->|Có| UseDocling["2a. Trích xuất Markdown Text & Bảng biểu từ Docling"]
+    CheckDocling -->|Lỗi / Chưa cài / Font lỗi| Fallback["2b. Fallback sang Native + OCR"]
+    
+    Fallback --> Render["Render toàn bộ trang PDF qua PyMuPDF (300 DPI)"]
+    Render --> RunPaddle["OCR toàn bộ trang bằng PaddleOCR Service"]
+    RunPaddle --> UseOCR["Tập hợp Text từ OCR"]
+    
+    UseDocling --> CleanChunk["3. Làm sạch, Chuẩn hoá & Phân đoạn (Chunking)"]
+    UseOCR --> CleanChunk
+    
+    CleanChunk --> Embedding["4. Tạo Vector Embedding (TEI / BGE-M3)"]
+    Embedding --> UpsertDB[("5. Upsert vào Qdrant & Cập nhật BM25")]
 ```
 
 Lý do cần thay đổi: nhiều PDF hành chính có native text layer bị encoding lỗi.
