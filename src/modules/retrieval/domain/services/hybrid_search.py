@@ -171,9 +171,7 @@ async def hybrid_search(
             )
             logger.debug("LLM reranking applied: %d final results", len(fused))
         else:
-            logger.debug(
-                "Reranking skipped (no LLM client and reranking_mode is not tei)"
-            )
+            logger.debug("Reranking skipped (no LLM client and reranking_mode is not tei)")
             fused = fused[:k]
     else:
         logger.debug("Reranking disabled")

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { apiErrorMessage, fetchAPI } from './simple-client'
+import { apiErrorMessage, conversationsAPI, fetchAPI } from './simple-client'
 
 function mockFetch(response: Response) {
   const fn = vi.fn(async () => response)
@@ -42,5 +42,25 @@ describe('apiErrorMessage', () => {
     expect(apiErrorMessage({ detail: 'Không tìm thấy' }, 'x')).toBe('Không tìm thấy')
     expect(apiErrorMessage({}, 'Mặc định')).toBe('Mặc định')
     expect(apiErrorMessage(null, 'Mặc định')).toBe('Mặc định')
+  })
+})
+
+describe('conversationsAPI.list', () => {
+  it('uses backend limit/offset and searches across all pages', async () => {
+    const fn = mockFetch(new Response(JSON.stringify({
+      total: 1,
+      limit: 20,
+      offset: 20,
+      conversations: [{ id: 'conversation-1', title: 'Hợp đồng' }],
+    }), { status: 200 }))
+
+    const result = await conversationsAPI.list(2, 20, 'hợp đồng')
+
+    expect(result).toMatchObject({ total: 1, page: 2, page_size: 20 })
+    expect(result.items).toHaveLength(1)
+    const requestUrl = new URL(String((fn.mock.calls[0] as unknown[])[0]), 'http://localhost')
+    expect(requestUrl.searchParams.get('limit')).toBe('20')
+    expect(requestUrl.searchParams.get('offset')).toBe('20')
+    expect(requestUrl.searchParams.get('search')).toBe('hợp đồng')
   })
 })

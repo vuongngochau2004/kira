@@ -157,8 +157,12 @@ async def extract_content(
     else:
         method_name = "normal (text-based)"
 
-    print(f"[Extractor] Starting {method_name} extraction for file: {file_path} (format: {file_type})")
-    logger.info("Starting %s extraction for file: %s (format: %s)", method_name, file_path, file_type)
+    print(
+        f"[Extractor] Starting {method_name} extraction for file: {file_path} (format: {file_type})"
+    )
+    logger.info(
+        "Starting %s extraction for file: %s (format: %s)", method_name, file_path, file_type
+    )
 
     try:
         if file_type == "pdf":

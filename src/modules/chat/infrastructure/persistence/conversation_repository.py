@@ -7,6 +7,8 @@ from uuid import UUID
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.shared.infrastructure.persistence.database.models import Conversation, Message
+
 
 async def create_conversation(
     user_id: UUID,
@@ -14,8 +16,6 @@ async def create_conversation(
     db: AsyncSession,
 ) -> Any:
     """Create a new conversation."""
-    from src.shared.infrastructure.persistence.database.models import Conversation
-
     conv = Conversation(
         user_id=user_id,
         title=title,
@@ -37,8 +37,6 @@ async def create_message(
     metadata: dict | None = None,
 ) -> Any:
     """Create a message and update conversation counters."""
-    from src.shared.infrastructure.persistence.database.models import Conversation, Message
-
     validated_metadata = {}
     if metadata and isinstance(metadata, dict):
         allowed_keys = {
@@ -90,8 +88,6 @@ async def get_conversation_messages(
     db: AsyncSession,
 ) -> list[Any]:
     """Get all messages in a conversation."""
-    from src.shared.infrastructure.persistence.database.models import Message
-
     result = await db.execute(
         select(Message)
         .where(Message.conversation_id == conversation_id)
@@ -105,27 +101,22 @@ async def list_conversations(
     db: AsyncSession,
     limit: int = 50,
     offset: int = 0,
-) -> tuple[list[Any], int]:
+    search: str | None = None,
+) -> tuple[list[Conversation], int]:
     """List conversations owned by a user."""
-    from src.shared.infrastructure.persistence.database.models import Conversation
+    filters = [Conversation.user_id == user_id, Conversation.deleted_at.is_(None)]
+    if search:
+        escaped = search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        if escaped:
+            filters.append(Conversation.title.ilike(f"%{escaped}%", escape="\\"))
 
-    count_query = (
-        select(func.count())
-        .select_from(Conversation)
-        .where(
-            Conversation.user_id == user_id,
-            Conversation.deleted_at.is_(None),
-        )
-    )
+    count_query = select(func.count()).select_from(Conversation).where(*filters)
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()
 
     result = await db.execute(
         select(Conversation)
-        .where(
-            Conversation.user_id == user_id,
-            Conversation.deleted_at.is_(None),
-        )
+        .where(*filters)
         .order_by(
             Conversation.last_message_at.desc().nulls_last(),
             Conversation.created_at.desc(),
@@ -142,8 +133,6 @@ async def get_conversation(
     db: AsyncSession,
 ) -> Any | None:
     """Get a user-owned conversation by ID."""
-    from src.shared.infrastructure.persistence.database.models import Conversation
-
     result = await db.execute(
         select(Conversation).where(
             Conversation.id == conversation_id,

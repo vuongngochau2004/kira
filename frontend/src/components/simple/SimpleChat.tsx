@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
-import { Check, Copy, Download, FileText, Paperclip, Pencil, Send, Square, X } from 'lucide-react'
+import { Check, Copy, Download, FileText, Pencil, Send, Square, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { SourceCitation } from '@/components/streaming/SourceCitation'
@@ -19,6 +19,7 @@ import type { Attachment } from '@/lib/streaming'
 
 
 export interface SourceChunk {
+  [key: string]: unknown
   id: string
   chunk_id?: string
   content: string
@@ -372,7 +373,6 @@ export function SimpleChat({
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   // NEW: Merge optimistic messages with real messages for display
@@ -604,13 +604,6 @@ export function SimpleChat({
     }
   }, [handleSubmit])
 
-  /**
-   * Handle file attachment
-   */
-  const handleFileAttach = useCallback(() => {
-    fileInputRef.current?.click()
-  }, [])
-
   const handleCopyMessage = useCallback(async (message: Message) => {
     try {
       await navigator.clipboard.writeText(message.content || '')
@@ -662,7 +655,7 @@ export function SimpleChat({
   return (
     <div className={cn('flex flex-col h-full bg-background min-h-0', className)}>
       {/* Messages Area */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto min-h-0 scroll-smooth">
+      <div ref={messagesContainerRef} role="log" aria-label="Tin nhắn" aria-live="polite" className="flex-1 overflow-y-auto min-h-0 scroll-smooth">
         <div className="max-w-3xl mx-auto px-4 py-6">
           {welcomeVisible ? (
             <div
@@ -702,7 +695,7 @@ export function SimpleChat({
       {/* Error Banner */}
       {error && (
         <div className="max-w-3xl mx-auto px-4 pb-2">
-          <div className="bg-destructive/10 text-destructive text-sm px-4 py-3 rounded-xl flex items-center justify-between">
+          <div role="alert" className="bg-destructive/10 text-destructive text-sm px-4 py-3 rounded-xl flex items-center justify-between">
             <span>{error}</span>
             <div className="flex gap-2">
               {isRetryable && retryMessage && (
@@ -735,27 +728,6 @@ export function SimpleChat({
                 'focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40'
               )}
             >
-              {/* Attach Button - Integrated into capsule */}
-              <button
-                type="button"
-                onClick={handleFileAttach}
-                className={cn(
-                  'shrink-0 h-10 w-10 rounded-xl flex items-center justify-center',
-                  'text-muted-foreground transition-all duration-150',
-                  'hover:bg-primary/10 hover:text-primary hover:scale-105',
-                  'active:scale-95'
-                )}
-                title="Đính kèm tài liệu"
-              >
-                <Paperclip className="w-5 h-5" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.tiff"
-              />
-
               {/* Text Input - Clean, minimal */}
               <div className="flex-1 relative">
                 <textarea
@@ -764,6 +736,7 @@ export function SimpleChat({
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Hỏi tôi bất cứ điều gì..."
+                  aria-label="Nhập tin nhắn"
                   rows={1}
                   className={cn(
                     'w-full resize-none bg-transparent border-0',

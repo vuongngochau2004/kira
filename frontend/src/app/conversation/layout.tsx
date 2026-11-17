@@ -18,7 +18,6 @@ export default function ConversationLayout({
   children: React.ReactNode
 }) {
   const { isOpen: sourcePanelOpen, toggleOpen } = useSourcesStore()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sourcePanelWidth, setSourcePanelWidth] = useState(DEFAULT_SOURCE_PANEL_WIDTH)
   const [isResizingSourcePanel, setIsResizingSourcePanel] = useState(false)
 
@@ -27,29 +26,13 @@ export default function ConversationLayout({
       {/* Collapsible Sidebar - hidden on mobile initially */}
       <CollapsibleSidebar />
 
-      {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          <div className="fixed inset-y-0 left-0 w-[280px] bg-background border-r z-50 md:hidden flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="font-semibold">Menu</h2>
-              <button onClick={() => setMobileMenuOpen(false)}>✕</button>
-            </div>
-          </div>
-        </>
-      )}
-
       {/* Main content */}
       <main className="flex-1 overflow-hidden min-w-0 min-h-0 flex flex-col">
         <div className="flex-1 overflow-hidden min-h-0 pb-16 md:pb-0">
           {children}
         </div>
         {/* Mobile Navigation */}
-        <MobileNav onMenuClick={() => setMobileMenuOpen(true)} />
+        <MobileNav />
       </main>
 
       {/* Source Panel - Desktop only */}

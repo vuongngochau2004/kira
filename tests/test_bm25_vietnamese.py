@@ -1,4 +1,3 @@
-
 from src.modules.retrieval.domain.services.bm25_index import BM25Index, _tokenize
 
 

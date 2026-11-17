@@ -77,7 +77,6 @@ class RAGHandler(QueryHandlerBase):
         }
 
         final_state: dict[str, Any] | None = None
-        emitted_content = False
         try:
             async for event in self.rag_service.run_stream(
                 query=query,
@@ -86,23 +85,21 @@ class RAGHandler(QueryHandlerBase):
             ):
                 mode = event.get("mode")
                 chunk = event.get("chunk")
-                if mode == "messages":
-                    text = self._message_text(chunk)
-                    if text:
-                        emitted_content = True
-                        yield {"type": "content", "data": {"text": text}}
-                elif mode == "updates" and isinstance(chunk, dict):
+                if mode == "updates" and isinstance(chunk, dict):
                     for stage, state in chunk.items():
                         if not isinstance(state, dict):
                             continue
                         final_state = state
                         yield self._status_event(stage, state)
                 elif mode == "error":
-                    yield {"type": "error", "data": {"error": str(chunk)}}
+                    logger.error("RAG stream emitted error: {}", chunk)
+                    yield {"type": "error", "data": {"error": "RAG stream failed"}}
+                    yield {"type": "done"}
+                    return
 
             if final_state is not None:
                 result = await self.rag_service.finalize(query=query, state=final_state)
-                if result.content and not emitted_content:
+                if result.content:
                     yield {"type": "content", "data": {"text": result.content}}
                 yield {
                     "type": "metadata",
@@ -113,30 +110,15 @@ class RAGHandler(QueryHandlerBase):
                     },
                 }
             yield {"type": "done"}
-        except Exception as exc:
+        except Exception:
             logger.exception("RAG streaming failed")
-            yield {"type": "error", "data": {"error": str(exc)}}
+            yield {"type": "error", "data": {"error": "RAG stream failed"}}
             yield {"type": "done"}
 
     @staticmethod
     def _validate_intent(classification: ClassificationResult) -> None:
         if classification.intent != Intent.RAG:
             raise ValueError(f"RAGHandler cannot handle intent: {classification.intent}")
-
-    @staticmethod
-    def _message_text(chunk: Any) -> str:
-        if isinstance(chunk, tuple):
-            chunk = chunk[0]
-        content = getattr(chunk, "content", chunk)
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            return "".join(
-                item if isinstance(item, str) else item.get("text", "")
-                for item in content
-                if isinstance(item, (str, dict))
-            )
-        return ""
 
     @staticmethod
     def _status_event(stage: str, state: dict[str, Any]) -> dict[str, Any]:

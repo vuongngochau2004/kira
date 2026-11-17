@@ -13,6 +13,7 @@ from src.server.api.v1.auth.schemas import (
 )
 from src.shared.infrastructure.auth.dependencies import get_current_user
 from src.shared.infrastructure.auth.jwt_cookie import clear_auth_cookies, set_auth_cookies
+from src.shared.infrastructure.auth.rate_limit import limit_ip_requests
 from src.shared.infrastructure.auth.security import (
     create_token_pair,
     decode_token,
@@ -21,6 +22,7 @@ from src.shared.infrastructure.persistence.database.models import User
 from src.shared.infrastructure.persistence.database.session import get_session
 
 router = APIRouter()
+limit_auth_request = limit_ip_requests("auth", maximum=10, window_seconds=60)
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -28,6 +30,7 @@ async def register(
     data: UserRegisterRequest,
     response: Response,
     db: AsyncSession = Depends(get_session),
+    _: None = Depends(limit_auth_request),
 ):
     """Register a new user account."""
     try:
@@ -62,6 +65,7 @@ async def login(
     data: UserLoginRequest,
     response: Response,
     db: AsyncSession = Depends(get_session),
+    _: None = Depends(limit_auth_request),
 ):
     """Login with email and password."""
     user = await identity_service(db).authenticate(email=data.email, password=data.password)

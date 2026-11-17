@@ -161,4 +161,3 @@ __all__ = [
     "rerank_documents_with_tei",
     "health_check_tei_reranker",
 ]
-

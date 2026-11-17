@@ -67,6 +67,7 @@ async def test_hybrid_search_uses_candidate_pool_before_llm_reranking(monkeypatc
 @pytest.mark.asyncio
 async def test_hybrid_search_keeps_final_k_when_reranking_has_no_llm(monkeypatch):
     monkeypatch.setattr(settings, "reranking_mode", "llm")
+
     def dense_search_fn(query_embedding, user_id=None, k=5):
         return [
             {

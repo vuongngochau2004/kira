@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { usePostLoginRedirect } from '@/lib/hooks/use-post-login-redirect'
-import { Mail, Lock, Github, Chrome } from 'lucide-react'
+import { Mail, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { KiraLogoIcon } from '@/components/common/KiraLogo'
@@ -28,16 +28,6 @@ export function LoginForm() {
     }
   }
 
-  const handleGoogleLogin = () => {
-    // TODO: Implement Google OAuth
-    window.location.href = `${window.location.origin}/api/v1/auth/google`
-  }
-
-  const handleGithubLogin = () => {
-    // TODO: Implement GitHub OAuth
-    window.location.href = `${window.location.origin}/api/v1/auth/github`
-  }
-
   return (
     <div className="w-full max-w-md mx-auto">
       {/* Header */}
@@ -54,17 +44,18 @@ export function LoginForm() {
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-destructive/10 text-destructive text-sm px-4 py-3 rounded-xl">
+          <div role="alert" className="bg-destructive/10 text-destructive text-sm px-4 py-3 rounded-xl">
             {error}
           </div>
         )}
 
         {/* Email */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Email</label>
+          <label htmlFor="login-email" className="text-sm font-medium">Email</label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
+              id="login-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -83,17 +74,12 @@ export function LoginForm() {
         {/* Password */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">Mật khẩu</label>
-            <button
-              type="button"
-              className="text-xs text-primary hover:underline"
-            >
-              Quên mật khẩu?
-            </button>
+            <label htmlFor="login-password" className="text-sm font-medium">Mật khẩu</label>
           </div>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
+              id="login-password"
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -109,6 +95,7 @@ export function LoginForm() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               {showPassword ? (
@@ -134,43 +121,6 @@ export function LoginForm() {
           {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </Button>
       </form>
-
-      {/* Divider */}
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">Hoặc</span>
-        </div>
-      </div>
-
-      {/* Social Login */}
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          className={cn(
-            'w-full h-11 rounded-xl border border-input flex items-center justify-center gap-3',
-            'hover:bg-muted/50 transition-colors'
-          )}
-        >
-          <Chrome className="w-5 h-5" />
-          <span className="text-sm font-medium">Đăng nhập với Google</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleGithubLogin}
-          className={cn(
-            'w-full h-11 rounded-xl border border-input flex items-center justify-center gap-3',
-            'hover:bg-muted/50 transition-colors'
-          )}
-        >
-          <Github className="w-5 h-5" />
-          <span className="text-sm font-medium">Đăng nhập với GitHub</span>
-        </button>
-      </div>
 
       {/* Footer */}
       <p className="text-center text-sm text-muted-foreground mt-6">

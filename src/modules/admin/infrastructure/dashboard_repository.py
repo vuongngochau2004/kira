@@ -219,7 +219,8 @@ class SqlAlchemyAdminDashboardRepository:
                 [
                     SqlAlchemyAdminDashboardRepository._quality_score(message.meta_data or {})
                     for message in messages
-                ], strict=False,
+                ],
+                strict=False,
             )
         )
         return {

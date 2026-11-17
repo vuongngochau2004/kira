@@ -1,15 +1,11 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
-import { MessageSquare, Search, Upload, Menu, ShieldCheck } from 'lucide-react'
+import { MessageSquare, Search, Upload, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth-store'
 
-interface MobileNavProps {
-  onMenuClick?: () => void
-}
-
-export function MobileNav({ onMenuClick }: MobileNavProps) {
+export function MobileNav(): React.JSX.Element {
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuthStore()
@@ -46,14 +42,6 @@ export function MobileNav({ onMenuClick }: MobileNavProps) {
           )
         })}
 
-        {/* Menu Button */}
-        <button
-          onClick={onMenuClick}
-          className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-muted-foreground transition-colors"
-        >
-          <Menu className="w-5 h-5" />
-          <span className="text-xs">Menu</span>
-        </button>
       </div>
     </nav>
   )

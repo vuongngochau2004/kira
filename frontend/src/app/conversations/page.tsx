@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useConversationStore } from '@/lib/stores/conversation-store'
@@ -17,12 +17,20 @@ export default function ConversationsPage() {
   const { activeConversationId, setActiveConversation } = useConversationStore()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false)
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['conversations'],
-    queryFn: () => conversationsAPI.list(1, 100),
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [searchQuery])
+
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['conversations', page, debouncedSearch],
+    queryFn: () => conversationsAPI.list(page, 20, debouncedSearch),
     enabled: true, // AuthGuard ensures auth before render
   })
 
@@ -39,7 +47,7 @@ export default function ConversationsPage() {
       }
       setDeleteId(null)
       setSelectedIds(new Set())
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] })
     },
   })
 
@@ -50,7 +58,8 @@ export default function ConversationsPage() {
         setActiveConversation(null)
       }
       setSelectedIds(new Set())
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      setIsBulkConfirmOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] })
     },
   })
 
@@ -64,6 +73,11 @@ export default function ConversationsPage() {
     if (selectedIds.size > 0) {
       bulkDeleteMutation.mutate(Array.from(selectedIds))
     }
+  }
+
+  const changePage = (nextPage: number): void => {
+    setSelectedIds(new Set())
+    setPage(nextPage)
   }
 
   const toggleSelect = (id: string) => {
@@ -84,10 +98,7 @@ export default function ConversationsPage() {
     }
   }
 
-  const filteredConversations = data?.items?.filter(conv => {
-    const title = conv.title || 'Cuộc trò chuyện mới'
-    return title.toLowerCase().includes(searchQuery.toLowerCase())
-  }) || []
+  const filteredConversations = data?.items || []
 
   return (
     <AuthGuard>
@@ -121,8 +132,13 @@ export default function ConversationsPage() {
               <input
                 type="text"
                 placeholder="Tìm kiếm cuộc trò chuyện..."
+                aria-label="Tìm kiếm cuộc trò chuyện"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setSelectedIds(new Set())
+                  setPage(1)
+                }}
                 className="flex-1 max-w-md px-4 py-2 text-sm rounded-lg border border-input bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
 
@@ -135,7 +151,7 @@ export default function ConversationsPage() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={handleBulkDelete}
+                      onClick={() => setIsBulkConfirmOpen(true)}
                       disabled={bulkDeleteMutation.isPending}
                     >
                       <Trash2 className="w-4 h-4 mr-1" />
@@ -160,6 +176,11 @@ export default function ConversationsPage() {
                     <p className="text-sm text-muted-foreground">Đang tải...</p>
                   </div>
                 </div>
+              ) : isError ? (
+                <div role="alert" className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                  <p>Không thể tải cuộc trò chuyện. Vui lòng thử lại.</p>
+                  <Button variant="outline" onClick={() => void refetch()}>Thử lại</Button>
+                </div>
               ) : filteredConversations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center p-6">
                   <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -183,6 +204,7 @@ export default function ConversationsPage() {
                   <div className="px-6 py-2 bg-muted/30 flex items-center gap-2">
                     <button
                       onClick={toggleSelectAll}
+                      aria-label={selectedIds.size === filteredConversations.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                       className="p-1 hover:bg-muted rounded transition-colors"
                     >
                       {selectedIds.size === filteredConversations.length ? (
@@ -206,6 +228,7 @@ export default function ConversationsPage() {
                     >
                       <button
                         onClick={() => toggleSelect(conversation.id)}
+                        aria-label={selectedIds.has(conversation.id) ? `Bỏ chọn ${conversation.title || 'cuộc trò chuyện'}` : `Chọn ${conversation.title || 'cuộc trò chuyện'}`}
                         className="p-1 hover:bg-muted rounded transition-colors shrink-0"
                       >
                         {selectedIds.has(conversation.id) ? (
@@ -237,6 +260,16 @@ export default function ConversationsPage() {
                 </div>
               )}
             </div>
+            {data && data.total > data.page_size && (
+              <div className="flex items-center justify-center gap-3 border-t p-3 text-sm">
+                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => changePage(page - 1)}>Trước</Button>
+                <span>Trang {page} / {Math.ceil(data.total / data.page_size)}</span>
+                <Button variant="outline" size="sm" disabled={page >= Math.ceil(data.total / data.page_size)} onClick={() => changePage(page + 1)}>Sau</Button>
+              </div>
+            )}
+            {(deleteMutation.isError || bulkDeleteMutation.isError) && (
+              <p role="alert" className="p-3 text-center text-sm text-destructive">Không thể xóa cuộc trò chuyện. Vui lòng thử lại.</p>
+            )}
           </div>
         </div>
 
@@ -245,6 +278,13 @@ export default function ConversationsPage() {
           onClose={() => setDeleteId(null)}
           onConfirm={handleDelete}
           isLoading={deleteMutation.isPending}
+        />
+        <DeleteConfirmDialog
+          isOpen={isBulkConfirmOpen}
+          onClose={() => setIsBulkConfirmOpen(false)}
+          onConfirm={handleBulkDelete}
+          isLoading={bulkDeleteMutation.isPending}
+          count={selectedIds.size}
         />
       </div>
     </AuthGuard>

@@ -686,12 +686,16 @@ class GenerationAgent:
             )
 
             # Update state
-            state["generated_response"] = response
-            if state.get("generation_metadata"):
-                state["generation_metadata"]["regenerated"] = True
-                state["generation_metadata"]["regeneration_feedback"] = feedback
-                state["generation_metadata"]["compressed_contexts"] = compressed_contexts
-                state["generation_metadata"]["context_size"] = len(context_str)
+            state["generated_response"] = response.strip()
+            state["final_response"] = state["generated_response"]
+            state["generation_metadata"].update(
+                {
+                    "regenerated": True,
+                    "regeneration_feedback": feedback,
+                    "compressed_contexts": compressed_contexts,
+                    "context_size": len(context_str),
+                }
+            )
 
             execution_time = (time.time() - start_time) * 1000
             result = create_agent_result(

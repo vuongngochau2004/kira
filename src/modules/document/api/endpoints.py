@@ -9,11 +9,11 @@ from fastapi import (
     Depends,
     File,
     HTTPException,
-    Request,
     UploadFile,
     status,
 )
 from fastapi.responses import StreamingResponse
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.constants import (
@@ -43,10 +43,30 @@ from src.modules.document.composition import (
     upload_document_service,
 )
 from src.shared.infrastructure.auth.dependencies import get_current_user
+from src.shared.infrastructure.auth.rate_limit import limit_user_requests
 from src.shared.infrastructure.persistence.database.models import User
 from src.shared.infrastructure.persistence.database.session import get_session
 
 router = APIRouter()
+MAX_UPLOAD_FILE_BYTES = 20 * 1024 * 1024
+MAX_UPLOAD_FILES = 10
+UPLOAD_READ_CHUNK_BYTES = 1024 * 1024
+limit_document_upload = limit_user_requests("document-upload", maximum=20, window_seconds=3600)
+
+
+async def _read_bounded_upload(file: UploadFile) -> bytes:
+    """Read an upload while enforcing the application file-size limit."""
+    chunks: list[bytes] = []
+    total_bytes = 0
+    while chunk := await file.read(UPLOAD_READ_CHUNK_BYTES):
+        total_bytes += len(chunk)
+        if total_bytes > MAX_UPLOAD_FILE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail="File exceeds the 20 MiB upload limit",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _enqueue_document_processing(
@@ -67,6 +87,7 @@ async def upload_document(
     files: list[UploadFile] | None = File(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
+    _: None = Depends(limit_document_upload),
 ) -> Any:
     """Upload one or more documents and start processing.
 
@@ -81,11 +102,11 @@ async def upload_document(
 
     # Process single file first if it's the only one provided (for backward compatibility)
     if file and not files:
-        content = await file.read()
-        file_ext = _get_file_extension(file.filename)
+        content = await _read_bounded_upload(file)
+        file_ext = _get_file_extension(file.filename or "")
         upload_result = await upload_document_service(db).execute(
             UploadDocumentRequest(
-                file_name=file.filename,
+                file_name=file.filename or "",
                 user_id=current_user.id,
                 file_type=file_ext,
                 file_content=content,
@@ -111,9 +132,12 @@ async def upload_document(
                 task_id=task_id,
             )
         except Exception as exc:
+            logger.exception(
+                "Failed to enqueue document processing for {}", upload_result.document_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Failed to enqueue document processing task: {exc}",
+                detail="Failed to enqueue document processing task",
             ) from exc
 
         serialized = _serialize_document(upload_result.document)
@@ -126,14 +150,19 @@ async def upload_document(
         all_files.append(file)
     if files:
         all_files.extend(files)
+    if len(all_files) > MAX_UPLOAD_FILES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Too many files; maximum is 10",
+        )
 
     results = []
     for f in all_files:
-        content = await f.read()
-        file_ext = _get_file_extension(f.filename)
+        content = await _read_bounded_upload(f)
+        file_ext = _get_file_extension(f.filename or "")
         upload_result = await upload_document_service(db).execute(
             UploadDocumentRequest(
-                file_name=f.filename,
+                file_name=f.filename or "",
                 user_id=current_user.id,
                 file_type=file_ext,
                 file_content=content,
@@ -159,9 +188,12 @@ async def upload_document(
                 task_id=task_id,
             )
         except Exception as exc:
+            logger.exception(
+                "Failed to enqueue document processing for {}", upload_result.document_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Failed to enqueue document processing task for {f.filename}: {exc}",
+                detail="Failed to enqueue document processing task",
             ) from exc
 
         serialized = _serialize_document(upload_result.document)
@@ -308,92 +340,6 @@ async def delete_user_document(
     return {"message": "Document deleted"}
 
 
-def _resolve_auth_token(
-    token_param: str | None,
-    request: Request,
-) -> str | None:
-    """Resolve authentication token from multiple sources.
-
-    Priority order:
-    1. Query parameter (token)
-    2. Cookie (access_token)
-    3. Authorization header (Bearer token)
-
-    Args:
-        token_param: Token from query parameter
-        request: FastAPI Request object
-
-    Returns:
-        Token string or None if not found
-    """
-    # 1. Check query parameter (explicit token param)
-    if token_param:
-        return token_param
-
-    # 2. Check cookie (primary strategy for frontend)
-    auth_token = request.cookies.get("access_token")
-    if auth_token:
-        return auth_token
-
-    # 3. Check Authorization header (fallback)
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        return auth_header.split(" ", 1)[1]
-
-    return None
-
-
-async def _authenticate_and_get_user(
-    auth_token: str,
-    db: AsyncSession,
-) -> User:
-    """Validate JWT token and fetch user from database.
-
-    Args:
-        auth_token: JWT token string
-        db: Database session
-
-    Returns:
-        User object
-
-    Raises:
-        HTTPException: If token is invalid or user not found
-    """
-    from sqlalchemy import select
-
-    from src.shared.infrastructure.auth.security import decode_token
-    from src.shared.infrastructure.persistence.database.models import User
-
-    try:
-        payload = decode_token(auth_token)
-        user_id = payload.get("sub")
-
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload",
-            )
-
-        result = await db.execute(
-            select(User).where(User.id == user_id).where(User.deleted_at.is_(None))
-        )
-        user = result.scalar_one_or_none()
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {e}",
-        ) from e
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
-
-    return user
-
-
 @router.post("/{document_id}/process")
 async def trigger_processing(
     document_id: str,
@@ -425,9 +371,10 @@ async def trigger_processing(
             task_id=task_id,
         )
     except Exception as exc:
+        logger.exception("Failed to enqueue document processing for {}", doc.id)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Failed to enqueue document processing task: {exc}",
+            detail="Failed to enqueue document processing task",
         ) from exc
 
     return {"message": "Processing triggered", "processing_task_id": task_id}
@@ -436,36 +383,17 @@ async def trigger_processing(
 @router.get("/{document_id}/download")
 async def download_document_file(
     document_id: str,
-    request: Request,
-    token: str | None = None,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ):
-    """Stream the raw file from MinIO with inline disposition header.
-
-    Supports multiple authentication methods:
-    - Query parameter: ?token=xxx
-    - Cookie: access_token=xxx
-    - Authorization header: Bearer xxx
-    """
-    # Step 1: Resolve authentication token from multiple sources
-    auth_token = _resolve_auth_token(token, request)
-
-    if not auth_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-        )
-
-    # Step 2: Validate token and get user
-    user = await _authenticate_and_get_user(auth_token, db)
-
+    """Stream an owned file using the shared access-token authentication dependency."""
     download_result = await DownloadDocument(
         repository=document_repository(db),
         storage=storage_adapter(),
     ).execute(
         DownloadDocumentRequest(
             document_id=uuid.UUID(document_id),
-            user_id=user.id,
+            user_id=current_user.id,
         )
     )
 

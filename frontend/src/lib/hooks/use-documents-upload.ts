@@ -141,6 +141,11 @@ export function useDocumentsUpload() {
   }, [mounted, documents, documentStarts, uploadDurations])
 
   const uploadDocument = useCallback(async (file: File): Promise<Document> => {
+    if (uploadControllers.current[file.name]) {
+      const duplicateError = new Error(`Tệp ${file.name} đang được tải lên. Vui lòng đợi hoàn tất.`)
+      setError(duplicateError.message)
+      throw duplicateError
+    }
     setError(null)
 
     // Add to uploading set & record active upload start time

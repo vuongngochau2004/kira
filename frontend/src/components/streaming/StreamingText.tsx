@@ -4,15 +4,7 @@ import { memo, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
-
-interface SourceChunk {
-  id: string
-  chunk_id?: string
-  content: string
-  score: number
-  document_id?: string
-  chunk_index?: number
-}
+import type { SourceChunk } from '@/lib/streaming'
 
 interface StreamingTextProps {
   content: string

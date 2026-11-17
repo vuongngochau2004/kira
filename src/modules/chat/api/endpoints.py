@@ -6,7 +6,7 @@ import logging
 import re
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +29,7 @@ from src.modules.chat.composition import (
     list_conversations,
 )
 from src.shared.infrastructure.auth.dependencies import get_current_user
+from src.shared.infrastructure.auth.rate_limit import limit_user_requests
 from src.shared.infrastructure.persistence.database.models import User
 from src.shared.infrastructure.persistence.database.query import soft_delete_conversation
 from src.shared.infrastructure.persistence.database.session import get_session
@@ -36,6 +37,9 @@ from src.shared.infrastructure.persistence.database.session import get_session
 router = APIRouter()
 logger = logging.getLogger(__name__)
 MAX_STREAM_TEXT_PART_CHARS = 48
+limit_chat_request = limit_user_requests("chat", maximum=60, window_seconds=60)
+
+
 def citation_contexts(citations: list[dict]) -> list[str]:
     """Evaluation contexts from citations; handlers put the excerpt in `content` or `text`."""
     contexts: list[str] = []
@@ -409,6 +413,7 @@ async def chat_completion(
     max_tokens: int = DEFAULT_MAX_TOKENS,  # Currently unused, reserved for future
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
+    _: None = Depends(limit_chat_request),
 ) -> dict:
     """Non-streaming chat completion."""
     conv_id = await _get_or_create_conversation_id(conversation_id, current_user.id, message, db)
@@ -645,9 +650,9 @@ async def _stream_generator(
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     done_sent = True
 
-    except Exception as e:
-        # Yield error
-        yield f"data: {json.dumps({'type': 'error', 'data': {'error': str(e)}})}\n\n"
+    except Exception:
+        logger.exception("Chat stream failed for user_id=%s", user_id)
+        yield f"data: {json.dumps({'type': 'error', 'data': {'error': 'Chat stream failed'}})}\n\n"
         if not done_sent:
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
@@ -658,6 +663,7 @@ async def chat_stream(
     conversation_id: str | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
+    _: None = Depends(limit_chat_request),
 ):
     """Streaming chat completion with SSE.
 
@@ -708,8 +714,9 @@ async def chat_stream(
 
 @router.get("/conversations")
 async def get_conversations_list(
-    limit: int = DEFAULT_CONVERSATION_LIMIT,
-    offset: int = DEFAULT_OFFSET,
+    limit: int = Query(default=DEFAULT_CONVERSATION_LIMIT, ge=1, le=100),
+    offset: int = Query(default=DEFAULT_OFFSET, ge=0),
+    search: str | None = Query(default=None, max_length=200),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ):
@@ -718,6 +725,7 @@ async def get_conversations_list(
         user_id=current_user.id,
         limit=limit,
         offset=offset,
+        search=search,
         db=db,
     )
 

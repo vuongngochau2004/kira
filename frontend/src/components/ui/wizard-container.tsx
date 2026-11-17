@@ -27,7 +27,13 @@ function StepIndicator({ currentStep, steps, onStepClick }: { currentStep: numbe
 
         return (
           <div key={step.number} className="flex items-center flex-1">
-            <div className={cn('flex items-center', isClickable && 'cursor-pointer')} onClick={isClickable ? () => onStepClick(step.number) : undefined}>
+            <button
+              type="button"
+              disabled={!isClickable}
+              aria-current={isCurrent ? 'step' : undefined}
+              className={cn('flex items-center text-left', isClickable && 'cursor-pointer')}
+              onClick={() => onStepClick?.(step.number)}
+            >
               <div className={cn('flex items-center justify-center w-8 h-8 rounded-full border-2 text-sm font-medium transition-colors', isCompleted ? 'bg-primary border-primary text-primary-foreground' : isCurrent ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground bg-card')}>
                 {isCompleted ? "✓" : step.number}
               </div>
@@ -35,7 +41,7 @@ function StepIndicator({ currentStep, steps, onStepClick }: { currentStep: numbe
                 <p className={cn('text-sm font-medium', isCurrent ? 'text-foreground' : 'text-muted-foreground')}>{step.title}</p>
                 <p className={cn('text-xs', isCurrent ? 'text-muted-foreground' : 'text-muted-foreground/80')}>{step.description}</p>
               </div>
-            </div>
+            </button>
             {index < steps.length - 1 && <div className={cn('flex-1 border-t-2 mx-4 transition-colors', isCompleted ? 'border-primary' : 'border-border/60')} />}
           </div>
         )

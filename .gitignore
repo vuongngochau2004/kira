@@ -71,7 +71,8 @@ Thumbs.db
 *.pid
 *.seed
 *.pid.lock
-.agents/
+.agents/*
+!.agents/skills/
 .claude/
 plans/
 scratch/

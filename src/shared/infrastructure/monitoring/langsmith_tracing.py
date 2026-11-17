@@ -280,20 +280,20 @@ class LangSmithTracer:
 
         latencies = [t["latency_ms"] for t in recent_traces if t["latency_ms"] > 0]
         if latencies:
-            performance.update({
-                "avg_latency_ms": sum(latencies) / len(latencies),
-                "p95_latency_ms": sorted(latencies)[int(len(latencies) * 0.95)]
-                if len(latencies) > 1
-                else latencies[0],
-                "p99_latency_ms": sorted(latencies)[int(len(latencies) * 0.99)]
-                if len(latencies) > 1
-                else latencies[0],
-            })
+            performance.update(
+                {
+                    "avg_latency_ms": sum(latencies) / len(latencies),
+                    "p95_latency_ms": sorted(latencies)[int(len(latencies) * 0.95)]
+                    if len(latencies) > 1
+                    else latencies[0],
+                    "p99_latency_ms": sorted(latencies)[int(len(latencies) * 0.99)]
+                    if len(latencies) > 1
+                    else latencies[0],
+                }
+            )
 
         errors = [t for t in recent_traces if not t["success"]]
-        performance["error_rate"] = (
-            len(errors) / len(recent_traces) if recent_traces else 0
-        )
+        performance["error_rate"] = len(errors) / len(recent_traces) if recent_traces else 0
 
         llm_traces = traces_by_type.get("llm_call", [])
         if llm_traces:
