@@ -145,4 +145,3 @@ class TEIEmbeddingAdapter(EmbeddingPort):
     def dimension(self) -> int:
         """Return embedding vector dimension."""
         return self._dimension
-

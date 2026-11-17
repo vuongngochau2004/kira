@@ -61,6 +61,21 @@ class RAGPipelineService:
             }
         )
 
+        if state.get("should_fallback"):
+            metadata.update(
+                {
+                    "rejection_detected": True,
+                    "rejection_reasoning": state.get("fallback_reason") or "rag_pipeline_fallback",
+                    "has_relevant_docs": False,
+                }
+            )
+            return RAGExecutionResult(
+                content="Không đủ căn cứ để trả lời đáng tin cậy. Vui lòng kiểm tra lại tài liệu nguồn.",
+                citations=[],
+                metadata=metadata,
+                rejected=True,
+            )
+
         if not citations:
             metadata.update(
                 {

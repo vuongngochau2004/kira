@@ -196,9 +196,7 @@ class RoutingMetricsCollector:
 
         if llm_rate > 0.5:
             analysis_detail["llm_classification"] = "HIGH - Problem validated"
-            recommendations.append(
-                "GO: LLM classification rate > 50% justifies optimization"
-            )
+            recommendations.append("GO: LLM classification rate > 50% justifies optimization")
         elif llm_rate < 0.3:
             analysis_detail["llm_classification"] = "LOW - Problem may be overstated"
             recommendations.append(
@@ -206,18 +204,14 @@ class RoutingMetricsCollector:
             )
         else:
             analysis_detail["llm_classification"] = "MEDIUM - Marginal case"
-            recommendations.append(
-                "EVALUATE: LLM classification rate 30-50%, assess other factors"
-            )
+            recommendations.append("EVALUATE: LLM classification rate 30-50%, assess other factors")
 
         avg_latency = metrics.avg_latency_ms.get(RoutingMethod.LLM_CLASSIFICATION.value, 0)
         analysis["avg_llm_latency_ms"] = avg_latency
 
         if avg_latency > 500:
             analysis_detail["latency"] = "HIGH - Performance concern"
-            recommendations.append(
-                "GO: Average LLM latency > 500ms indicates performance issue"
-            )
+            recommendations.append("GO: Average LLM latency > 500ms indicates performance issue")
         else:
             analysis_detail["latency"] = "ACCEPTABLE"
             recommendations.append("Latency within acceptable range")
@@ -232,9 +226,7 @@ class RoutingMetricsCollector:
             )
         elif quick_coverage > 0.5:
             analysis_detail["quick_filter"] = "HIGH - Already effective"
-            recommendations.append(
-                "NO-GO: Quick filter coverage > 50%, already performing well"
-            )
+            recommendations.append("NO-GO: Quick filter coverage > 50%, already performing well")
 
         go_votes = sum(1 for rec in analysis["recommendations"] if rec.startswith("GO"))
         no_go_votes = sum(1 for rec in analysis["recommendations"] if rec.startswith("NO-GO"))

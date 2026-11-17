@@ -83,7 +83,10 @@ const StaticContent = memo(({
   citations?: CitationSource[]
   onCitationClick?: (chunkId: string, citation: CitationSource) => void
 }) => {
-  const parts = parseContentWithCitations(content, citations, onCitationClick)
+  const parts = parseContentWithCitations(content, citations, (chunkId, citation) => {
+    const source = citations.find((item) => item.chunk_id === citation.chunk_id)
+    if (source) onCitationClick?.(chunkId, source)
+  })
 
   return (
     <div className="leading-relaxed text-[15px] md:text-base">

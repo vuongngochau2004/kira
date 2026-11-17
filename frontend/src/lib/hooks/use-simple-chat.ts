@@ -20,9 +20,22 @@ import {
   type StreamingState,
   type SourceChunk,
   type Attachment,
+  type RawCitationItem,
 } from '@/lib/streaming'
 import { toLegalAnswerInfo } from '@/lib/legal/format'
 import type { LegalAnswerInfo } from '@/lib/legal/types'
+
+function getStreamErrorMessage(data: unknown): string {
+  if (typeof data !== 'object' || data === null) return 'Server error occurred'
+  const payload = data as Record<string, unknown>
+  if (typeof payload.error === 'string') return payload.error
+  if (typeof payload.message === 'string') return payload.message
+  if (typeof payload.error === 'object' && payload.error !== null) {
+    const nested = payload.error as Record<string, unknown>
+    if (typeof nested.message === 'string') return nested.message
+  }
+  return 'Server error occurred'
+}
 
 // ==================== Types ====================
 
@@ -188,8 +201,9 @@ export function useSimpleChat() {
               content: msg.content || '',
               timestamp: new Date(msg.created_at),
               sources: ensureFlatSources(
-                (msg.sources as SourceChunk[]) || (metadata?.sources as SourceChunk[]) || undefined
-              ) as SourceChunk[] | undefined,
+                (msg.sources as RawCitationItem[] | undefined) ||
+                (metadata?.sources as RawCitationItem[] | undefined)
+              ),
               attachments: (metadata?.attachments as Attachment[]) || undefined,
               legal: toLegalAnswerInfo(metadata?.legal),
               streamingState: 'complete' as const,
@@ -255,7 +269,7 @@ export function useSimpleChat() {
               const { type, data: eventData } = chunk
 
               if (type === 'error') {
-                const errorMsg = eventData?.error || eventData?.message || 'Server error occurred'
+                const errorMsg = getStreamErrorMessage(eventData)
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMsgId
@@ -405,7 +419,7 @@ export function useSimpleChat() {
           const { type, data: eventData } = chunk
 
           if (type === 'error') {
-            const errorMsg = eventData?.error || eventData?.message || 'Server error occurred'
+            const errorMsg = getStreamErrorMessage(eventData)
             setError(errorMsg)
             setMessages((prev) =>
               prev.map((msg) =>

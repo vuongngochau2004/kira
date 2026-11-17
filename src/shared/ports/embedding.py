@@ -63,4 +63,3 @@ class EmbeddingPort(ABC):
             True if healthy, False otherwise
         """
         return True
-

@@ -29,7 +29,9 @@ def get_encoding(encoding_name: str = "cl100k_base") -> TextEncoding:
         return CharacterEncodingFallback()
 
 
-def count_tokens(text: str, encoding: TextEncoding | None = None, encoding_name: str = "cl100k_base") -> int:
+def count_tokens(
+    text: str, encoding: TextEncoding | None = None, encoding_name: str = "cl100k_base"
+) -> int:
     """Count tokens in text using tiktoken or fallback encoding."""
     if encoding is None:
         encoding = get_encoding(encoding_name)

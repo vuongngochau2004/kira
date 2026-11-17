@@ -21,4 +21,5 @@ export {
   type RoutingInfo,
   type RetrievalStage,
   type SourceChunk,
+  type RawCitationItem,
 } from './streaming-state-builder'

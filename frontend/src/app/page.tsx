@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAutoRedirect, usePostLoginRedirect } from '@/lib/hooks/use-post-login-redirect'
-import { Mail, Lock, User, Eye, EyeOff, Loader2, Github, Chrome } from 'lucide-react'
+import { Mail, Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { KiraLogoIcon } from '@/components/common/KiraLogo'
 import { ThemeToggleCompact } from '@/components/common/ThemeToggle'
 
@@ -20,7 +20,6 @@ export default function AuthLandingPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,14 +52,6 @@ export default function AuthLandingPage() {
     setMode(prev => prev === 'login' ? 'register' : 'login')
   }
 
-  const handleGoogleLogin = () => {
-    window.location.href = `${window.location.origin}/api/v1/auth/google`
-  }
-
-  const handleGithubLogin = () => {
-    window.location.href = `${window.location.origin}/api/v1/auth/github`
-  }
-
   return (
     <main className="min-h-screen flex flex-col md:flex-row bg-background text-foreground font-sans selection:bg-primary/30 overflow-x-hidden relative transition-colors duration-300">
       {/* Theme Toggle Button */}
@@ -91,7 +82,7 @@ export default function AuthLandingPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs sm:text-sm px-4 py-3 rounded-xl select-none">
+              <div role="alert" className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs sm:text-sm px-4 py-3 rounded-xl select-none">
                 {error}
               </div>
             )}
@@ -99,10 +90,11 @@ export default function AuthLandingPage() {
             {/* Full Name (Registration only) */}
             {mode === 'register' && (
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Họ và tên</label>
+                <label htmlFor="landing-name" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Họ và tên</label>
                 <div className="relative rounded-xl border border-border bg-muted/20 focus-within:border-ring transition-all focus-within:ring-2 focus-within:ring-primary/10">
                   <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
+                    id="landing-name"
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -116,10 +108,11 @@ export default function AuthLandingPage() {
 
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Email</label>
+              <label htmlFor="landing-email" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Email</label>
               <div className="relative rounded-xl border border-border bg-muted/20 focus-within:border-ring transition-all focus-within:ring-2 focus-within:ring-primary/10">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
+                  id="landing-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -132,20 +125,11 @@ export default function AuthLandingPage() {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Mật khẩu</label>
-                {mode === 'login' && (
-                  <button
-                    type="button"
-                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  >
-                    Quên mật khẩu?
-                  </button>
-                )}
-              </div>
+              <label htmlFor="landing-password" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Mật khẩu</label>
               <div className="relative rounded-xl border border-border bg-muted/20 focus-within:border-ring transition-all focus-within:ring-2 focus-within:ring-primary/10">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
+                  id="landing-password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -156,28 +140,13 @@ export default function AuthLandingPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
-
-            {/* Remember Me checkbox (Login only) */}
-            {mode === 'login' && (
-              <div className="flex items-center gap-2.5 py-1">
-                <input
-                  type="checkbox"
-                  id="rememberMe"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-border bg-muted/30 text-primary focus:ring-primary/30 focus:ring-offset-background cursor-pointer"
-                />
-                <label htmlFor="rememberMe" className="text-xs font-semibold text-muted-foreground select-none cursor-pointer">
-                  Duy trì đăng nhập
-                </label>
-              </div>
-            )}
 
             {/* Submit Button */}
             <button
@@ -195,37 +164,6 @@ export default function AuthLandingPage() {
               )}
             </button>
           </form>
-
-          {/* Social Divider */}
-          <div className="relative my-6 select-none">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-              <span className="bg-card px-3">Hoặc</span>
-            </div>
-          </div>
-
-          {/* Social Logins */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              className="flex items-center justify-center gap-2 py-3 border border-border bg-muted/10 hover:bg-muted/30 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground transition-all active:scale-[0.98] cursor-pointer"
-            >
-              <Chrome className="w-4 h-4" />
-              <span>Google</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleGithubLogin}
-              className="flex items-center justify-center gap-2 py-3 border border-border bg-muted/10 hover:bg-muted/30 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground transition-all active:scale-[0.98] cursor-pointer"
-            >
-              <Github className="w-4 h-4" />
-              <span>GitHub</span>
-            </button>
-          </div>
 
           {/* Toggle Switch */}
           <p className="text-center text-xs text-muted-foreground mt-6 select-none">

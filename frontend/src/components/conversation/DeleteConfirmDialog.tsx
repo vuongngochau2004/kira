@@ -15,6 +15,7 @@ interface DeleteConfirmDialogProps {
   onClose: () => void
   onConfirm: () => void
   isLoading?: boolean
+  count?: number
 }
 
 export function DeleteConfirmDialog({
@@ -22,24 +23,24 @@ export function DeleteConfirmDialog({
   onClose,
   onConfirm,
   isLoading = false,
+  count = 1,
 }: DeleteConfirmDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete conversation?</DialogTitle>
+          <DialogTitle>Xóa {count} cuộc trò chuyện?</DialogTitle>
           <DialogDescription>
-            This action cannot be undone. The conversation and all messages
-            will be permanently deleted.
+            Cuộc trò chuyện và toàn bộ tin nhắn sẽ bị xóa vĩnh viễn. Không thể hoàn tác.
           </DialogDescription>
         </DialogHeader>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
+            Hủy
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
-            {isLoading ? 'Deleting...' : 'Delete'}
+            {isLoading ? 'Đang xóa...' : 'Xóa'}
           </Button>
         </DialogFooter>
       </DialogContent>

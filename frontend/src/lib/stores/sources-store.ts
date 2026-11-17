@@ -97,8 +97,8 @@ function mapSources(rawSources: RawSourceItem[] | null | undefined): SourceItem[
         parent_document: {
           document_id: docId,
           filename: docTitle,
-          total_chunks: docSource.total_chunks_used,
-          relevance_score: docSource.relevance_score,
+          total_chunks: docSource.total_chunks_used ?? docSource.chunks?.length ?? 0,
+          relevance_score: docSource.relevance_score ?? 0,
         },
       }))
     })
@@ -106,7 +106,7 @@ function mapSources(rawSources: RawSourceItem[] | null | undefined): SourceItem[
 
   return rawSources.map((source, idx) => {
     const title = source.title || source.source || 'Tài liệu'
-    const documentId = source.document_id || null
+    const documentId = source.document_id
 
     return {
       id: source.chunk_id || source.id || `${documentId || title}-source-${idx}`,

@@ -31,6 +31,11 @@ interface GroupedSource {
   }>
 }
 
+function getPageNumber(metadata: Record<string, unknown> | undefined, fallback = 1): number {
+  const page = metadata?.page_number ?? metadata?.page
+  return typeof page === 'number' && Number.isFinite(page) && page > 0 ? page : fallback
+}
+
 function cleanStringForMatching(str: string): string {
   if (!str) return ''
   return str
@@ -269,7 +274,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
     
     const pages: Record<number, typeof chunksList> = {}
     chunksList.forEach(chunk => {
-      const page = chunk.metadata?.page_number || chunk.metadata?.page || 1
+      const page = getPageNumber(chunk.metadata)
       if (!pages[page]) {
         pages[page] = []
       }
@@ -311,7 +316,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
       const fullChunk = chunksList.find(c => c.id === currentId)
       if (fullChunk) {
         content = fullChunk.content
-        page = fullChunk.metadata?.page_number || fullChunk.metadata?.page || 1
+        page = getPageNumber(fullChunk.metadata)
         dbChunkId = fullChunk.id
         found = true
       }
@@ -330,7 +335,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
           })
           if (matchedDbChunk) {
             dbChunkId = matchedDbChunk.id
-            page = matchedDbChunk.metadata?.page_number || matchedDbChunk.metadata?.page || page
+            page = getPageNumber(matchedDbChunk.metadata, page)
           }
           found = true
         }
@@ -349,7 +354,7 @@ export function SourcePanel({ isOpen, onToggle }: SourcePanelProps) {
       })
       if (matchedDbChunk) {
         dbChunkId = matchedDbChunk.id
-        page = matchedDbChunk.metadata?.page_number || matchedDbChunk.metadata?.page || page
+        page = getPageNumber(matchedDbChunk.metadata, page)
       }
     }
 

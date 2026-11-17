@@ -27,6 +27,7 @@ export interface RetrievalStage {
 }
 
 export interface SourceChunk {
+  [key: string]: unknown
   id: string
   chunk_id?: string
   content: string
@@ -151,6 +152,13 @@ export interface RawCitationItem {
   [key: string]: unknown
 }
 
+export interface NormalizedCitationItem extends RawCitationItem {
+  id: string
+  chunk_id: string
+  content: string
+  score: number
+}
+
 export class StreamingStateBuilder {
   private state: MessageState = { ...INITIAL_STATE }
 
@@ -273,9 +281,9 @@ export class StreamingStateBuilder {
     this.state.status = 'generating'
 
     if (data?.citations) {
-      this.state.sources = (ensureFlatSources(data.citations) as SourceChunk[]) || []
+      this.state.sources = ensureFlatSources(data.citations) || []
     } else if (data?.sources) {
-      this.state.sources = (ensureFlatSources(data.sources) as SourceChunk[]) || []
+      this.state.sources = ensureFlatSources(data.sources) || []
     }
 
     if (data?.attachments) {
@@ -316,7 +324,7 @@ export class StreamingStateBuilder {
  * Normalizes/flattens raw sources (which might be in the grouped or flat format)
  * into a flat list of SourceChunk/CitationSource items.
  */
-export function ensureFlatSources(rawSources: RawCitationItem[] | undefined): Record<string, unknown>[] | undefined {
+export function ensureFlatSources(rawSources: RawCitationItem[] | undefined): NormalizedCitationItem[] | undefined {
   if (!rawSources) return undefined
   if (rawSources.length === 0) return []
 
@@ -336,7 +344,7 @@ export function ensureFlatSources(rawSources: RawCitationItem[] | undefined): Re
         content: textVal,
         content_length: textVal.length,
         page_number: citation.page_number ?? citation.page,
-        score: citation.score ?? citation.confidence,
+        score: citation.score ?? citation.confidence ?? 0.9,
         grounding_score: citation.grounding_score ?? citation.score ?? citation.confidence,
         document_id: citation.document_id ?? citation.metadata?.document_id,
         chunk_index: citation.chunk_index ?? citation.metadata?.chunk_index ?? idx,
@@ -361,7 +369,7 @@ export function ensureFlatSources(rawSources: RawCitationItem[] | undefined): Re
         content: chunk.content || chunk.snippet || '',
         content_length: chunk.content ? chunk.content.length : (chunk.snippet ? chunk.snippet.length : 0),
         page_number: chunk.page,
-        score: chunk.score,
+        score: chunk.score ?? 0.9,
         grounding_score: chunk.grounding_score ?? chunk.score,
         document_id: docId,
         chunk_index: chunk.chunk_index ?? chunkIdx,

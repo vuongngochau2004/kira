@@ -15,6 +15,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.legal.api.dependencies import (
@@ -53,10 +54,30 @@ from src.modules.legal.application.upload_document import (
 )
 from src.modules.legal.composition import vietnam_today
 from src.shared.infrastructure.auth.dependencies import get_current_user, require_admin
+from src.shared.infrastructure.auth.rate_limit import limit_user_requests
 from src.shared.infrastructure.persistence.database.models import User
 from src.shared.infrastructure.persistence.database.session import get_session
 
 router = APIRouter()
+MAX_LEGAL_UPLOAD_BYTES = 20 * 1024 * 1024
+LEGAL_UPLOAD_READ_CHUNK_BYTES = 1024 * 1024
+limit_legal_upload = limit_user_requests("legal-upload", maximum=20, window_seconds=3600)
+
+
+async def _read_bounded_legal_upload(file: UploadFile) -> bytes:
+    """Read a legal upload without exceeding the application file-size limit."""
+    chunks: list[bytes] = []
+    total_bytes = 0
+    while chunk := await file.read(LEGAL_UPLOAD_READ_CHUNK_BYTES):
+        total_bytes += len(chunk)
+        if total_bytes > MAX_LEGAL_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail="File exceeds the 20 MiB upload limit",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
 
 _ERROR_STATUS: dict[type[Exception], int] = {
     LegalDocumentNotFound: status.HTTP_404_NOT_FOUND,
@@ -75,9 +96,10 @@ def _enqueue(task: Callable[[UUID], str], document_id: UUID) -> str:
     try:
         return task(document_id)
     except Exception as exc:
+        logger.exception("Failed to enqueue legal document task for {}", document_id)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Failed to enqueue legal task: {exc}",
+            detail="Failed to enqueue legal task",
         ) from exc
 
 
@@ -95,6 +117,7 @@ async def upload_legal_document(
     db: AsyncSession = Depends(get_session),
     service: UploadLegalDocument = Depends(get_upload_service),
     enqueuer: LegalTaskEnqueuer = Depends(get_task_enqueuer),
+    _: None = Depends(limit_legal_upload),
 ) -> LegalDocumentResponse:
     request = UploadLegalDocumentRequest(
         metadata=LegalDocumentMetadata(
@@ -107,7 +130,7 @@ async def upload_legal_document(
             source_url=source_url or None,
         ),
         file_name=file.filename or "",
-        content=await file.read(),
+        content=await _read_bounded_legal_upload(file),
         content_type=file.content_type,
         uploaded_by=current_user.id,
     )

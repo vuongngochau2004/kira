@@ -423,21 +423,26 @@ export interface ConversationListResponse {
 }
 
 export const conversationsAPI = {
-  list: async (page = 1, pageSize = 20): Promise<ConversationListResponse> => {
+  list: async (page = 1, pageSize = 20, search = ''): Promise<ConversationListResponse> => {
     interface RawConversationListResponse {
       total: number
       page?: number
       page_size?: number
+      limit?: number
+      offset?: number
       conversations?: Conversation[]
       items?: Conversation[]
     }
-    const data = await fetchAPI<RawConversationListResponse>(
-      `/api/v1/chat/conversations?page=${page}&page_size=${pageSize}`
-    )
+    const params = new URLSearchParams({
+      limit: String(pageSize),
+      offset: String((page - 1) * pageSize),
+    })
+    if (search.trim()) params.set('search', search.trim())
+    const data = await fetchAPI<RawConversationListResponse>(`/api/v1/chat/conversations?${params}`)
     return {
       total: data.total,
       page: data.page || page,
-      page_size: data.page_size || pageSize,
+      page_size: data.page_size || data.limit || pageSize,
       items: data.conversations || data.items || [],
     }
   },

@@ -30,7 +30,6 @@ from src.modules.rag.orchestration.state.rag_state import (
     RetrievalAgentConfig,
     create_initial_state,
     get_quality_score,
-    increment_orchestrator_iteration,
     should_regenerate,
 )
 from src.modules.retrieval.application.search_use_case import SearchUseCase
@@ -193,7 +192,15 @@ class LangGraphRAGPipeline:
             Updated RAGState with generated response
         """
         logger.info("✍️  <yellow>[RAG NODE: GENERATION]</yellow> Generation node executing...")
-        state = await self.generation_agent.handle(state, context={"langgraph_node": True})
+        if state["orchestrator_state"].get("iteration_count", 0) > 0:
+            quality = state["quality_agent_output"]
+            critique = quality.get("critique") or {}
+            feedback = [*critique.get("issues", []), *quality.get("suggestions", [])]
+            state = await self.generation_agent.regenerate_with_feedback(
+                state, feedback="\n".join(feedback) or "Improve factual support and citations."
+            )
+        else:
+            state = await self.generation_agent.handle(state, context={"langgraph_node": True})
         if state.get("generated_response") and not state.get("final_response"):
             state["final_response"] = state["generated_response"]
         return state
@@ -211,7 +218,32 @@ class LangGraphRAGPipeline:
             Updated RAGState with quality assessment
         """
         logger.info("🎓 <yellow>[RAG NODE: QUALITY]</yellow> Quality node executing...")
-        return await self.quality_agent.handle(state, context={"langgraph_node": True})
+        state = await self.quality_agent.handle(state, context={"langgraph_node": True})
+        quality = state["quality_agent_output"]
+        verification = quality.get("verification") or {}
+        verified = verification.get("is_verified") is True
+        passed = (
+            get_quality_score(state) >= self.orchestrator_config.quality_gate_threshold
+            and verified
+            and not should_regenerate(state)
+        )
+        if passed:
+            state["is_final"] = True
+            state["routing_decision"] = "end"
+            return state
+
+        attempts = state["orchestrator_state"].get("iteration_count", 0) + 1
+        if attempts < self.orchestrator_config.max_pipeline_iterations:
+            state["orchestrator_state"]["iteration_count"] = attempts
+            state["routing_decision"] = "regenerate"
+            return state
+
+        state["should_fallback"] = True
+        state["fallback_reason"] = "verification_failed" if not verified else "quality_gate_failed"
+        state["final_response"] = ""
+        state["final_citations"] = []
+        state["routing_decision"] = "end"
+        return state
 
     # ==============================================================================
     # Conditional Edge Functions (routing logic)
@@ -243,10 +275,7 @@ class LangGraphRAGPipeline:
         """
         Conditional edge: Decide whether to regenerate or finish.
 
-        Quality gate logic:
-        - If quality score >= threshold → END (proceed)
-        - If quality score < threshold AND iteration < max → REGENERATE
-        - If quality score < threshold AND iteration >= max → END (accept despite low quality)
+        Quality routing is decided by the quality node and stored in state.
 
         Args:
             state: Current RAGState
@@ -265,35 +294,15 @@ class LangGraphRAGPipeline:
             f"threshold={threshold:.2f}, iteration={iteration}/{max_iterations}"
         )
 
-        # Quality gate passed
-        if quality_score >= threshold:
-            logger.info(
-                f"✅ <green>[RAG QUALITY GATE PASSED]</green> score={quality_score:.2f} >= threshold={threshold:.2f}"
-            )
-            return "end"
-
-        # Quality failed but max iterations reached
-        if iteration >= max_iterations:
-            logger.warning(
-                f"⚠️  <yellow>[RAG QUALITY GATE MAX ITERATIONS]</yellow> Max iterations reached ({iteration}/{max_iterations}). "
-                f"Accepting current response despite low quality (score={quality_score:.2f})"
-            )
-            return "end"
-
-        # Quality failed and can regenerate
-        if should_regenerate(state):
-            logger.info(
-                f"🔄 <yellow>[RAG QUALITY GATE REGENERATE]</yellow> Regeneration recommended (score={quality_score:.2f} < threshold={threshold:.2f})"
-            )
-            # Increment iteration counter
-            state = increment_orchestrator_iteration(state)
-            return "regenerate"
-
-        # Accept despite low quality
-        logger.warning(
-            f"⚠️  <yellow>[RAG QUALITY GATE LOW QUALITY]</yellow> Accepting low-quality response (score={quality_score:.2f})"
+        logger.info(
+            "RAG quality routing: score={:.2f} threshold={:.2f} iteration={}/{} decision={}",
+            quality_score,
+            threshold,
+            iteration,
+            max_iterations,
+            state["routing_decision"],
         )
-        return "end"
+        return "regenerate" if state["routing_decision"] == "regenerate" else "end"
 
     # ==============================================================================
     # Public API

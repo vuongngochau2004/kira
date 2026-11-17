@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from src.modules.legal.api import dependencies
-from src.modules.legal.api.endpoints import router
+from src.modules.legal.api.endpoints import limit_legal_upload, router
 from src.modules.legal.application.delete_document import DeleteLegalDocument
 from src.modules.legal.application.queries import LegalDocumentQueries
 from src.modules.legal.application.records import CandidateStatus, LegalDocumentStatus
@@ -63,6 +63,7 @@ class Harness:
             yield FakeSession(self.events)
 
         app.dependency_overrides[get_current_user] = lambda: self.user
+        app.dependency_overrides[limit_legal_upload] = lambda: None
         app.dependency_overrides[get_session] = session_override
         app.dependency_overrides[dependencies.get_upload_service] = lambda: UploadLegalDocument(
             self.repository, self.storage
