@@ -68,6 +68,16 @@ describe('legalAPI', () => {
     ).rejects.toMatchObject({ message: 'Legal document 31/2024/QH15 already exists', status: 409 })
   })
 
+  it('posts URL to /documents/from-url', async () => {
+    const fn = mockFetch({ id: 'd2', number: '123/2020/NĐ-CP' }, 201)
+    const doc = await legalAPI.uploadFromUrl('https://vbpl.vn/test')
+    const [url, init] = call(fn)
+    expect(url).toBe('/api/v1/legal/documents/from-url')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ url: 'https://vbpl.vn/test' })
+    expect(doc.id).toBe('d2')
+  })
+
   it('sends review decisions as PATCH JSON', async () => {
     const fn = mockFetch({ candidate: {}, republish_task_id: null })
     await legalAPI.review('c1', { action: 'edit', target_provision_ref: 'D3.K2' })

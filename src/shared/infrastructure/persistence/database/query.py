@@ -130,13 +130,22 @@ async def get_chunks_by_document(document_id: uuid.UUID, db_session) -> list[Doc
     return list(result.scalars().all())
 
 
+def _utc_now_naive() -> datetime:
+    """Current UTC time without tzinfo.
+
+    ``deleted_at`` columns are ``TIMESTAMP WITHOUT TIME ZONE``; asyncpg rejects aware
+    datetimes for them ("can't subtract offset-naive and offset-aware datetimes").
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 async def soft_delete_document(doc_id: uuid.UUID, db_session) -> bool:
     """Soft delete a document (sets deleted_at)."""
     query = select(Document).where(Document.id == doc_id).where(Document.deleted_at.is_(None))
     result = await db_session.execute(query)
     doc = result.scalar_one_or_none()
     if doc:
-        doc.deleted_at = datetime.now(timezone.utc)
+        doc.deleted_at = _utc_now_naive()
         await db_session.commit()
         return True
     return False
@@ -152,7 +161,7 @@ async def soft_delete_conversation(conv_id: uuid.UUID, db_session) -> bool:
     result = await db_session.execute(query)
     conv = result.scalar_one_or_none()
     if conv:
-        conv.deleted_at = datetime.now(timezone.utc)
+        conv.deleted_at = _utc_now_naive()
         await db_session.commit()
         return True
     return False

@@ -1,5 +1,6 @@
 """Chat transport adapter for the RAG application use case."""
 
+import time
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
@@ -77,6 +78,9 @@ class RAGHandler(QueryHandlerBase):
         }
 
         final_state: dict[str, Any] | None = None
+        # Graph nodes run one after another, so the gap between two "updates" chunks is the
+        # wall time of the node that just finished.
+        step_started = time.perf_counter()
         try:
             async for event in self.rag_service.run_stream(
                 query=query,
@@ -90,7 +94,10 @@ class RAGHandler(QueryHandlerBase):
                         if not isinstance(state, dict):
                             continue
                         final_state = state
-                        yield self._status_event(stage, state)
+                        now = time.perf_counter()
+                        duration_ms = round((now - step_started) * 1000)
+                        step_started = now
+                        yield self._status_event(stage, state, duration_ms)
                 elif mode == "error":
                     logger.error("RAG stream emitted error: {}", chunk)
                     yield {"type": "error", "data": {"error": "RAG stream failed"}}
@@ -121,26 +128,41 @@ class RAGHandler(QueryHandlerBase):
             raise ValueError(f"RAGHandler cannot handle intent: {classification.intent}")
 
     @staticmethod
-    def _status_event(stage: str, state: dict[str, Any]) -> dict[str, Any]:
-        if stage == "retrieval":
+    def _status_event(stage: str, state: dict[str, Any], duration_ms: int) -> dict[str, Any]:
+        """Translate one finished LangGraph node into a ``status`` SSE chunk.
+
+        The payload drives the pipeline timeline in the chat UI and is persisted with the
+        assistant message, so keep it small and JSON-serialisable.
+        """
+        iteration = (state.get("orchestrator_state") or {}).get("iteration_count", 0)
+        metadata: dict[str, Any] = {"duration_ms": duration_ms, "iteration": iteration}
+
+        if stage == "orchestrator":
+            metadata["fallback"] = bool(state.get("should_fallback"))
+            if state.get("fallback_reason"):
+                metadata["fallback_reason"] = state.get("fallback_reason")
+        elif stage == "retrieval":
             output = state.get("retrieval_agent_output", {})
             documents = output.get("reranked_docs") or output.get("retrieved_docs") or []
-            metadata = {
-                "docs_retrieved": len(documents),
-                "refined_queries": output.get("refined_queries", []),
-            }
+            metadata["docs_retrieved"] = len(documents)
+            metadata["refined_queries"] = output.get("refined_queries", [])
+        elif stage == "generation":
+            metadata["response_length"] = len(state.get("generated_response", ""))
         elif stage == "quality":
             output = state.get("quality_agent_output", {})
-            metadata = {
-                "quality_score": output.get("quality_score", 0.0),
-                "should_regenerate": output.get("should_regenerate", False),
-            }
-        else:
-            metadata = (
-                {"response_length": len(state.get("generated_response", ""))}
-                if stage == "generation"
-                else {}
-            )
+            critique = output.get("critique") or {}
+            verification = output.get("verification") or {}
+            if state.get("should_fallback"):
+                decision = "fallback"
+            elif state.get("routing_decision") == "regenerate":
+                decision = "regenerate"
+            else:
+                decision = "pass"
+            metadata["quality_score"] = output.get("quality_score", 0.0)
+            metadata["should_regenerate"] = output.get("should_regenerate", False)
+            metadata["verified"] = verification.get("is_verified") is True
+            metadata["decision"] = decision
+            metadata["issues"] = [str(item) for item in critique.get("issues") or []][:5]
         return {"type": "status", "data": {"stage": stage, "metadata": metadata}}
 
     @staticmethod

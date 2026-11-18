@@ -202,6 +202,17 @@ npm run build
 npm test
 ```
 
+### Deployment (Docker + Cloudflare Tunnel)
+
+```bash
+make deploy          # api/worker/frontend containers (profile "app"), frontend on :3002
+make deploy-tunnel   # + cloudflared (profile "tunnel"), prints the trycloudflare URL
+make deploy-stop     # stop app + tunnel, keep infrastructure
+```
+
+Images: root `Dockerfile` (backend + worker), `frontend/Dockerfile` (Next.js standalone, `KIRA_API_URL` build arg).
+Guide: `docs/deployment/cloudflare-tunnel.md`.
+
 ### Makefile
 
 ```bash

@@ -7,13 +7,14 @@ import { cn } from '@/lib/utils'
 import { SourceCitation } from '@/components/streaming/SourceCitation'
 import { SourcePanel } from '@/components/streaming/SourcePanel'
 import { StreamingText } from '@/components/streaming/StreamingText'
+import { PipelineTrace } from '@/components/streaming/PipelineTrace'
 import { CitationRichText } from '@/components/streaming/CitationRichText'
 import { CitationPanel, type CitationSource, type VerificationStats } from '@/components/streaming/CitationPanel'
 import { useSourcesStore } from '@/lib/stores/sources-store'
 import { KIRAWelcome } from '@/components/common/KiraLogo'
 import { LegalAnswerNote } from '@/components/legal/LegalAnswerNote'
 import type { LegalAnswerInfo } from '@/lib/legal/types'
-import type { Attachment } from '@/lib/streaming'
+import { hasGraphSteps, type Attachment, type PipelineStep } from '@/lib/streaming'
 
 // ==================== Types ====================
 
@@ -47,6 +48,7 @@ export interface Message {
   use_new_citation_format?: boolean  // Use [source:chunk_id] format
   isOptimistic?: boolean  // NEW: Mark optimistic messages for UI indication
   legal?: LegalAnswerInfo  // Applied date(s) and notices of a legal answer
+  pipeline?: PipelineStep[]  // LangGraph trace shown above the answer
 }
 
 interface SimpleChatProps {
@@ -149,6 +151,10 @@ const AssistantMessage = memo((
 
   return (
     <>
+      {hasGraphSteps(message.pipeline) && (
+        <PipelineTrace steps={message.pipeline} isStreaming={isStreaming} />
+      )}
+
       {/* Content */}
       <div className="text-base py-2 text-foreground">
         {isStreaming && <ThinkingWordSpinner />}
@@ -748,7 +754,8 @@ export function SimpleChat({
                   disabled={isLoading}
                   style={{ minHeight: '40px' }}
                 />
-                {/* Clear Button - Shows when empty and has messages */}
+                {/* New-chat button - leaves this conversation (kept in history) and starts a
+                    fresh one. Deleting a conversation is done from the sidebar/history page. */}
                 {messages.length > 0 && input.length === 0 && (
                   <button
                     type="button"
@@ -759,7 +766,8 @@ export function SimpleChat({
                       'transition-colors p-1 rounded-md',
                       'hover:bg-muted/50'
                     )}
-                    title="Xoá cuộc trò chuyện"
+                    title="Cuộc trò chuyện mới"
+                    aria-label="Cuộc trò chuyện mới"
                   >
                     <X className="w-4 h-4" />
                   </button>

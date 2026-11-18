@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 # KIRA - Makefile
-.PHONY: help dev backend frontend dev-worker infra infra-stop infra-restart test install clean lint eval-rag
+.PHONY: help dev backend frontend dev-worker infra infra-stop infra-restart test install clean lint eval-rag \
+        deploy deploy-tunnel tunnel-url deploy-logs deploy-stop
 
 # Default target
 .DEFAULT_GOAL := help
@@ -74,6 +75,33 @@ infra-status: ## Show infrastructure status
 
 infra-logs: ## Show infrastructure logs
 	@docker compose logs -f
+
+##@ Deployment (Docker + Cloudflare Tunnel)
+
+deploy: ## Build and run full stack in Docker (frontend on :3002, no tunnel)
+	@printf "$(BLUE)Starting KIRA full stack in Docker...$(NC)\n"
+	@docker compose --profile app up -d --build
+	@docker compose --profile app ps
+
+deploy-tunnel: ## Run full stack + Cloudflare Tunnel (Quick Tunnel unless CLOUDFLARE_TUNNEL_TOKEN is set)
+	@printf "$(BLUE)Starting KIRA with Cloudflare Tunnel...$(NC)\n"
+	@docker compose --profile tunnel up -d --build
+	@sleep 5
+	@$(MAKE) --no-print-directory tunnel-url
+
+tunnel-url: ## Print the active Cloudflare Quick Tunnel URL
+	@printf "$(BLUE)Public URL:$(NC)\n"
+	@docker logs kira-simple-tunnel 2>&1 | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -n 1 \
+		|| echo "Not found yet (or Named Tunnel in use). Retry 'make tunnel-url' in a few seconds."
+
+deploy-logs: ## Follow logs of the deployed app containers
+	@docker compose --profile tunnel logs -f api worker frontend cloudflared
+
+deploy-stop: ## Stop app + tunnel containers (infrastructure keeps running)
+	@printf "$(BLUE)Stopping KIRA app containers...$(NC)\n"
+	@docker compose --profile tunnel stop cloudflared frontend worker api
+	@docker compose --profile tunnel rm -f cloudflared frontend worker api
+	@printf "$(GREEN)App containers stopped$(NC)\n"
 
 ##@ Installation
 

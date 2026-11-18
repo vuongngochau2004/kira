@@ -521,8 +521,12 @@ Quy tắc:
         checks = []
 
         # Factual consistency
-        factual_score = await self._verify_factual_consistency(query, response, documents)
+        factual_score, llm_grounded, unsupported = await self._grounding_check(
+            query, response, documents
+        )
         checks.append(f"Factual consistency: {factual_score:.2f}")
+        # Surfaced in regeneration feedback so the next draft can fix the exact claim.
+        checks.extend(f"Unsupported claim: {claim}" for claim in unsupported[:3])
 
         # Citation accuracy
         citation_score = self._verify_citation_accuracy(response, documents)
@@ -532,8 +536,15 @@ Quy tắc:
         reasoning_score = self._assess_reasoning_quality(response)
         checks.append(f"Reasoning quality: {reasoning_score:.2f}")
 
-        # Calculate overall confidence
-        confidence = factual_score * 0.4 + citation_score * 0.3 + reasoning_score * 0.3
+        # Calculate overall confidence.
+        # Citation (constant 0.8) and reasoning (length/format heuristic) carry no evidence
+        # about correctness. Averaging them in capped grounded answers below the threshold
+        # (a short answer scored 0.8 by the grounding check landed at ~0.77), so when the
+        # LLM grounding check ran, its score alone decides verification.
+        if llm_grounded:
+            confidence = factual_score
+        else:
+            confidence = factual_score * 0.4 + citation_score * 0.3 + reasoning_score * 0.3
 
         return VerificationResult(
             is_verified=confidence >= self.config.verification_threshold,
@@ -548,9 +559,11 @@ Quy tắc:
         self, query: str, response: str, documents: List[Any]
     ) -> float:
         """
-        Verify factual consistency using heuristic checks.
+        Verify that the response's factual claims are supported by the retrieved documents.
 
-        TODO: Implement LLM-based factual verification for better accuracy.
+        Uses an LLM grounding check; falls back to the heuristic when there are no documents
+        to check against or the LLM call/parse fails. The heuristic alone cannot reach the
+        verification threshold, so it must stay a fallback, never the primary signal.
 
         Args:
             query: Original query
@@ -560,8 +573,70 @@ Quy tắc:
         Returns:
             Factual consistency score (0-1)
         """
-        # TODO: Implement LLM-based verification
-        # For now, use heuristic
+        score, _, _ = await self._grounding_check(query, response, documents)
+        return score
+
+    async def _grounding_check(
+        self, query: str, response: str, documents: List[Any]
+    ) -> tuple[float, bool, list[str]]:
+        """Return (score, whether the LLM check ran, unsupported claims)."""
+        if documents and self.llm_client is not None:
+            try:
+                score, unsupported = await self._llm_grounding_score(query, response, documents)
+                return score, True, unsupported
+            except Exception as e:  # noqa: BLE001 - any LLM/parse failure degrades to heuristic
+                logger.warning("LLM grounding check failed, using heuristic: %s", e)
+        return self._heuristic_factual_consistency(response), False, []
+
+    async def _llm_grounding_score(
+        self, query: str, response: str, documents: List[Any]
+    ) -> tuple[float, list[str]]:
+        """Ask the LLM how well each factual claim in the response is backed by the documents."""
+        context = self._format_documents_for_quality(documents)
+        prompt = f"""Bạn kiểm chứng câu trả lời RAG: mỗi thông tin (số liệu, thời hạn, điều kiện,
+quy định) trong CÂU TRẢ LỜI có được TÀI LIỆU hỗ trợ trực tiếp hay không.
+
+CÂU HỎI:
+{query}
+
+TÀI LIỆU:
+{context}
+
+CÂU TRẢ LỜI:
+{response}
+
+Trả về DUY NHẤT JSON hợp lệ:
+{{
+  "grounding_score": 0.0,
+  "unsupported_claims": []
+}}
+"unsupported_claims": liệt kê nguyên văn từng thông tin không được tài liệu hỗ trợ; để [] nếu không có.
+
+Quy tắc chấm grounding_score (0.0-1.0):
+- 1.0: mọi thông tin đều có trong tài liệu (diễn đạt lại hoặc tính toán đúng từ tài liệu vẫn tính).
+- 0.5: có thông tin quan trọng không có trong tài liệu.
+- 0.0: phần lớn nội dung bịa đặt hoặc mâu thuẫn với tài liệu.
+- Thông tin có trong tài liệu nhưng bị áp sai đối tượng/điều kiện (ví dụ mức chỉ dành cho
+  một nhóm lại nói là áp dụng chung) là KHÔNG được hỗ trợ: tối đa 0.5.
+- Tài liệu có giá trị trả lời trực tiếp câu hỏi mà câu trả lời bỏ sót hoặc thay bằng giá trị
+  khác (ví dụ hỏi mức tối đa nhưng không nêu mức tối đa chung): tối đa 0.5.
+- Câu trả lời nói rõ tài liệu không có thông tin được hỏi, và đúng là tài liệu không có: chấm 1.0.
+"""
+        raw = await self.llm_client.generate(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=400,
+        )
+        parsed = self._parse_json_object(raw)
+        score = max(0.0, min(1.0, float(parsed.get("grounding_score", 0.0))))
+        unsupported = [str(c) for c in parsed.get("unsupported_claims") or [] if str(c).strip()]
+        if unsupported:
+            logger.info("Grounding check: score=%.2f unsupported=%s", score, unsupported[:3])
+        return score, unsupported
+
+    @staticmethod
+    def _heuristic_factual_consistency(response: str) -> float:
+        """Fallback factual score when no LLM grounding check is possible."""
         score = 0.7
 
         # Check for citations

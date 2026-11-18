@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from src.modules.retrieval.infrastructure.document_store.document_repository import (
+    completed_chunks_signature_for_user,
     get_documents_batch,
     list_completed_chunks_for_user,
 )
@@ -22,8 +23,13 @@ class BM25KeywordSearchAdapter:
     def get_index(self, user_id: str) -> Any:
         return self._manager.get_index(user_id)
 
-    def rebuild_from_chunks(self, user_id: str, chunks: list[dict[str, Any]]) -> None:
-        self._manager.rebuild_from_chunks(user_id=user_id, all_chunks=chunks)
+    def get_signature(self, user_id: str) -> Any:
+        return self._manager.get_signature(user_id)
+
+    def rebuild_from_chunks(
+        self, user_id: str, chunks: list[dict[str, Any]], signature: Any = None
+    ) -> None:
+        self._manager.rebuild_from_chunks(user_id=user_id, all_chunks=chunks, signature=signature)
 
 
 class PostgresRetrievalDocumentAdapter:
@@ -31,6 +37,9 @@ class PostgresRetrievalDocumentAdapter:
 
     async def list_completed_chunks(self, user_id: UUID) -> list[dict[str, Any]]:
         return await list_completed_chunks_for_user(user_id)
+
+    async def completed_chunks_signature(self, user_id: UUID) -> Any:
+        return await completed_chunks_signature_for_user(user_id)
 
     async def get_filenames(self, document_ids: list[str]) -> dict[str, str]:
         return await get_documents_batch(document_ids)

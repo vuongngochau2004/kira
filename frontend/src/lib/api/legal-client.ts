@@ -50,6 +50,12 @@ export const legalAPI = {
     return response.json()
   },
 
+  uploadFromUrl: (url: string) =>
+    fetchAPI<LegalDocument>(`${BASE}/documents/from-url`, {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
+
   review: (candidateId: string, review: CandidateReview) =>
     fetchAPI<ReviewResult>(`${BASE}/candidates/${candidateId}`, {
       method: 'PATCH',

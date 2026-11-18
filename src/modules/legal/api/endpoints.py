@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.modules.legal.api.dependencies import (
     LegalTaskEnqueuer,
     get_delete_service,
+    get_ingest_from_url_service,
     get_provision_history_service,
     get_queries,
     get_review_service,
@@ -34,8 +35,10 @@ from src.modules.legal.api.schemas import (
     RelationCandidateResponse,
     ReviewResponse,
     TaskResponse,
+    UrlIngestRequest,
 )
 from src.modules.legal.application.delete_document import DeleteLegalDocument
+from src.modules.legal.application.ingest_from_url import IngestLegalFromUrl
 from src.modules.legal.application.errors import (
     InvalidLegalDocumentInput,
     InvalidLegalDocumentState,
@@ -136,6 +139,23 @@ async def upload_legal_document(
     )
     try:
         record = await service.execute(request)
+    except (InvalidLegalDocumentInput, LegalDocumentConflict) as exc:
+        raise _http_error(exc) from exc
+    await db.commit()
+    _enqueue(enqueuer.process, record.id)
+    return LegalDocumentResponse.from_record(record)
+
+
+@router.post("/documents/from-url", status_code=status.HTTP_201_CREATED)
+async def ingest_legal_document_from_url(
+    body: UrlIngestRequest,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_session),
+    service: IngestLegalFromUrl = Depends(get_ingest_from_url_service),
+    enqueuer: LegalTaskEnqueuer = Depends(get_task_enqueuer),
+) -> LegalDocumentResponse:
+    try:
+        record = await service.execute(url=body.url, uploaded_by=current_user.id)
     except (InvalidLegalDocumentInput, LegalDocumentConflict) as exc:
         raise _http_error(exc) from exc
     await db.commit()

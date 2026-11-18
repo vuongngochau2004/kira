@@ -6,12 +6,14 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.legal.application.delete_document import DeleteLegalDocument
+from src.modules.legal.application.ingest_from_url import IngestLegalFromUrl
 from src.modules.legal.application.provision_history import GetProvisionHistory
 from src.modules.legal.application.queries import LegalDocumentQueries
 from src.modules.legal.application.review_relation import ReviewRelationCandidate
 from src.modules.legal.application.upload_document import UploadLegalDocument
 from src.modules.legal.composition import (
     delete_legal_document_service,
+    ingest_legal_from_url_service,
     legal_queries,
     legal_search_index,
     review_relation_service,
@@ -22,6 +24,10 @@ from src.shared.infrastructure.persistence.database.session import get_session
 
 def get_upload_service(db: AsyncSession = Depends(get_session)) -> UploadLegalDocument:
     return upload_legal_document_service(db)
+
+
+def get_ingest_from_url_service(db: AsyncSession = Depends(get_session)) -> IngestLegalFromUrl:
+    return ingest_legal_from_url_service(db)
 
 
 def get_review_service(db: AsyncSession = Depends(get_session)) -> ReviewRelationCandidate:

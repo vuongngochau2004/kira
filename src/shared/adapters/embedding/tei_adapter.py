@@ -23,7 +23,8 @@ class TEIEmbeddingAdapter(EmbeddingPort):
         api_key: str | None = None,
         model: str | None = None,
         embedding_dim: int | None = None,
-        timeout: float = 30.0,
+        timeout: float | None = None,
+        batch_size: int | None = None,
     ):
         """Initialize TEI embedding adapter.
 
@@ -32,13 +33,15 @@ class TEIEmbeddingAdapter(EmbeddingPort):
             api_key: Bearer token for authentication
             model: Model name (e.g. BAAI/bge-m3)
             embedding_dim: Expected embedding dimension (default: 1024)
-            timeout: Request timeout in seconds
+            timeout: Per-request timeout in seconds (default: settings.tei_timeout_seconds)
+            batch_size: Texts per request (default: settings.tei_embed_batch_size)
         """
         self._base_url = (base_url or settings.tei_base_url).rstrip("/")
         self._api_key = api_key or settings.tei_api_key
         self._model = model or settings.tei_embedding_model
         self._dimension = embedding_dim or settings.tei_embedding_dim
-        self._timeout = timeout
+        self._timeout = timeout or settings.tei_timeout_seconds
+        self._batch_size = batch_size or settings.tei_embed_batch_size
 
     def _get_headers(self) -> dict[str, str]:
         """Build request headers with auth token."""
@@ -72,12 +75,11 @@ class TEIEmbeddingAdapter(EmbeddingPort):
             return []
 
         results: list[list[float]] = []
-        batch_size = 32
         headers = self._get_headers()
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
-            for i in range(0, len(texts), batch_size):
-                batch = texts[i : i + batch_size]
+            for i in range(0, len(texts), self._batch_size):
+                batch = texts[i : i + self._batch_size]
                 batch_embeddings = await self._call_tei_embed(client, batch, headers)
                 results.extend(batch_embeddings)
 
@@ -105,6 +107,15 @@ class TEIEmbeddingAdapter(EmbeddingPort):
                 "TEI /embed returned status %d, falling back to /v1/embeddings",
                 response.status_code,
             )
+        except httpx.TimeoutException:
+            # A slow server stays slow on the compat endpoint; retrying there only
+            # doubles the wait before the same failure.
+            logger.warning(
+                "TEI /embed timed out after %.0fs for a batch of %d texts",
+                self._timeout,
+                len(batch),
+            )
+            raise
         except httpx.HTTPError as e:
             logger.debug("TEI native /embed call failed (%s), trying /v1/embeddings", e)
 

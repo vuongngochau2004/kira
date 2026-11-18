@@ -69,4 +69,32 @@ describe('LegalUploadForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tải lên' }))
     expect(await screen.findByText('Legal document 31/2024/QH15 already exists')).toBeInTheDocument()
   })
+
+  it('submits a valid vbpl URL in URL mode', async () => {
+    const submitFromUrl = vi.fn(async (url: string) => ({ id: 'doc-url', source_url: url }) as unknown as LegalDocument)
+    const onUploaded = vi.fn()
+    render(<LegalUploadForm onUploaded={onUploaded} submitFromUrl={submitFromUrl} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /nhập từ liên kết/i }))
+
+    const input = screen.getByLabelText(/đường dẫn văn bản vbpl.vn/i)
+    fireEvent.change(input, { target: { value: 'https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=123' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /thu thập & nạp văn bản/i }))
+
+    await waitFor(() => expect(onUploaded).toHaveBeenCalled())
+    expect(submitFromUrl).toHaveBeenCalledWith('https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=123')
+  })
+
+  it('requires a valid URL in URL mode', async () => {
+    const submitFromUrl = vi.fn()
+    render(<LegalUploadForm onUploaded={vi.fn()} submitFromUrl={submitFromUrl} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /nhập từ liên kết/i }))
+    fireEvent.click(screen.getByRole('button', { name: /thu thập & nạp văn bản/i }))
+
+    expect(await screen.findByText(/vui lòng nhập đường dẫn/i)).toBeInTheDocument()
+    expect(submitFromUrl).not.toHaveBeenCalled()
+  })
 })
+

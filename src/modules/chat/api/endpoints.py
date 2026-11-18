@@ -135,6 +135,23 @@ def _process_stream_routing_chunk(chunk_data: dict) -> tuple[str, str]:
     return router_name, sse_event
 
 
+def _merge_routing_step(pipeline_steps: list[dict], chunk_data: dict) -> None:
+    """Record intent classification as the first pipeline-trace step.
+
+    Both the chat graph and the selected handler emit a routing chunk, so later chunks update
+    the existing ``classify`` step instead of adding a duplicate.
+    """
+    routing = {
+        key: chunk_data[key]
+        for key in ("router", "intent", "confidence")
+        if chunk_data.get(key) is not None
+    }
+    if pipeline_steps and pipeline_steps[0].get("stage") == "classify":
+        pipeline_steps[0]["metadata"].update(routing)
+    else:
+        pipeline_steps.insert(0, {"stage": "classify", "metadata": routing})
+
+
 def _process_stream_retrieval_chunk(chunk_data: dict) -> tuple[dict, str]:
     """Process retrieval chunk and update retrieval stages.
 
@@ -505,6 +522,8 @@ async def _stream_generator(
     # Collect data for metadata
     router_name: str | None = None
     retrieval_stages: list[dict] = []
+    # Ordered pipeline trace (classification + each graph node) persisted for the chat UI.
+    pipeline_steps: list[dict] = []
     done_sent = False
 
     # Load conversation history if continuing conversation
@@ -524,6 +543,7 @@ async def _stream_generator(
 
             if chunk_type == "routing":
                 router_name, sse_event = _process_stream_routing_chunk(chunk_data)
+                _merge_routing_step(pipeline_steps, chunk_data)
                 yield sse_event
 
             elif chunk_type == "retrieval":
@@ -539,6 +559,9 @@ async def _stream_generator(
                     await asyncio.sleep(0)
 
             elif chunk_type == "status":
+                pipeline_steps.append(
+                    {"stage": chunk_data.get("stage"), "metadata": chunk_data.get("metadata") or {}}
+                )
                 yield f"data: {json.dumps({'type': 'status', 'data': chunk_data})}\n\n"
 
             elif chunk_type == "metadata":
@@ -556,6 +579,8 @@ async def _stream_generator(
                 metadata = _build_message_metadata(router_name, retrieval_stages)
                 if metadata is None:
                     metadata = {}
+                if len(pipeline_steps) > 1:  # classification alone is not worth a timeline
+                    metadata["pipeline"] = pipeline_steps
                 for key in PERSISTED_METADATA_KEYS:
                     if key in chunk_data:
                         metadata[key] = chunk_data[key]

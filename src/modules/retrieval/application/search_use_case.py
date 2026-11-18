@@ -121,11 +121,14 @@ class SearchUseCase:
         return results
 
     async def _ensure_bm25_index(self, user_id: str) -> None:
-        """Rebuild an empty in-memory BM25 index from persisted chunks."""
-        if self._keyword_search is None or self._documents is None:
-            return
+        """Keep the in-memory BM25 index in sync with the user's persisted chunks.
 
-        if self._keyword_search.has_documents(user_id):
+        Documents are chunked by the Celery worker in another process, so this process never
+        sees their in-memory index updates. Compare a cheap DB fingerprint of the completed
+        chunk set with the one the index was built from, and rebuild when they differ
+        (new, reprocessed or deleted documents) or when the index is empty.
+        """
+        if self._keyword_search is None or self._documents is None:
             return
 
         try:
@@ -134,14 +137,21 @@ class SearchUseCase:
             logger.warning("Skipping BM25 lazy rebuild for invalid user_id=%s", user_id)
             return
 
-        logger.info("BM25 index empty for user=%s; rebuilding from persisted chunks", user_id)
-        chunks = await self._documents.list_completed_chunks(user_uuid)
-
-        if not chunks:
-            logger.info("BM25 rebuild skipped for user=%s; no persisted chunks found", user_id)
+        signature = await self._documents.completed_chunks_signature(user_uuid)
+        # The manager drops the signature whenever the index is cleared, so a fresh, emptied
+        # or never-built index always mismatches and gets rebuilt.
+        if self._keyword_search.get_signature(user_id) == signature:
             return
 
-        self._keyword_search.rebuild_from_chunks(user_id=user_id, chunks=chunks)
+        logger.info(
+            "BM25 index out of date for user=%s; rebuilding from persisted chunks (signature=%s)",
+            user_id,
+            signature,
+        )
+        chunks = await self._documents.list_completed_chunks(user_uuid)
+        self._keyword_search.rebuild_from_chunks(
+            user_id=user_id, chunks=chunks, signature=signature
+        )
         logger.info("BM25 rebuild completed for user=%s; chunks=%d", user_id, len(chunks))
 
     async def _dense_search(

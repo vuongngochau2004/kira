@@ -40,7 +40,7 @@ services:
 
   # ===== MinIO (Object Storage) =====
   minio:
-    image: minio/minio:latest
+    image: pgsty/minio:latest
     container_name: kira-simple-minio
     restart: unless-stopped
     ports:
@@ -90,6 +90,96 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  # ===== Application (profile "app"; started by `make deploy` / `make deploy-tunnel`) =====
+  # Infra-only `docker compose up -d` (make infra) is unaffected by these services.
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kira-backend:latest
+    container_name: kira-simple-api
+    restart: unless-stopped
+    profiles: ["app", "tunnel"]
+    env_file: .env
+    environment: &backend-env
+      DEBUG: ${DEPLOY_DEBUG:-false}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      MINIO_ENDPOINT: minio:9000
+      NEO4J_URI: bolt://neo4j:7687
+      # PDFs: VLM page transcription first; PyMuPDF + PaddleOCR only when VLM fails.
+      PDF_EXTRACTOR: ${DEPLOY_PDF_EXTRACTOR:-vlm}
+      OCR_BASE_URL: ${DEPLOY_OCR_BASE_URL:-http://host.docker.internal:8889}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # reach host-only services (OCR, local embedding)
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      qdrant: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8006/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kira-backend:latest
+    container_name: kira-simple-worker
+    restart: unless-stopped
+    profiles: ["app", "tunnel"]
+    command: >
+      celery -A src.worker.celery_app.celery_app worker
+      --loglevel=info --concurrency=${CELERY_WORKER_CONCURRENCY:-1}
+    env_file: .env
+    environment: *backend-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      api: { condition: service_started }
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        KIRA_API_URL: http://api:8006
+    image: kira-frontend:latest
+    container_name: kira-simple-frontend
+    restart: unless-stopped
+    profiles: ["app", "tunnel"]
+    ports:
+      - "${DEPLOY_FRONTEND_PORT:-3002}:3000"  # 3002 so it can run beside `npm run dev` on 3001
+    environment:
+      KIRA_API_URL: http://api:8006
+    depends_on:
+      api: { condition: service_healthy }
+
+  # ===== Cloudflare Tunnel (profile "tunnel") =====
+  # No token -> Quick Tunnel (random https://*.trycloudflare.com URL).
+  # With CLOUDFLARE_TUNNEL_TOKEN + CLOUDFLARE_TUNNEL_CMD="tunnel --no-autoupdate run" -> Named Tunnel.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: kira-simple-tunnel
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    command: ${CLOUDFLARE_TUNNEL_CMD:-tunnel --no-autoupdate --url http://frontend:3000}
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - frontend
 
 volumes:
   postgres_data:

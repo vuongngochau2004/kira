@@ -163,6 +163,10 @@ class Settings(BaseSettings):
     tei_api_key: str = ""
     tei_embedding_model: str = "BAAI/bge-m3"
     tei_embedding_dim: int = 1024
+    # Hosted TEI embeds ~1 text/s; keep batches small so each request finishes well
+    # inside the timeout (32 texts took >30 s and failed whole-document ingestion).
+    tei_embed_batch_size: int = Field(default=8, ge=1, le=256)
+    tei_timeout_seconds: float = Field(default=120.0, gt=0)
     tei_reranker_model: str = "BAAI/bge-reranker-v2-m3"
 
     # ----- Retrieval (from settings.yaml) -----

@@ -84,6 +84,9 @@ async def update_document_status(
 
     if error_message is not None:
         values["error_message"] = error_message
+    elif status != "failed":
+        # A reprocessed document leaving the failed state must not keep the old run's error.
+        values["error_message"] = None
     if chunk_count > 0:
         values["chunk_count"] = chunk_count
 
@@ -469,7 +472,44 @@ async def list_completed_chunks_for_user(
         return await _query(session)
 
 
+async def completed_chunks_signature_for_user(
+    user_id: UUID,
+    db: AsyncSession | None = None,
+) -> tuple[int, int, str | None]:
+    """Cheap fingerprint of the chunk set ``list_completed_chunks_for_user`` would return.
+
+    Returns (completed documents, total chunks, latest document ``updated_at``). Documents are
+    processed by the Celery worker in another process, so the API process compares this value
+    with the one its in-memory BM25 index was built from to notice added/removed documents.
+    """
+    from src.constants import DocumentStatus
+    from src.shared.infrastructure.persistence.database.models import Document
+    from src.shared.infrastructure.persistence.database.session import async_session_factory
+
+    async def _query(session: AsyncSession) -> tuple[int, int, str | None]:
+        result = await session.execute(
+            select(
+                func.count(Document.id),
+                func.coalesce(func.sum(Document.chunk_count), 0),
+                func.max(Document.updated_at),
+            ).where(
+                Document.user_id == user_id,
+                Document.status == DocumentStatus.COMPLETED.value,
+                Document.deleted_at.is_(None),
+            )
+        )
+        doc_count, chunk_total, latest = result.one()
+        return int(doc_count), int(chunk_total), latest.isoformat() if latest else None
+
+    if db is not None:
+        return await _query(db)
+
+    async with async_session_factory() as session:
+        return await _query(session)
+
+
 __all__ = [
+    "completed_chunks_signature_for_user",
     "create_document",
     "update_document_status",
     "update_document_processing_task",

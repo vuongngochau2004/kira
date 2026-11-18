@@ -149,3 +149,10 @@ class ProvisionHistoryResponse(BaseModel):
                 ProvisionVersionResponse.from_hit(history.in_force) if history.in_force else None
             ),
         )
+
+
+class UrlIngestRequest(BaseModel):
+    """Request payload for ingesting a legal document from a URL."""
+
+    url: str
+

@@ -7,6 +7,7 @@
  */
 
 import { toLegalAnswerInfo } from '@/lib/legal/format'
+import type { PipelineStep } from './pipeline-trace'
 import type { LegalAnswerInfo, LegalCitationInfo } from '@/lib/legal/types'
 
 // ==================== Types ====================
@@ -69,6 +70,8 @@ export interface MessageState {
   timestamp: number
   /** Applied date(s) and notices of a legal answer */
   legal: LegalAnswerInfo | null
+  /** Ordered pipeline steps (classification + LangGraph nodes) for the trace timeline */
+  pipeline: PipelineStep[]
 }
 
 // ==================== Constants ====================
@@ -83,6 +86,7 @@ const INITIAL_STATE: MessageState = {
   error: null,
   timestamp: Date.now(),
   legal: null,
+  pipeline: [],
 }
 
 // ==================== StreamingStateBuilder ====================
@@ -216,6 +220,7 @@ export class StreamingStateBuilder {
       error: this.state.error,
       timestamp: this.state.timestamp,
       legal: this.state.legal,
+      pipeline: [...this.state.pipeline],
     }
   }
 
@@ -240,6 +245,17 @@ export class StreamingStateBuilder {
 
   private processRouting(data: RoutingChunkData): void {
     this.state.status = 'routing'
+    // The chat graph and the selected handler both send a routing chunk: keep one classify step.
+    const routing = Object.fromEntries(
+      Object.entries({ router: data?.router, intent: data?.intent, confidence: data?.confidence })
+        .filter(([, value]) => value !== undefined && value !== null)
+    )
+    const [first, ...rest] = this.state.pipeline
+    if (first?.stage === 'classify') {
+      this.state.pipeline = [{ stage: 'classify', metadata: { ...first.metadata, ...routing } }, ...rest]
+    } else {
+      this.state.pipeline = [{ stage: 'classify', metadata: routing }, ...this.state.pipeline]
+    }
 
     if (data?.router) {
       this.state.routing = {
@@ -297,7 +313,15 @@ export class StreamingStateBuilder {
     }
   }
 
+  /** Append immutably: INITIAL_STATE is shallow-copied on reset, so never mutate in place. */
+  private appendPipelineStep(stage: string, metadata: Record<string, unknown>): void {
+    this.state.pipeline = [...this.state.pipeline, { stage, metadata }]
+  }
+
   private processStatus(data: StatusChunkData): void {
+    if (data?.stage) {
+      this.appendPipelineStep(data.stage, data.metadata ?? {})
+    }
     if (data?.stage !== 'temporal') return
     const metadata = data.metadata ?? {}
     const legal = toLegalAnswerInfo({

@@ -23,3 +23,14 @@ export {
   type SourceChunk,
   type RawCitationItem,
 } from './streaming-state-builder'
+
+export {
+  toPipelineSteps,
+  hasGraphSteps,
+  describePipelineStep,
+  formatDuration,
+  totalDurationMs,
+  type PipelineStep,
+  type PipelineStepView,
+  type PipelineStepTone,
+} from './pipeline-trace'

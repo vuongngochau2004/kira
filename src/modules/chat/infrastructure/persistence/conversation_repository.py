@@ -53,6 +53,7 @@ async def create_message(
             "document_type",
             "documents_used",
             "legal",
+            "pipeline",  # LangGraph trace rendered by the chat UI
         }
         validated_metadata = {
             key: value

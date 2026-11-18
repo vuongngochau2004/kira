@@ -21,6 +21,8 @@ import {
   type SourceChunk,
   type Attachment,
   type RawCitationItem,
+  type PipelineStep,
+  toPipelineSteps,
 } from '@/lib/streaming'
 import { toLegalAnswerInfo } from '@/lib/legal/format'
 import type { LegalAnswerInfo } from '@/lib/legal/types'
@@ -50,6 +52,7 @@ export interface Message {
   isStreaming?: boolean
   isOptimistic?: boolean
   legal?: LegalAnswerInfo
+  pipeline?: PipelineStep[]
 }
 
 // ==================== Constants ====================
@@ -90,7 +93,10 @@ export function useSimpleChat() {
   // Store & Router
   const { activeConversationId, setActiveConversation } = useConversationStore()
   const { isAuthenticated } = useAuthStore()
-  const sourcesStore = useSourcesStore()
+  // Select stable actions only: subscribing to the whole store would give effects a new
+  // dependency on every store update and loop with SimpleChat's own source sync.
+  const replaceSourcesForConversation = useSourcesStore((state) => state.replaceForConversation)
+  const resetSources = useSourcesStore((state) => state.reset)
 
   // State
   const [mounted, setMounted] = useState(false)
@@ -158,6 +164,7 @@ export function useSimpleChat() {
                 sources: state.sources.length > 0 ? [...state.sources] : undefined,
                 attachments: state.attachments.length > 0 ? [...state.attachments] : undefined,
                 legal: state.legal ?? undefined,
+                pipeline: state.pipeline.length > 0 ? state.pipeline : undefined,
                 streamingState: state.status,
                 isStreaming: state.status !== 'complete',
               }
@@ -206,6 +213,7 @@ export function useSimpleChat() {
               ),
               attachments: (metadata?.attachments as Attachment[]) || undefined,
               legal: toLegalAnswerInfo(metadata?.legal),
+              pipeline: toPipelineSteps(metadata?.pipeline),
               streamingState: 'complete' as const,
               isStreaming: false,
             }
@@ -351,9 +359,9 @@ export function useSimpleChat() {
       return
     }
     setMessages([])
-    sourcesStore.replaceForConversation(activeConversationId, [])
+    replaceSourcesForConversation(activeConversationId, [])
     loadConversation(activeConversationId)
-  }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation, loadConversation, sourcesStore])
+  }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation, loadConversation, replaceSourcesForConversation])
 
   useEffect(() => {
     if (!activeConversationId && mounted && isAuthenticated && !isCreatingConversation) {
@@ -364,9 +372,9 @@ export function useSimpleChat() {
       setError(null)
       setMessages([])
       // Reset sources panel when switching to new chat
-      sourcesStore.reset()
+      resetSources()
     }
-  }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation, cleanup, sourcesStore])
+  }, [activeConversationId, mounted, isAuthenticated, isCreatingConversation, cleanup, resetSources])
 
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return
@@ -553,8 +561,8 @@ export function useSimpleChat() {
     setActiveConversation(null)
     setError(null)
     // Reset sources panel
-    sourcesStore.reset()
-  }, [setActiveConversation, cleanup, sourcesStore])
+    resetSources()
+  }, [setActiveConversation, cleanup, resetSources])
 
   const retryMessage = useCallback(() => {
     if (failedMessageRef.current) {

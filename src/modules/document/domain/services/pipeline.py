@@ -87,7 +87,8 @@ async def process_document(
         return result
 
     except Exception as e:
-        error_msg = f"{ERR_PROCESSING_FAILED}: {str(e)}"
+        # Some exceptions (e.g. httpx.ReadTimeout) have an empty str(); keep the type name.
+        error_msg = f"{ERR_PROCESSING_FAILED}: {str(e) or type(e).__name__}"
         logger.error("Exception in process_document for %s: %s", document_id, e, exc_info=True)
         await repository.update_document_status(
             document_id=document_id,

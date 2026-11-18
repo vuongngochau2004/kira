@@ -49,12 +49,44 @@ class FakeEnqueuer:
         return "task-publish"
 
 
+from src.modules.legal.application.ingest_from_url import IngestLegalFromUrl
+from src.modules.legal.application.errors import InvalidLegalDocumentInput
+from src.modules.legal.application.records import LegalDocumentMetadata
+from src.modules.legal.infrastructure.scrapers.vbpl_scraper import ScrapedLegalDocument
+
+
+class FakeScraper:
+    def __init__(self, metadata: LegalDocumentMetadata | None = None, content: bytes = LAW_TEXT, file_name: str = "doc.html") -> None:
+        self.metadata = metadata or LegalDocumentMetadata(
+            number="45/2024/QH15",
+            doc_type="law",
+            title="Luật Đất đai sửa đổi",
+            issuer="Quốc hội",
+            issued_date=date(2024, 1, 1),
+            effective_date=date(2024, 7, 1),
+            source_url="https://vbpl.vn/example",
+        )
+        self.content = content
+        self.file_name = file_name
+
+    async def scrape(self, url: str) -> ScrapedLegalDocument:
+        if "invalid" in url:
+            raise InvalidLegalDocumentInput("Invalid URL")
+        return ScrapedLegalDocument(
+            metadata=self.metadata,
+            file_name=self.file_name,
+            content=self.content,
+            content_type="text/html",
+        )
+
+
 class Harness:
     def __init__(self, role: str = "admin") -> None:
         self.repository = InMemoryLegalRepository()
         self.storage = FakeStorage()
         self.events: list[str] = []
         self.enqueuer = FakeEnqueuer(self.events)
+        self.scraper = FakeScraper()
         self.user = SimpleNamespace(id=uuid4(), role=role, is_active=True)
         app = FastAPI()
         app.include_router(router, prefix="/api/v1/legal")
@@ -67,6 +99,9 @@ class Harness:
         app.dependency_overrides[get_session] = session_override
         app.dependency_overrides[dependencies.get_upload_service] = lambda: UploadLegalDocument(
             self.repository, self.storage
+        )
+        app.dependency_overrides[dependencies.get_ingest_from_url_service] = lambda: IngestLegalFromUrl(
+            self.scraper, UploadLegalDocument(self.repository, self.storage)
         )
         app.dependency_overrides[dependencies.get_review_service] = lambda: ReviewRelationCandidate(
             self.repository
@@ -256,3 +291,36 @@ async def test_delete_unpublished_document() -> None:
     _, amending, _ = await _seed(harness)
     assert harness.client.delete(f"/api/v1/legal/documents/{amending.id}").status_code == 409
     assert harness.client.delete(f"/api/v1/legal/documents/{uuid4()}").status_code == 404
+
+
+def test_ingest_from_url_success() -> None:
+    harness = Harness()
+    response = harness.client.post(
+        "/api/v1/legal/documents/from-url",
+        json={"url": "https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=123"},
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["number"] == "45/2024/QH15"
+    assert body["status"] == "uploaded"
+    assert harness.enqueuer.processed == [UUID(body["id"])]
+    assert harness.events == ["commit", "enqueue"]
+
+
+def test_ingest_from_url_invalid_url() -> None:
+    harness = Harness()
+    response = harness.client.post(
+        "/api/v1/legal/documents/from-url",
+        json={"url": "https://invalid-url.com/doc"},
+    )
+    assert response.status_code == 422
+
+
+def test_ingest_from_url_forbidden_for_non_admin() -> None:
+    harness = Harness(role="user")
+    response = harness.client.post(
+        "/api/v1/legal/documents/from-url",
+        json={"url": "https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=123"},
+    )
+    assert response.status_code == 403
+

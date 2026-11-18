@@ -11,6 +11,9 @@ class BM25IndexManager:
     def __init__(self):
         """Initialize BM25 index manager."""
         self._indexes: dict[str, BM25Index] = {}
+        # Signature of the persisted chunk set each index was rebuilt from. Any other
+        # mutation drops it so the next search re-checks against the database.
+        self._signatures: dict[str, object] = {}
 
     def _get_key(self, user_id: UUID | str) -> str:
         """Get cache key for user."""
@@ -84,9 +87,10 @@ class BM25IndexManager:
             document_id: Document ID to remove
         """
         key = self._get_key(user_id)
+        self._signatures.pop(key, None)
         if key in self._indexes:
-            # For simplicity, clear the index
-            # In production, track document->chunks mapping
+            # Clear the whole index; the next search rebuilds it from persisted chunks
+            # because the signature is gone.
             self._indexes[key].clear()
 
     def clear_user(self, user_id: UUID | str) -> None:
@@ -96,23 +100,36 @@ class BM25IndexManager:
             user_id: User ID
         """
         key = self._get_key(user_id)
+        self._signatures.pop(key, None)
         if key in self._indexes:
             del self._indexes[key]
+
+    def get_signature(self, user_id: UUID | str) -> object:
+        """Return the chunk-set signature the user's index was rebuilt from, if any."""
+        return self._signatures.get(self._get_key(user_id))
 
     def rebuild_from_chunks(
         self,
         user_id: UUID | str,
         all_chunks: list[dict],
+        signature: object = None,
     ) -> None:
         """Rebuild BM25 index from all user's chunks.
 
         Args:
             user_id: User ID
             all_chunks: All chunks for the user
+            signature: Fingerprint of the persisted chunk set these chunks came from
         """
         index = self.get_index(user_id)
         index.clear()
-        index.index_documents(all_chunks)
+        if all_chunks:
+            index.index_documents(all_chunks)
+        key = self._get_key(user_id)
+        if signature is None:
+            self._signatures.pop(key, None)
+        else:
+            self._signatures[key] = signature
 
 
 # Global singleton

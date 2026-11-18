@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config.config import settings
 from src.modules.legal.application.answer_question import AnswerLegalQuestion, LegalQAOptions
 from src.modules.legal.application.delete_document import DeleteLegalDocument
+from src.modules.legal.application.ingest_from_url import IngestLegalFromUrl
 from src.modules.legal.application.process_document import ProcessLegalDocument
 from src.modules.legal.application.publish_document import PublishLegalDocument
 from src.modules.legal.application.queries import LegalDocumentQueries
@@ -19,6 +20,7 @@ from src.modules.legal.infrastructure.chat_handler import LegalQAHandler
 from src.modules.legal.infrastructure.keyword_index import LegalKeywordIndex
 from src.modules.legal.infrastructure.repositories import SqlAlchemyLegalRepository
 from src.modules.legal.infrastructure.reranker import ConfiguredLegalReranker
+from src.modules.legal.infrastructure.scrapers.vbpl_scraper import VbplScraper
 from src.modules.legal.infrastructure.search_index import QdrantLegalSearchIndex
 from src.modules.legal.infrastructure.text_extractor import DocumentModuleTextExtractor
 from src.modules.retrieval.domain.services.reranking_service import get_llm_client
@@ -38,6 +40,14 @@ def legal_repository(db: AsyncSession) -> SqlAlchemyLegalRepository:
 
 def upload_legal_document_service(db: AsyncSession) -> UploadLegalDocument:
     return UploadLegalDocument(repository=legal_repository(db), storage=MinIOAdapter())
+
+
+def vbpl_scraper() -> VbplScraper:
+    return VbplScraper()
+
+
+def ingest_legal_from_url_service(db: AsyncSession) -> IngestLegalFromUrl:
+    return IngestLegalFromUrl(scraper=vbpl_scraper(), upload_service=upload_legal_document_service(db))
 
 
 def process_legal_document_service(db: AsyncSession) -> ProcessLegalDocument:

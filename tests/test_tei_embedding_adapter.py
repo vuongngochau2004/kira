@@ -85,6 +85,44 @@ async def test_embed_batch_fallback_openai_compat(tei_adapter):
 
 
 @pytest.mark.asyncio
+async def test_embed_batch_splits_into_configured_batch_size():
+    adapter = TEIEmbeddingAdapter(base_url="https://test-tei.example.com", batch_size=8)
+    texts = [f"Câu {i}" for i in range(20)]
+
+    async def fake_post(url, json, headers):
+        return httpx.Response(200, json=[[0.1] * 1024 for _ in json["inputs"]])
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = fake_post
+
+        vectors = await adapter.embed_batch(texts)
+
+    assert len(vectors) == 20
+    assert [len(c.kwargs["json"]["inputs"]) for c in mock_post.call_args_list] == [8, 8, 4]
+
+
+def test_tei_adapter_defaults_come_from_settings(monkeypatch):
+    monkeypatch.setattr(settings, "tei_embed_batch_size", 5)
+    monkeypatch.setattr(settings, "tei_timeout_seconds", 77.0)
+
+    adapter = TEIEmbeddingAdapter(base_url="https://test-tei.example.com")
+
+    assert adapter._batch_size == 5
+    assert adapter._timeout == 77.0
+
+
+@pytest.mark.asyncio
+async def test_embed_batch_timeout_does_not_fall_back(tei_adapter):
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = httpx.ReadTimeout("")
+
+        with pytest.raises(httpx.ReadTimeout):
+            await tei_adapter.embed_batch(["Câu 1"])
+
+    assert mock_post.call_count == 1
+
+
+@pytest.mark.asyncio
 async def test_health_check_success(tei_adapter):
     with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = httpx.Response(200, json={"status": "ok"})

@@ -4,14 +4,25 @@ This guide documents the current deployable shape of KIRA.
 
 ## Current Deployment Shape
 
-The repository currently provides Docker Compose for infrastructure services only:
+`docker compose up -d` (`make infra`) starts infrastructure services only:
 
 - PostgreSQL 16 + pgvector
 - Qdrant
 - MinIO
 - Redis
+- Neo4j
 
-The backend, Celery worker, and frontend are run from source during local development. Production container images can be added later, but they are not part of the current `docker-compose.yml`.
+The backend, Celery worker, and frontend run from source during local development. Containerized app
+services (`api`, `worker`, `frontend`) live behind the `app` compose profile, and a Cloudflare Tunnel
+(`cloudflared`) behind the `tunnel` profile:
+
+```bash
+make deploy          # full stack in Docker, frontend on http://localhost:3002
+make deploy-tunnel   # full stack + Cloudflare Tunnel, then prints the public URL
+make deploy-stop     # stop app + tunnel containers, keep infrastructure
+```
+
+See [deployment/cloudflare-tunnel.md](deployment/cloudflare-tunnel.md) for Quick vs Named Tunnel setup.
 
 ## Local Development
 
