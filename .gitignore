@@ -87,3 +87,4 @@ docs_eval_sample/
 output/
 reports/
 *.docx
+.agents/
