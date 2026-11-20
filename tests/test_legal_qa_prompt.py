@@ -9,7 +9,7 @@ from src.modules.legal.domain.prompts.legal_qa import (
     source_block,
 )
 from src.modules.legal.domain.qa import LegalSource
-from src.modules.legal.domain.temporal import TemporalQuery
+from src.modules.legal.domain.temporal.rules import TemporalQuery
 from tests.legal_fakes import make_hit
 
 SINGLE = TemporalQuery("single", (date(2026, 10, 15),), "present tense", "rule")

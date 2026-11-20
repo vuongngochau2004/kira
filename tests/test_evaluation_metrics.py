@@ -11,7 +11,7 @@ from src.modules.evaluation.domain.models import (
     MetricResult,
 )
 from src.modules.evaluation.domain.service import DeepEvalEvaluationService
-from src.modules.evaluation.metrics import hit_rate_at_k, mean_reciprocal_rank, recall_at_k
+from src.modules.evaluation.metrics.custom import hit_rate_at_k, mean_reciprocal_rank, recall_at_k
 from src.modules.evaluation.reports.reporter import EvaluationReporter
 from src.modules.evaluation.runners.rag_pipeline_runner import RAGPipelineEvaluationRunner
 

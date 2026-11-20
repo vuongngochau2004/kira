@@ -5,7 +5,7 @@ from src.modules.classification.domain.strategies.composite import CompositeClas
 from src.modules.classification.domain.strategies.keyword import KeywordStrategy
 from src.modules.classification.domain.strategies.legal import LegalKeywordStrategy
 from src.modules.classification.domain.strategies.llm import LLMStrategy
-from src.modules.legal.domain.extraction import DOCUMENT_NUMBER_PATTERN
+from src.modules.legal.domain.extraction.rules import DOCUMENT_NUMBER_PATTERN
 from src.shared.ports.classification import Intent
 
 KEYWORDS = ["luật", "bộ luật", "nghị định", "thông tư", "pháp luật", "mức phạt", "xử phạt"]

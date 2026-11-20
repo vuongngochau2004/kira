@@ -1,6 +1,6 @@
 """Dependency composition for the classification module."""
 
-from src.modules.classification.application import Classification
+from src.modules.classification.application.use_case import Classification
 
 
 def classification_use_case() -> Classification:

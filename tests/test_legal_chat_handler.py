@@ -6,7 +6,7 @@ from src.modules.legal.application.answer_question import (
     LegalQAStatus,
     LegalQAToken,
 )
-from src.modules.legal.domain.temporal import TemporalQuery
+from src.modules.legal.domain.temporal.rules import TemporalQuery
 from src.modules.legal.infrastructure.chat_handler import (
     LEGAL_QA_UNAVAILABLE_MESSAGE,
     LegalQAHandler,

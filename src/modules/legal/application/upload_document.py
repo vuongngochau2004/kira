@@ -11,7 +11,7 @@ from src.modules.legal.application.records import (
     LegalDocumentRecord,
     LegalDocumentStatus,
 )
-from src.modules.legal.domain.extraction import DOCUMENT_NUMBER_PATTERN
+from src.modules.legal.domain.extraction.rules import DOCUMENT_NUMBER_PATTERN
 from src.shared.ports.storage import StoragePort
 
 SUPPORTED_LEGAL_FILE_TYPES = frozenset({"pdf", "docx", "txt", "md", "html"})

@@ -6,7 +6,7 @@ import logging
 import re
 from typing import Any
 
-from src.modules.retrieval.domain.prompts import (
+from src.modules.retrieval.domain.prompts.reranking import (
     RERANKING_SYSTEM_PROMPT,
     build_reranking_prompt,
 )

@@ -2,7 +2,7 @@ import pytest
 
 from src.modules.legal.domain.errors import LegalParseError
 from src.modules.legal.domain.models import ProvisionLevel
-from src.modules.legal.domain.parser import (
+from src.modules.legal.domain.parser.structure import (
     DUPLICATE_PROVISION_KEY_WARNING,
     UNBALANCED_QUOTES_WARNING,
     parse_legal_structure,

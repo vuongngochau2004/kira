@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from src.modules.legal.domain.temporal import (
+from src.modules.legal.domain.temporal.rules import (
     TemporalQuery,
     default_temporal_query,
     resolve_temporal_rules,

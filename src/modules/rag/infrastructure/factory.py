@@ -1,7 +1,7 @@
 """Infrastructure composition for the RAG module."""
 
 from src.config.config import settings
-from src.modules.rag.application import RAGPipelineService
+from src.modules.rag.application.pipeline import RAGPipelineService
 from src.modules.rag.orchestration.graph.langgraph_pipeline import create_langgraph_pipeline
 from src.modules.rag.orchestration.state.rag_state import (
     GenerationAgentConfig,
@@ -11,7 +11,7 @@ from src.modules.rag.orchestration.state.rag_state import (
 )
 from src.modules.retrieval.application.search_use_case import SearchUseCase
 from src.modules.retrieval.composition import create_search_use_case
-from src.shared.adapters.embedding import create_embedding_adapter
+from src.shared.adapters.embedding.factory import create_embedding_adapter
 from src.shared.adapters.llm.glm_adapter import GLMAdapter
 from src.shared.adapters.llm.traced_adapter import TracedLLMPort
 from src.shared.ports.embedding import EmbeddingPort

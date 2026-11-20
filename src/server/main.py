@@ -11,18 +11,17 @@ from src.modules.debug.api import router as debug_router
 from src.modules.document.api.endpoints import router as documents_router
 from src.modules.legal.api.endpoints import router as legal_router
 from src.modules.retrieval.domain.services.reranking_service import init_reranking_service
+from src.server.api.middleware.cors_middleware import setup_cors
+from src.server.api.middleware.error_handler_middleware import setup_exception_handlers
 from src.server.api.v1.admin.endpoints import router as admin_router
 from src.server.api.v1.auth.endpoints import router as auth_router
 from src.server.api.v1.evaluation.endpoints import router as evaluation_router
 from src.server.startup_health import log_startup_service_health
 from src.shared.infrastructure.llm.client import LLMClient, LLMProvider
-from src.shared.infrastructure.monitoring import setup_logging
+from src.shared.infrastructure.monitoring.logger import setup_logging
 from src.shared.infrastructure.persistence.database.session import close_db, init_db
 from src.tools.ingestion_tools import init_ingestion_tools
 from src.tools.retrieval_tools import init_retrieval_tools
-
-from .api.middleware.cors_middleware import setup_cors
-from .api.middleware.error_handler_middleware import setup_exception_handlers
 
 
 @asynccontextmanager

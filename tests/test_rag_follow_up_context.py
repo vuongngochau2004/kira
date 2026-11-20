@@ -12,7 +12,7 @@ from src.modules.chat.infrastructure.persistence.conversation_repository import 
 from src.modules.classification.domain.strategies.composite import CompositeClassifier
 from src.modules.classification.domain.strategies.keyword import KeywordStrategy
 from src.modules.classification.domain.strategies.legal import LegalKeywordStrategy
-from src.modules.legal.domain.extraction import DOCUMENT_NUMBER_PATTERN
+from src.modules.legal.domain.extraction.rules import DOCUMENT_NUMBER_PATTERN
 from src.modules.rag.application.dto import RAGExecutionResult
 from src.modules.rag.domain.services.rag_domain_service import RAGService
 from src.modules.rag.orchestration.agents.orchestrator_agent import OrchestratorAgent

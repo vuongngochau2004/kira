@@ -7,8 +7,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.shared.infrastructure.auth.security import decode_token
-from src.shared.infrastructure.persistence.database import get_session
 from src.shared.infrastructure.persistence.database.models import User, UserRole
+from src.shared.infrastructure.persistence.database.session import get_session
 
 security = HTTPBearer(auto_error=False)
 

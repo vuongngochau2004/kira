@@ -19,7 +19,7 @@ from src.modules.chat.domain.prompts.conversational import (
     CONVERSATIONAL_SYSTEM_PROMPT,
     CONVERSATIONAL_USER_PROMPT,
 )
-from src.modules.chat.domain.services import ConversationContext, ConversationService
+from src.modules.chat.domain.services.conversation import ConversationContext, ConversationService
 from src.shared.ports.classification import ClassificationResult, Intent
 from src.shared.ports.handlers import HandlerConfig, HandlerResult, QueryHandlerBase
 from src.shared.ports.llm import LLMPort

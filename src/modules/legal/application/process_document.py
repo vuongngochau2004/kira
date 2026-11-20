@@ -24,14 +24,14 @@ from src.modules.legal.application.records import (
 )
 from src.modules.legal.application.serialization import provisions_to_json
 from src.modules.legal.domain.errors import LegalParseError
-from src.modules.legal.domain.extraction import extract_rule_candidates
 from src.modules.legal.domain.extraction.llm import (
     build_amendment_messages,
     parse_amendment_response,
     select_amendment_provisions,
 )
+from src.modules.legal.domain.extraction.rules import extract_rule_candidates
 from src.modules.legal.domain.models import ParseResult, RelationDraft, RelationType
-from src.modules.legal.domain.parser import parse_legal_structure
+from src.modules.legal.domain.parser.structure import parse_legal_structure
 from src.shared.ports.llm import LLMPort
 from src.shared.ports.storage import StoragePort
 from src.shared.utils.agent import parse_json_response

@@ -10,7 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from src.config.config import settings
-from src.modules.classification.domain.prompts import ROUTING_CLASSIFIER_PROMPT
+from src.modules.classification.domain.prompts.routing import ROUTING_CLASSIFIER_PROMPT
 from src.shared.infrastructure.llm.client import chat_async
 from src.shared.ports.classification import ClassificationResult, ClassificationStrategyBase, Intent
 from src.shared.utils.agent import parse_json_response

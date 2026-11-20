@@ -19,7 +19,7 @@ from src.modules.evaluation.domain.models import (
 )
 from src.modules.evaluation.domain.service import DeepEvalEvaluationService
 from src.modules.evaluation.reports.reporter import EvaluationReporter
-from src.modules.rag.application import RAGPipelineService
+from src.modules.rag.application.pipeline import RAGPipelineService
 from src.modules.rag.orchestration.state.rag_state import Citation, get_retrieval_docs
 
 

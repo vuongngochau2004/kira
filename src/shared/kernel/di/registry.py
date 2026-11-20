@@ -67,7 +67,7 @@ class ServiceRegistry:
                 from src.modules.classification.domain.strategies.legal import (
                     LegalKeywordStrategy,
                 )
-                from src.modules.legal.domain.extraction import DOCUMENT_NUMBER_PATTERN
+                from src.modules.legal.domain.extraction.rules import DOCUMENT_NUMBER_PATTERN
 
                 # Legal corpus cues must win over the broad file keywords ("điều", "về", ...).
                 strategies.insert(
@@ -91,7 +91,7 @@ class ServiceRegistry:
                 BM25KeywordIndexAdapter,
             )
             from src.modules.retrieval.infrastructure.keyword.bm25_manager import get_bm25_manager
-            from src.shared.adapters.embedding import create_embedding_adapter
+            from src.shared.adapters.embedding.factory import create_embedding_adapter
             from src.shared.adapters.llm.glm_adapter import GLMAdapter
             from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
             from src.shared.adapters.storage.minio_adapter import MinIOAdapter

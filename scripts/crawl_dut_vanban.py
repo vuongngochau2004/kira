@@ -26,7 +26,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
-
 BASE_URL = "https://dut.udn.vn/VanbanPhapquy"
 PAGE_URL = "https://dut.udn.vn/VanBanPhapQuy/page/{page}"
 OUTPUT_DIR = "docs_to_upload"
@@ -143,10 +142,7 @@ def unique_path(path: Path) -> Path:
 
 def find_last_page(html: str) -> int:
     """Infer the last pagination page from pager links."""
-    pages = [
-        int(match)
-        for match in re.findall(r"/VanBanPhapQuy/page/(\d+)", html, flags=re.I)
-    ]
+    pages = [int(match) for match in re.findall(r"/VanBanPhapQuy/page/(\d+)", html, flags=re.I)]
     return max(pages) if pages else 1
 
 
@@ -234,7 +230,9 @@ def write_manifest(records: list[DocumentRecord], output_dir: Path) -> None:
         encoding="utf-8",
     )
 
-    fieldnames = list(asdict(records[0]).keys()) if records else list(DocumentRecord.__annotations__)
+    fieldnames = (
+        list(asdict(records[0]).keys()) if records else list(DocumentRecord.__annotations__)
+    )
     with (output_dir / MANIFEST_CSV).open("w", encoding="utf-8-sig", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()

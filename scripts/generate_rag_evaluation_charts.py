@@ -10,7 +10,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
 QUESTION_TYPES = [
     {"type": "Fact", "samples": 57, "pass_rate": 68.4, "overall_score": 0.871},
     {"type": "Responsibility", "samples": 16, "pass_rate": 62.5, "overall_score": 0.835},
@@ -145,7 +144,9 @@ def draw_metric_scores(output_dir: Path, dpi: int) -> Path:
     annotate_vertical_bars(ax, values)
 
     ax.axhline(0.7, color="#EF4444", linestyle="--", linewidth=1.4, label="Ngưỡng 0.70")
-    ax.set_title("Hình 5.4 - Điểm trung bình của ba chỉ số đánh giá", fontsize=15, fontweight="bold")
+    ax.set_title(
+        "Hình 5.4 - Điểm trung bình của ba chỉ số đánh giá", fontsize=15, fontweight="bold"
+    )
     ax.set_xlabel("Chỉ số")
     ax.set_ylabel("Điểm trung bình")
     ax.set_ylim(0, 1.05)

@@ -10,7 +10,7 @@ from src.modules.evaluation.domain.models import (
     MetricResult,
 )
 from src.modules.evaluation.domain.service import DeepEvalEvaluationService
-from src.modules.evaluation.metrics import (
+from src.modules.evaluation.metrics.legal import (
     citation_exactness,
     cited_sources,
     temporal_correctness,

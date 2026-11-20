@@ -19,7 +19,7 @@ from src.modules.legal.domain.prompts.legal_qa import (
     not_found_message,
 )
 from src.modules.legal.domain.qa import LegalSource, ProvisionHit, fuse_hits
-from src.modules.legal.domain.temporal import TemporalQuery
+from src.modules.legal.domain.temporal.rules import TemporalQuery
 from src.shared.ports.embedding import EmbeddingPort
 from src.shared.ports.legal_graph import LegalGraphPort, ProvisionContext
 from src.shared.ports.llm import LLMPort

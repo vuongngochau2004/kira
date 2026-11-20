@@ -13,7 +13,7 @@ from src.modules.evaluation.domain.models import (
     EvaluationRunConfig,
 )
 from src.modules.evaluation.domain.service import DeepEvalEvaluationService
-from src.modules.evaluation.runners import RAGPipelineEvaluationRunner
+from src.modules.evaluation.runners.rag_pipeline_runner import RAGPipelineEvaluationRunner
 from src.modules.rag.composition import create_default_rag_pipeline_service
 from src.shared.adapters.llm.glm_adapter import GLMAdapter
 
@@ -76,9 +76,9 @@ async def _run(args: argparse.Namespace) -> int:
 
 def build_legal_runner(threshold: float):
     """Compose the legal QA runner with real services; returns (runner, async closer)."""
-    from src.modules.evaluation.runners import LegalQAEvaluationRunner
+    from src.modules.evaluation.runners.legal_qa_runner import LegalQAEvaluationRunner
     from src.modules.legal.composition import create_answer_legal_question, legal_graph
-    from src.shared.adapters.embedding import create_embedding_adapter
+    from src.shared.adapters.embedding.factory import create_embedding_adapter
 
     llm = GLMAdapter()
     embedding = create_embedding_adapter()
@@ -93,7 +93,7 @@ def build_legal_runner(threshold: float):
 
 
 async def _run_legal(args: argparse.Namespace) -> int:
-    from src.modules.evaluation.runners import LegalEvaluationRunConfig
+    from src.modules.evaluation.runners.legal_qa_runner import LegalEvaluationRunConfig
 
     config = LegalEvaluationRunConfig(
         dataset_path=args.dataset,

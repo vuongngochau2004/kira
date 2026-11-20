@@ -8,7 +8,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from src.modules.evaluation.adapters import DeepEvalLLMAdapter
+from src.modules.evaluation.adapters.deepeval_llm import DeepEvalLLMAdapter
 from src.modules.evaluation.domain.models import (
     BatchEvaluationRequest,
     BatchEvaluationResponse,
@@ -17,13 +17,15 @@ from src.modules.evaluation.domain.models import (
     EvaluationResponse,
     MetricResult,
 )
-from src.modules.evaluation.metrics import (
+from src.modules.evaluation.metrics.custom import (
     citation_accuracy,
-    citation_exactness,
     hit_rate_at_k,
     mean_reciprocal_rank,
     recall_at_k,
     refusal_correctness,
+)
+from src.modules.evaluation.metrics.legal import (
+    citation_exactness,
     temporal_correctness,
     temporal_date_accuracy,
 )
@@ -265,7 +267,7 @@ class DeepEvalEvaluationService:
                 return recall_at_k(expected, retrieved, request.retrieval_k)
 
         if request.reference_contexts and request.contexts:
-            from src.modules.evaluation.metrics import (
+            from src.modules.evaluation.metrics.custom import (
                 hit_rate_at_k_text,
                 mean_reciprocal_rank_text,
                 recall_at_k_text,

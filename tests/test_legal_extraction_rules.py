@@ -1,6 +1,6 @@
-from src.modules.legal.domain.extraction import extract_rule_candidates, find_document_numbers
+from src.modules.legal.domain.extraction.rules import extract_rule_candidates, find_document_numbers
 from src.modules.legal.domain.models import RelationType
-from src.modules.legal.domain.parser import parse_legal_structure
+from src.modules.legal.domain.parser.structure import parse_legal_structure
 
 AMENDING_LAW = """Luật số: 99/2026/QH15
 Căn cứ Hiến pháp;

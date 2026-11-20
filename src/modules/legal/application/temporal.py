@@ -5,12 +5,12 @@ from collections.abc import Callable
 from dataclasses import replace
 from datetime import date
 
-from src.modules.legal.domain.temporal import (
+from src.modules.legal.domain.temporal.llm import build_temporal_messages, parse_temporal_response
+from src.modules.legal.domain.temporal.rules import (
     TemporalQuery,
     default_temporal_query,
     resolve_temporal_rules,
 )
-from src.modules.legal.domain.temporal.llm import build_temporal_messages, parse_temporal_response
 from src.shared.ports.llm import LLMPort
 from src.shared.utils.agent import parse_json_response
 

@@ -5,7 +5,7 @@ from datetime import date
 from typing import Any
 
 from src.modules.legal.domain.qa import LegalSource
-from src.modules.legal.domain.temporal import TemporalQuery
+from src.modules.legal.domain.temporal.rules import TemporalQuery
 
 GRAPH_UNAVAILABLE_NOTICE = (
     "Chưa kiểm tra được các văn bản liên quan (hướng dẫn, sửa đổi) do hệ thống đồ thị pháp luật "

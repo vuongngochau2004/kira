@@ -7,7 +7,8 @@ from uuid import UUID
 
 from loguru import logger
 
-from src.modules.rag.application import RAGExecutionResult, RAGPipelineService
+from src.modules.rag.application.dto import RAGExecutionResult
+from src.modules.rag.application.pipeline import RAGPipelineService
 from src.shared.domain.value_objects.citation import Citation
 from src.shared.ports.classification import ClassificationResult, Intent
 from src.shared.ports.handlers import HandlerConfig, HandlerResult, QueryHandlerBase

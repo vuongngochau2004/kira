@@ -181,7 +181,9 @@ def draw_overlay(image_bytes: bytes, raw_response: dict[str, Any] | None) -> byt
     return buffer.getvalue()
 
 
-async def debug_pdf(pdf_path: Path, output_root: Path, pages_spec: str, zoom: float, lang: str | None) -> None:
+async def debug_pdf(
+    pdf_path: Path, output_root: Path, pages_spec: str, zoom: float, lang: str | None
+) -> None:
     import fitz
 
     doc = fitz.open(pdf_path)
@@ -224,7 +226,9 @@ async def debug_pdf(pdf_path: Path, output_root: Path, pages_spec: str, zoom: fl
             ocr_text = result.text if result.success else f"OCR FAILED: {result.error}"
             ocr_path.write_text(ocr_text, encoding="utf-8")
             raw_path.write_text(
-                json.dumps(result.raw_response or {"error": result.error}, ensure_ascii=False, indent=2),
+                json.dumps(
+                    result.raw_response or {"error": result.error}, ensure_ascii=False, indent=2
+                ),
                 encoding="utf-8",
             )
             combined_ocr.append(f"\n\n===== PAGE {page_index + 1} =====\n{ocr_text}")

@@ -3,11 +3,13 @@
 
 import sys
 import time
-import httpx
 from pathlib import Path
+
+import httpx
 
 BASE_URL = "http://localhost:8006"
 DATASET_DIR = Path(__file__).resolve().parents[1] / "dataset"
+
 
 def main():
     if not DATASET_DIR.exists():
@@ -24,20 +26,18 @@ def main():
     print(f"Registering/Logging in test user: {email}...")
     try:
         # Try logging in first in case user already exists
-        login_res = client.post(f"{BASE_URL}/api/v1/auth/login", json={
-            "email": email,
-            "password": password
-        })
+        login_res = client.post(
+            f"{BASE_URL}/api/v1/auth/login", json={"email": email, "password": password}
+        )
         if login_res.status_code == 200:
             user_data = login_res.json()
             print(f"User logged in. User ID: {user_data.get('id')}")
         else:
             # If login fails, register
-            reg_res = client.post(f"{BASE_URL}/api/v1/auth/register", json={
-                "email": email,
-                "password": password,
-                "full_name": full_name
-            })
+            reg_res = client.post(
+                f"{BASE_URL}/api/v1/auth/register",
+                json={"email": email, "password": password, "full_name": full_name},
+            )
             reg_res.raise_for_status()
             user_data = reg_res.json()
             print(f"User registered. User ID: {user_data.get('id')}")
@@ -88,7 +88,7 @@ def main():
                 res = client.post(
                     f"{BASE_URL}/api/v1/documents/upload",
                     files={"file": (pdf_path.name, f, "application/pdf")},
-                    cookies=cookies
+                    cookies=cookies,
                 )
                 res.raise_for_status()
                 doc_info = res.json()
@@ -105,16 +105,15 @@ def main():
             list_res = client.get(f"{BASE_URL}/api/v1/documents?limit=200", cookies=cookies)
             if list_res.status_code == 401:
                 print("Session expired (401). Logging in again to refresh cookies...")
-                login_res = client.post(f"{BASE_URL}/api/v1/auth/login", json={
-                    "email": email,
-                    "password": password
-                })
+                login_res = client.post(
+                    f"{BASE_URL}/api/v1/auth/login", json={"email": email, "password": password}
+                )
                 login_res.raise_for_status()
                 cookies = client.cookies
                 continue
             list_res.raise_for_status()
             docs = list_res.json().get("documents", [])
-            
+
             # Map status
             status_counts = {"completed": 0, "failed": 0, "processing": 0, "pending": 0}
             pending_or_processing_files = []
@@ -128,8 +127,10 @@ def main():
             completed_count = status_counts.get("completed", 0)
             failed_count = status_counts.get("failed", 0)
             other_count = total_uploaded - completed_count - failed_count
-            print(f"Status summary -> Completed: {completed_count}, Failed: {failed_count}, In-Progress/Uploading: {other_count}")
-            
+            print(
+                f"Status summary -> Completed: {completed_count}, Failed: {failed_count}, In-Progress/Uploading: {other_count}"
+            )
+
             if completed_count + failed_count == total_uploaded and total_uploaded > 0:
                 print("\nAll documents processed!")
                 break
@@ -143,11 +144,12 @@ def main():
             print(f"Error while polling: {e}")
             time.sleep(10)
 
-    user_id = user_data.get('id')
+    user_id = user_data.get("id")
     with open(DATASET_DIR / "user_id.txt", "w") as f:
         f.write(str(user_id))
     print(f"\nUpload and processing complete! User ID saved to dataset/user_id.txt: {user_id}")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

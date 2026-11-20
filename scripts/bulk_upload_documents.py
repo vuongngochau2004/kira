@@ -16,7 +16,6 @@ from pathlib import Path
 
 import httpx
 
-
 DEFAULT_EXTENSIONS = {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".txt", ".md"}
 
 

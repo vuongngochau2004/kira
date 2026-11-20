@@ -13,7 +13,7 @@ from loguru import logger
 
 from src.config.config import EmbeddingProvider, RerankingMode, settings
 from src.modules.document.infrastructure.storage.storage import get_client as get_minio_client
-from src.shared.adapters.embedding import create_embedding_adapter
+from src.shared.adapters.embedding.factory import create_embedding_adapter
 from src.shared.adapters.graph.neo4j_adapter import Neo4jLegalGraphAdapter
 from src.shared.adapters.llm.glm_adapter import GLMAdapter
 from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter

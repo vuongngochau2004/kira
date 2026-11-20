@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 
-from src.modules.document.application import ProcessDocumentRequest
+from src.modules.document.application.dto import ProcessDocumentRequest
 from src.modules.document.composition import process_document_service
 from src.shared.infrastructure.persistence.database.session import async_session_factory
 from src.worker.celery_app import celery_app

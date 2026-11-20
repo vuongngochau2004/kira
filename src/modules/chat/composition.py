@@ -24,7 +24,7 @@ async def get_chat_use_case() -> ChatUseCase:
     """Get or create ChatUseCase with classifier and handlers from DI container."""
     global _chat_use_case
     if _chat_use_case is None:
-        from src.shared.kernel.di import get_container
+        from src.shared.kernel.di.registry import get_container
         from src.shared.ports.classification import ClassificationStrategyBase
 
         container = await get_container()

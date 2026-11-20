@@ -5,7 +5,7 @@ import logging
 import re
 from typing import Any
 
-from src.modules.retrieval.domain.prompts import (
+from src.modules.retrieval.domain.prompts.reranking import (
     SCORING_SYSTEM_PROMPT,
     build_scoring_prompt,
 )

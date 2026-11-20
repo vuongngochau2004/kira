@@ -1,8 +1,8 @@
-import sys
-import os
 import asyncio
-import time
 import json
+import os
+import sys
+import time
 from pathlib import Path
 
 # Automatically resolve the project root directory
@@ -11,11 +11,12 @@ sys.path.append(PROJECT_ROOT)
 os.chdir(PROJECT_ROOT)
 
 from src.config.config import settings
-from src.modules.document.domain.services.extractor import extract_pdf
-from src.modules.document.domain.services.cleaner import clean_document
 from src.modules.document.domain.services.chunker import chunk_document
-from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
+from src.modules.document.domain.services.cleaner import clean_document
+from src.modules.document.domain.services.extractor import extract_pdf
 from src.shared.adapters.embedding.api_adapter import EmbeddingAPIAdapter
+from src.shared.adapters.ocr.paddleocr_adapter import PaddleOCRAdapter
+
 
 async def run_pipeline_simulation():
     pdf_path = Path("./docs_to_upload/06-2022-bgddt.pdf")
@@ -38,26 +39,28 @@ async def run_pipeline_simulation():
     start_time = time.time()
     ext_result = await extract_pdf(str(pdf_path), ocr=ocr_adapter)
     extract_duration = time.time() - start_time
-    
+
     if not ext_result.success:
         print(f"Extraction failed: {ext_result.error}")
         return
-        
+
     raw_text = ext_result.text
     print(f"Extraction completed in {extract_duration:.2f}s. Extracted {len(raw_text)} chars.")
-    
+
     # Save Step 1 Output
     step1_file = output_dir / "step1_raw_text.txt"
     step1_file.write_text(raw_text, encoding="utf-8")
     print(f"-> Saved Step 1: {step1_file.resolve()}")
-    
+
     # Step 2: Text Cleaning
     print("[Step 2/5] Cleaning document text...")
     start_time = time.time()
     cleaned_text = clean_document(raw_text)
     clean_duration = time.time() - start_time
-    print(f"Cleaning completed in {clean_duration:.2f}s. Cleaned text length: {len(cleaned_text)} chars.")
-    
+    print(
+        f"Cleaning completed in {clean_duration:.2f}s. Cleaned text length: {len(cleaned_text)} chars."
+    )
+
     # Save Step 2 Output
     step2_file = output_dir / "step2_cleaned_text.txt"
     step2_file.write_text(cleaned_text, encoding="utf-8")
@@ -70,14 +73,14 @@ async def run_pipeline_simulation():
     chunks = chunk_document(text=cleaned_text, document_id=doc_id)
     chunk_duration = time.time() - start_time
     print(f"Chunking completed in {chunk_duration:.2f}s. Generated {len(chunks)} chunks.")
-    
+
     # Save Step 3 Output
     chunks_data = [
         {
             "index": c.index,
             "content": c.content,
             "token_count": c.token_count,
-            "metadata": c.metadata
+            "metadata": c.metadata,
         }
         for c in chunks
     ]
@@ -93,15 +96,13 @@ async def run_pipeline_simulation():
     embeddings = await embedding_adapter.embed_batch(chunk_contents)
     embed_duration = time.time() - start_time
     print(f"Embedding completed in {embed_duration:.2f}s. Generated {len(embeddings)} vectors.")
-    
+
     # Save Step 4 Output
     embeddings_summary = []
     for i, emb in enumerate(embeddings):
-        embeddings_summary.append({
-            "chunk_index": i,
-            "vector_dimension": len(emb),
-            "vector_preview": emb[:5]
-        })
+        embeddings_summary.append(
+            {"chunk_index": i, "vector_dimension": len(emb), "vector_preview": emb[:5]}
+        )
     step4_file = output_dir / "step4_embeddings.json"
     with open(step4_file, "w", encoding="utf-8") as f:
         json.dump(embeddings_summary, f, ensure_ascii=False, indent=2)
@@ -109,14 +110,14 @@ async def run_pipeline_simulation():
 
     # Step 5: Visualizing Results (Mermaid + Markdown report)
     print("[Step 5/5] Generating Visualization report...")
-    
+
     path_taken = ext_result.metadata.get("progressive_path", "unknown")
     paddleocr_pages = ext_result.metadata.get("paddleocr_pages", [])
     vlm_pages = ext_result.metadata.get("vlm_pages", [])
-    
+
     sample_raw = raw_text[:600] + "..." if len(raw_text) > 600 else raw_text
     sample_clean = cleaned_text[:600] + "..." if len(cleaned_text) > 600 else cleaned_text
-    
+
     visual_report = f"""# Báo Cáo Trực Quan Hóa Từng Bước Xử Lý Tài Liệu (Pipeline Visualization)
 
 Báo cáo này trực quan hóa toàn bộ các bước xử lý tài liệu trong ETL pipeline của KIRA cho tệp tin: **{pdf_path.name}**.
@@ -151,8 +152,8 @@ graph TD
 *   **Tổng số trang trích xuất:** `{ext_result.pages}` trang
 *   **Tổng số ký tự thô:** `{len(raw_text):,}` ký tự
 *   **Đường đi thực tế:** `{path_taken.upper()}`
-    *   Trang chạy qua PaddleOCR (nhanh): Trang {', '.join(map(str, paddleocr_pages)) or 'Không có'}
-    *   Trang chạy qua VLM (chất lượng cao): Trang {', '.join(map(str, vlm_pages)) or 'Không có'}
+    *   Trang chạy qua PaddleOCR (nhanh): Trang {", ".join(map(str, paddleocr_pages)) or "Không có"}
+    *   Trang chạy qua VLM (chất lượng cao): Trang {", ".join(map(str, vlm_pages)) or "Không có"}
 
 > [!NOTE]
 > **Văn bản thô mẫu (500 ký tự đầu):**
@@ -191,7 +192,11 @@ graph TD
     for i, c in enumerate(chunks[:5]):
         page_start = c.metadata.get("page_start", c.metadata.get("page_number", "N/A"))
         page_end = c.metadata.get("page_end", "N/A")
-        page_str = f"Trang {page_start}" if page_start == page_end or page_end == "N/A" else f"Trang {page_start}-{page_end}"
+        page_str = (
+            f"Trang {page_start}"
+            if page_start == page_end or page_end == "N/A"
+            else f"Trang {page_start}-{page_end}"
+        )
         visual_report += f"| `{c.index}` | `{len(c.content):,}` | `{c.token_count}` | `{c.metadata.get('section_type', 'paragraph')} ({page_str})` |\n"
 
     visual_report += f"""
@@ -227,17 +232,18 @@ graph TD
 *   **Database chính:** Lưu trữ nội dung văn bản gốc và Metadata của `{len(chunks)}` chunks vào bảng PostgreSQL `document_chunks`.
 *   **Vector Database:** Lưu `{len(embeddings)}` vector `{len(embeddings[0])}` chiều vào Collection Qdrant tương ứng của người dùng.
 """
-    
+
     # Save visual report
     report_file = output_dir / "pipeline_visualization.md"
     report_file.write_text(visual_report, encoding="utf-8")
-    
+
     print(f"\nAll files generated successfully in {output_dir.resolve()}:")
     print(f"1. Raw Text: {step1_file.resolve()}")
     print(f"2. Cleaned Text: {step2_file.resolve()}")
     print(f"3. Chunks: {step3_file.resolve()}")
     print(f"4. Embeddings Preview: {step4_file.resolve()}")
     print(f"5. Visual Report: {report_file.resolve()}")
+
 
 if __name__ == "__main__":
     asyncio.run(run_pipeline_simulation())

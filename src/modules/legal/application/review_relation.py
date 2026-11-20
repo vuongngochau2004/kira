@@ -17,7 +17,7 @@ from src.modules.legal.application.records import (
     RelationCandidateRecord,
     utc_now,
 )
-from src.modules.legal.domain.extraction import DOCUMENT_NUMBER_PATTERN
+from src.modules.legal.domain.extraction.rules import DOCUMENT_NUMBER_PATTERN
 from src.modules.legal.domain.models import RelationType
 from src.modules.legal.domain.provision_key import is_valid_provision_ref
 

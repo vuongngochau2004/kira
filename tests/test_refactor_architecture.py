@@ -12,7 +12,7 @@ from src.modules.evaluation.dataset_generation import (
     DatasetGenerationConfig,
     IngestedChunkDatasetGenerator,
 )
-from src.modules.rag.application import RAGPipelineService
+from src.modules.rag.application.pipeline import RAGPipelineService
 from src.modules.rag.orchestration.state.rag_state import AgentResult, AgentStatus
 
 

@@ -7,7 +7,7 @@ from src.modules.legal.application.records import (
 )
 from src.modules.legal.application.serialization import provisions_from_json, provisions_to_json
 from src.modules.legal.domain.models import ProvisionLevel, RelationType
-from src.modules.legal.domain.parser import parse_legal_structure
+from src.modules.legal.domain.parser.structure import parse_legal_structure
 
 TEXT = """Điều 2. Giải thích từ ngữ
 1. Chủ sử dụng đất bao gồm:

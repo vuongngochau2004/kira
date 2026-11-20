@@ -7,7 +7,7 @@ from src.modules.legal.domain.extraction.llm import (
     select_amendment_provisions,
 )
 from src.modules.legal.domain.models import ProvisionLevel, RelationType
-from src.modules.legal.domain.parser import parse_legal_structure
+from src.modules.legal.domain.parser.structure import parse_legal_structure
 from src.modules.legal.domain.provision_key import (
     describe_provision_ref,
     is_valid_provision_ref,

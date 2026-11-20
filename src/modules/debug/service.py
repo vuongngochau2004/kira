@@ -11,7 +11,7 @@ from loguru import logger
 from src.config.config import settings
 from src.modules.document.domain.services.extractor import extract_content
 from src.modules.document.infrastructure.ocr.ocr_client import get_ocr_client
-from src.modules.retrieval.domain.prompts import build_reranking_prompt
+from src.modules.retrieval.domain.prompts.reranking import build_reranking_prompt
 from src.modules.retrieval.domain.services.reranking.llm_reranker import (
     format_documents_for_reranking,
     parse_reranking_response,
@@ -22,7 +22,7 @@ from src.modules.retrieval.domain.services.reranking.tei_reranker import (
     rerank_documents_with_tei,
 )
 from src.modules.retrieval.domain.services.reranking_service import get_llm_client
-from src.shared.kernel.di import get_container
+from src.shared.kernel.di.registry import get_container
 from src.shared.ports.classification import ClassificationStrategyBase
 from src.shared.ports.ocr import OCRPort
 

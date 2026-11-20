@@ -23,7 +23,7 @@ from src.modules.legal.application.records import (
 )
 from src.modules.legal.application.serialization import provisions_to_json
 from src.modules.legal.domain.models import ProvisionVersion, RelationType
-from src.modules.legal.domain.parser import parse_legal_structure
+from src.modules.legal.domain.parser.structure import parse_legal_structure
 from src.modules.legal.domain.provision_key import describe_provision_ref
 from src.modules.legal.domain.qa import ProvisionHit
 from src.shared.ports.legal_graph import (

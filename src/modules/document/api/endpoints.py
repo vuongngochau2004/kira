@@ -22,18 +22,20 @@ from src.constants import (
     ERR_DOC_NOT_FOUND,
     DocumentStatus,
 )
-from src.modules.document.application import (
+from src.modules.document.application.dto import (
     CancelDocumentRequest,
     DeleteDocumentRequest,
-    DownloadDocument,
     DownloadDocumentRequest,
-    GetDocument,
-    GetDocumentChunks,
     GetDocumentChunksRequest,
     GetDocumentRequest,
-    ListDocuments,
     ListDocumentsRequest,
     UploadDocumentRequest,
+)
+from src.modules.document.application.query import (
+    DownloadDocument,
+    GetDocument,
+    GetDocumentChunks,
+    ListDocuments,
 )
 from src.modules.document.composition import (
     cancel_document_service,

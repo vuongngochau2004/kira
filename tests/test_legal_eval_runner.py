@@ -10,7 +10,7 @@ from src.modules.evaluation.runners.legal_qa_runner import (
     LegalQAEvaluationRunner,
 )
 from src.modules.legal.application.answer_question import LegalQAResult, LegalQAToken
-from src.modules.legal.domain.temporal import TemporalQuery
+from src.modules.legal.domain.temporal.rules import TemporalQuery
 
 DATASET = {
     "dataset_id": "t",

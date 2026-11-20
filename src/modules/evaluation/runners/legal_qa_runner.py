@@ -21,7 +21,7 @@ from src.modules.evaluation.domain.models import (
     MetricResult,
 )
 from src.modules.evaluation.domain.service import DeepEvalEvaluationService
-from src.modules.evaluation.metrics import cited_sources
+from src.modules.evaluation.metrics.legal import cited_sources
 from src.modules.evaluation.reports.reporter import EvaluationReporter
 from src.modules.legal.application.answer_question import LegalQAResult, LegalQAToken
 

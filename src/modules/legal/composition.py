@@ -25,7 +25,7 @@ from src.modules.legal.infrastructure.search_index import QdrantLegalSearchIndex
 from src.modules.legal.infrastructure.text_extractor import DocumentModuleTextExtractor
 from src.modules.retrieval.domain.services.reranking_service import get_llm_client
 from src.modules.retrieval.infrastructure.vector.qdrant_store import get_client
-from src.shared.adapters.embedding import create_embedding_adapter
+from src.shared.adapters.embedding.factory import create_embedding_adapter
 from src.shared.adapters.graph.neo4j_adapter import Neo4jLegalGraphAdapter
 from src.shared.adapters.llm.glm_adapter import GLMAdapter
 from src.shared.adapters.storage.minio_adapter import MinIOAdapter

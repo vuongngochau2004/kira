@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Iterable
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -16,7 +15,6 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 from PIL import Image
-
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORTS = ROOT / "reports"
@@ -159,7 +157,9 @@ def add_picture(doc: Document, image_path: Path, alt_text: str) -> None:
     paragraph = doc.add_paragraph()
     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = paragraph.add_run()
-    usable_width = doc.sections[-1].page_width - doc.sections[-1].left_margin - doc.sections[-1].right_margin
+    usable_width = (
+        doc.sections[-1].page_width - doc.sections[-1].left_margin - doc.sections[-1].right_margin
+    )
     width = min(usable_width, Inches(6.2))
     run.add_picture(str(image_for_docx(image_path)), width=width)
     if alt_text:
