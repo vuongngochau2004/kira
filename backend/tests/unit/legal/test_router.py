@@ -54,7 +54,7 @@ class FakeEnqueuer:
         return "task-publish"
 
 
-from kira.legal.errors import InvalidLegalDocumentInput
+from kira.legal.errors import InvalidLegalDocumentInputError
 from kira.legal.records import LegalDocumentMetadata
 from kira.legal.scrapers.vbpl import ScrapedLegalDocument
 from kira.legal.services.ingest_from_url import IngestLegalFromUrl
@@ -81,7 +81,7 @@ class FakeScraper:
 
     async def scrape(self, url: str) -> ScrapedLegalDocument:
         if "invalid" in url:
-            raise InvalidLegalDocumentInput("Invalid URL")
+            raise InvalidLegalDocumentInputError("Invalid URL")
         return ScrapedLegalDocument(
             metadata=self.metadata,
             file_name=self.file_name,

@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from kira.legal.errors import InvalidLegalDocumentState, LegalDocumentNotFound
+from kira.legal.errors import InvalidLegalDocumentStateError, LegalDocumentNotFoundError
 from kira.legal.ports import LegalDocumentRepositoryPort
 from kira.legal.records import (
     LegalDocumentRecord,
@@ -25,7 +25,7 @@ class LegalDocumentQueries:
     async def get_document(self, document_id: UUID) -> LegalDocumentRecord:
         document = await self._repository.get_document(document_id)
         if document is None:
-            raise LegalDocumentNotFound(str(document_id))
+            raise LegalDocumentNotFoundError(str(document_id))
         return document
 
     async def list_candidates(self, document_id: UUID) -> list[RelationCandidateRecord]:
@@ -40,7 +40,7 @@ class LegalDocumentQueries:
     async def require_processable(self, document_id: UUID) -> LegalDocumentRecord:
         document = await self.get_document(document_id)
         if document.status not in PROCESSABLE_STATUSES:
-            raise InvalidLegalDocumentState(
+            raise InvalidLegalDocumentStateError(
                 f"Document {document.metadata.number} cannot be reprocessed in status "
                 f"{document.status}"
             )

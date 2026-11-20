@@ -4,8 +4,11 @@ import logging
 from dataclasses import dataclass
 from uuid import UUID
 
-from kira.legal.domain_errors import TimelineConflict
-from kira.legal.errors import InvalidLegalDocumentState, LegalDocumentNotFound
+from kira.legal.errors import (
+    InvalidLegalDocumentStateError,
+    LegalDocumentNotFoundError,
+    TimelineConflictError,
+)
 from kira.legal.graph.base import (
     GraphRelation,
     GraphVersion,
@@ -43,7 +46,7 @@ _DOCUMENT_SOURCE_TYPES = frozenset({RelationType.REPLACES, RelationType.BASED_ON
 
 def ensure_publishable(document: LegalDocumentRecord) -> None:
     if document.status not in PUBLISHABLE_STATUSES or document.parsed_structure is None:
-        raise InvalidLegalDocumentState(
+        raise InvalidLegalDocumentStateError(
             f"Document {document.metadata.number} cannot be published in status {document.status}"
         )
 
@@ -81,7 +84,7 @@ class PublishLegalDocument:
         await self._repository.acquire_publish_lock()
         document = await self._repository.get_document(document_id)
         if document is None:
-            raise LegalDocumentNotFound(str(document_id))
+            raise LegalDocumentNotFoundError(str(document_id))
         ensure_publishable(document)
         first_publish = document.published_at is None
 
@@ -91,7 +94,7 @@ class PublishLegalDocument:
 
         try:
             plan = await _Planner(self._repository, document).build()
-        except TimelineConflict as exc:
+        except TimelineConflictError as exc:
             detail = f"Timeline conflict ({exc.reason}): {', '.join(exc.change_ids)}"
             return PublishOutcome(await self._fail(document, detail), [])
 

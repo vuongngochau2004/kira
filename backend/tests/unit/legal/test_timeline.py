@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from kira.legal.domain_errors import TimelineConflict
+from kira.legal.errors import TimelineConflictError
 from kira.legal.models import BaseProvisionText, ProvisionChange, RelationType
 from kira.legal.timeline import build_timeline, version_in_force
 
@@ -57,14 +57,14 @@ def test_repeal_closes_timeline() -> None:
 
 def test_change_after_repeal_conflicts() -> None:
     repeal = ProvisionChange("r", RelationType.REPEALS, date(2026, 7, 1))
-    with pytest.raises(TimelineConflict) as error:
+    with pytest.raises(TimelineConflictError) as error:
         build_timeline(KEY, BASE, [repeal, _amend("late", date(2027, 1, 1), "v9")])
     assert error.value.change_ids == ("late",)
     assert error.value.reason == "change_after_termination"
 
 
 def test_same_effective_date_conflicts() -> None:
-    with pytest.raises(TimelineConflict) as error:
+    with pytest.raises(TimelineConflictError) as error:
         build_timeline(
             KEY, BASE, [_amend("b", date(2026, 7, 1), "x"), _amend("a", date(2026, 7, 1), "y")]
         )
@@ -73,7 +73,7 @@ def test_same_effective_date_conflicts() -> None:
 
 
 def test_change_before_base_conflicts() -> None:
-    with pytest.raises(TimelineConflict) as error:
+    with pytest.raises(TimelineConflictError) as error:
         build_timeline(KEY, BASE, [_amend("early", date(2020, 1, 1), "x")])
     assert error.value.reason == "before_base"
 
@@ -92,7 +92,7 @@ def test_inserted_provision_starts_at_amendment() -> None:
 
 def test_inserted_provision_cannot_start_with_repeal() -> None:
     repeal = ProvisionChange("r", RelationType.REPEALS, date(2026, 7, 1))
-    with pytest.raises(TimelineConflict) as error:
+    with pytest.raises(TimelineConflictError) as error:
         build_timeline(KEY, None, [repeal])
     assert error.value.reason == "terminates_missing_provision"
 

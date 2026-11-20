@@ -11,7 +11,7 @@ from urllib.parse import unquote, urljoin, urlparse
 import httpx
 from loguru import logger
 
-from kira.legal.errors import InvalidLegalDocumentInput
+from kira.legal.errors import InvalidLegalDocumentInputError
 from kira.legal.extraction.rules import DOCUMENT_NUMBER_PATTERN
 from kira.legal.records import LegalDocumentMetadata
 from kira.legal.services.upload_document import LEGAL_DOCUMENT_TYPES
@@ -100,10 +100,10 @@ class VbplScraper:
         """Verify URL belongs to vbpl.vn domain."""
         parsed = urlparse(url.strip())
         if parsed.scheme not in {"http", "https"}:
-            raise InvalidLegalDocumentInput(f"Invalid URL protocol: {url}")
+            raise InvalidLegalDocumentInputError(f"Invalid URL protocol: {url}")
         host = parsed.netloc.lower()
         if host != "vbpl.vn" and not host.endswith(".vbpl.vn"):
-            raise InvalidLegalDocumentInput(f"URL must be from vbpl.vn domain, got: {host}")
+            raise InvalidLegalDocumentInputError(f"URL must be from vbpl.vn domain, got: {host}")
 
     async def scrape(self, url: str) -> ScrapedLegalDocument:
         """Fetch page, extract metadata and download attachment or fallback to HTML."""
@@ -120,7 +120,9 @@ class VbplScraper:
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 logger.error("Failed to fetch vbpl page {}: {}", clean_url, exc)
-                raise InvalidLegalDocumentInput(f"Could not connect to vbpl.vn: {exc}") from exc
+                raise InvalidLegalDocumentInputError(
+                    f"Could not connect to vbpl.vn: {exc}"
+                ) from exc
 
             html = response.text
             metadata = self._extract_metadata(html=html, source_url=clean_url)
@@ -167,7 +169,7 @@ class VbplScraper:
             if match:
                 number = match.group(1)
             else:
-                raise InvalidLegalDocumentInput(
+                raise InvalidLegalDocumentInputError(
                     "Could not detect valid legal document number from vbpl.vn page"
                 )
 

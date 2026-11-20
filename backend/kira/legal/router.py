@@ -34,12 +34,12 @@ from kira.legal.dependencies import (
     get_upload_service,
 )
 from kira.legal.errors import (
-    InvalidLegalDocumentInput,
-    InvalidLegalDocumentState,
-    LegalDocumentConflict,
-    LegalDocumentNotFound,
-    LegalProvisionNotFound,
-    RelationCandidateNotFound,
+    InvalidLegalDocumentInputError,
+    InvalidLegalDocumentStateError,
+    LegalDocumentConflictError,
+    LegalDocumentNotFoundError,
+    LegalProvisionNotFoundError,
+    RelationCandidateNotFoundError,
 )
 from kira.legal.records import LegalDocumentMetadata, LegalDocumentStatus
 from kira.legal.schemas import (
@@ -83,11 +83,11 @@ async def _read_bounded_legal_upload(file: UploadFile) -> bytes:
 
 
 _ERROR_STATUS: dict[type[Exception], int] = {
-    LegalDocumentNotFound: status.HTTP_404_NOT_FOUND,
-    RelationCandidateNotFound: status.HTTP_404_NOT_FOUND,
-    InvalidLegalDocumentState: status.HTTP_409_CONFLICT,
-    LegalDocumentConflict: status.HTTP_409_CONFLICT,
-    InvalidLegalDocumentInput: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    LegalDocumentNotFoundError: status.HTTP_404_NOT_FOUND,
+    RelationCandidateNotFoundError: status.HTTP_404_NOT_FOUND,
+    InvalidLegalDocumentStateError: status.HTTP_409_CONFLICT,
+    LegalDocumentConflictError: status.HTTP_409_CONFLICT,
+    InvalidLegalDocumentInputError: status.HTTP_422_UNPROCESSABLE_CONTENT,
 }
 
 
@@ -139,7 +139,7 @@ async def upload_legal_document(
     )
     try:
         record = await service.execute(request)
-    except (InvalidLegalDocumentInput, LegalDocumentConflict) as exc:
+    except (InvalidLegalDocumentInputError, LegalDocumentConflictError) as exc:
         raise _http_error(exc) from exc
     await db.commit()
     _enqueue(enqueuer.process, record.id)
@@ -156,7 +156,7 @@ async def ingest_legal_document_from_url(
 ) -> LegalDocumentResponse:
     try:
         record = await service.execute(url=body.url, uploaded_by=current_user.id)
-    except (InvalidLegalDocumentInput, LegalDocumentConflict) as exc:
+    except (InvalidLegalDocumentInputError, LegalDocumentConflictError) as exc:
         raise _http_error(exc) from exc
     await db.commit()
     _enqueue(enqueuer.process, record.id)
@@ -181,7 +181,7 @@ async def get_legal_document(
 ) -> LegalDocumentResponse:
     try:
         return LegalDocumentResponse.from_record(await queries.get_document(document_id))
-    except LegalDocumentNotFound as exc:
+    except LegalDocumentNotFoundError as exc:
         raise _http_error(exc) from exc
 
 
@@ -193,7 +193,7 @@ async def list_relation_candidates(
 ) -> list[RelationCandidateResponse]:
     try:
         candidates = await queries.list_candidates(document_id)
-    except LegalDocumentNotFound as exc:
+    except LegalDocumentNotFoundError as exc:
         raise _http_error(exc) from exc
     return [RelationCandidateResponse.from_record(candidate) for candidate in candidates]
 
@@ -220,9 +220,9 @@ async def review_relation_candidate(
     try:
         outcome = await service.execute(decision)
     except (
-        RelationCandidateNotFound,
-        InvalidLegalDocumentInput,
-        InvalidLegalDocumentState,
+        RelationCandidateNotFoundError,
+        InvalidLegalDocumentInputError,
+        InvalidLegalDocumentStateError,
     ) as exc:
         raise _http_error(exc) from exc
     await db.commit()
@@ -246,7 +246,7 @@ async def publish_legal_document(
 ) -> TaskResponse:
     try:
         await queries.require_publishable(document_id)
-    except (LegalDocumentNotFound, InvalidLegalDocumentState) as exc:
+    except (LegalDocumentNotFoundError, InvalidLegalDocumentStateError) as exc:
         raise _http_error(exc) from exc
     return TaskResponse(document_id=document_id, task_id=_enqueue(enqueuer.publish, document_id))
 
@@ -260,7 +260,7 @@ async def reprocess_legal_document(
 ) -> TaskResponse:
     try:
         await queries.require_processable(document_id)
-    except (LegalDocumentNotFound, InvalidLegalDocumentState) as exc:
+    except (LegalDocumentNotFoundError, InvalidLegalDocumentStateError) as exc:
         raise _http_error(exc) from exc
     return TaskResponse(document_id=document_id, task_id=_enqueue(enqueuer.process, document_id))
 
@@ -274,7 +274,7 @@ async def delete_legal_document(
 ) -> Response:
     try:
         await service.execute(document_id)
-    except (LegalDocumentNotFound, InvalidLegalDocumentState) as exc:
+    except (LegalDocumentNotFoundError, InvalidLegalDocumentStateError) as exc:
         raise _http_error(exc) from exc
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -289,6 +289,6 @@ async def get_provision_history(
 ) -> ProvisionHistoryResponse:
     try:
         history = await service.execute(key, day or vietnam_today())
-    except LegalProvisionNotFound as exc:
+    except LegalProvisionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return ProvisionHistoryResponse.from_history(history)

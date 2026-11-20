@@ -5,10 +5,10 @@ from collections.abc import Collection
 from uuid import UUID, uuid4
 
 from kira.core.llm_utils import parse_json_response
-from kira.legal.domain_errors import LegalParseError
 from kira.legal.errors import (
-    InvalidLegalDocumentState,
-    LegalDocumentNotFound,
+    InvalidLegalDocumentStateError,
+    LegalDocumentNotFoundError,
+    LegalParseError,
     LegalTextExtractionError,
 )
 from kira.legal.extraction.llm import (
@@ -67,9 +67,9 @@ class ProcessLegalDocument:
     async def execute(self, document_id: UUID) -> LegalDocumentRecord:
         document = await self._repository.get_document(document_id)
         if document is None:
-            raise LegalDocumentNotFound(str(document_id))
+            raise LegalDocumentNotFoundError(str(document_id))
         if document.status not in PROCESSABLE_STATUSES:
-            raise InvalidLegalDocumentState(
+            raise InvalidLegalDocumentStateError(
                 f"Cannot process a document in status {document.status}"
             )
 

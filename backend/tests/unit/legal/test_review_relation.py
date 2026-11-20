@@ -4,9 +4,9 @@ from uuid import uuid4
 import pytest
 
 from kira.legal.errors import (
-    InvalidLegalDocumentInput,
-    InvalidLegalDocumentState,
-    RelationCandidateNotFound,
+    InvalidLegalDocumentInputError,
+    InvalidLegalDocumentStateError,
+    RelationCandidateNotFoundError,
 )
 from kira.legal.models import RelationType
 from kira.legal.records import CandidateStatus, LegalDocumentStatus
@@ -101,7 +101,7 @@ async def test_edit_to_unknown_target_marks_unresolved() -> None:
 )
 async def test_invalid_edits_are_rejected(fields: dict) -> None:
     service, _, _, candidate = await _setup()
-    with pytest.raises(InvalidLegalDocumentInput):
+    with pytest.raises(InvalidLegalDocumentInputError):
         await service.execute(ReviewDecision(candidate.id, "edit", ADMIN_ID, **fields))
 
 
@@ -110,7 +110,7 @@ async def test_approve_requires_known_target() -> None:
     candidate.target_number = "45/2013/QH13"
     candidate.status = CandidateStatus.UNRESOLVED_TARGET
     await repository.save_candidate(candidate)
-    with pytest.raises(InvalidLegalDocumentState):
+    with pytest.raises(InvalidLegalDocumentStateError):
         await service.execute(ReviewDecision(candidate.id, "approve", ADMIN_ID))
 
 
@@ -118,11 +118,11 @@ async def test_approve_amendment_requires_ref_and_text() -> None:
     service, repository, _, candidate = await _setup()
     candidate.new_text = None
     await repository.save_candidate(candidate)
-    with pytest.raises(InvalidLegalDocumentInput):
+    with pytest.raises(InvalidLegalDocumentInputError):
         await service.execute(ReviewDecision(candidate.id, "approve", ADMIN_ID))
 
 
 async def test_unknown_candidate_raises() -> None:
     service, _, _, _ = await _setup()
-    with pytest.raises(RelationCandidateNotFound):
+    with pytest.raises(RelationCandidateNotFoundError):
         await service.execute(ReviewDecision(uuid4(), "approve", ADMIN_ID))

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import date
 
-from kira.legal.errors import LegalProvisionNotFound
+from kira.legal.errors import LegalProvisionNotFoundError
 from kira.legal.ports import LegalProvisionSearchPort
 from kira.legal.qa import ProvisionHit
 
@@ -28,7 +28,7 @@ class GetProvisionHistory:
             await self._search.list_versions(provision_key), key=lambda hit: hit.valid_from
         )
         if not versions:
-            raise LegalProvisionNotFound(provision_key)
+            raise LegalProvisionNotFoundError(provision_key)
         latest = versions[-1]
         return ProvisionHistory(
             provision_key=provision_key,

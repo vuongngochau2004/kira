@@ -10,7 +10,7 @@ from kira.auth.dependencies import get_current_user
 from kira.config import settings
 from kira.core import health as startup_health
 from kira.legal import dependencies
-from kira.legal.errors import LegalProvisionNotFound
+from kira.legal.errors import LegalProvisionNotFoundError
 from kira.legal.router import router
 from kira.legal.services.provision_history import GetProvisionHistory
 from tests.unit.legal.fakes import FakeProvisionSearch, make_hit
@@ -30,7 +30,7 @@ async def test_history_lists_versions_and_version_in_force() -> None:
 
 
 async def test_unknown_provision_raises() -> None:
-    with pytest.raises(LegalProvisionNotFound):
+    with pytest.raises(LegalProvisionNotFoundError):
         await GetProvisionHistory(FakeProvisionSearch([])).execute(KEY, date(2025, 1, 1))
 
 

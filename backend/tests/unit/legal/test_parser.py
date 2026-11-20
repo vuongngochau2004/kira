@@ -1,6 +1,6 @@
 import pytest
 
-from kira.legal.domain_errors import LegalParseError
+from kira.legal.errors import LegalParseError
 from kira.legal.models import ProvisionLevel
 from kira.legal.parser import (
     DUPLICATE_PROVISION_KEY_WARNING,

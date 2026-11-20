@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from kira.legal.errors import InvalidLegalDocumentState
+from kira.legal.errors import InvalidLegalDocumentStateError
 from kira.legal.models import RelationType
 from kira.legal.records import (
     AUTO_APPROVED_NOTE,
@@ -157,5 +157,5 @@ async def test_published_document_cannot_be_reprocessed() -> None:
     service, repository, document, _ = await _setup()
     document.status = LegalDocumentStatus.PUBLISHED
     await repository.save_document(document)
-    with pytest.raises(InvalidLegalDocumentState):
+    with pytest.raises(InvalidLegalDocumentStateError):
         await service.execute(document.id)

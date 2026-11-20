@@ -6,9 +6,9 @@ from typing import Literal
 from uuid import UUID
 
 from kira.legal.errors import (
-    InvalidLegalDocumentInput,
-    InvalidLegalDocumentState,
-    RelationCandidateNotFound,
+    InvalidLegalDocumentInputError,
+    InvalidLegalDocumentStateError,
+    RelationCandidateNotFoundError,
 )
 from kira.legal.extraction.rules import DOCUMENT_NUMBER_PATTERN
 from kira.legal.models import RelationType
@@ -49,7 +49,7 @@ class ReviewRelationCandidate:
     async def execute(self, decision: ReviewDecision) -> ReviewOutcome:
         candidate = await self._repository.get_candidate(decision.candidate_id)
         if candidate is None:
-            raise RelationCandidateNotFound(str(decision.candidate_id))
+            raise RelationCandidateNotFoundError(str(decision.candidate_id))
         was_approved = candidate.status is CandidateStatus.APPROVED
 
         if decision.action == "edit":
@@ -79,16 +79,16 @@ class ReviewRelationCandidate:
         if decision.target_number is not None:
             number = decision.target_number.strip()
             if DOCUMENT_NUMBER_PATTERN.fullmatch(number) is None:
-                raise InvalidLegalDocumentInput(f"Invalid legal document number: {number}")
+                raise InvalidLegalDocumentInputError(f"Invalid legal document number: {number}")
             candidate.target_number = number
         if decision.target_provision_ref is not None:
             ref = decision.target_provision_ref.strip()
             if ref and not is_valid_provision_ref(ref):
-                raise InvalidLegalDocumentInput(f"Invalid provision reference: {ref}")
+                raise InvalidLegalDocumentInputError(f"Invalid provision reference: {ref}")
             candidate.target_provision_ref = ref or None
         if decision.new_text is not None:
             if not decision.new_text.strip():
-                raise InvalidLegalDocumentInput("New text cannot be empty")
+                raise InvalidLegalDocumentInputError("New text cannot be empty")
             candidate.new_text = decision.new_text.strip()
         if decision.effective_date is not None:
             candidate.effective_date = decision.effective_date
@@ -100,11 +100,13 @@ class ReviewRelationCandidate:
 
     async def _approve(self, candidate: RelationCandidateRecord) -> None:
         if await self._repository.get_document_by_number(candidate.target_number) is None:
-            raise InvalidLegalDocumentState(
+            raise InvalidLegalDocumentStateError(
                 f"Target document {candidate.target_number} is not in the legal corpus"
             )
         if candidate.type is RelationType.AMENDS and (
             candidate.target_provision_ref is None or not (candidate.new_text or "").strip()
         ):
-            raise InvalidLegalDocumentInput("An amendment needs a target provision and new text")
+            raise InvalidLegalDocumentInputError(
+                "An amendment needs a target provision and new text"
+            )
         candidate.status = CandidateStatus.APPROVED

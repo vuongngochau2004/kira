@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from kira.legal.errors import InvalidLegalDocumentState, LegalDocumentNotFound
+from kira.legal.errors import InvalidLegalDocumentStateError, LegalDocumentNotFoundError
 from kira.legal.models import RelationType
 from kira.legal.records import CandidateStatus, LegalDocumentStatus
 from kira.legal.services.delete_document import DeleteLegalDocument
@@ -46,7 +46,7 @@ async def test_previously_published_document_cannot_be_deleted() -> None:
     service, repository, _, draft, _ = await _setup()
     draft.published_at = datetime(2026, 1, 1, 8, 0)
     await repository.save_document(draft)
-    with pytest.raises(InvalidLegalDocumentState):
+    with pytest.raises(InvalidLegalDocumentStateError):
         await service.execute(draft.id)
     assert await repository.get_document(draft.id) is not None
 
@@ -59,5 +59,5 @@ async def test_storage_failure_does_not_block_delete() -> None:
 
 async def test_unknown_document_raises() -> None:
     service, _, _, _, _ = await _setup()
-    with pytest.raises(LegalDocumentNotFound):
+    with pytest.raises(LegalDocumentNotFoundError):
         await service.execute(uuid4())

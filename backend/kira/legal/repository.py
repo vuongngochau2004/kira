@@ -10,7 +10,7 @@ from kira.db.models import (
     LegalDocument,
     LegalRelationCandidate,
 )
-from kira.legal.errors import LegalDocumentNotFound
+from kira.legal.errors import LegalDocumentNotFoundError
 from kira.legal.models import RelationType
 from kira.legal.ports import LegalDocumentRepositoryPort
 from kira.legal.records import (
@@ -145,7 +145,7 @@ class SqlAlchemyLegalRepository(LegalDocumentRepositoryPort):
     async def save_document(self, record: LegalDocumentRecord) -> None:
         model = await self._db.get(LegalDocument, record.id)
         if model is None:
-            raise LegalDocumentNotFound(str(record.id))
+            raise LegalDocumentNotFoundError(str(record.id))
         apply_document(model, record)
         await self._db.flush()
 

@@ -6,7 +6,7 @@ from uuid import UUID
 
 from kira.chat.history import ConversationTurn
 from kira.chat.rag.dto import RAGCitation, RAGExecutionResult
-from kira.chat.rag.ports import RAGWorkflowPort
+from kira.chat.rag.graph import LangGraphRAGPipeline
 from kira.chat.rag.service import RAGService
 from kira.config import settings
 from kira.core.request_trace import request_stage
@@ -19,7 +19,7 @@ INSUFFICIENT_EVIDENCE = (
 class RAGPipelineService:
     """Application service that runs the RAG domain pipeline."""
 
-    def __init__(self, pipeline: RAGWorkflowPort):
+    def __init__(self, pipeline: LangGraphRAGPipeline):
         """Initialize with a composed domain pipeline."""
         self.pipeline = pipeline
 

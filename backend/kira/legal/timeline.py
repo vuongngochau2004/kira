@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from itertools import groupby
 
-from kira.legal.domain_errors import TimelineConflict
+from kira.legal.errors import TimelineConflictError
 from kira.legal.models import (
     TIMELINE_RELATION_TYPES,
     BaseProvisionText,
@@ -47,12 +47,12 @@ def build_timeline(
     for _, group in groupby(ordered, key=lambda change: change.effective_date):
         same_day = [change.change_id for change in group]
         if len(same_day) > 1:
-            raise TimelineConflict(same_day, "same_effective_date")
+            raise TimelineConflictError(same_day, "same_effective_date")
 
     if base is not None and ordered and ordered[0].effective_date < base.valid_from:
-        raise TimelineConflict([ordered[0].change_id], "before_base")
+        raise TimelineConflictError([ordered[0].change_id], "before_base")
     if base is None and ordered and ordered[0].type is not RelationType.AMENDS:
-        raise TimelineConflict([ordered[0].change_id], "terminates_missing_provision")
+        raise TimelineConflictError([ordered[0].change_id], "terminates_missing_provision")
 
     current: _Segment | None = (
         _Segment(base.text.strip(), base.valid_from, base.page, None) if base else None
@@ -62,7 +62,7 @@ def build_timeline(
 
     for change in ordered:
         if terminated:
-            raise TimelineConflict([change.change_id], "change_after_termination")
+            raise TimelineConflictError([change.change_id], "change_after_termination")
         if current is not None:
             _emit(versions, provision_key, current, change.effective_date)
         if change.type is RelationType.AMENDS:

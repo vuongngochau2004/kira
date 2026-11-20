@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass, field
 
-from kira.legal.domain_errors import LegalParseError
+from kira.legal.errors import LegalParseError
 from kira.legal.models import ParsedProvision, ParseResult, ProvisionLevel
 from kira.legal.provision_key import build_provision_key
 

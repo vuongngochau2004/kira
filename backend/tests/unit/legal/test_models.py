@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from kira.legal.domain_errors import TimelineConflict
+from kira.legal.errors import TimelineConflictError
 from kira.legal.models import ProvisionVersion
 from kira.legal.provision_key import (
     build_provision_key,
@@ -59,7 +59,7 @@ def test_open_ended_version_in_force_forever() -> None:
 
 
 def test_timeline_conflict_carries_ids() -> None:
-    error = TimelineConflict(["b", "a"], "same_effective_date")
+    error = TimelineConflictError(["b", "a"], "same_effective_date")
     assert error.change_ids == ("b", "a")
     assert error.reason == "same_effective_date"
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from uuid import UUID, uuid4
 
-from kira.legal.errors import InvalidLegalDocumentInput, LegalDocumentConflict
+from kira.legal.errors import InvalidLegalDocumentInputError, LegalDocumentConflictError
 from kira.legal.extraction.rules import DOCUMENT_NUMBER_PATTERN
 from kira.legal.ports import LegalDocumentRepositoryPort
 from kira.legal.records import (
@@ -38,9 +38,11 @@ class UploadLegalDocument:
         digest = sha256(request.content).hexdigest()
         number = request.metadata.number
         if await self._repository.get_document_by_number(number) is not None:
-            raise LegalDocumentConflict(f"Legal document {number} already exists")
+            raise LegalDocumentConflictError(f"Legal document {number} already exists")
         if await self._repository.get_document_by_sha256(digest) is not None:
-            raise LegalDocumentConflict("A legal document with identical content already exists")
+            raise LegalDocumentConflictError(
+                "A legal document with identical content already exists"
+            )
 
         document_id = uuid4()
         file_key = f"legal/{document_id}.{file_type}"
@@ -69,14 +71,14 @@ def _file_type(file_name: str) -> str:
 def _validate(request: UploadLegalDocumentRequest, file_type: str) -> None:
     metadata = request.metadata
     if DOCUMENT_NUMBER_PATTERN.fullmatch(metadata.number) is None:
-        raise InvalidLegalDocumentInput(f"Invalid legal document number: {metadata.number}")
+        raise InvalidLegalDocumentInputError(f"Invalid legal document number: {metadata.number}")
     if metadata.doc_type not in LEGAL_DOCUMENT_TYPES:
-        raise InvalidLegalDocumentInput(f"Unsupported document type: {metadata.doc_type}")
+        raise InvalidLegalDocumentInputError(f"Unsupported document type: {metadata.doc_type}")
     if not metadata.title.strip() or not metadata.issuer.strip():
-        raise InvalidLegalDocumentInput("Title and issuer are required")
+        raise InvalidLegalDocumentInputError("Title and issuer are required")
     if metadata.effective_date < metadata.issued_date:
-        raise InvalidLegalDocumentInput("Effective date cannot be before the issued date")
+        raise InvalidLegalDocumentInputError("Effective date cannot be before the issued date")
     if file_type not in SUPPORTED_LEGAL_FILE_TYPES:
-        raise InvalidLegalDocumentInput(f"Unsupported file type: {file_type or 'none'}")
+        raise InvalidLegalDocumentInputError(f"Unsupported file type: {file_type or 'none'}")
     if not request.content:
-        raise InvalidLegalDocumentInput("Uploaded file is empty")
+        raise InvalidLegalDocumentInputError("Uploaded file is empty")

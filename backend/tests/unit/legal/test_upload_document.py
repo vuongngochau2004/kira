@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from kira.legal.errors import InvalidLegalDocumentInput, LegalDocumentConflict
+from kira.legal.errors import InvalidLegalDocumentInputError, LegalDocumentConflictError
 from kira.legal.records import LegalDocumentMetadata, LegalDocumentStatus
 from kira.legal.services.upload_document import (
     UploadLegalDocument,
@@ -56,10 +56,10 @@ async def test_upload_stores_file_and_creates_uploaded_record(service) -> None:
 async def test_duplicate_number_or_content_conflicts(service) -> None:
     upload, _, _ = service
     await upload.execute(_request())
-    with pytest.raises(LegalDocumentConflict):
+    with pytest.raises(LegalDocumentConflictError):
         await upload.execute(_request(content=b"different bytes"))
     other = replace(METADATA, number="32/2024/QH15")
-    with pytest.raises(LegalDocumentConflict):
+    with pytest.raises(LegalDocumentConflictError):
         await upload.execute(_request(metadata=other))
 
 
@@ -77,7 +77,7 @@ async def test_duplicate_number_or_content_conflicts(service) -> None:
 )
 async def test_invalid_input_is_rejected_before_storage(service, overrides) -> None:
     upload, repository, storage = service
-    with pytest.raises(InvalidLegalDocumentInput):
+    with pytest.raises(InvalidLegalDocumentInputError):
         await upload.execute(_request(**overrides))
     assert storage.objects == {}
     assert repository.documents == {}

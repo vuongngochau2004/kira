@@ -3,7 +3,7 @@
 import logging
 from uuid import UUID
 
-from kira.legal.errors import InvalidLegalDocumentState, LegalDocumentNotFound
+from kira.legal.errors import InvalidLegalDocumentStateError, LegalDocumentNotFoundError
 from kira.legal.ports import LegalDocumentRepositoryPort
 from kira.legal.records import CandidateStatus, LegalDocumentStatus
 from kira.providers.storage import MinioStorage
@@ -21,9 +21,9 @@ class DeleteLegalDocument:
     async def execute(self, document_id: UUID) -> None:
         document = await self._repository.get_document(document_id)
         if document is None:
-            raise LegalDocumentNotFound(str(document_id))
+            raise LegalDocumentNotFoundError(str(document_id))
         if document.published_at is not None or document.status in _BUSY_STATUSES:
-            raise InvalidLegalDocumentState(
+            raise InvalidLegalDocumentStateError(
                 f"Document {document.metadata.number} has been published or is being processed"
             )
 

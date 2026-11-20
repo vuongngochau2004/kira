@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from kira.legal.errors import InvalidLegalDocumentInput
+from kira.legal.errors import InvalidLegalDocumentInputError
 from kira.legal.scrapers.vbpl import (
     VbplScraper,
     normalize_doc_type,
@@ -71,10 +71,10 @@ def test_validate_url():
     scraper.validate_url("https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=123")
     scraper.validate_url("http://danang.vbpl.vn/pages/vanban.aspx")
 
-    with pytest.raises(InvalidLegalDocumentInput, match="URL must be from vbpl.vn"):
+    with pytest.raises(InvalidLegalDocumentInputError, match="URL must be from vbpl.vn"):
         scraper.validate_url("https://google.com/test")
 
-    with pytest.raises(InvalidLegalDocumentInput, match="Invalid URL protocol"):
+    with pytest.raises(InvalidLegalDocumentInputError, match="Invalid URL protocol"):
         scraper.validate_url("ftp://vbpl.vn/test")
 
 

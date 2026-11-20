@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from kira.legal.errors import InvalidLegalDocumentState
+from kira.legal.errors import InvalidLegalDocumentStateError
 from kira.legal.models import RelationType
 from kira.legal.records import CandidateStatus, LegalDocumentStatus
 from kira.legal.services.publish_document import PublishLegalDocument
@@ -227,7 +227,7 @@ async def test_unprocessed_document_cannot_be_published() -> None:
     service, repository, _, _, _, _ = await _setup()
     uploaded = make_document("7/2026/QH15", status=LegalDocumentStatus.UPLOADED)
     await repository.create_document(uploaded)
-    with pytest.raises(InvalidLegalDocumentState):
+    with pytest.raises(InvalidLegalDocumentStateError):
         await service.execute(uploaded.id)
 
 
