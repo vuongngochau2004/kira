@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
-import { POST } from './route'
+import { POST } from '@/app/api/v1/chat/stream/route'
 
 afterEach(() => {
   vi.unstubAllGlobals()

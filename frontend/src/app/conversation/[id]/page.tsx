@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { AuthGuard } from '@/components/auth/auth-guard'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
 import { isValidUUID } from '@/lib/utils/uuid'
 
 export default function ConversationIdPage() {

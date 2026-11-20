@@ -1,12 +1,12 @@
 'use client'
 
 import { RefreshCw } from 'lucide-react'
-import { LegalAdminShell } from '@/components/legal/admin/LegalAdminShell'
-import { LegalDocumentTable } from '@/components/legal/admin/LegalDocumentTable'
-import { LegalUploadForm } from '@/components/legal/admin/LegalUploadForm'
+import { LegalAdminShell } from '@/features/legal/admin/LegalAdminShell'
+import { LegalDocumentTable } from '@/features/legal/admin/LegalDocumentTable'
+import { LegalUploadForm } from '@/features/legal/admin/LegalUploadForm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useLegalDocuments } from '@/lib/legal/use-legal-documents'
+import { useLegalDocuments } from '@/features/legal/hooks/use-legal-documents'
 
 export default function LegalCorpusPage() {
   const { documents, isLoading, error, reload } = useLegalDocuments()

@@ -16,7 +16,7 @@ import {
   Scale,
   Shield,
 } from 'lucide-react'
-import { AuthGuard } from '@/components/auth/auth-guard'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,8 +26,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { adminAPI, AdminOverview, Document } from '@/lib/api/simple-client'
-import { useAuthStore } from '@/lib/stores/auth-store'
+import { adminAPI, AdminOverview, Document } from '@/lib/api/client'
+import { useAuthStore } from '@/features/auth/store'
 import { cn } from '@/lib/utils'
 
 function formatDate(value?: string) {

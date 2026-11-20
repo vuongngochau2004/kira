@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
-import { AuthGuard } from '@/components/auth/auth-guard'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -18,8 +18,8 @@ import {
   type ClassificationResult,
   type ExtractionResult,
   type RerankingResult,
-} from '@/lib/api/pipeline-lab'
-import { useAuthStore } from '@/lib/stores/auth-store'
+} from '@/features/admin/pipeline-lab-api'
+import { useAuthStore } from '@/features/auth/store'
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Không thể chạy phép thử'

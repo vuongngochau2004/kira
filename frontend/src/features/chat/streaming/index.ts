@@ -1,0 +1,36 @@
+/**
+ * Streaming module - Handles SSE streaming and state building
+ *
+ * Architecture:
+ * 1. StreamingStateBuilder - State machine for building complete message state
+ *
+ * Design principles:
+ * - Separation of concerns: Accumulate vs Render
+ * - Pure functions where possible
+ * - Immutable state updates
+ * - Type-safe
+ */
+
+export {
+  StreamingStateBuilder,
+  createStreamingStateBuilder,
+  ensureFlatSources,
+  type StreamingState,
+  type MessageState,
+  type Attachment,
+  type RoutingInfo,
+  type RetrievalStage,
+  type SourceChunk,
+  type RawCitationItem,
+} from '@/features/chat/streaming/streaming-state-builder'
+
+export {
+  toPipelineSteps,
+  hasGraphSteps,
+  describePipelineStep,
+  formatDuration,
+  totalDurationMs,
+  type PipelineStep,
+  type PipelineStepView,
+  type PipelineStepTone,
+} from '@/features/chat/streaming/pipeline-trace'

@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
-import { CandidateReviewCard } from '@/components/legal/admin/CandidateReviewCard'
-import { LegalAdminShell } from '@/components/legal/admin/LegalAdminShell'
-import { LegalDocumentActions } from '@/components/legal/admin/LegalDocumentActions'
-import { DocumentStatusBadge } from '@/components/legal/admin/LegalStatusBadge'
+import { CandidateReviewCard } from '@/features/legal/admin/CandidateReviewCard'
+import { LegalAdminShell } from '@/features/legal/admin/LegalAdminShell'
+import { LegalDocumentActions } from '@/features/legal/admin/LegalDocumentActions'
+import { DocumentStatusBadge } from '@/features/legal/admin/LegalStatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { legalAPI } from '@/lib/api/legal-client'
-import { ACTIVE_DOCUMENT_STATUSES, DOC_TYPE_LABELS, formatLegalDate } from '@/lib/legal/format'
-import type { CandidateReview, LegalDocument, RelationCandidate } from '@/lib/legal/types'
+import { legalAPI } from '@/features/legal/api'
+import { ACTIVE_DOCUMENT_STATUSES, DOC_TYPE_LABELS, formatLegalDate } from '@/features/legal/format'
+import type { CandidateReview, LegalDocument, RelationCandidate } from '@/features/legal/types'
 
 const WARNING_LABELS: Record<string, string> = {
   unbalanced_quotes: 'Văn bản có dấu ngoặc kép không cân đối (có thể do lỗi OCR).',

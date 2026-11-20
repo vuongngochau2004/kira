@@ -1,19 +1,19 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { legalAPI } from '@/lib/api/legal-client'
-import type { LegalDocument, RelationCandidate } from '@/lib/legal/types'
-import { useAuthStore } from '@/lib/stores/auth-store'
-import LegalDocumentPage from './page'
+import { legalAPI } from '@/features/legal/api'
+import type { LegalDocument, RelationCandidate } from '@/features/legal/types'
+import { useAuthStore } from '@/features/auth/store'
+import LegalDocumentPage from '@/app/admin/legal/[id]/page'
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'd1' }),
   useRouter: () => ({ push: vi.fn() }),
 }))
-vi.mock('@/components/auth/auth-guard', () => ({
+vi.mock('@/features/auth/components/AuthGuard', () => ({
   AuthGuard: ({ children }: { children: ReactNode }) => children,
 }))
-vi.mock('@/lib/api/legal-client', () => ({
+vi.mock('@/features/legal/api', () => ({
   legalAPI: {
     getDocument: vi.fn(),
     listCandidates: vi.fn(),

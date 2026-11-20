@@ -1,0 +1,541 @@
+/** Simple API client for chat, documents, and auth */
+import { getBackendUrl } from '@/lib/api/backend-url'
+import { z } from 'zod'
+
+const getApiBase = () => {
+  if (typeof window !== 'undefined') {
+    // Client-side: use Next.js proxy rewrites to avoid CORS/network issues
+    return ''
+  }
+  // Server-side default
+  return getBackendUrl()
+}
+
+const API_BASE = getApiBase()
+
+export interface ChatResponse {
+  answer: string
+  model: string
+  provider: string
+  conversation_id?: string
+}
+
+export interface Document {
+  id: string
+  filename: string
+  file_type: string
+  file_size: number
+  status: 'uploading' | 'processing' | 'completed' | 'failed' | string
+  chunk_count?: number
+  error_message?: string
+  processing_task_id?: string
+  created_at: string
+  updated_at?: string
+}
+
+export interface AuthUser {
+  id: string
+  email: string
+  full_name?: string
+  role: string
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status?: number
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+/** Human-readable message from a FastAPI/KIRA error body (a 422 `detail` is a list). */
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  const body = (error ?? {}) as {
+    error?: { message?: string }
+    detail?: unknown
+    message?: unknown
+  }
+  if (body.error?.message) return body.error.message
+  if (typeof body.detail === 'string') return body.detail
+  if (Array.isArray(body.detail)) {
+    const parts = body.detail
+      .map((item) =>
+        item && typeof item === 'object' && 'msg' in item ? String((item as { msg: unknown }).msg) : '',
+      )
+      .filter(Boolean)
+    if (parts.length > 0) return parts.join('; ')
+  }
+  if (typeof body.message === 'string') return body.message
+  return fallback
+}
+
+/** Simple fetch wrapper with auth (uses httpOnly cookies) */
+export async function fetchAPI<T>(
+  endpoint: string,
+  options?: RequestInit
+): Promise<T> {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+      credentials: 'include',  // CRITICAL: Send/receive httpOnly cookies
+    })
+  } catch {
+    throw new ApiError('Network error', undefined)
+  }
+
+  if (response.status === 401) {
+    // Token expired or invalid - clear auth state and redirect to login
+    // Import dynamically to avoid circular dependency
+    if (typeof window !== 'undefined') {
+      import('@/features/auth/store').then(({ useAuthStore }) => {
+        useAuthStore.getState().clearAuth()
+      })
+    }
+    window.location.href = '/'
+    throw new ApiError('Authentication required', 401)
+  }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new ApiError(apiErrorMessage(error, 'API Error'), response.status)
+  }
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+  const body = await response.text()
+  return (body ? JSON.parse(body) : undefined) as T
+}
+
+// ==================== SSE Streaming Types ====================
+
+export interface SSEChunk {
+  type: 'routing' | 'retrieval' | 'content' | 'content_replace' | 'thinking' | 'status' | 'metadata' | 'done' | 'error'
+  data: unknown
+}
+
+const sseChunkSchema = z.object({
+  type: z.enum(['routing', 'retrieval', 'content', 'content_replace', 'thinking', 'status', 'metadata', 'done', 'error']),
+  data: z.unknown().optional(),
+})
+
+const answerChunkSchema = z.object({
+  text: z.string(),
+  provisional: z.boolean().optional(),
+  attempt: z.number().int().positive().optional(),
+})
+
+export interface RoutingData {
+  router: string
+  intent?: string
+  confidence?: number
+}
+
+export interface RetrievalData {
+  iteration: number
+  strategy: string
+  chunks_retrieved?: number  // New field name
+  unique_documents?: number  // New field
+  top_documents?: string[]   // New field
+  docs_retrieved?: number   // Deprecated: legacy field name
+}
+
+export interface ContentData {
+  text: string
+}
+
+export interface MetadataData {
+  citations?: Array<Record<string, unknown>>
+  attachments?: Array<Record<string, unknown>>
+  conversation_id?: string
+  message_id?: string
+}
+
+export interface ErrorData {
+  error: string
+}
+
+// ==================== SSE Streaming Client ====================
+
+/**
+ * SSE Client for real-time chat streaming
+ * Handles connection, parsing, and error recovery
+ */
+export class SSEClient {
+  private controller: AbortController | null = null
+  private reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+  private decoder = new TextDecoder()
+  private buffer = ''
+
+  /**
+   * Connect to SSE stream and yield chunks
+   */
+  async *stream(
+    endpoint: string,
+    body: unknown,
+    signal?: AbortSignal
+  ): AsyncGenerator<SSEChunk, void, unknown> {
+    this.controller = new AbortController()
+    const requestSignal = signal || this.controller.signal
+
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: requestSignal,
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        let errorMessage = 'Stream connection failed'
+        try {
+          const cloned = response.clone()
+          const errorData = await cloned.json().catch(async () => {
+            const text = await cloned.text()
+            return { detail: text }
+          })
+          errorMessage = errorData?.error?.message || errorData?.detail || errorData?.message || errorMessage
+        } catch {
+          // Ignore parse errors
+        }
+        throw new ApiError(errorMessage, response.status)
+      }
+
+      if (!response.body) {
+        throw new ApiError('Response body is null', undefined)
+      }
+
+      this.reader = response.body.getReader()
+
+      while (true) {
+        const { done, value } = await this.reader.read()
+
+        if (done) break
+
+        // Decode and process chunks
+        this.buffer += this.decoder.decode(value, { stream: true })
+
+        // Process complete SSE messages
+        const lines = this.buffer.split('\n\n')
+        this.buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+
+          // Parse SSE format: "data: {json}"
+          const match = line.match(/^data:\s*(.+)$/m)
+          if (match) {
+            try {
+              const parsed = sseChunkSchema.safeParse(JSON.parse(match[1]))
+              if (!parsed.success) continue
+              if (parsed.data.type === 'content' || parsed.data.type === 'content_replace') {
+                if (!answerChunkSchema.safeParse(parsed.data.data).success) continue
+              }
+              yield { type: parsed.data.type, data: parsed.data.data }
+            } catch {
+              // Ignore parse errors
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Ignore abort errors (user cancellation)
+      if (error instanceof Error && error.name === 'AbortError') {
+        return
+      }
+      throw error
+    } finally {
+      this.cleanup()
+    }
+  }
+
+  /**
+   * Cancel the ongoing stream
+   */
+  abort(): void {
+    this.controller?.abort()
+    this.cleanup()
+  }
+
+  private cleanup(): void {
+    this.reader?.cancel().catch(() => {})
+    this.reader = null
+    this.controller = null
+    this.buffer = ''
+  }
+}
+
+/** Chat API */
+export const chatAPI = {
+  sendMessage: async (message: string, conversationId?: string): Promise<ChatResponse> => {
+    return fetchAPI<ChatResponse>('/api/v1/chat/', {
+      method: 'POST',
+      body: JSON.stringify({
+        message,
+        conversation_id: conversationId,
+      }),
+    })
+  },
+
+  /**
+   * Stream chat response with SSE
+   * Returns an async generator that yields chunks
+   */
+  streamMessage: (
+    message: string,
+    conversationId?: string,
+    signal?: AbortSignal
+  ): AsyncGenerator<SSEChunk, void, unknown> => {
+    const client = new SSEClient()
+    return client.stream('/api/v1/chat/stream', {
+      message,
+      conversation_id: conversationId,
+    }, signal)
+  },
+}
+
+/** Documents API */
+export const documentsAPI = {
+  list: async (): Promise<Document[]> => {
+    const data = await fetchAPI<{ documents?: Document[]; items?: Document[] }>('/api/v1/documents/?page_size=100')
+    return data.documents || data.items || []
+  },
+
+  upload: async (file: File, signal?: AbortSignal): Promise<Document> => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await fetch(`${API_BASE}/api/v1/documents/upload`, {
+      method: 'POST',
+      credentials: 'include',  // CRITICAL: Send httpOnly cookies
+      body: formData,
+      signal,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      const message = error?.error?.message || error?.detail || error?.message || 'Upload failed'
+      throw new ApiError(message, response.status)
+    }
+
+    return response.json()
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await fetchAPI<void>(`/api/v1/documents/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  cancel: async (id: string): Promise<{ document_id: string; success: boolean; message: string; status?: string }> => {
+    return fetchAPI<{ document_id: string; success: boolean; message: string; status?: string }>(`/api/v1/documents/${id}/cancel`, {
+      method: 'POST',
+    })
+  },
+
+
+  getDownloadUrl: (id: string): string => {
+    // No token needed - httpOnly cookies are sent automatically
+    return `${API_BASE}/api/v1/documents/${id}/download`
+  },
+
+  getChunks: async (id: string): Promise<Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }>> => {
+    return fetchAPI<Array<{ id: string; chunk_index: number; content: string; metadata?: Record<string, unknown> }>>(`/api/v1/documents/${id}/chunks`)
+  },
+}
+
+/** Auth API (uses httpOnly cookies) */
+export const authAPI = {
+  login: async (email: string, password: string) => {
+    const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+      credentials: 'include',  // CRITICAL: Receive httpOnly cookies
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      const message = error?.detail || 'Login failed'
+      throw new ApiError(message, response.status)
+    }
+
+    return response.json()
+  },
+
+  register: async (email: string, password: string, full_name?: string) => {
+    const response = await fetch(`${API_BASE}/api/v1/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, full_name }),
+      credentials: 'include',  // CRITICAL: Receive httpOnly cookies
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      const message = error?.detail || 'Registration failed'
+      throw new ApiError(message, response.status)
+    }
+
+    return response.json()
+  },
+
+  logout: async () => {
+    const response = await fetch(`${API_BASE}/api/v1/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',  // CRITICAL: Send cookies for logout
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      const message = error?.detail || 'Logout failed'
+      throw new ApiError(message, response.status)
+    }
+
+    return response.json()
+  },
+}
+
+/** Conversations API */
+export interface Conversation {
+  id: string
+  user_id: string
+  title: string | null
+  source: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Message {
+  id: string
+  conversation_id: string
+  role: string
+  content: string
+  metadata: Record<string, unknown>
+  created_at: string
+  sources?: Array<Record<string, unknown>>
+}
+
+export interface ConversationDetail extends Conversation {
+  messages: Message[]
+}
+
+export interface ConversationListResponse {
+  total: number
+  page: number
+  page_size: number
+  items: Conversation[]
+}
+
+export const conversationsAPI = {
+  list: async (page = 1, pageSize = 20, search = ''): Promise<ConversationListResponse> => {
+    interface RawConversationListResponse {
+      total: number
+      page?: number
+      page_size?: number
+      limit?: number
+      offset?: number
+      conversations?: Conversation[]
+      items?: Conversation[]
+    }
+    const params = new URLSearchParams({
+      limit: String(pageSize),
+      offset: String((page - 1) * pageSize),
+    })
+    if (search.trim()) params.set('search', search.trim())
+    const data = await fetchAPI<RawConversationListResponse>(`/api/v1/chat/conversations?${params}`)
+    return {
+      total: data.total,
+      page: data.page || page,
+      page_size: data.page_size || data.limit || pageSize,
+      items: data.conversations || data.items || [],
+    }
+  },
+
+  create: (source = 'web', title?: string) =>
+    fetchAPI<Conversation>('/api/v1/chat/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ source, title }),
+    }),
+
+  get: (id: string) =>
+    fetchAPI<ConversationDetail>(`/api/v1/chat/conversations/${id}`),
+
+  update: (id: string, data: { title?: string; status?: string }) =>
+    fetchAPI<Conversation>(`/api/v1/chat/conversations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    fetchAPI(`/api/v1/chat/conversations/${id}`, { method: 'DELETE' }),
+}
+
+export interface AdminOverview {
+  generated_at: string
+  system: {
+    status: 'ok' | 'degraded' | 'error' | string
+    services: Array<{
+      name: string
+      status: 'ok' | 'configured' | 'missing' | 'error' | string
+      detail?: string
+    }>
+  }
+  documents: {
+    total: number
+    completed: number
+    processing: number
+    failed: number
+    status_counts: Record<string, number>
+    total_chunks: number
+    recent: Document[]
+    failed_items: Document[]
+    deletion_jobs: {
+      status_counts: Record<string, number>
+      latest_error?: string | null
+    }
+  }
+  retrieval: {
+    avg_source_score: number | null
+    citation_coverage: number | null
+    avg_sources_per_answer: number | null
+    answers_with_sources: number
+    answers_sampled: number
+    needs_review: number
+  }
+  answers: {
+    avg_quality_score: number | null
+    quality_gate_pass_rate: number | null
+    low_quality_count: number
+    recent_reviews: Array<{
+      id: string
+      conversation_id: string
+      created_at: string
+      reason: string
+      source_count: number
+      quality_score: number | null
+      preview: string
+    }>
+  }
+  activity: {
+    total_conversations: number
+    conversations_24h: number
+    messages_24h: number
+    assistant_messages_24h: number
+  }
+}
+
+export const adminAPI = {
+  overview: () => fetchAPI<AdminOverview>('/api/v1/admin/overview'),
+}

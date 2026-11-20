@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { CollapsibleSidebar } from "@/components/sidebar/CollapsibleSidebar"
-import { MobileNav } from "@/components/mobile/MobileNav"
-import { SourcePanel } from "@/components/sources/SourcePanel"
-import { PanelResizer } from "@/components/sources/components/PanelResizer"
-import { useSourcesStore } from "@/lib/stores/sources-store"
+import { CollapsibleSidebar } from "@/components/layout/CollapsibleSidebar"
+import { MobileNav } from "@/components/layout/MobileNav"
+import { SourcePanel } from "@/features/chat/sources/SourcePanel"
+import { PanelResizer } from "@/features/chat/sources/PanelResizer"
+import { useSourcesStore } from "@/features/chat/stores/sources-store"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 
 const DEFAULT_SOURCE_PANEL_WIDTH = 420

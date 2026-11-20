@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuthStore } from '@/lib/stores/auth-store'
-import { useAutoRedirect, usePostLoginRedirect } from '@/lib/hooks/use-post-login-redirect'
+import { useAuthStore } from '@/features/auth/store'
+import { useAutoRedirect, usePostLoginRedirect } from '@/features/auth/hooks/use-post-login-redirect'
 import { Mail, Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { KiraLogoIcon } from '@/components/common/KiraLogo'
 import { ThemeToggleCompact } from '@/components/common/ThemeToggle'

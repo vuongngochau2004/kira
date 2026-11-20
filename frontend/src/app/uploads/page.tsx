@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, type ElementType } from 'react'
 import { useRouter } from 'next/navigation'
-import { useDocumentsUpload } from '@/lib/hooks/use-documents-upload'
+import { useDocumentsUpload } from '@/features/documents/hooks/use-documents-upload'
 import { Activity, AlertCircle, ArrowLeft, CheckCircle2, Clock3, Download, Eye, File, FileImage, FileText, Layers3, Loader2, Presentation, Trash2, Upload as UploadIcon, XCircle } from 'lucide-react'
 import {
   AlertDialog,
@@ -16,11 +16,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
-import { documentsAPI, type Document } from '@/lib/api/simple-client'
-import { AuthGuard } from '@/components/auth/auth-guard'
-import { useSourcesStore } from '@/lib/stores/sources-store'
-import { useConversationStore } from '@/lib/stores/conversation-store'
+import { DocumentPreviewDialog } from '@/features/documents/components/DocumentPreviewDialog'
+import { documentsAPI, type Document } from '@/lib/api/client'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
+import { useSourcesStore } from '@/features/chat/stores/sources-store'
+import { useConversationStore } from '@/features/chat/stores/conversation-store'
 
 // Modern, minimal colored file icons
 const FILE_TYPES: Record<string, { icon: ElementType; color: string; bgColor: string }> = {
