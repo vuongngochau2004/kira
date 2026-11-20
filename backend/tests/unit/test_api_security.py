@@ -17,8 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kira.auth import dependencies as auth_dependencies
 from kira.auth import rate_limit
 from kira.auth.dependencies import get_current_user
+from kira.chat import messages as chat_messages
 from kira.chat import repository as conversation_repository
-from kira.chat import router as chat_endpoints
+from kira.chat import sse as chat_sse
 from kira.chat.handlers.rag import RAGHandler
 from kira.chat.intent.base import ClassificationResult, Intent
 from kira.chat.rag.dto import RAGExecutionResult
@@ -224,10 +225,10 @@ async def test_stream_message_pair_commits_once_after_both_inserts(
         created_roles.append(str(kwargs["role"]))
         return SimpleNamespace(id=message_id)
 
-    monkeypatch.setattr(chat_endpoints, "_ensure_conversation_exists", ensure_conversation)
-    monkeypatch.setattr(chat_endpoints, "create_message", create_message)
+    monkeypatch.setattr(chat_messages, "ensure_conversation_exists", ensure_conversation)
+    monkeypatch.setattr(chat_messages, "create_message", create_message)
 
-    saved = await chat_endpoints._save_streamed_messages(
+    saved = await chat_messages.save_streamed_messages(
         None, uuid.uuid4(), "question", ["verified"], [], {}, session
     )
 
@@ -309,9 +310,9 @@ async def test_stream_saves_only_authoritative_replacement(
         saved_content.extend(full_content)
         return uuid.uuid4(), uuid.uuid4()
 
-    monkeypatch.setattr(chat_endpoints, "get_chat_use_case", get_use_case)
-    monkeypatch.setattr(chat_endpoints, "_save_streamed_messages", save_messages)
-    stream = chat_endpoints._stream_generator("question", uuid.uuid4(), None, None)
+    monkeypatch.setattr(chat_sse, "get_chat_use_case", get_use_case)
+    monkeypatch.setattr(chat_sse, "save_streamed_messages", save_messages)
+    stream = chat_sse.stream_chat_events("question", uuid.uuid4(), None, None)
     events = [json.loads(item.removeprefix("data: ")) for item in [event async for event in stream]]
 
     assert saved_content == ["verified"]
@@ -341,9 +342,9 @@ async def test_handler_error_events_are_not_duplicated_by_sse_endpoint(
     async def fail_save(*args: object, **kwargs: object) -> None:
         raise AssertionError("A failed preview must not be saved")
 
-    monkeypatch.setattr(chat_endpoints, "get_chat_use_case", get_use_case)
-    monkeypatch.setattr(chat_endpoints, "_save_streamed_messages", fail_save)
-    stream = chat_endpoints._stream_generator("question", uuid.uuid4(), None, None)
+    monkeypatch.setattr(chat_sse, "get_chat_use_case", get_use_case)
+    monkeypatch.setattr(chat_sse, "save_streamed_messages", fail_save)
+    stream = chat_sse.stream_chat_events("question", uuid.uuid4(), None, None)
     events = [json.loads(item.removeprefix("data: ")) async for item in stream]
     types = [event["type"] for event in events]
 
@@ -364,9 +365,9 @@ async def test_closing_sse_stream_closes_upstream_without_saving(
     async def fail_save(*args: object, **kwargs: object) -> None:
         raise AssertionError("A cancelled preview must not be saved")
 
-    monkeypatch.setattr(chat_endpoints, "get_chat_use_case", get_use_case)
-    monkeypatch.setattr(chat_endpoints, "_save_streamed_messages", fail_save)
-    stream = chat_endpoints._stream_generator("question", uuid.uuid4(), None, None)
+    monkeypatch.setattr(chat_sse, "get_chat_use_case", get_use_case)
+    monkeypatch.setattr(chat_sse, "save_streamed_messages", fail_save)
+    stream = chat_sse.stream_chat_events("question", uuid.uuid4(), None, None)
     first_event = json.loads((await anext(stream)).removeprefix("data: "))
     assert first_event["type"] == "content"
     await stream.aclose()
@@ -394,10 +395,10 @@ async def test_stream_error_and_done_emit_one_terminal_error(
     async def fail_save(*args: object, **kwargs: object) -> None:
         raise AssertionError("Failed stream must not persist a draft")
 
-    monkeypatch.setattr(chat_endpoints, "get_chat_use_case", get_use_case)
-    monkeypatch.setattr(chat_endpoints, "_save_streamed_messages", fail_save)
+    monkeypatch.setattr(chat_sse, "get_chat_use_case", get_use_case)
+    monkeypatch.setattr(chat_sse, "save_streamed_messages", fail_save)
 
-    stream = chat_endpoints._stream_generator("question", uuid.uuid4(), None, None)
+    stream = chat_sse.stream_chat_events("question", uuid.uuid4(), None, None)
     events = [json.loads(event.removeprefix("data: ")) async for event in stream]
 
     assert [item["type"] for item in events].count("content_replace") == 1

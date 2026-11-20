@@ -1,7 +1,7 @@
 from datetime import date
 
 from kira.chat.intent.base import ClassificationResult, Intent
-from kira.chat.router import PERSISTED_METADATA_KEYS
+from kira.chat.messages import PERSISTED_METADATA_KEYS
 from kira.legal.chat_handler import (
     LEGAL_QA_UNAVAILABLE_MESSAGE,
     LegalQAHandler,

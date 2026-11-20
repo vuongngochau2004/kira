@@ -1,4 +1,4 @@
-from kira.chat.router import citation_contexts
+from kira.chat.messages import citation_contexts
 
 
 def test_contexts_come_from_content_or_text() -> None:
