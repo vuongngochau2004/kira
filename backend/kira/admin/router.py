@@ -5,11 +5,11 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kira.admin.composition import admin_overview
 from kira.auth.dependencies import require_admin
 from kira.core.health import get_system_overview
 from kira.db.models import User
 from kira.db.session import get_session
+from kira.deps import admin_overview
 from kira.retrieval.rerank.service import get_llm_client
 
 router = APIRouter()

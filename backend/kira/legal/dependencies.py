@@ -6,7 +6,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kira.db.session import get_session
-from kira.legal.composition import (
+from kira.deps import (
     delete_legal_document_service,
     ingest_legal_from_url_service,
     legal_queries,

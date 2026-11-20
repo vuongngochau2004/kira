@@ -12,18 +12,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kira.auth.dependencies import get_current_user
 from kira.auth.rate_limit import limit_user_requests
-from kira.chat.composition import (
-    citation_enricher,
+from kira.chat.dto import ChatQuery
+from kira.chat.history import bound_history
+from kira.chat.repository import (
     create_conversation,
     create_message,
-    get_chat_use_case,
     get_conversation,
     get_conversation_messages,
     get_recent_owned_messages,
     list_conversations,
 )
-from kira.chat.dto import ChatQuery
-from kira.chat.history import bound_history
 from kira.chat.schemas import ChatStreamRequest, ConversationCreate
 from kira.constants import (
     DEFAULT_CONVERSATION_LIMIT,
@@ -35,6 +33,7 @@ from kira.constants import (
 from kira.db.models import User
 from kira.db.queries import soft_delete_conversation
 from kira.db.session import get_session
+from kira.deps import citation_enricher, get_chat_use_case
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -450,7 +449,7 @@ async def chat_completion(
     conversation_history = await _load_conversation_history_if_exists(conv_id, current_user.id, db)
 
     # Use ChatUseCase for intent-based routing
-    chat_use_case = await get_chat_use_case()
+    chat_use_case = get_chat_use_case()
     chat_query = ChatQuery(
         message=message,
         user_id=current_user.id,
@@ -516,7 +515,7 @@ async def _stream_generator(
     - evaluation: DeepEval evaluation results (if enabled)
     - done: Completion signal
     """
-    chat_use_case = await get_chat_use_case()
+    chat_use_case = get_chat_use_case()
 
     # Collect full content for saving to DB
     full_content: list[str] = []

@@ -22,7 +22,7 @@ from kira.auth.dependencies import get_current_user, require_admin
 from kira.auth.rate_limit import limit_user_requests
 from kira.db.models import User
 from kira.db.session import get_session
-from kira.legal.composition import vietnam_today
+from kira.deps import vietnam_today
 from kira.legal.dependencies import (
     LegalTaskEnqueuer,
     get_delete_service,

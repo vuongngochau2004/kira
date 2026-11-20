@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from kira.auth.dependencies import get_current_user
 from kira.db.models import User
-from kira.evaluation.composition import dataset_manager, evaluation_service
+from kira.deps import dataset_manager, evaluation_service
 from kira.evaluation.schemas import (
     BatchEvaluationRequest,
     BatchEvaluationResponse,

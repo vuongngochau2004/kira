@@ -3,7 +3,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kira.auth.composition import identity_service
 from kira.auth.dependencies import get_current_user
 from kira.auth.jwt_cookie import clear_auth_cookies, set_auth_cookies
 from kira.auth.rate_limit import limit_ip_requests
@@ -20,6 +19,7 @@ from kira.auth.security import (
 )
 from kira.db.models import User
 from kira.db.session import get_session
+from kira.deps import identity_service
 
 router = APIRouter()
 limit_auth_request = limit_ip_requests("auth", maximum=10, window_seconds=60)

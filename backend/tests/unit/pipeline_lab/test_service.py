@@ -81,14 +81,7 @@ async def test_classifier_demo_uses_registered_strategy(monkeypatch: pytest.Monk
             assert (query, user_id) == ("question", "user-1")
             return ClassificationResult(intent=Intent.RAG, confidence=0.8, reason="keyword")
 
-    class FakeContainer:
-        async def get(self, _: object) -> FakeClassifier:
-            return FakeClassifier()
-
-    async def fake_container() -> FakeContainer:
-        return FakeContainer()
-
-    monkeypatch.setattr(service, "get_container", fake_container)
+    monkeypatch.setattr(service, "get_classifier", FakeClassifier)
 
     result = await service.inspect_classification("question", "user-1")
 

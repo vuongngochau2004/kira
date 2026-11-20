@@ -292,7 +292,7 @@ async def test_stream_saves_only_authoritative_replacement(
 ) -> None:
     use_case = FakeStreamUseCase()
 
-    async def get_use_case() -> FakeStreamUseCase:
+    def get_use_case() -> FakeStreamUseCase:
         return use_case
 
     saved_content: list[str] = []
@@ -335,7 +335,7 @@ async def test_handler_error_events_are_not_duplicated_by_sse_endpoint(
             yield {"type": "error", "data": {"error": "internal provider detail"}}
             yield {"type": "done"}
 
-    async def get_use_case() -> FailingUseCase:
+    def get_use_case() -> FailingUseCase:
         return FailingUseCase()
 
     async def fail_save(*args: object, **kwargs: object) -> None:
@@ -358,7 +358,7 @@ async def test_closing_sse_stream_closes_upstream_without_saving(
 ) -> None:
     use_case = FakeStreamUseCase(wait_for_cancel=True)
 
-    async def get_use_case() -> FakeStreamUseCase:
+    def get_use_case() -> FakeStreamUseCase:
         return use_case
 
     async def fail_save(*args: object, **kwargs: object) -> None:
@@ -388,7 +388,7 @@ async def test_stream_error_and_done_emit_one_terminal_error(
             yield {"type": "error", "data": {"error": "private provider detail"}}
             yield {"type": "done"}
 
-    async def get_use_case() -> FailedStreamUseCase:
+    def get_use_case() -> FailedStreamUseCase:
         return FailedStreamUseCase()
 
     async def fail_save(*args: object, **kwargs: object) -> None:

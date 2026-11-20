@@ -6,8 +6,8 @@ import argparse
 import asyncio
 import sys
 
-from kira.chat.rag.composition import create_default_rag_pipeline_service
 from kira.config import REPO_ROOT
+from kira.deps import create_rag_pipeline_service
 from kira.evaluation.models import (
     DEFAULT_LEGAL_METRICS,
     DEFAULT_METRICS,
@@ -55,7 +55,7 @@ async def _run(args: argparse.Namespace) -> int:
         run_name=args.run_name,
     )
 
-    pipeline = create_default_rag_pipeline_service()
+    pipeline = create_rag_pipeline_service()
     evaluator = DeepEvalEvaluationService(
         judge_llm=LLMClient(),
         threshold=config.threshold,
@@ -75,13 +75,13 @@ async def _run(args: argparse.Namespace) -> int:
 
 def build_legal_runner(threshold: float):
     """Compose the legal QA runner with real services; returns (runner, async closer)."""
+    from kira.deps import create_answer_legal_question, get_legal_graph
     from kira.evaluation.runners.legal_qa import LegalQAEvaluationRunner
-    from kira.legal.composition import create_answer_legal_question, legal_graph
     from kira.providers.embedding.factory import create_embedding_adapter
 
     llm = LLMClient()
     embedding = create_embedding_adapter()
-    graph = legal_graph()
+    graph = get_legal_graph()
     runner = LegalQAEvaluationRunner(
         answer_factory=lambda today: create_answer_legal_question(
             llm, embedding, today=today, graph=graph

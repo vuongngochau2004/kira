@@ -7,7 +7,7 @@ import uuid
 
 from kira.core.event_loop import get_worker_event_loop
 from kira.db.session import async_session_factory
-from kira.documents.composition import process_document_service
+from kira.deps import process_document_service
 from kira.documents.schemas import ProcessDocumentRequest
 from kira.worker import celery_app
 

@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from kira.evaluation.composition import ingested_chunk_repository  # noqa: E402
+from kira.deps import ingested_chunk_repository
 from kira.evaluation.dataset_generation import (  # noqa: E402
     DatasetGenerationConfig,
     generate_dataset_sync,

@@ -98,7 +98,7 @@ async def test_run_publish_closes_graph(monkeypatch: pytest.MonkeyPatch) -> None
     dependent = uuid4()
     service = _FakePublishService([dependent])
     monkeypatch.setattr(legal_tasks, "async_session_factory", lambda: session)
-    monkeypatch.setattr(legal_tasks, "legal_graph", lambda: graph)
+    monkeypatch.setattr(legal_tasks, "get_legal_graph", lambda: graph)
     monkeypatch.setattr(legal_tasks, "publish_legal_document_service", lambda db, g: service)
 
     result = await legal_tasks.run_publish(str(uuid4()))

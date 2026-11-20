@@ -26,11 +26,11 @@ from kira.constants import (
 )
 from kira.db.models import User
 from kira.db.session import get_session
-from kira.documents.composition import (
+from kira.deps import (
     cancel_document_service,
     delete_document_service,
     document_repository,
-    storage_adapter,
+    get_storage,
     upload_document_service,
 )
 from kira.documents.queries import (
@@ -391,7 +391,7 @@ async def download_document_file(
     """Stream an owned file using the shared access-token authentication dependency."""
     download_result = await DownloadDocument(
         repository=document_repository(db),
-        storage=storage_adapter(),
+        storage=get_storage(),
     ).execute(
         DownloadDocumentRequest(
             document_id=uuid.UUID(document_id),

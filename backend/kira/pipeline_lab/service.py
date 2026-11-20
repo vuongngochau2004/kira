@@ -8,11 +8,10 @@ from typing import Any
 from fastapi.encoders import jsonable_encoder
 from loguru import logger
 
-from kira.chat.intent.base import ClassificationStrategyBase
 from kira.config import settings
-from kira.di.registry import get_container
+from kira.deps import get_classifier, get_ocr
 from kira.documents.processing.extractor import extract_content
-from kira.providers.ocr import PaddleOCR, get_ocr_client
+from kira.providers.ocr import get_ocr_client
 from kira.retrieval.rerank.llm import (
     format_documents_for_reranking,
     parse_reranking_response,
@@ -44,8 +43,7 @@ async def inspect_document(content: bytes, suffix: str) -> dict[str, Any]:
     try:
         with os.fdopen(descriptor, "wb") as target:
             target.write(content)
-        container = await get_container()
-        ocr = await container.get(PaddleOCR)
+        ocr = get_ocr()
         result = await extract_content(path, "pdf", ocr=ocr)
         return {
             "success": result.success,
@@ -63,8 +61,7 @@ async def inspect_document(content: bytes, suffix: str) -> dict[str, Any]:
 async def inspect_classification(query: str, user_id: str) -> dict[str, Any]:
     """Classify with the same registered strategy chain used by chat."""
     started = perf_counter()
-    container = await get_container()
-    classifier = await container.get(ClassificationStrategyBase)
+    classifier = get_classifier()
     result = await classifier.classify(query, user_id)
     return {
         **jsonable_encoder(result.to_dict()),

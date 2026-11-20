@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from kira.db.models import Document
 from kira.db.session import async_session_factory
-from kira.documents.composition import delete_document_service
+from kira.deps import delete_document_service
 from kira.documents.schemas import DeleteDocumentRequest
 
 

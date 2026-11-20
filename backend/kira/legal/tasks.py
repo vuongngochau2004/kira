@@ -7,8 +7,8 @@ import uuid
 
 from kira.core.event_loop import get_worker_event_loop
 from kira.db.session import async_session_factory
-from kira.legal.composition import (
-    legal_graph,
+from kira.deps import (
+    get_legal_graph,
     process_legal_document_service,
     publish_legal_document_service,
 )
@@ -48,7 +48,7 @@ async def run_process(document_id: str) -> dict:
 
 
 async def run_publish(document_id: str) -> dict:
-    graph = legal_graph()
+    graph = get_legal_graph()
     try:
         async with async_session_factory() as session:
             service = publish_legal_document_service(session, graph)
