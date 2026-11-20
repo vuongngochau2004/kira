@@ -25,3 +25,10 @@ celery_app.conf.update(
 )
 
 __all__ = ["celery_app"]
+
+
+class CeleryTaskQueue:
+    """Background-job control used by services (cancel a queued/running task)."""
+
+    def revoke(self, task_id: str) -> None:
+        celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")

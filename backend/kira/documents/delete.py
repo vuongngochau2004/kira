@@ -4,11 +4,11 @@ import logging
 import uuid
 from collections.abc import Awaitable, Callable
 
-from kira.documents.repository_port import DocumentRepositoryPort
+from kira.documents.repository import DocumentRepository
 from kira.documents.schemas import DeleteDocumentRequest, DocumentDeleteResult
 from kira.providers.storage import MinioStorage
 from kira.providers.vector_store import QdrantVectorStore
-from kira.retrieval.keyword_port import KeywordIndexPort
+from kira.retrieval.bm25 import BM25KeywordIndexAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +18,8 @@ class DeleteDocument:
 
     def __init__(
         self,
-        repository: DocumentRepositoryPort,
-        keyword_index: KeywordIndexPort,
+        repository: DocumentRepository,
+        keyword_index: BM25KeywordIndexAdapter,
         vector_store: QdrantVectorStore,
         storage: MinioStorage,
     ):

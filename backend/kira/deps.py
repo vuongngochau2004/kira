@@ -42,8 +42,7 @@ from kira.db.session import async_session_factory
 from kira.documents.cancel import CancelDocument
 from kira.documents.delete import DeleteDocument
 from kira.documents.process import ProcessDocument
-from kira.documents.repository_adapter import SqlAlchemyDocumentRepository
-from kira.documents.task_queue import CeleryTaskQueueAdapter
+from kira.documents.repository import DocumentRepository
 from kira.documents.upload import UploadDocument
 from kira.evaluation.dataset import DatasetManager, get_dataset_manager
 from kira.evaluation.repository import SqlAlchemyIngestedChunkRepository
@@ -76,11 +75,14 @@ from kira.providers.llm.traced import TracedLLM
 from kira.providers.ocr import PaddleOCR
 from kira.providers.storage import MinioStorage
 from kira.providers.vector_store import QdrantVectorStore, get_client
-from kira.retrieval.adapters import BM25KeywordSearchAdapter, PostgresRetrievalDocumentAdapter
-from kira.retrieval.bm25_adapter import BM25KeywordIndexAdapter
-from kira.retrieval.bm25_manager import get_bm25_manager
+from kira.retrieval.bm25 import BM25KeywordIndexAdapter, get_bm25_manager
 from kira.retrieval.rerank.service import get_llm_client
-from kira.retrieval.search import SearchUseCase
+from kira.retrieval.search import (
+    BM25KeywordSearchAdapter,
+    PostgresRetrievalDocumentAdapter,
+    SearchUseCase,
+)
+from kira.worker import CeleryTaskQueue
 
 # ---------------------------------------------------------------------------
 # Providers (singletons)
@@ -144,8 +146,8 @@ def admin_overview(db: AsyncSession) -> AdminOverview:
 # ---------------------------------------------------------------------------
 
 
-def document_repository(db: AsyncSession) -> SqlAlchemyDocumentRepository:
-    return SqlAlchemyDocumentRepository(db=db)
+def document_repository(db: AsyncSession) -> DocumentRepository:
+    return DocumentRepository(db=db)
 
 
 def upload_document_service(db: AsyncSession) -> UploadDocument:
@@ -178,7 +180,7 @@ def cancel_document_service(db: AsyncSession) -> CancelDocument:
         keyword_index=get_keyword_index(),
         vector_store=get_vector_store(),
         storage=get_storage(),
-        task_queue=CeleryTaskQueueAdapter(),
+        task_queue=CeleryTaskQueue(),
     )
 
 

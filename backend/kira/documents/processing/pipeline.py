@@ -22,7 +22,7 @@ from kira.documents.processing.chunker import chunk_document
 from kira.documents.processing.cleaner import clean_document
 from kira.documents.processing.extractor import extract_content_sync
 from kira.documents.processing.models import Chunk
-from kira.documents.repository_port import DocumentRepositoryPort
+from kira.documents.repository import DocumentRepository
 from kira.providers.embedding.base import EmbeddingPort
 from kira.providers.ocr import PaddleOCR
 from kira.providers.storage import MinioStorage
@@ -41,7 +41,7 @@ async def process_document(
     embedding: EmbeddingPort,
     vector_store: QdrantVectorStore,
     ocr: PaddleOCR,
-    repository: DocumentRepositoryPort,
+    repository: DocumentRepository,
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> dict:
     """Process document: extract, clean, chunk, embed, store.
@@ -256,7 +256,7 @@ def _prepare_vector_documents(
 async def _update_document_status_result(
     document_id: UUID,
     result: dict,
-    repository: DocumentRepositoryPort,
+    repository: DocumentRepository,
 ) -> None:
     """Update document status based on processing result."""
     logger.info("[Step 7/7] Saving chunks and updating final document status in PostgreSQL...")

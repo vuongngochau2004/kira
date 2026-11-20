@@ -4,12 +4,12 @@ Keyword-based classification strategy.
 Fast classification using fuzzy file matching and keyword detection.
 """
 
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
 from kira.chat.intent.base import ClassificationResult, ClassificationStrategyBase, Intent
 from kira.config import settings
-from kira.retrieval.types import Document
 
 DEFAULT_FILE_KEYWORDS = [
     "tài liệu",
@@ -41,6 +41,54 @@ DEFAULT_DRAFTING_KEYWORDS = [
     "giấy mời",
     "báo cáo",
 ]
+
+
+@dataclass(frozen=True)
+class Document:
+    """
+    Retrieved document chunk.
+
+    Attributes:
+        content: Document text content
+        filename: Source filename
+        page: Page number (if applicable)
+        chunk_id: Unique chunk identifier
+        score: Relevance score (from retrieval)
+        metadata: Additional metadata (embedding_id, chunk_index, etc.)
+
+    Example:
+        >>> doc = Document(
+        ...     content="Contract clause 1.1...",
+        ...     filename="contract.pdf",
+        ...     page=1,
+        ...     chunk_id="chunk_123",
+        ...     score=0.95
+        ... )
+    """
+
+    content: str
+    filename: str
+    page: int | None = None
+    chunk_id: str | None = None
+    score: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "content": self.content,
+            "filename": self.filename,
+            "page": self.page,
+            "chunk_id": self.chunk_id,
+            "score": self.score,
+            "metadata": self.metadata,
+        }
+
+    def get_excerpt(self, max_length: int = 200) -> str:
+        """Get excerpt of document content."""
+        if len(self.content) <= max_length:
+            return self.content
+        return self.content[:max_length] + "..."
 
 
 class KeywordStrategy(ClassificationStrategyBase):

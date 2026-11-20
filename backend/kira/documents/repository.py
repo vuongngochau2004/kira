@@ -1,4 +1,4 @@
-"""Postgres document storage operations."""
+"""All SQL for documents and chunks: module functions plus the session-bound DocumentRepository."""
 
 import logging
 from datetime import datetime
@@ -508,18 +508,134 @@ async def completed_chunks_signature_for_user(
         return await _query(session)
 
 
-__all__ = [
-    "completed_chunks_signature_for_user",
-    "create_document",
-    "update_document_status",
-    "update_document_processing_task",
-    "cancel_document",
-    "get_document",
-    "get_documents_batch",
-    "list_documents",
-    "delete_document",
-    "create_deletion_retry_job",
-    "create_chunks",
-    "get_document_chunks",
-    "list_completed_chunks_for_user",
-]
+class DocumentRepository:
+    """Adapter that implements document persistence with SQLAlchemy."""
+
+    def __init__(self, db: AsyncSession):
+        """Initialize repository with a request/session scoped DB session."""
+        self.db = db
+
+    async def create_document(
+        self,
+        user_id: UUID,
+        filename: str,
+        file_type: str,
+        file_size: int,
+        storage_path: str,
+    ) -> Any:
+        """Create a document metadata record."""
+        return await create_document(
+            user_id=user_id,
+            filename=filename,
+            file_type=file_type,
+            file_size=file_size,
+            storage_path=storage_path,
+            db=self.db,
+        )
+
+    async def update_document_status(
+        self,
+        document_id: UUID,
+        status: str,
+        error_message: str | None = None,
+        chunk_count: int = 0,
+    ) -> Any | None:
+        """Update document processing status."""
+        return await update_document_status(
+            document_id=document_id,
+            status=status,
+            error_message=error_message,
+            chunk_count=chunk_count,
+            db=self.db,
+        )
+
+    async def update_document_processing_task(
+        self,
+        document_id: UUID,
+        task_id: str | None,
+    ) -> Any | None:
+        """Store or clear the Celery task ID for a document."""
+        return await update_document_processing_task(
+            document_id=document_id,
+            task_id=task_id,
+            db=self.db,
+        )
+
+    async def cancel_document(
+        self,
+        document_id: UUID,
+        user_id: UUID,
+        reason: str | None = None,
+    ) -> Any | None:
+        """Mark a document as cancelled."""
+        return await cancel_document(
+            document_id=document_id,
+            user_id=user_id,
+            reason=reason,
+            db=self.db,
+        )
+
+    async def get_document(self, document_id: UUID, user_id: UUID | None = None) -> Any | None:
+        """Fetch a document by ID, optionally scoped to a user."""
+        return await get_document(
+            document_id=document_id,
+            user_id=user_id,
+            db=self.db,
+        )
+
+    async def list_documents(
+        self,
+        user_id: UUID,
+        status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[Any], int]:
+        """List documents for a user."""
+        return await list_documents(
+            user_id=user_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+            db=self.db,
+        )
+
+    async def delete_document(self, document_id: UUID, user_id: UUID) -> bool:
+        """Soft-delete a document."""
+        return await delete_document(
+            document_id=document_id,
+            user_id=user_id,
+            db=self.db,
+        )
+
+    async def create_deletion_retry_job(
+        self,
+        document_id: UUID,
+        user_id: UUID,
+        storage_path: str | None,
+        cleanup_targets: list[str],
+        last_error: str,
+    ) -> Any:
+        """Create a retry job for failed external document cleanup."""
+        return await create_deletion_retry_job(
+            document_id=document_id,
+            user_id=user_id,
+            storage_path=storage_path,
+            cleanup_targets=cleanup_targets,
+            last_error=last_error,
+            db=self.db,
+        )
+
+    async def create_chunks(self, document_id: UUID, chunks: list[dict]) -> list[Any]:
+        """Persist document chunks."""
+        return await create_chunks(
+            document_id=document_id,
+            chunks=chunks,
+            db=self.db,
+        )
+
+    async def get_document_chunks(self, document_id: UUID) -> list[Any]:
+        """Fetch chunks for a document."""
+        return await get_document_chunks(
+            document_id=document_id,
+            db=self.db,
+        )

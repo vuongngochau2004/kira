@@ -1,4 +1,4 @@
-from kira.retrieval.bm25_index import BM25Index, _tokenize
+from kira.retrieval.bm25 import BM25Index, _tokenize
 
 
 def test_vietnamese_tokenization_with_pyvi():

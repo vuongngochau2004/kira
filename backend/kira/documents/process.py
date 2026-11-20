@@ -5,13 +5,13 @@ import uuid
 
 from kira.constants import DocumentStatus
 from kira.documents.processing.pipeline import process_document
-from kira.documents.repository_port import DocumentRepositoryPort
+from kira.documents.repository import DocumentRepository
 from kira.documents.schemas import DocumentProcessResult, ProcessDocumentRequest
 from kira.providers.embedding.base import EmbeddingPort
 from kira.providers.ocr import PaddleOCR
 from kira.providers.storage import MinioStorage
 from kira.providers.vector_store import QdrantVectorStore
-from kira.retrieval.keyword_port import KeywordIndexPort
+from kira.retrieval.bm25 import BM25KeywordIndexAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +21,11 @@ class ProcessDocument:
 
     def __init__(
         self,
-        repository: DocumentRepositoryPort,
+        repository: DocumentRepository,
         storage: MinioStorage,
         embedding: EmbeddingPort,
         vector_store: QdrantVectorStore,
-        keyword_index: KeywordIndexPort,
+        keyword_index: BM25KeywordIndexAdapter,
         ocr: PaddleOCR,
     ):
         """Initialize document processing service."""

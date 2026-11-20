@@ -1,17 +1,55 @@
-"""Search use case for retrieval operations.
-
-Orchestrates hybrid search combining dense and BM25 retrieval with RRF fusion.
-"""
+"""Search entry point used by chat and drafting: hybrid dense + BM25 search over a user's documents."""
 
 import logging
+from typing import Any
 from uuid import UUID
 
+from kira.documents.repository import (
+    completed_chunks_signature_for_user,
+    get_documents_batch,
+    list_completed_chunks_for_user,
+)
 from kira.providers.vector_store import QdrantVectorStore
+from kira.retrieval.bm25 import BM25IndexManager
 from kira.retrieval.hybrid_search import (
     hybrid_search,
     hybrid_search_candidates,
 )
-from kira.retrieval.ports import KeywordSearchPort, RetrievalDocumentPort
+
+
+class BM25KeywordSearchAdapter:
+    """Expose the in-memory BM25 manager through the retrieval application port."""
+
+    def __init__(self, manager: BM25IndexManager):
+        self._manager = manager
+
+    def has_documents(self, user_id: str) -> bool:
+        return self._manager.has_documents(user_id)
+
+    def get_index(self, user_id: str) -> Any:
+        return self._manager.get_index(user_id)
+
+    def get_signature(self, user_id: str) -> Any:
+        return self._manager.get_signature(user_id)
+
+    def rebuild_from_chunks(
+        self, user_id: str, chunks: list[dict[str, Any]], signature: Any = None
+    ) -> None:
+        self._manager.rebuild_from_chunks(user_id=user_id, all_chunks=chunks, signature=signature)
+
+
+class PostgresRetrievalDocumentAdapter:
+    """Expose Postgres retrieval metadata through the retrieval application port."""
+
+    async def list_completed_chunks(self, user_id: UUID) -> list[dict[str, Any]]:
+        return await list_completed_chunks_for_user(user_id)
+
+    async def completed_chunks_signature(self, user_id: UUID) -> Any:
+        return await completed_chunks_signature_for_user(user_id)
+
+    async def get_filenames(self, document_ids: list[str]) -> dict[str, str]:
+        return await get_documents_batch(document_ids)
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +67,8 @@ class SearchUseCase:
     def __init__(
         self,
         vector_store: QdrantVectorStore,
-        keyword_search: KeywordSearchPort | None = None,
-        documents: RetrievalDocumentPort | None = None,
+        keyword_search: BM25KeywordSearchAdapter | None = None,
+        documents: PostgresRetrievalDocumentAdapter | None = None,
         llm_client=None,
     ):
         """Initialize search use case.
@@ -202,6 +240,3 @@ class SearchUseCase:
             }
             for result in results
         ]
-
-
-__all__ = ["SearchUseCase"]

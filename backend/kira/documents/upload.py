@@ -5,7 +5,7 @@ import logging
 import uuid
 from pathlib import Path
 
-from kira.documents.repository_port import DocumentRepositoryPort
+from kira.documents.repository import DocumentRepository
 from kira.documents.schemas import (
     DocumentUploadResult,
     UploadDocumentRequest,
@@ -20,7 +20,7 @@ class UploadDocument:
 
     def __init__(
         self,
-        repository: DocumentRepositoryPort,
+        repository: DocumentRepository,
         storage: MinioStorage,
     ):
         """Initialize document upload service.

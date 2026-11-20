@@ -3,7 +3,7 @@
 import mimetypes
 import uuid
 
-from kira.documents.repository_port import DocumentRepositoryPort
+from kira.documents.repository import DocumentRepository
 from kira.documents.schemas import (
     DocumentChunksResult,
     DocumentDownloadResult,
@@ -20,7 +20,7 @@ from kira.providers.storage import MinioStorage
 class ListDocuments:
     """Application service for listing user documents."""
 
-    def __init__(self, repository: DocumentRepositoryPort):
+    def __init__(self, repository: DocumentRepository):
         """Initialize document listing service."""
         self.repository = repository
 
@@ -49,7 +49,7 @@ class ListDocuments:
 class GetDocument:
     """Application service for fetching a user document."""
 
-    def __init__(self, repository: DocumentRepositoryPort):
+    def __init__(self, repository: DocumentRepository):
         """Initialize document fetching service."""
         self.repository = repository
 
@@ -69,7 +69,7 @@ class GetDocument:
 class DownloadDocument:
     """Application service for downloading a document file."""
 
-    def __init__(self, repository: DocumentRepositoryPort, storage: MinioStorage):
+    def __init__(self, repository: DocumentRepository, storage: MinioStorage):
         """Initialize document download service."""
         self.repository = repository
         self.storage = storage
@@ -100,7 +100,7 @@ class DownloadDocument:
 class GetDocumentChunks:
     """Application service for fetching document chunks."""
 
-    def __init__(self, repository: DocumentRepositoryPort):
+    def __init__(self, repository: DocumentRepository):
         """Initialize document chunks service."""
         self.repository = repository
 

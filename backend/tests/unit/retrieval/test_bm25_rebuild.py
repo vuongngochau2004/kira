@@ -10,9 +10,8 @@ from uuid import uuid4
 
 import pytest
 
-from kira.retrieval.adapters import BM25KeywordSearchAdapter
-from kira.retrieval.bm25_manager import BM25IndexManager
-from kira.retrieval.search import SearchUseCase
+from kira.retrieval.bm25 import BM25IndexManager
+from kira.retrieval.search import BM25KeywordSearchAdapter, SearchUseCase
 
 
 class FakeDocuments:

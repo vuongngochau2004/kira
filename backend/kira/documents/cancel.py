@@ -5,12 +5,12 @@ import uuid
 from collections.abc import Awaitable, Callable
 
 from kira.constants import DocumentStatus
-from kira.documents.repository_port import DocumentRepositoryPort
+from kira.documents.repository import DocumentRepository
 from kira.documents.schemas import CancelDocumentRequest, DocumentCancelResult
-from kira.documents.task_queue_port import TaskQueuePort
 from kira.providers.storage import MinioStorage
 from kira.providers.vector_store import QdrantVectorStore
-from kira.retrieval.keyword_port import KeywordIndexPort
+from kira.retrieval.bm25 import BM25KeywordIndexAdapter
+from kira.worker import CeleryTaskQueue
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +20,11 @@ class CancelDocument:
 
     def __init__(
         self,
-        repository: DocumentRepositoryPort,
-        keyword_index: KeywordIndexPort,
+        repository: DocumentRepository,
+        keyword_index: BM25KeywordIndexAdapter,
         vector_store: QdrantVectorStore,
         storage: MinioStorage,
-        task_queue: TaskQueuePort,
+        task_queue: CeleryTaskQueue,
     ):
         """Initialize document cancellation service."""
         self.repository = repository
