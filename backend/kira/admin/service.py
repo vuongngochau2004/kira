@@ -1,21 +1,21 @@
 """Admin dashboard overview use case."""
 
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any
 
-
-class AdminDashboardPort(Protocol):
-    async def overview(self, now: datetime) -> dict[str, Any]: ...
+from kira.admin.repository import SqlAlchemyAdminDashboardRepository
 
 
 class AdminOverview:
     """Return the operational dashboard through a read-model port."""
 
-    def __init__(self, dashboard: AdminDashboardPort):
+    def __init__(self, dashboard: SqlAlchemyAdminDashboardRepository):
         self._dashboard = dashboard
 
     async def execute(self, now: datetime | None = None) -> dict[str, Any]:
         return await self._dashboard.overview(now or datetime.utcnow())
 
 
-__all__ = ["AdminOverview", "AdminDashboardPort"]
+__all__ = [
+    "AdminOverview",
+]

@@ -1,14 +1,8 @@
 """Application service for registration and credential validation."""
 
-from typing import Any, Callable, Protocol
+from typing import Any, Callable
 
-
-class UserAccountPort(Protocol):
-    async def get_by_email(self, email: str) -> Any | None: ...
-
-    async def get_active_by_id(self, user_id: str) -> Any | None: ...
-
-    async def create(self, *, email: str, hashed_password: str, full_name: str | None) -> Any: ...
+from kira.auth.repository import SqlAlchemyUserAccountRepository
 
 
 class IdentityService:
@@ -16,7 +10,7 @@ class IdentityService:
 
     def __init__(
         self,
-        users: UserAccountPort,
+        users: SqlAlchemyUserAccountRepository,
         hash_password: Callable[[str], str],
         verify_password: Callable[[str, str], bool],
     ):
@@ -43,4 +37,6 @@ class IdentityService:
         return await self.users.get_active_by_id(user_id)
 
 
-__all__ = ["IdentityService", "UserAccountPort"]
+__all__ = [
+    "IdentityService",
+]

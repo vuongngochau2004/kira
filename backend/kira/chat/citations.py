@@ -1,16 +1,12 @@
 """Application service for enriching chat citations."""
 
-from typing import Protocol
-
-
-class DocumentTitlePort(Protocol):
-    async def get_filenames(self, document_ids: list[str]) -> dict[str, str]: ...
+from kira.retrieval.search import PostgresRetrievalDocumentAdapter
 
 
 class EnrichCitations:
     """Resolve citation document IDs to display names without HTTP concerns."""
 
-    def __init__(self, documents: DocumentTitlePort):
+    def __init__(self, documents: PostgresRetrievalDocumentAdapter):
         self._documents = documents
 
     async def execute(self, citations: list[dict]) -> list[dict]:

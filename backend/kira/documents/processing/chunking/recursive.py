@@ -1,8 +1,9 @@
 """Recursive and paragraph-aware token text chunking."""
 
+import tiktoken
+
 from kira.documents.processing.models import Chunk
 from kira.documents.processing.token_counter import (
-    TextEncoding,
     count_tokens,
 )
 
@@ -17,7 +18,7 @@ def split_large_text(
     text: str,
     chunk_size: int,
     chunk_overlap: int,
-    encoding: TextEncoding,
+    encoding: tiktoken.Encoding,
 ) -> list[str]:
     """Split a large text block into chunks with overlap."""
     tokens = encoding.encode(text)
@@ -36,7 +37,7 @@ def split_large_text(
 def get_overlap_parts(
     parts: list[str],
     chunk_overlap: int,
-    encoding: TextEncoding,
+    encoding: tiktoken.Encoding,
 ) -> list[str]:
     """Get parts from the end that fit within the overlap size."""
     overlap_parts: list[str] = []
@@ -56,7 +57,7 @@ def split_large_text_by_blocks(
     text: str,
     chunk_size: int,
     chunk_overlap: int,
-    encoding: TextEncoding,
+    encoding: tiktoken.Encoding,
 ) -> list[str]:
     """Split large text on paragraph boundaries before falling back to tokens."""
     blocks = split_text(text)
@@ -99,7 +100,7 @@ def chunk_recursive(
     document_id: str,
     chunk_size: int,
     chunk_overlap: int,
-    encoding: TextEncoding,
+    encoding: tiktoken.Encoding,
     page_number: int | None = None,
 ) -> list[Chunk]:
     """Chunk document text by paragraphs and token sizes with overlap."""

@@ -7,6 +7,7 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kira.chat.citations import EnrichCitations
 from kira.chat.history import bound_history
 from kira.chat.repository import (
     create_conversation,
@@ -17,7 +18,7 @@ from kira.chat.repository import (
 from kira.constants import (
     ERR_CONVERSATION_NOT_FOUND,
 )
-from kira.deps import citation_enricher
+from kira.retrieval.search import PostgresRetrievalDocumentAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +172,9 @@ async def resolve_citation_filenames(citations: list[dict], db: AsyncSession) ->
         return citations
 
     try:
-        return await citation_enricher().execute(citations)
+        return await EnrichCitations(documents=PostgresRetrievalDocumentAdapter()).execute(
+            citations
+        )
     except Exception as e:
         logger.warning(f"Failed to resolve citation filenames: {e}")
 

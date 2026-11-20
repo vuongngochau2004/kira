@@ -16,15 +16,11 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from kira.evaluation.models import GoldenDataset, GoldenDatasetSample
+from kira.evaluation.repository import SqlAlchemyIngestedChunkRepository
 from kira.providers.llm.client import LLMProvider, chat_async
-
-
-class IngestedChunkPort(Protocol):
-    async def list_completed_chunks(self, user_id: uuid.UUID) -> list[dict[str, Any]]: ...
-
 
 DEFAULT_SYSTEM_PROMPT = """Bạn là chuyên gia tạo bộ dữ liệu đánh giá RAG cho văn bản pháp quy đại học.
 Nhiệm vụ của bạn là tạo câu hỏi kiểm thử CHỈ dựa trên ngữ cảnh được cung cấp.
@@ -121,7 +117,7 @@ class IngestedChunkDatasetGenerator:
     def __init__(
         self,
         config: DatasetGenerationConfig,
-        repository: IngestedChunkPort,
+        repository: SqlAlchemyIngestedChunkRepository,
     ):
         self.config = config
         self._repository = repository
@@ -519,14 +515,14 @@ class IngestedChunkDatasetGenerator:
 
 
 async def generate_dataset(
-    config: DatasetGenerationConfig, repository: IngestedChunkPort
+    config: DatasetGenerationConfig, repository: SqlAlchemyIngestedChunkRepository
 ) -> GoldenDataset:
     """Convenience async entry point."""
     return await IngestedChunkDatasetGenerator(config, repository=repository).generate()
 
 
 def generate_dataset_sync(
-    config: DatasetGenerationConfig, repository: IngestedChunkPort
+    config: DatasetGenerationConfig, repository: SqlAlchemyIngestedChunkRepository
 ) -> GoldenDataset:
     """Sync entry point for scripts."""
     return asyncio.run(generate_dataset(config, repository=repository))

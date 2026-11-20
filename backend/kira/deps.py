@@ -18,7 +18,6 @@ from kira.admin.service import AdminOverview
 from kira.auth.repository import SqlAlchemyUserAccountRepository
 from kira.auth.security import hash_password, verify_password
 from kira.auth.service import IdentityService
-from kira.chat.citations import EnrichCitations
 from kira.chat.handlers.conversational import ConversationalHandler
 from kira.chat.handlers.drafting import AdministrativeDraftingHandler
 from kira.chat.handlers.rag import RAGHandler
@@ -267,10 +266,6 @@ def get_chat_use_case() -> ChatUseCase:
     if settings.legal_enabled:
         handlers[Intent.LEGAL_QA] = LegalQAHandler(create_answer_legal_question(llm, embedding))
     return ChatUseCase(classifier=get_classifier(), handlers=handlers)
-
-
-def citation_enricher() -> EnrichCitations:
-    return EnrichCitations(documents=PostgresRetrievalDocumentAdapter())
 
 
 # ---------------------------------------------------------------------------

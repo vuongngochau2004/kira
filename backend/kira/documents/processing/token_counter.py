@@ -1,14 +1,6 @@
 """Token encoding and counting utilities for text chunking and LLM budget calculation."""
 
-from typing import Protocol
-
 import tiktoken
-
-
-class TextEncoding(Protocol):
-    def encode(self, text: str) -> list[int]: ...
-
-    def decode(self, tokens: list[int]) -> str: ...
 
 
 class CharacterEncodingFallback:
@@ -21,7 +13,7 @@ class CharacterEncodingFallback:
         return "".join(chr(token) for token in tokens)
 
 
-def get_encoding(encoding_name: str = "cl100k_base") -> TextEncoding:
+def get_encoding(encoding_name: str = "cl100k_base") -> tiktoken.Encoding:
     """Retrieve text encoding by name with character fallback."""
     try:
         return tiktoken.get_encoding(encoding_name)
@@ -30,7 +22,7 @@ def get_encoding(encoding_name: str = "cl100k_base") -> TextEncoding:
 
 
 def count_tokens(
-    text: str, encoding: TextEncoding | None = None, encoding_name: str = "cl100k_base"
+    text: str, encoding: tiktoken.Encoding | None = None, encoding_name: str = "cl100k_base"
 ) -> int:
     """Count tokens in text using tiktoken or fallback encoding."""
     if encoding is None:
@@ -43,7 +35,6 @@ _get_encoding = get_encoding
 _count_tokens = count_tokens
 
 __all__ = [
-    "TextEncoding",
     "CharacterEncodingFallback",
     "get_encoding",
     "count_tokens",

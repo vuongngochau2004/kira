@@ -4,11 +4,12 @@ Preserves Vietnamese legal headings (Chương, Điều, Phụ lục) as atomic u
 and prevents breaking legal clauses across inappropriate token boundaries.
 """
 
+import tiktoken
+
 from kira.documents.processing.chunking.recursive import split_large_text_by_blocks
 from kira.documents.processing.constants import CHUNKER_PAGE_MARKER_PATTERN, LEGAL_HEADING_PATTERN
 from kira.documents.processing.models import Chunk
 from kira.documents.processing.token_counter import (
-    TextEncoding,
     count_tokens,
 )
 
@@ -79,7 +80,7 @@ def chunk_legal_document(
     document_id: str,
     chunk_size: int,
     chunk_overlap: int,
-    encoding: TextEncoding,
+    encoding: tiktoken.Encoding,
 ) -> list[Chunk]:
     """Chunk document respecting legal structure boundaries."""
     sections = split_legal_sections(text)

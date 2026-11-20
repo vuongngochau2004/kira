@@ -5,11 +5,10 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Protocol
 
 from kira.evaluation.legal_dataset import LegalGoldenSample, load_legal_dataset
 from kira.evaluation.metrics.legal import cited_sources
@@ -23,7 +22,7 @@ from kira.evaluation.models import (
 )
 from kira.evaluation.reporter import EvaluationReporter
 from kira.evaluation.service import DeepEvalEvaluationService
-from kira.legal.services.answer_question import LegalQAResult, LegalQAToken
+from kira.legal.services.answer_question import AnswerLegalQuestion, LegalQAResult, LegalQAToken
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +35,6 @@ _CONTEXT_METRICS = frozenset(
         EvaluationMetric.CONTEXTUAL_RELEVANCY,
     }
 )
-
-
-class LegalAnswerService(Protocol):
-    def stream(self, question: str) -> AsyncIterator[Any]: ...
 
 
 @dataclass
@@ -65,7 +60,7 @@ class LegalEvaluationRunConfig:
 class LegalQAEvaluationRunner:
     def __init__(
         self,
-        answer_factory: Callable[[Callable[[], date]], LegalAnswerService],
+        answer_factory: Callable[[Callable[[], date]], AnswerLegalQuestion],
         evaluator: DeepEvalEvaluationService,
         reporter: EvaluationReporter | None = None,
     ) -> None:
@@ -112,7 +107,7 @@ class LegalQAEvaluationRunner:
 
     async def _request_for(
         self,
-        service: LegalAnswerService,
+        service: AnswerLegalQuestion,
         sample: LegalGoldenSample,
         metrics: list[EvaluationMetric],
     ) -> EvaluationRequest:
