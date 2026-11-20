@@ -316,8 +316,7 @@ A detailed overview of configuration variables available in `.env`:
 | **Embedding**| `EMBEDDING_PROVIDER` | No | `aivn` | Embedding provider (`aivn`, `tei`, `ollama`) |
 | **Embedding**| `TEI_BASE_URL` | Conditional | - | HuggingFace TEI embedding endpoint |
 | **Embedding**| `TEI_EMBEDDING_MODEL`| Conditional| `BAAI/bge-m3` | Embedding model identifier |
-| **Reranking**| `RERANKING_ENABLED` | No | `false` | Enable cross-encoder reranking |
-| **Reranking**| `RERANKING_MODE` | No | `tei` | Reranking mode (`tei`, `llm`) |
+| **Reranking**| `RERANKING_MODE` | No | `tei` | Reranking adapter (`tei`, `llm`); always applied when candidates exist |
 | **Reranking**| `TEI_RERANKER_MODEL` | Conditional| `BAAI/bge-reranker-v2-m3` | Cross-encoder reranker model identifier |
 | **OCR**      | `OCR_ENABLED` | No | `false` | Enable PaddleOCR service for scanned documents |
 | **OCR**      | `OCR_BASE_URL` | Conditional | `http://localhost:8889` | OCR microservice endpoint |

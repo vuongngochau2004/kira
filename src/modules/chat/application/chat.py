@@ -70,7 +70,7 @@ class ChatUseCase:
             f"📥 <blue>[USER REQUEST]</blue> user_id='{query.user_id}', "
             f"conversation_id='{conv_id or 'None'}'"
         )
-        logger.info(f'💬 <blue>[MESSAGE]</blue> "{query.message}"')
+        logger.info("Chat request received: message_chars={}", len(query.message))
 
         try:
             state = await self.graph.run(query)
@@ -91,10 +91,10 @@ class ChatUseCase:
                 latency_ms=latency_ms,
             )
 
-        except Exception as e:  # noqa: BLE001 - Application boundary handler catches all errors to prevent unhandled crash
+        except Exception:  # noqa: BLE001 - Application boundary returns a safe error
             latency_ms = (time.perf_counter() - t0) * 1000
             logger.error(
-                f"❌ <red>[ERROR]</red> ChatUseCase execute failed: {e}. "
+                "❌ <red>[ERROR]</red> ChatUseCase execute failed. "
                 f"Latency: <yellow>{latency_ms:.2f}ms</yellow>",
                 exc_info=True,
             )
@@ -103,11 +103,11 @@ class ChatUseCase:
                 citations=[],
                 metadata={
                     "handler": "ChatUseCase",
-                    "error": str(e),
+                    "error": "Chat request failed",
                     "latency_ms": latency_ms,
                 },
                 status="error",
-                error=str(e),
+                error="Chat request failed",
             )
 
     async def execute_stream(self, query: ChatQuery):
@@ -126,11 +126,17 @@ class ChatUseCase:
             f"📥 <blue>[USER REQUEST STREAM]</blue> user_id='{query.user_id}', "
             f"conversation_id='{conv_id or 'None'}'"
         )
-        logger.info(f'💬 <blue>[MESSAGE]</blue> "{query.message}"')
+        logger.info("Chat stream request received: message_chars={}", len(query.message))
 
         try:
-            async for chunk in self.graph.run_stream(query):
-                yield chunk
+            stream = self.graph.run_stream(query)
+            try:
+                async for chunk in stream:
+                    yield chunk
+            finally:
+                close = getattr(stream, "aclose", None)
+                if close is not None:
+                    await close()
 
             latency_ms = (time.perf_counter() - t0) * 1000
             logger.info(
@@ -138,14 +144,14 @@ class ChatUseCase:
                 f"Latency: <yellow>{latency_ms:.2f}ms</yellow>"
             )
 
-        except Exception as e:  # noqa: BLE001 - Stream boundary handler catches all errors to stream error chunk
+        except Exception:  # noqa: BLE001 - Stream boundary returns a safe error
             latency_ms = (time.perf_counter() - t0) * 1000
             logger.error(
-                f"❌ <red>[STREAM ERROR]</red> ChatUseCase stream failed: {e}. "
+                "❌ <red>[STREAM ERROR]</red> ChatUseCase stream failed. "
                 f"Latency: <yellow>{latency_ms:.2f}ms</yellow>",
                 exc_info=True,
             )
-            yield StreamChunk.error(str(e))
+            yield StreamChunk.error("Chat request failed")
 
 
 __all__ = ["ChatUseCase"]

@@ -37,6 +37,37 @@ describe('StreamingStateBuilder pipeline trace', () => {
     builder.reset()
     expect(builder.getState().pipeline).toEqual([])
   })
+
+  it('updates started retrieval and quality steps when they complete', () => {
+    const builder = createStreamingStateBuilder()
+    builder.processChunk('status', { stage: 'retrieval', metadata: { state: 'started' } })
+    builder.processChunk('status', { stage: 'retrieval', metadata: { duration_ms: 300, docs_retrieved: 2 } })
+    builder.processChunk('status', { stage: 'quality', metadata: { state: 'started' } })
+    builder.processChunk('status', { stage: 'quality', metadata: { duration_ms: 400, decision: 'pass' } })
+
+    expect(builder.getState().pipeline).toEqual([
+      { stage: 'retrieval', metadata: { state: 'completed', duration_ms: 300, docs_retrieved: 2 } },
+      { stage: 'quality', metadata: { state: 'completed', duration_ms: 400, decision: 'pass' } },
+    ])
+  })
+
+  it('keeps regeneration attempts as separate steps while merging each generation completion', () => {
+    const builder = createStreamingStateBuilder()
+    builder.processChunk('status', { stage: 'generation', metadata: { attempt: 1 } })
+    builder.processChunk('status', { stage: 'generation', metadata: { iteration: 0, duration_ms: 100 } })
+    builder.processChunk('status', { stage: 'quality', metadata: { state: 'started' } })
+    builder.processChunk('status', { stage: 'quality', metadata: { decision: 'regenerate' } })
+    builder.processChunk('status', { stage: 'generation', metadata: { attempt: 2 } })
+    builder.processChunk('status', { stage: 'generation', metadata: { iteration: 1, duration_ms: 120 } })
+
+    expect(builder.getState().pipeline).toHaveLength(3)
+    expect(builder.getState().pipeline.map((step) => step.stage)).toEqual([
+      'generation', 'quality', 'generation',
+    ])
+    expect(builder.getState().pipeline[2].metadata).toMatchObject({
+      attempt: 2, iteration: 1, duration_ms: 120, state: 'completed',
+    })
+  })
 })
 
 describe('pipeline trace helpers', () => {
@@ -70,6 +101,17 @@ describe('pipeline trace helpers', () => {
     expect(view.detail).toBe('điểm 0.62 · chưa đạt → sinh lại')
     expect(view.tone).toBe('warning')
     expect(view.notes).toEqual(['Response too short'])
+  })
+
+  it('shows pending graph steps without premature zero-document warnings', () => {
+    const retrieval = describePipelineStep({ stage: 'retrieval', metadata: { state: 'started' } })
+    const quality = describePipelineStep({ stage: 'quality', metadata: { state: 'started' } })
+    const generation = describePipelineStep({ stage: 'generation', metadata: { attempt: 2 } })
+
+    for (const view of [retrieval, quality, generation]) {
+      expect(view).toMatchObject({ detail: 'Đang xử lý…', pending: true, tone: 'success' })
+      expect(view.notes).toEqual([])
+    }
   })
 
   it('labels a regeneration pass by its iteration', () => {

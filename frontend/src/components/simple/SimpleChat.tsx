@@ -1,15 +1,15 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react'
-import { Check, Copy, Download, FileText, Pencil, Send, Square, X } from 'lucide-react'
+import { BookOpen, Check, Copy, Download, FileText, Pencil, Send, Square, Upload, X } from 'lucide-react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
 import { SourceCitation } from '@/components/streaming/SourceCitation'
-import { SourcePanel } from '@/components/streaming/SourcePanel'
 import { StreamingText } from '@/components/streaming/StreamingText'
 import { PipelineTrace } from '@/components/streaming/PipelineTrace'
 import { CitationRichText } from '@/components/streaming/CitationRichText'
-import { CitationPanel, type CitationSource, type VerificationStats } from '@/components/streaming/CitationPanel'
+import type { CitationSource, VerificationStats } from '@/components/streaming/CitationPanel'
 import { useSourcesStore } from '@/lib/stores/sources-store'
 import { KIRAWelcome } from '@/components/common/KiraLogo'
 import { LegalAnswerNote } from '@/components/legal/LegalAnswerNote'
@@ -43,10 +43,12 @@ export interface Message {
   sources?: SourceChunk[]
   attachments?: Attachment[]
   isStreaming?: boolean
-  streamingState?: 'connecting' | 'routing' | 'retrieving' | 'generating' | 'complete' | 'error'
+  streamingState?: 'connecting' | 'routing' | 'retrieving' | 'generating' | 'complete' | 'stopped' | 'error'
+  provisional?: boolean
   citation_verification?: VerificationStats
   use_new_citation_format?: boolean  // Use [source:chunk_id] format
   isOptimistic?: boolean  // NEW: Mark optimistic messages for UI indication
+  unsaved?: boolean
   legal?: LegalAnswerInfo  // Applied date(s) and notices of a legal answer
   pipeline?: PipelineStep[]  // LangGraph trace shown above the answer
 }
@@ -73,44 +75,35 @@ interface SimpleChatProps {
 /**
  * User message component - memoized to prevent unnecessary re-renders
  */
-const UserMessage = memo(({ content }: { content: string }) => (
-  <div className="bg-muted/60 text-foreground px-5 py-3 rounded-3xl">
-    <p className="whitespace-pre-wrap break-words leading-relaxed">
-      {content}
-    </p>
-  </div>
+const UserMessage = memo(({ content, unsaved }: { content: string; unsaved?: boolean }) => (
+  <>
+    <div className="bg-muted/60 text-foreground px-5 py-3 rounded-3xl">
+      <p className="whitespace-pre-wrap break-words leading-relaxed">
+        {content}
+      </p>
+    </div>
+    {unsaved && (
+      <span className="mt-1 px-2 text-xs text-muted-foreground" aria-label="Tin nhắn chưa lưu">
+        Chưa lưu
+      </span>
+    )}
+  </>
 ))
 UserMessage.displayName = 'UserMessage'
 
-const SPINNER_WORDS = [
-  'Thinking...',
-  'Processing...',
-  'Reading...',
-  'Checking...',
-  'Composing...',
-]
+function getStreamLabel(message: Message): string | null {
+  if (message.streamingState === 'stopped') return 'Đã dừng. Bản nháp chưa được lưu.'
+  if (message.provisional) return 'Đang kiểm tra câu trả lời · Bản nháp có thể thay đổi'
+  if (!message.isStreaming) return null
 
-const ThinkingWordSpinner = memo(() => {
-  const [wordIndex, setWordIndex] = useState(0)
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setWordIndex((current) => (current + 1) % SPINNER_WORDS.length)
-    }, 1100)
-
-    return () => window.clearInterval(interval)
-  }, [])
-
-  return (
-    <div
-      aria-label="Đang tạo câu trả lời"
-      className="mb-2 text-xs font-medium text-muted-foreground/70 animate-pulse"
-    >
-      {SPINNER_WORDS[wordIndex]}
-    </div>
-  )
-})
-ThinkingWordSpinner.displayName = 'ThinkingWordSpinner'
+  const stage = message.pipeline?.at(-1)?.stage
+  if (stage === 'quality') return 'Đang kiểm tra câu trả lời…'
+  if (stage === 'generation') return 'Đang soạn câu trả lời…'
+  if (stage === 'retrieval') return 'Đang tìm trong tài liệu…'
+  if (message.streamingState === 'retrieving') return 'Đang tìm trong tài liệu…'
+  if (message.streamingState === 'routing') return 'Đang chọn cách trả lời…'
+  return 'Đang kết nối…'
+}
 
 const MessageAttachments = memo(({ attachments }: { attachments?: Attachment[] }) => {
   if (!attachments || attachments.length === 0) return null
@@ -148,6 +141,8 @@ const AssistantMessage = memo((
   }
 ) => {
   const isStreaming = message.isStreaming ?? isLoading
+  const streamLabel = getStreamLabel(message)
+  const hasInlineCitations = message.use_new_citation_format || /\[source:[^\]]+\]/.test(message.content)
 
   return (
     <>
@@ -157,14 +152,19 @@ const AssistantMessage = memo((
 
       {/* Content */}
       <div className="text-base py-2 text-foreground">
-        {isStreaming && <ThinkingWordSpinner />}
-        {message.use_new_citation_format ? (
+        {streamLabel && (
+          <div role="status" aria-live="polite" className="mb-2 text-xs font-medium text-muted-foreground">
+            {streamLabel}
+          </div>
+        )}
+        {hasInlineCitations ? (
           <CitationRichText
             content={message.content || ''}
-            isStreaming={isStreaming}
+            isStreaming={isStreaming || message.provisional}
             className="text-[15px] md:text-base leading-relaxed"
-            citations={message.sources as unknown as CitationSource[]}
+            citations={message.provisional ? [] : message.sources as unknown as CitationSource[]}
             onCitationClick={(chunkId, citation) => {
+              if (!citation || message.provisional) return
               const citationIndex = message.sources?.findIndex((source) => {
                 const sourceId = source.chunk_id || source.id
                 return sourceId === chunkId
@@ -172,7 +172,7 @@ const AssistantMessage = memo((
 
               onCitationClick?.(
                 citationIndex >= 0 ? citationIndex : 0,
-                (citation || message.sources?.[0]) as SourceChunk
+                citation as SourceChunk
               )
             }}
           />
@@ -226,43 +226,20 @@ const MessageRow = memo((
           onCitationClick={onCitationClick}
         />
       ) : (
-        <UserMessage content={message.content} />
+        <UserMessage content={message.content} unsaved={message.unsaved} />
       )}
 
       {message.role === 'assistant' && message.legal && (
         <LegalAnswerNote info={message.legal} className="mt-2" />
       )}
 
-      {/* Source Citation */}
-      {message.role === 'assistant' && message.sources && message.sources.length > 0 && !message.use_new_citation_format && (
+      {/* Final answer source summary */}
+      {message.role === 'assistant' && !message.provisional && !message.isStreaming && message.sources && message.sources.length > 0 && (
         <div className="mt-2">
           <SourceCitation
             sources={message.sources}
-            onClick={() => {
-              // Click handler will be provided by parent
-              onCitationClick(0, message.sources![0])
-            }}
+            onClick={() => onCitationClick(0, message.sources![0])}
           />
-        </div>
-      )}
-
-      {/* Citation Button - New format */}
-      {message.role === 'assistant' && message.use_new_citation_format && message.sources && message.sources.length > 0 && (
-        <div className="mt-2">
-          <button
-            onClick={() => {
-              // Open citation panel - will be handled by parent
-              onCitationClick(0, message.sources![0])
-            }}
-            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/70 transition-colors"
-          >
-            <span>📚 {message.sources.length} nguồn</span>
-            {message.citation_verification && (
-              <span className="text-green-600 dark:text-green-400">
-                ({message.citation_verification.verified}/{message.citation_verification.total} verified)
-              </span>
-            )}
-          </button>
         </div>
       )}
 
@@ -311,7 +288,13 @@ function collectConversationSources(messages: Message[]): SourceChunk[] {
   const sources: SourceChunk[] = []
 
   messages.forEach((message) => {
-    if (message.role !== 'assistant' || !message.sources?.length) return
+    if (
+      message.role !== 'assistant' ||
+      message.provisional ||
+      message.isStreaming ||
+      message.unsaved ||
+      !message.sources?.length
+    ) return
 
     message.sources.forEach((rawSource, index) => {
       const source = rawSource as SourceChunk & CitationSource
@@ -366,16 +349,12 @@ export function SimpleChat({
 }: SimpleChatProps) {
   const sources = useSourcesStore((state) => state.sources)
   const isSourcesOpen = useSourcesStore((state) => state.isOpen)
-  const activeSourceId = useSourcesStore((state) => state.activeSourceId)
+  const setActiveSourceId = useSourcesStore((state) => state.setActiveSourceId)
   const setSources = useSourcesStore((state) => state.setSources)
   const setSourcesOpen = useSourcesStore((state) => state.setIsOpen)
-  const setActiveSourceId = useSourcesStore((state) => state.setActiveSourceId)
   const replaceSourcesForConversation = useSourcesStore((state) => state.replaceForConversation)
   const resetSources = useSourcesStore((state) => state.reset)
   const [input, setInput] = useState('')
-  const [sourcePanelOpen, setSourcePanelOpen] = useState(false)
-  const [citationPanelOpen, setCitationPanelOpen] = useState(false)
-  const [activeCitationChunkId, setActiveCitationChunkId] = useState<string | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -417,10 +396,6 @@ export function SimpleChat({
   const [welcomeExiting, setWelcomeExiting] = useState(false)
 
   // Get latest assistant message with citations
-  const latestAssistantMessage = messages.filter(m => m.role === 'assistant').pop()
-  const hasNewCitationFormat = latestAssistantMessage?.use_new_citation_format
-  const citationSources = hasNewCitationFormat ? (latestAssistantMessage?.sources as unknown as CitationSource[]) : undefined
-  const verificationStats = latestAssistantMessage?.citation_verification
   const scrollAnchorSpacerHeight = (isLoading || isOptimistic) ? 'calc(100dvh - 220px)' : 0
 
   // ==================== Effects ====================
@@ -635,24 +610,11 @@ export function SimpleChat({
    * Handle citation click - memoized to prevent re-renders
    */
   const handleCitationClick = useCallback((citationIndex: number, source: SourceChunk, allSources?: SourceChunk[]) => {
-    // Check if message uses new citation format
-    const message = messages.find(m => m.sources?.some(s => s.id === source.id))
-    const useNewFormat = message?.use_new_citation_format
-
-    if (useNewFormat) {
-      // Use new CitationPanel
-      const candidate = source || (allSources || message?.sources || [])[citationIndex]
-      setActiveCitationChunkId(candidate?.chunk_id || candidate?.id || null)
-      setCitationPanelOpen(true)
-    } else {
-      // Use old SourcePanel
-      const citationSources = allSources || messages.find(m => m.id === source.id)?.sources || []
-      setSources(citationSources)
-      setSourcesOpen(true)
-      const targetId = source.chunk_id || source.id || `source-${citationIndex}`
-      setActiveSourceId(targetId)
-    }
-  }, [messages, setActiveSourceId, setSources, setSourcesOpen])
+    const citationSources = allSources || [source]
+    setSources(citationSources)
+    setActiveSourceId(source.chunk_id || source.id || `source-${citationIndex}`)
+    setSourcesOpen(true)
+  }, [setActiveSourceId, setSources, setSourcesOpen])
 
   // ==================== Render ====================
 
@@ -660,6 +622,17 @@ export function SimpleChat({
   const visibleMessages = displayMessages
   return (
     <div className={cn('flex flex-col h-full bg-background min-h-0', className)}>
+      <header className="flex h-14 shrink-0 items-center justify-between border-b px-4 md:px-6">
+        <h1 className="truncate text-sm font-semibold">{isNewChat ? 'Cuộc trò chuyện mới' : 'Cuộc trò chuyện'}</h1>
+        <div className="flex items-center gap-2">
+          <Link href="/uploads" className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary">
+            <Upload className="h-4 w-4" aria-hidden="true" />Tài liệu
+          </Link>
+          <button id="conversation-sources-trigger" type="button" onClick={() => setSourcesOpen(!isSourcesOpen)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary" aria-expanded={isSourcesOpen} aria-label={`${isSourcesOpen ? 'Đóng' : 'Mở'} nguồn trích dẫn, ${sources.length} nguồn`}>
+            <BookOpen className="h-4 w-4" aria-hidden="true" />Nguồn ({sources.length})
+          </button>
+        </div>
+      </header>
       {/* Messages Area */}
       <div ref={messagesContainerRef} role="log" aria-label="Tin nhắn" aria-live="polite" className="flex-1 overflow-y-auto min-h-0 scroll-smooth">
         <div className="max-w-3xl mx-auto px-4 py-6">
@@ -816,34 +789,6 @@ export function SimpleChat({
         </div>
       </div>
 
-      {/* Source Panel - Mobile/Tablet only */}
-      <SourcePanel
-        sources={sources.map((s) => ({
-          id: s.id,
-          content: s.snippet,
-          score: s.score,
-          document_id: s.document_id || undefined,
-          chunk_index: s.page !== undefined ? s.page - 1 : undefined,
-        }))}
-        isOpen={isSourcesOpen || sourcePanelOpen}
-        onClose={() => {
-          setSourcesOpen(false)
-          setSourcePanelOpen(false)
-        }}
-        activeSourceId={activeSourceId}
-        className="lg:hidden"
-      />
-
-      {/* Citation Panel - New format */}
-      {citationSources && (
-        <CitationPanel
-          citations={citationSources}
-          isOpen={citationPanelOpen}
-          onClose={() => setCitationPanelOpen(false)}
-          verificationStats={verificationStats}
-          activeChunkId={activeCitationChunkId}
-        />
-      )}
     </div>
   )
 }

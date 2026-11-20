@@ -21,15 +21,17 @@ async def run_llm_rerank(llm_client: Any, prompt: str, timeout_seconds: float = 
         {"role": "user", "content": prompt},
     ]
 
+    generate = getattr(llm_client, "generate", None)
+    if callable(generate):
+        return await asyncio.wait_for(
+            generate(messages=messages, temperature=0.1, max_tokens=256),
+            timeout=timeout_seconds,
+        )
+
     response = await asyncio.wait_for(
-        llm_client.chat_async(
-            messages=messages,
-            temperature=0.1,
-            max_tokens=256,
-        ),
+        llm_client.chat_async(messages=messages, temperature=0.1, max_tokens=256),
         timeout=timeout_seconds,
     )
-
     return response.get("content", "")
 
 
@@ -106,7 +108,7 @@ async def rerank_documents_with_llm(
     Returns:
         List of reranked documents
     """
-    if not candidates or len(candidates) <= top_k:
+    if len(candidates) <= 1:
         return candidates
 
     formatted_docs = format_documents_for_reranking(candidates)

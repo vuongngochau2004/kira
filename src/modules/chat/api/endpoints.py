@@ -19,6 +19,7 @@ from src.constants import (
 )
 from src.modules.chat.api.requests import ChatStreamRequest, ConversationCreate
 from src.modules.chat.application.dto import ChatQuery
+from src.shared.domain.conversation_context import bound_history
 from src.modules.chat.composition import (
     citation_enricher,
     create_conversation,
@@ -26,6 +27,7 @@ from src.modules.chat.composition import (
     get_chat_use_case,
     get_conversation,
     get_conversation_messages,
+    get_recent_owned_messages,
     list_conversations,
 )
 from src.shared.infrastructure.auth.dependencies import get_current_user
@@ -89,8 +91,9 @@ async def _get_or_create_conversation_id(
 
 async def _load_conversation_history_if_exists(
     conversation_id: uuid.UUID | None,
+    user_id: uuid.UUID,
     db: AsyncSession,
-) -> list[dict]:
+) -> list[dict[str, str]]:
     """Load conversation history for context if conversation exists.
 
     Args:
@@ -104,14 +107,14 @@ async def _load_conversation_history_if_exists(
         return []
 
     try:
-        messages = await get_conversation_messages(conversation_id, db=db)
-        return [
+        messages = await get_recent_owned_messages(conversation_id, user_id, db=db)
+        return bound_history([
             {
                 "role": msg.role,
                 "content": msg.content,
             }
             for msg in messages
-        ]
+        ])
     except Exception as e:
         logger = logging.getLogger(__name__)
         logger.warning(f"Failed to load conversation history: {e}")
@@ -217,6 +220,8 @@ async def _ensure_conversation_exists(
     user_id: uuid.UUID,
     query: str,
     db: AsyncSession,
+    *,
+    commit: bool = True,
 ) -> uuid.UUID:
     """Ensure conversation exists, create if needed.
 
@@ -236,6 +241,7 @@ async def _ensure_conversation_exists(
         user_id=user_id,
         title=query[:100],
         db=db,
+        commit=commit,
     )
     return conv.id
 
@@ -329,7 +335,7 @@ async def _save_streamed_messages(
         Tuple of conversation UUID and created message UUID
     """
     # Ensure conversation exists
-    conv_id = await _ensure_conversation_exists(conversation_id, user_id, query, db)
+    conv_id = await _ensure_conversation_exists(conversation_id, user_id, query, db, commit=False)
 
     # Save user message
     await create_message(
@@ -337,6 +343,7 @@ async def _save_streamed_messages(
         role="user",
         content=query,
         db=db,
+        commit=False,
     )
 
     is_rejection = metadata.get("rejection_detected", False) if metadata else False
@@ -354,7 +361,9 @@ async def _save_streamed_messages(
         sources=resolved_citations,
         metadata=metadata,
         db=db,
+        commit=False,
     )
+    await db.commit()
     return conv_id, msg.id
 
 
@@ -436,23 +445,16 @@ async def chat_completion(
     conv_id = await _get_or_create_conversation_id(conversation_id, current_user.id, message, db)
 
     # Load conversation history if continuing conversation
-    conversation_history = []
-    if conv_id:
-        messages = await get_conversation_messages(conv_id, db=db)
-        conversation_history = [
-            {
-                "role": msg.role,
-                "content": msg.content,
-            }
-            for msg in messages
-        ]
+    conversation_history = await _load_conversation_history_if_exists(conv_id, current_user.id, db)
 
     # Use ChatUseCase for intent-based routing
     chat_use_case = await get_chat_use_case()
     chat_query = ChatQuery(
         message=message,
         user_id=current_user.id,
+        conversation_id=conv_id,
         conversation_history=conversation_history,
+        context={"conversation_id": conv_id},
     )
     result = await chat_use_case.execute(chat_query)
 
@@ -516,6 +518,11 @@ async def _stream_generator(
 
     # Collect full content for saving to DB
     full_content: list[str] = []
+    provisional_seen = False
+    preview_pending = False
+    final_replacement_seen = False
+    metadata_sent = False
+    error_sent = False
     citations: list = []
     conversation_id_to_save = conversation_id
 
@@ -525,9 +532,10 @@ async def _stream_generator(
     # Ordered pipeline trace (classification + each graph node) persisted for the chat UI.
     pipeline_steps: list[dict] = []
     done_sent = False
+    stream = None
 
     # Load conversation history if continuing conversation
-    conversation_history = await _load_conversation_history_if_exists(conversation_id, db)
+    conversation_history = await _load_conversation_history_if_exists(conversation_id, user_id, db)
 
     try:
         chat_query = ChatQuery(
@@ -537,7 +545,8 @@ async def _stream_generator(
             conversation_history=conversation_history,
             context={"conversation_id": conversation_id} if conversation_id else None,
         )
-        async for chunk in chat_use_case.execute_stream(chat_query):
+        stream = chat_use_case.execute_stream(chat_query)
+        async for chunk in stream:
             chunk_type = chunk.get("type")
             chunk_data = chunk.get("data", {})
 
@@ -553,10 +562,33 @@ async def _stream_generator(
 
             elif chunk_type == "content":
                 text, _ = _process_stream_content_chunk(chunk_data)
-                full_content.append(text)
+                is_provisional = chunk_data.get("provisional") is True
+                if is_provisional:
+                    provisional_seen = True
+                    preview_pending = True
+                else:
+                    full_content.append(text)
                 for text_part in _split_stream_text(text):
-                    yield _content_sse_event(text_part)
+                    if is_provisional:
+                        payload = {**chunk_data, "text": text_part}
+                        yield f"data: {json.dumps({'type': 'content', 'data': payload})}\n\n"
+                    else:
+                        yield _content_sse_event(text_part)
                     await asyncio.sleep(0)
+
+            elif chunk_type == "content_replace":
+                text = chunk_data.get("text")
+                if not isinstance(text, str):
+                    raise ValueError("Invalid content replacement")
+                if chunk_data.get("provisional") is False:
+                    full_content = [text]
+                    final_replacement_seen = True
+                    preview_pending = False
+                else:
+                    provisional_seen = True
+                    full_content = []
+                    preview_pending = bool(text)
+                yield f"data: {json.dumps({'type': 'content_replace', 'data': chunk_data})}\n\n"
 
             elif chunk_type == "status":
                 pipeline_steps.append(
@@ -565,6 +597,10 @@ async def _stream_generator(
                 yield f"data: {json.dumps({'type': 'status', 'data': chunk_data})}\n\n"
 
             elif chunk_type == "metadata":
+                if metadata_sent:
+                    continue
+                if provisional_seen and not final_replacement_seen:
+                    raise ValueError("RAG metadata arrived before final replacement")
                 # Collect citations from metadata
                 if "citations" in chunk_data:
                     citations = chunk_data["citations"]
@@ -606,6 +642,7 @@ async def _stream_generator(
                     metadata,
                     db,
                 )
+                metadata_sent = True
 
                 # Emit final metadata
                 yield f"data: {
@@ -672,14 +709,35 @@ async def _stream_generator(
 
             elif chunk_type == "done":
                 if not done_sent:
+                    if provisional_seen and not final_replacement_seen and not error_sent:
+                        yield f"data: {json.dumps({'type': 'content_replace', 'data': {'text': '', 'provisional': True}})}\n\n"
+                        yield f"data: {json.dumps({'type': 'error', 'data': {'error': 'Chat stream failed'}})}\n\n"
+                        error_sent = True
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     done_sent = True
 
+            elif chunk_type == "error":
+                if preview_pending:
+                    yield f"data: {json.dumps({'type': 'content_replace', 'data': {'text': '', 'provisional': True}})}\n\n"
+                    preview_pending = False
+                if not error_sent:
+                    yield f"data: {json.dumps({'type': 'error', 'data': {'error': 'Chat stream failed'}})}\n\n"
+                    error_sent = True
+
+    except asyncio.CancelledError:
+        logger.info("Chat stream cancelled for user_id=%s", user_id)
+        raise
     except Exception:
         logger.exception("Chat stream failed for user_id=%s", user_id)
-        yield f"data: {json.dumps({'type': 'error', 'data': {'error': 'Chat stream failed'}})}\n\n"
+        if preview_pending:
+            yield f"data: {json.dumps({'type': 'content_replace', 'data': {'text': '', 'provisional': True}})}\n\n"
+        if not error_sent:
+            yield f"data: {json.dumps({'type': 'error', 'data': {'error': 'Chat stream failed'}})}\n\n"
         if not done_sent:
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
+    finally:
+        if stream is not None:
+            await stream.aclose()
 
 
 @router.post("/stream")

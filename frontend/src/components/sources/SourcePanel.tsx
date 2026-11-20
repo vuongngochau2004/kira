@@ -78,7 +78,9 @@ export function SourcePanel({ isOpen }: SourcePanelProps) {
         <SourceList
           groupedSources={groupedSources}
           expandedDocument={state.expandedDocument}
+          activeSourceId={store.activeSourceId}
           onDocumentExpand={handleDocumentExpand}
+          onClose={() => store.setIsOpen(false)}
           onDocumentPreview={(documentId, filename) => {
             setPreviewDocument({ id: documentId, filename });
           }}

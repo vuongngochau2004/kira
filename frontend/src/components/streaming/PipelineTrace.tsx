@@ -40,6 +40,8 @@ export const PipelineTrace = memo(({ steps, isStreaming, className }: PipelineTr
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
   const open = userOpen ?? isStreaming
   const total = totalDurationMs(steps)
+  const lastStep = steps.at(-1)
+  const lastStepPending = lastStep ? describePipelineStep(lastStep).pending : false
 
   return (
     <Collapsible
@@ -63,10 +65,13 @@ export const PipelineTrace = memo(({ steps, isStreaming, className }: PipelineTr
         <ol className="space-y-1.5 border-t border-border/60 px-3 py-2" aria-label="Các bước xử lý">
           {steps.map((step, index) => {
             const view = describePipelineStep(step)
-            const Icon = TONE_ICON[view.tone]
+            const Icon = view.pending ? LoaderCircle : TONE_ICON[view.tone]
             return (
               <li key={`${step.stage}-${index}`} className="flex gap-2">
-                <Icon className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', TONE_CLASS[view.tone])} />
+                <Icon className={cn(
+                  'mt-0.5 h-3.5 w-3.5 shrink-0',
+                  view.pending ? 'animate-spin text-muted-foreground' : TONE_CLASS[view.tone]
+                )} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     <span className="font-medium text-foreground">{view.label}</span>
@@ -92,7 +97,7 @@ export const PipelineTrace = memo(({ steps, isStreaming, className }: PipelineTr
               </li>
             )
           })}
-          {isStreaming && (
+          {isStreaming && !lastStepPending && (
             <li className="flex items-center gap-2 text-muted-foreground">
               <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin" />
               <span>Đang xử lý bước tiếp theo…</span>

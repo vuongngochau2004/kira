@@ -42,16 +42,17 @@ class RAGHandler(QueryHandlerBase):
                 query=query,
                 user_id=str(user_id),
                 conversation_id=(context or {}).get("conversation_id"),
+                **self._history_kwargs(context),
             )
             return self._to_handler_result(result)
-        except Exception as exc:
-            logger.exception("RAG execution failed")
+        except Exception:
+            logger.error("RAG execution failed: user_id={}", user_id)
             return HandlerResult(
                 content="Có lỗi xảy ra khi xử lý câu hỏi.",
                 citations=[],
                 metadata={"handler": self.get_name()},
                 status="error",
-                error=str(exc),
+                error="RAG request failed",
             )
 
     async def handle_stream(
@@ -81,15 +82,51 @@ class RAGHandler(QueryHandlerBase):
         # Graph nodes run one after another, so the gap between two "updates" chunks is the
         # wall time of the node that just finished.
         step_started = time.perf_counter()
+        preview_started = False
+        stream = self.rag_service.run_stream(
+            query=query,
+            user_id=str(user_id),
+            conversation_id=(context or {}).get("conversation_id"),
+            **self._history_kwargs(context),
+        )
         try:
-            async for event in self.rag_service.run_stream(
-                query=query,
-                user_id=str(user_id),
-                conversation_id=(context or {}).get("conversation_id"),
-            ):
+            async for event in stream:
                 mode = event.get("mode")
                 chunk = event.get("chunk")
-                if mode == "updates" and isinstance(chunk, dict):
+                if mode == "custom" and isinstance(chunk, dict):
+                    attempt = chunk.get("attempt")
+                    if chunk.get("kind") == "stage_start" and chunk.get("stage") in {
+                        "retrieval",
+                        "quality",
+                    }:
+                        yield {
+                            "type": "status",
+                            "data": {
+                                "stage": chunk["stage"],
+                                "metadata": {"state": "started"},
+                            },
+                        }
+                    elif chunk.get("kind") == "attempt_start" and isinstance(attempt, int):
+                        if preview_started:
+                            yield {
+                                "type": "content_replace",
+                                "data": {"text": "", "provisional": True, "attempt": attempt},
+                            }
+                        preview_started = True
+                        yield {
+                            "type": "status",
+                            "data": {"stage": "generation", "metadata": {"attempt": attempt}},
+                        }
+                    elif chunk.get("kind") == "token" and isinstance(chunk.get("text"), str):
+                        yield {
+                            "type": "content",
+                            "data": {
+                                "text": chunk["text"],
+                                "provisional": True,
+                                "attempt": attempt,
+                            },
+                        }
+                elif mode == "updates" and isinstance(chunk, dict):
                     for stage, state in chunk.items():
                         if not isinstance(state, dict):
                             continue
@@ -99,33 +136,60 @@ class RAGHandler(QueryHandlerBase):
                         step_started = now
                         yield self._status_event(stage, state, duration_ms)
                 elif mode == "error":
-                    logger.error("RAG stream emitted error: {}", chunk)
+                    logger.error("RAG stream emitted a workflow error")
+                    if preview_started:
+                        yield {"type": "content_replace", "data": {"text": "", "provisional": True}}
                     yield {"type": "error", "data": {"error": "RAG stream failed"}}
                     yield {"type": "done"}
                     return
 
             if final_state is not None:
                 result = await self.rag_service.finalize(query=query, state=final_state)
-                if result.content:
-                    yield {"type": "content", "data": {"text": result.content}}
+                yield {
+                    "type": "content_replace",
+                    "data": {"text": result.content, "provisional": False},
+                }
                 yield {
                     "type": "metadata",
                     "data": {
-                        **result.metadata,
+                        **{
+                            key: result.metadata[key]
+                            for key in (
+                                "documents_used",
+                                "rejection_detected",
+                                "rejection_reasoning",
+                                "has_relevant_docs",
+                            )
+                            if key in result.metadata
+                        },
                         "citations": [self._citation_dict(item) for item in result.citations],
                         "sources": [self._citation_dict(item) for item in result.citations],
                     },
                 }
+            else:
+                if preview_started:
+                    yield {"type": "content_replace", "data": {"text": "", "provisional": True}}
+                yield {"type": "error", "data": {"error": "RAG stream failed"}}
             yield {"type": "done"}
         except Exception:
             logger.exception("RAG streaming failed")
+            if preview_started:
+                yield {"type": "content_replace", "data": {"text": "", "provisional": True}}
             yield {"type": "error", "data": {"error": "RAG stream failed"}}
             yield {"type": "done"}
+        finally:
+            await stream.aclose()
 
     @staticmethod
     def _validate_intent(classification: ClassificationResult) -> None:
         if classification.intent != Intent.RAG:
             raise ValueError(f"RAGHandler cannot handle intent: {classification.intent}")
+
+    @staticmethod
+    def _history_kwargs(context: dict[str, Any] | None) -> dict[str, Any]:
+        """Forward bounded history while retaining compatibility with simple workflows."""
+        history = (context or {}).get("conversation_history")
+        return {"history": history} if history else {}
 
     @staticmethod
     def _status_event(stage: str, state: dict[str, Any], duration_ms: int) -> dict[str, Any]:
@@ -140,7 +204,7 @@ class RAGHandler(QueryHandlerBase):
         if stage == "orchestrator":
             metadata["fallback"] = bool(state.get("should_fallback"))
             if state.get("fallback_reason"):
-                metadata["fallback_reason"] = state.get("fallback_reason")
+                metadata["fallback_reason"] = "rag_pipeline_fallback"
         elif stage == "retrieval":
             output = state.get("retrieval_agent_output", {})
             documents = output.get("reranked_docs") or output.get("retrieved_docs") or []
@@ -150,7 +214,6 @@ class RAGHandler(QueryHandlerBase):
             metadata["response_length"] = len(state.get("generated_response", ""))
         elif stage == "quality":
             output = state.get("quality_agent_output", {})
-            critique = output.get("critique") or {}
             verification = output.get("verification") or {}
             if state.get("should_fallback"):
                 decision = "fallback"
@@ -162,7 +225,6 @@ class RAGHandler(QueryHandlerBase):
             metadata["should_regenerate"] = output.get("should_regenerate", False)
             metadata["verified"] = verification.get("is_verified") is True
             metadata["decision"] = decision
-            metadata["issues"] = [str(item) for item in critique.get("issues") or []][:5]
         return {"type": "status", "data": {"stage": stage, "metadata": metadata}}
 
     @staticmethod

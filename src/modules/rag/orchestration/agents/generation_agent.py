@@ -22,7 +22,7 @@ import logging
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
 from src.config.config import settings
 from src.modules.rag.domain.prompts.generation import (
@@ -153,6 +153,15 @@ class GenerationAgent:
         self.llm_client = llm_client
 
     @staticmethod
+    def _generation_query(state: RAGState) -> str:
+        """Keep original wording while giving follow-ups a bounded search referent."""
+        original = state["query"]
+        resolved = state.get("retrieval_query") or original
+        if resolved == original:
+            return original
+        return f"{original}\nContext for resolving references only: {resolved[:2000]}"
+
+    @staticmethod
     def _messages_from_prompt(prompt: str) -> list[dict[str, str]]:
         """Convert the agent prompt into chat message format."""
         return [{"role": "user", "content": prompt}]
@@ -185,12 +194,79 @@ class GenerationAgent:
         if self.llm_client is None:
             raise RuntimeError("GenerationAgent requires an LLMPort dependency")
 
-        async for chunk in self.llm_client.stream(
+        stream = self.llm_client.stream(
             messages=self._messages_from_prompt(prompt),
             temperature=temperature,
             max_tokens=max_tokens,
+        )
+        try:
+            async for chunk in stream:
+                yield chunk
+        finally:
+            close = getattr(stream, "aclose", None)
+            if close is not None:
+                await close()
+
+    async def generate_for_graph_stream(
+        self,
+        state: RAGState,
+        on_token: Callable[[str], None],
+        feedback: str | None = None,
+    ) -> RAGState:
+        """Stream one graph generation attempt and update the same workflow state."""
+        start_time = time.time()
+        agent_name = "GenerationAgent (regenerate)" if feedback is not None else "GenerationAgent"
+        state = mark_agent_start(state, agent_name)
+        query = self._generation_query(state)
+        documents = get_retrieval_docs(state)
+        context_str, compressed_contexts = self._build_context(query, documents)
+        if feedback is None:
+            prompt = self._build_prompt(query, context_str)
+        else:
+            prompt = self._build_regeneration_prompt(
+                query=query,
+                context=context_str,
+                previous_response=state["generated_response"],
+                feedback=feedback,
+            )
+
+        parts: list[str] = []
+        async for chunk in self._stream_text(
+            prompt=prompt,
+            temperature=self.config.temperature,
+            max_tokens=self.config.max_tokens,
         ):
-            yield chunk
+            parts.append(chunk)
+            on_token(chunk)
+
+        response = "".join(parts).strip()
+        state["generated_response"] = response
+        state["final_response"] = response
+        if feedback is None:
+            state["final_citations"] = (
+                self._extract_citations(documents) if self.config.include_citations else []
+            )
+        metadata = {
+            "model": self.config.model,
+            "temperature": self.config.temperature,
+            "max_tokens": self.config.max_tokens,
+            "context_size": len(context_str),
+            "compressed_contexts": compressed_contexts,
+            "raw_context_size": sum(len(doc.content or "") for doc in documents),
+            "documents_used": len(documents),
+            "streaming": True,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if feedback is not None:
+            metadata.update({"regenerated": True, "regeneration_feedback": feedback})
+        state["generation_metadata"] = metadata
+        result = create_agent_result(
+            agent_name=agent_name,
+            status=AgentStatus.COMPLETED,
+            execution_time_ms=(time.time() - start_time) * 1000,
+            metadata={"response_length": len(response), "documents_used": len(documents)},
+        )
+        return update_state_with_agent_result(state, result)
 
     async def handle(self, state: RAGState, context: Optional[Dict[str, Any]] = None) -> RAGState:
         """
@@ -210,10 +286,10 @@ class GenerationAgent:
         state = mark_agent_start(state, "GenerationAgent")
 
         try:
-            query = state["query"]
+            query = self._generation_query(state)
             documents = get_retrieval_docs(state)
 
-            logger.info(f"GenerationAgent starting: query='{query[:50]}...', docs={len(documents)}")
+            logger.info("Generation starting: query_chars={}, docs={}", len(query), len(documents))
 
             # Build compressed context from documents
             context_str, compressed_contexts = self._build_context(query, documents)
@@ -300,7 +376,7 @@ class GenerationAgent:
         state = mark_agent_start(state, "GenerationAgent")
 
         try:
-            query = state["query"]
+            query = self._generation_query(state)
             documents = get_retrieval_docs(state)
 
             logger.info(f"GenerationAgent streaming: docs={len(documents)}")
@@ -661,7 +737,7 @@ class GenerationAgent:
         state = mark_agent_start(state, "GenerationAgent (regenerate)")
 
         try:
-            query = state["query"]
+            query = self._generation_query(state)
             previous_response = state["generated_response"]
             documents = get_retrieval_docs(state)
 

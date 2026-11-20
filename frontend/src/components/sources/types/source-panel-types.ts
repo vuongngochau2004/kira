@@ -80,6 +80,7 @@ export interface SourceCardProps {
   group: GroupedSource;
   index: number;
   isSelected: boolean;
+  activeSourceId?: string | null;
   onExpand: (key: string) => void;
   onPreview: (documentId: string, filename: string) => void;
 }

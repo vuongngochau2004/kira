@@ -5,6 +5,7 @@ Uses LLM to classify query intent when keyword/cached strategies fail.
 """
 
 import asyncio
+import time
 from typing import Any
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from src.modules.classification.domain.prompts import ROUTING_CLASSIFIER_PROMPT
 from src.shared.infrastructure.llm.client import chat_async
 from src.shared.ports.classification import ClassificationResult, ClassificationStrategyBase, Intent
 from src.shared.utils.agent import parse_json_response
+from src.shared.utils.request_trace import record_model_call
 
 
 class LLMStrategy(ClassificationStrategyBase):
@@ -125,11 +127,19 @@ class LLMStrategy(ClassificationStrategyBase):
         prompt = ROUTING_CLASSIFIER_PROMPT.format(query=query)
 
         # Call LLM
-        response = await chat_async(
-            messages=[{"role": "user", "content": prompt}],
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-        )
+        started = time.perf_counter()
+        outcome = "completed"
+        try:
+            response = await chat_async(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+            )
+        except BaseException:
+            outcome = "interrupted"
+            raise
+        finally:
+            record_model_call((time.perf_counter() - started) * 1000, outcome)
 
         # Parse JSON response
         parsed = parse_json_response(response["content"])

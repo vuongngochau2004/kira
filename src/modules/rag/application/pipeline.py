@@ -1,11 +1,19 @@
 """RAG pipeline application service."""
 
+import asyncio
 from typing import Any, AsyncIterator
 from uuid import UUID
 
+from src.config.config import settings
 from src.modules.rag.application.dto import RAGCitation, RAGExecutionResult
 from src.modules.rag.application.ports import RAGWorkflowPort
 from src.modules.rag.domain.services.rag_domain_service import RAGService
+from src.shared.domain.conversation_context import ConversationTurn
+from src.shared.utils.request_trace import request_stage
+
+INSUFFICIENT_EVIDENCE = (
+    "Không đủ căn cứ để trả lời đáng tin cậy. Vui lòng kiểm tra lại tài liệu nguồn."
+)
 
 
 class RAGPipelineService:
@@ -25,12 +33,15 @@ class RAGPipelineService:
         query: str,
         user_id: str,
         conversation_id: UUID | None = None,
+        history: list[ConversationTurn] | None = None,
     ) -> dict[str, Any]:
         """Run the RAG pipeline and return the final state."""
+        kwargs = {"history": history} if history else {}
         return await self.pipeline.run(
             query=query,
             user_id=user_id,
             conversation_id=conversation_id,
+            **kwargs,
         )
 
     async def execute(
@@ -38,9 +49,12 @@ class RAGPipelineService:
         query: str,
         user_id: str,
         conversation_id: UUID | None = None,
+        history: list[ConversationTurn] | None = None,
     ) -> RAGExecutionResult:
         """Run the workflow and return its stable application result."""
-        state = await self.run(query=query, user_id=user_id, conversation_id=conversation_id)
+        state = await self.run(
+            query=query, user_id=user_id, conversation_id=conversation_id, history=history
+        )
         return await self.finalize(query=query, state=state)
 
     async def finalize(self, query: str, state: dict[str, Any]) -> RAGExecutionResult:
@@ -62,15 +76,21 @@ class RAGPipelineService:
         )
 
         if state.get("should_fallback"):
+            fallback_reason = state.get("fallback_reason")
+            safe_reason = (
+                fallback_reason
+                if fallback_reason in {"verification_failed", "quality_gate_failed"}
+                else "rag_pipeline_fallback"
+            )
             metadata.update(
                 {
                     "rejection_detected": True,
-                    "rejection_reasoning": state.get("fallback_reason") or "rag_pipeline_fallback",
+                    "rejection_reasoning": safe_reason,
                     "has_relevant_docs": False,
                 }
             )
             return RAGExecutionResult(
-                content="Không đủ căn cứ để trả lời đáng tin cậy. Vui lòng kiểm tra lại tài liệu nguồn.",
+                content=INSUFFICIENT_EVIDENCE,
                 citations=[],
                 metadata=metadata,
                 rejected=True,
@@ -84,15 +104,22 @@ class RAGPipelineService:
                     "has_relevant_docs": False,
                 }
             )
-            return RAGExecutionResult(content=content, metadata=metadata, rejected=True)
+            return RAGExecutionResult(
+                content=INSUFFICIENT_EVIDENCE, metadata=metadata, rejected=True
+            )
 
         evidence = self._build_evidence(state=state, citations=citations)
-        relevance = await RAGService.evaluate_relevance(
-            query=query,
-            response=content,
-            context=evidence,
-            llm=self.llm,
-        )
+        try:
+            with request_stage("finalize"):
+                async with asyncio.timeout(settings.rag_finalization_timeout_seconds):
+                    relevance = await RAGService.evaluate_relevance(
+                        query=state.get("retrieval_query") or query,
+                        response=content,
+                        context=evidence,
+                        llm=self.llm,
+                    )
+        except TimeoutError:
+            relevance = {"has_relevant_docs": False, "fallback": True}
         rejected = not relevance.get("has_relevant_docs", False)
         metadata["relevance_context_chars"] = len(evidence)
         metadata["has_relevant_docs"] = not rejected
@@ -100,16 +127,17 @@ class RAGPipelineService:
             metadata.update(
                 {
                     "rejection_detected": True,
-                    "rejection_reasoning": relevance.get("reason") or content,
+                    "rejection_reasoning": "no_relevant_docs",
                     "relevance_filtering": {
                         "enabled": True,
                         "is_rejection": True,
-                        "rejection_reason": relevance.get("reason") or "no_relevant_docs",
+                        "rejection_reason": "no_relevant_docs",
                         "structured": not relevance.get("fallback", False),
                     },
                 }
             )
             citations = []
+            content = INSUFFICIENT_EVIDENCE
 
         return RAGExecutionResult(
             content=content,
@@ -123,14 +151,23 @@ class RAGPipelineService:
         query: str,
         user_id: str,
         conversation_id: UUID | None = None,
+        history: list[ConversationTurn] | None = None,
     ) -> AsyncIterator[dict]:
         """Stream updates from the RAG pipeline."""
-        async for event in self.pipeline.run_stream(
+        kwargs = {"history": history} if history else {}
+        stream = self.pipeline.run_stream(
             query=query,
             user_id=user_id,
             conversation_id=conversation_id,
-        ):
-            yield event
+            **kwargs,
+        )
+        try:
+            async for event in stream:
+                yield event
+        finally:
+            close = getattr(stream, "aclose", None)
+            if close is not None:
+                await close()
 
     @staticmethod
     def _citation_from(value: Any) -> RAGCitation | None:

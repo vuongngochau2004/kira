@@ -94,7 +94,7 @@ class TEIEmbeddingAdapter(EmbeddingPort):
         """Call TEI /embed endpoint with fallback to /v1/embeddings."""
         # 1. Try native TEI endpoint: POST /embed
         native_url = f"{self._base_url}/embed"
-        payload = {"inputs": batch, "normalize": True}
+        payload = {"inputs": batch, "normalize": True, "truncate": True}
         try:
             response = await client.post(native_url, json=payload, headers=headers)
             if response.status_code == 200:
@@ -128,28 +128,19 @@ class TEIEmbeddingAdapter(EmbeddingPort):
         return [item["embedding"] for item in data["data"]]
 
     async def health_check(self) -> bool:
-        """Check TEI service availability.
+        """Check the embedding model's dedicated health endpoint.
 
         Returns:
             True if healthy, False otherwise
         """
         headers = self._get_headers()
-        endpoints = [
-            f"{self._base_url}/health/embedding",
-            f"{self._base_url}/health",
-            f"{self._base_url}/info",
-        ]
         try:
             async with httpx.AsyncClient(timeout=min(self._timeout, 5.0)) as client:
-                for endpoint in endpoints:
-                    try:
-                        resp = await client.get(endpoint, headers=headers)
-                        if resp.status_code == 200:
-                            return True
-                    except httpx.HTTPError:
-                        continue
-            return False
-        except Exception:
+                response = await client.get(
+                    f"{self._base_url}/health/embedding", headers=headers
+                )
+            return response.status_code == 200
+        except httpx.HTTPError:
             return False
 
     @property

@@ -7,7 +7,10 @@ import logging
 from uuid import UUID
 
 from src.modules.retrieval.application.ports import KeywordSearchPort, RetrievalDocumentPort
-from src.modules.retrieval.domain.services.hybrid_search import hybrid_search
+from src.modules.retrieval.domain.services.hybrid_search import (
+    hybrid_search,
+    hybrid_search_candidates,
+)
 from src.shared.ports.vector_store import VectorStorePort
 
 logger = logging.getLogger(__name__)
@@ -20,7 +23,7 @@ class SearchUseCase:
     - Dense vector search (Qdrant)
     - BM25 keyword search
     - RRF fusion
-    - Optional LLM reranking
+    - Configured reranking adapter
     """
 
     def __init__(
@@ -43,12 +46,6 @@ class SearchUseCase:
         self._documents = documents
         self._llm_client = llm_client
 
-        # Set LLM client for reranking in hybrid_search
-        if llm_client is not None:
-            from src.modules.retrieval.domain.services.hybrid_search import set_llm_client
-
-            set_llm_client(llm_client)
-
     async def execute(
         self,
         query_embedding: list[float],
@@ -56,9 +53,8 @@ class SearchUseCase:
         user_id: str | None = None,
         k: int = 5,
         rrf_k: int = 60,
-        enable_rerank: bool = False,
     ) -> list[dict]:
-        """Execute hybrid search.
+        """Execute hybrid search with the configured reranking adapter.
 
         Args:
             query_embedding: Query vector for dense search
@@ -66,10 +62,9 @@ class SearchUseCase:
             user_id: Optional user ID filter
             k: Number of final results
             rrf_k: RRF constant
-            enable_rerank: Enable LLM reranking
 
         Returns:
-            Fused list of chunks ranked by RRF score (and reranked if enabled)
+            Reranked search results
         """
         # Get BM25 index for user
         bm25_index = None
@@ -85,10 +80,40 @@ class SearchUseCase:
             bm25_index=bm25_index,
             k=k,
             rrf_k=rrf_k,
-            enable_rerank=enable_rerank,
+            llm_client=self._llm_client,
             dense_search_fn=self._dense_search,
         )
+        await self._resolve_filenames(results)
+        return results
 
+    async def execute_candidates(
+        self,
+        query_embedding: list[float],
+        query_text: str,
+        user_id: str | None = None,
+        k: int = 20,
+        rrf_k: int = 60,
+    ) -> list[dict]:
+        """Return the candidate pool for the RAG LLM reranking stage."""
+        bm25_index = None
+        if self._keyword_search is not None and user_id is not None:
+            await self._ensure_bm25_index(user_id)
+            bm25_index = self._keyword_search.get_index(user_id)
+
+        results = await hybrid_search_candidates(
+            query_embedding=query_embedding,
+            query_text=query_text,
+            user_id=user_id,
+            bm25_index=bm25_index,
+            k=k,
+            rrf_k=rrf_k,
+            dense_search_fn=self._dense_search,
+        )
+        await self._resolve_filenames(results)
+        return results
+
+    async def _resolve_filenames(self, results: list[dict]) -> None:
+        """Enrich results with source filenames from the document repository."""
         # Resolve filenames from PostgreSQL database to replace "Unknown" values
         doc_ids = list(
             {
@@ -117,8 +142,6 @@ class SearchUseCase:
                     f"Failed to resolve search result filenames in SearchUseCase: {e}",
                     exc_info=True,
                 )
-
-        return results
 
     async def _ensure_bm25_index(self, user_id: str) -> None:
         """Keep the in-memory BM25 index in sync with the user's persisted chunks.

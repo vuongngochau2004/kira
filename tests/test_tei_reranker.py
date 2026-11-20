@@ -60,6 +60,7 @@ async def test_rerank_documents_with_tei_success():
         call_kwargs = mock_post.call_args[1]
         assert call_kwargs["json"]["query"] == "Thành phố Đà Nẵng"
         assert len(call_kwargs["json"]["texts"]) == 3
+        assert call_kwargs["json"]["truncate"] is True
         assert call_kwargs["headers"]["Authorization"] == "Bearer test-key"
 
 
@@ -97,8 +98,17 @@ async def test_health_check_tei_reranker():
 
 
 @pytest.mark.asyncio
+async def test_reranker_health_check_does_not_accept_generic_health() -> None:
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = [httpx.Response(503), httpx.Response(200)]
+
+        assert await health_check_tei_reranker("https://test.com") is False
+
+    assert mock_get.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_hybrid_search_uses_tei_reranker(monkeypatch):
-    monkeypatch.setattr(settings, "reranking_enabled", True)
     monkeypatch.setattr(settings, "reranking_mode", "tei")
 
     dense_candidates = [
@@ -110,7 +120,7 @@ async def test_hybrid_search_uses_tei_reranker(monkeypatch):
         return dense_candidates
 
     with patch(
-        "src.modules.retrieval.domain.services.reranking.tei_reranker.rerank_documents_with_tei",
+        "src.modules.retrieval.domain.services.hybrid_search.rerank_documents_with_tei",
         new_callable=AsyncMock,
     ) as mock_tei:
         mock_tei.return_value = [
@@ -122,7 +132,6 @@ async def test_hybrid_search_uses_tei_reranker(monkeypatch):
             query_embedding=[0.1] * 1024,
             query_text="query",
             dense_search_fn=mock_dense_search,
-            enable_rerank=True,
             k=2,
         )
 

@@ -11,8 +11,10 @@ from langgraph.graph import END, StateGraph
 from loguru import logger
 
 from src.modules.chat.application.dto import ChatQuery, StreamChunk
+from src.shared.domain.conversation_context import bound_history
 from src.shared.ports.classification import ClassificationResult, Intent
 from src.shared.ports.handlers import HandlerResult, QueryHandlerBase
+from src.shared.utils.request_trace import request_stage, request_trace
 
 
 class ChatGraphState(TypedDict, total=False):
@@ -57,7 +59,8 @@ class ChatGraph:
             "query": query,
             "context": self._build_context(query),
         }
-        return await self.graph.ainvoke(initial_state)
+        with request_trace():
+            return await self.graph.ainvoke(initial_state)
 
     async def run_stream(self, query: ChatQuery) -> AsyncIterator[dict[str, Any]]:
         """Run graph routing, then stream from the selected handler.
@@ -65,30 +68,37 @@ class ChatGraph:
         The classification node remains the first workflow step. Handler streaming
         is delegated directly so the existing SSE chunk contract is preserved.
         """
-        state: ChatGraphState = {
-            "query": query,
-            "context": self._build_context(query),
-        }
-        state.update(await self._classify_node(state))
+        with request_trace():
+            state: ChatGraphState = {
+                "query": query,
+                "context": self._build_context(query),
+            }
+            state.update(await self._classify_node(state))
 
-        classification = state["classification"]
-        handler = self._select_handler(classification)
-        handler_name = self._get_handler_name(classification.intent)
+            classification = state["classification"]
+            handler = self._select_handler(classification)
+            handler_name = self._get_handler_name(classification.intent)
 
-        yield StreamChunk.routing(
-            router_name=handler_name,
-            intent=classification.intent.value,
-            confidence=classification.confidence,
-            reasoning=classification.reason,
-        )
+            yield StreamChunk.routing(
+                router_name=handler_name,
+                intent=classification.intent.value,
+                confidence=classification.confidence,
+                reasoning=classification.reason,
+            )
 
-        async for chunk in handler.handle_stream(
-            query=query.message,
-            user_id=query.user_id,
-            classification=classification,
-            context=state.get("context") or None,
-        ):
-            yield chunk
+            stream = handler.handle_stream(
+                query=query.message,
+                user_id=query.user_id,
+                classification=classification,
+                context=state.get("context") or None,
+            )
+            try:
+                async for chunk in stream:
+                    yield chunk
+            finally:
+                close = getattr(stream, "aclose", None)
+                if close is not None:
+                    await close()
 
     async def _classify_node(self, state: ChatGraphState) -> ChatGraphState:
         """Classify the query intent."""
@@ -96,27 +106,24 @@ class ChatGraph:
         logger.info("🔍 <cyan>[CHAT GRAPH: CLASSIFY]</cyan> Classifying query intent...")
 
         try:
-            classification = await self.classifier.classify(
-                query=query.message,
-                user_id=str(query.user_id),
-                context=state.get("context"),
-            )
-        except Exception as e:
-            logger.warning(
-                f"⚠️  <yellow>[CHAT GRAPH: CLASSIFY FALLBACK]</yellow> "
-                f"Classification failed: {e}. Defaulting to {self.default_intent.value}."
-            )
+            with request_stage("classification"):
+                classification = await self.classifier.classify(
+                    query=query.message,
+                    user_id=str(query.user_id),
+                    context=state.get("context"),
+                )
+        except Exception:
+            logger.warning("Classification failed; defaulting to {}", self.default_intent.value)
             classification = ClassificationResult(
                 intent=self.default_intent,
                 confidence=0.5,
-                reason=f"Classification fallback: {e}",
+                reason="Classification unavailable",
             )
 
         logger.info(
             f"📊 <cyan>[CHAT GRAPH: CLASSIFY RESULT]</cyan> "
             f"Intent: <magenta>{classification.intent.value}</magenta>, "
-            f"Confidence: <yellow>{classification.confidence:.2f}</yellow>, "
-            f"Reason: {classification.reason}"
+            f"Confidence: <yellow>{classification.confidence:.2f}</yellow>"
         )
         return {"classification": classification}
 
@@ -168,7 +175,7 @@ class ChatGraph:
         """Build handler context from query metadata."""
         context = dict(query.context or {})
         if query.conversation_history:
-            context["conversation_history"] = query.conversation_history
+            context["conversation_history"] = bound_history(query.conversation_history)
         return context
 
 

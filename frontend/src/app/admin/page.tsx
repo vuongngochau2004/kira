@@ -10,6 +10,7 @@ import {
   Database,
   Gauge,
   Loader2,
+  FlaskConical,
   MessageSquareText,
   RefreshCw,
   Scale,
@@ -151,6 +152,12 @@ export default function AdminPage() {
             </div>
             <div className="flex items-center gap-2">
               {user?.role === 'admin' && (
+                <Button variant="outline" size="sm" onClick={() => router.push('/admin/pipeline-lab')}>
+                  <FlaskConical className="h-4 w-4" />
+                  Pipeline Lab
+                </Button>
+              )}
+              {user?.role === 'admin' && (
                 <Button variant="outline" size="sm" onClick={() => router.push('/admin/legal')}>
                   <Scale className="h-4 w-4" />
                   Văn bản pháp luật
@@ -188,8 +195,8 @@ export default function AdminPage() {
               <section className="grid gap-3 md:grid-cols-2">
                 <MetricTile
                   title="Sức khỏe hệ thống"
-                  value={overview.system.status}
-                  detail={`${overview.system.services.length} thành phần được theo dõi`}
+                  value={overview.system?.status ?? 'ok'}
+                  detail={`${overview.system?.services?.length ?? 0} thành phần được theo dõi`}
                   icon={Activity}
                   accent="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
                 />
@@ -213,14 +220,19 @@ export default function AdminPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-hidden rounded-lg border">
-                      {overview.system.services.map((service) => (
-                        <div key={service.name} className="grid grid-cols-[minmax(0,1fr)_112px] items-center gap-3 border-b px-4 py-3 last:border-b-0">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium">{service.name}</p>
+                      {(overview.system?.services ?? []).length > 0 ? (
+                        (overview.system?.services ?? []).map((service) => (
+                          <div key={service.name} className="grid grid-cols-[minmax(0,1fr)_112px] items-center gap-3 border-b px-4 py-3 last:border-b-0">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium">{service.name}</p>
+                              {service.detail && <p className="text-xs text-muted-foreground">{service.detail}</p>}
+                            </div>
+                            <StatusBadge status={service.status} />
                           </div>
-                          <StatusBadge status={service.status} />
-                        </div>
-                      ))}
+                        ))
+                      ) : (
+                        <p className="p-4 text-sm text-muted-foreground">Chưa có thông tin thành phần.</p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

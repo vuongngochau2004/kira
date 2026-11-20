@@ -7,9 +7,9 @@ from loguru import logger
 
 from src.config.config import settings
 from src.modules.chat.api.endpoints import router as chat_router
+from src.modules.debug.api import router as debug_router
 from src.modules.document.api.endpoints import router as documents_router
 from src.modules.legal.api.endpoints import router as legal_router
-from src.modules.retrieval.domain.services.hybrid_search import set_llm_client
 from src.modules.retrieval.domain.services.reranking_service import init_reranking_service
 from src.server.api.v1.admin.endpoints import router as admin_router
 from src.server.api.v1.auth.endpoints import router as auth_router
@@ -37,7 +37,6 @@ async def lifespan(app: FastAPI):
     # Initialize LLM client for reranking
     llm_client = _create_llm_client()
     init_reranking_service(llm_client=llm_client)
-    set_llm_client(llm_client)
     await log_startup_service_health(llm_client)
 
     yield
@@ -95,6 +94,7 @@ def _setup_routes(app: FastAPI) -> None:
     app.include_router(evaluation_router, prefix="/api/v1/evaluation", tags=["evaluation"])
     app.include_router(metrics_router, prefix="/api/v1/metrics", tags=["metrics"])
     app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
+    app.include_router(debug_router, prefix="/api/v1/admin/pipeline-lab", tags=["pipeline-lab"])
     if settings.legal_enabled:
         app.include_router(legal_router, prefix="/api/v1/legal", tags=["legal"])
 
@@ -126,5 +126,6 @@ if __name__ == "__main__":
         host=settings.api_host,
         port=settings.backend_port,
         reload=settings.debug,
+        reload_dirs=["src"],
         log_level="debug" if settings.debug else "info",
     )

@@ -30,7 +30,7 @@ def test_quality_step_reports_regenerate_decision_and_timing() -> None:
     assert metadata["decision"] == "regenerate"
     assert metadata["quality_score"] == 0.62
     assert metadata["verified"] is False
-    assert metadata["issues"] == ["Response too short"]
+    assert "issues" not in metadata
 
 
 def test_quality_step_reports_pass_and_fallback() -> None:

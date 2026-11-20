@@ -106,6 +106,7 @@ export interface CitationInfo {
   source: string
   page_number?: number
   grounding_score?: number
+  verified?: boolean
 }
 
 /**
@@ -116,11 +117,30 @@ export function parseContentWithCitations(
   citations?: CitationInfo[],
   onCitationClick?: (chunkId: string, citation: CitationInfo) => void
 ): Array<string | React.ReactElement> {
-  void citations
-  void onCitationClick
   if (!content) return []
+  const parts: Array<string | React.ReactElement> = []
+  const marker = /\[source:([^\]]+)\]/g
+  let cursor = 0
 
-  // Clean up inline [source:...] citations along with any leading spaces as requested by user
-  const cleanedContent = content.replace(/\s*\[source:[^\]]+\]/g, '')
-  return [cleanedContent]
+  for (const match of content.matchAll(marker)) {
+    const index = match.index ?? 0
+    if (index > cursor) parts.push(content.slice(cursor, index))
+    const chunkId = match[1]
+    const citation = citations?.find((item) => item.chunk_id === chunkId)
+    parts.push(citation && citation.verified !== false && onCitationClick ? (
+      <CitationBadge
+        key={`${chunkId}-${index}`}
+        chunkId={chunkId}
+        groundingScore={citation.grounding_score}
+        onClick={() => onCitationClick(chunkId, citation)}
+      />
+    ) : (
+      <span key={`${chunkId}-${index}`} className="text-xs text-muted-foreground" role="status">
+        Nguồn không còn khả dụng
+      </span>
+    ))
+    cursor = index + match[0].length
+  }
+  if (cursor < content.length) parts.push(content.slice(cursor))
+  return parts
 }

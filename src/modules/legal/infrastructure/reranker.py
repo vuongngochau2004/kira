@@ -12,8 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConfiguredLegalReranker(LegalRerankerPort):
-    def __init__(self, enabled: bool, mode: str, llm_client_provider: Callable[[], Any]) -> None:
-        self._enabled = enabled
+    def __init__(self, mode: str, llm_client_provider: Callable[[], Any]) -> None:
         self._mode = mode
         self._llm_client_provider = llm_client_provider
 
@@ -21,7 +20,7 @@ class ConfiguredLegalReranker(LegalRerankerPort):
         self, query: str, hits: Sequence[ProvisionHit], top_k: int
     ) -> list[ProvisionHit]:
         ordered = list(hits)
-        if not self._enabled or len(ordered) <= 1:
+        if len(ordered) <= 1:
             return ordered[:top_k]
         candidates = [
             {"text": hit.text, "content": hit.text, "legal_index": index}

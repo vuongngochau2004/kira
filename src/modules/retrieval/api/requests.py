@@ -24,9 +24,6 @@ class HybridSearchRequest(BaseModel):
     rrf_k: int = Field(
         60, ge=1, description="RRF constant for fusion (higher = more balanced ranking)"
     )
-    enable_rerank: bool = Field(
-        False, description="Enable LLM-based reranking for improved precision"
-    )
 
     model_config = {
         "json_schema_extra": {
@@ -37,7 +34,6 @@ class HybridSearchRequest(BaseModel):
                     "user_id": "user123",
                     "k": 5,
                     "rrf_k": 60,
-                    "enable_rerank": True,
                 }
             ]
         }

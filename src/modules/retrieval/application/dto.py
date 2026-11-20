@@ -18,7 +18,6 @@ class RetrievalSearchRequest(BaseModel):
     user_id: str | None = Field(None, description="Optional user ID filter")
     k: int = Field(5, ge=1, le=50, description="Number of results")
     rrf_k: int = Field(60, ge=1, description="RRF constant")
-    enable_rerank: bool = Field(False, description="Enable LLM reranking")
 
     model_config = {
         "json_schema_extra": {
@@ -29,7 +28,6 @@ class RetrievalSearchRequest(BaseModel):
                     "user_id": "user123",
                     "k": 5,
                     "rrf_k": 60,
-                    "enable_rerank": True,
                 }
             ]
         }

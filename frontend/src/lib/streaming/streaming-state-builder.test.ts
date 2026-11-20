@@ -68,6 +68,48 @@ describe('StreamingStateBuilder legal data', () => {
   })
 })
 
+describe('StreamingStateBuilder provisional RAG answers', () => {
+  it('replaces each attempt and only accepts citations after the final answer', () => {
+    const builder = createStreamingStateBuilder()
+    builder.processChunk('content', { text: 'Unsupported ', provisional: true, attempt: 1 })
+    builder.processChunk('content', { text: 'draft', provisional: true, attempt: 1 })
+    expect(builder.getState()).toMatchObject({ content: 'Unsupported draft', provisional: true })
+
+    builder.processChunk('content_replace', { text: '', provisional: true, attempt: 2 })
+    builder.processChunk('content', { text: 'Second draft', provisional: true, attempt: 2 })
+    expect(builder.getState()).toMatchObject({ content: 'Second draft', attempt: 2 })
+    builder.processChunk('content_replace', { text: 'Verified answer', provisional: false })
+    builder.processChunk('metadata', { citations: [{ filename: 'file.pdf', text: 'Evidence' }] })
+    builder.processChunk('done', {})
+
+    expect(builder.getState()).toMatchObject({
+      content: 'Verified answer', provisional: false, finalized: true, status: 'complete',
+    })
+    expect(builder.getState().sources).toHaveLength(1)
+  })
+
+  it('keeps an interrupted preview local and unsaved', () => {
+    const builder = createStreamingStateBuilder()
+    builder.processChunk('content', { text: 'Preview', provisional: true, attempt: 1 })
+    builder.stop()
+    builder.processChunk('done', {})
+
+    expect(builder.getState()).toMatchObject({
+      content: 'Preview', provisional: true, finalized: false, status: 'stopped', sources: [],
+    })
+  })
+
+  it('clears a provisional answer on an error', () => {
+    const builder = createStreamingStateBuilder()
+    builder.processChunk('content', { text: 'Unsafe draft', provisional: true, attempt: 1 })
+    builder.processChunk('error', { error: 'Failed' })
+    builder.processChunk('done', {})
+    expect(builder.getState()).toMatchObject({
+      content: '', provisional: false, status: 'error', finalized: false,
+    })
+  })
+})
+
 describe('ensureFlatSources', () => {
   it('passes legal data through and leaves ordinary citations unchanged', () => {
     const [legal, plain] = ensureFlatSources([

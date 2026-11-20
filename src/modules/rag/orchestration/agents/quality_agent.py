@@ -89,7 +89,7 @@ class QualityAgent:
         try:
             response = state["generated_response"]
             documents = get_retrieval_docs(state)
-            query = state["query"]
+            query = state.get("retrieval_query") or state["query"]
 
             if not response:
                 raise ValueError("No response to evaluate")
@@ -190,7 +190,7 @@ class QualityAgent:
         try:
             response = state["generated_response"]
             documents = get_retrieval_docs(state)
-            query = state["query"]
+            query = state.get("retrieval_query") or state["query"]
 
             yield {"type": "stage", "data": {"stage": "critique", "status": "started"}}
 

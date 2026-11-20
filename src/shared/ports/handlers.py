@@ -206,7 +206,7 @@ class QueryHandlerBase(ABC):
         pass
 
     @abstractmethod
-    async def handle_stream(
+    def handle_stream(
         self,
         query: str,
         user_id: str | UUID,

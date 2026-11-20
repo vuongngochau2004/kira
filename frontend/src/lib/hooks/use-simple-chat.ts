@@ -49,8 +49,10 @@ export interface Message {
   sources?: SourceChunk[]
   attachments?: Attachment[]
   streamingState?: StreamingState
+  provisional?: boolean
   isStreaming?: boolean
   isOptimistic?: boolean
+  unsaved?: boolean
   legal?: LegalAnswerInfo
   pipeline?: PipelineStep[]
 }
@@ -128,6 +130,7 @@ export function useSimpleChat() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const stateBuilderRef = useRef<ReturnType<typeof createStreamingStateBuilder> | null>(null)
   const assistantMsgIdRef = useRef<string | null>(null)
+  const skipConversationLoadForRef = useRef<string | null>(null)
 
 
   // ==================== Helpers ====================
@@ -166,7 +169,8 @@ export function useSimpleChat() {
                 legal: state.legal ?? undefined,
                 pipeline: state.pipeline.length > 0 ? state.pipeline : undefined,
                 streamingState: state.status,
-                isStreaming: state.status !== 'complete',
+                provisional: state.provisional,
+                isStreaming: !['complete', 'stopped', 'error'].includes(state.status),
               }
             : msg
         )
@@ -179,17 +183,30 @@ export function useSimpleChat() {
     const assistantMsgId = assistantMsgIdRef.current
     if (!assistantMsgId) return
 
+    const builder = stateBuilderRef.current
+    const persisted = builder?.getState().finalized === true
+    if (!persisted) builder?.stop()
+
     setMessages((prev) =>
       prev.map((msg) =>
         msg.id === assistantMsgId
           ? {
               ...msg,
-              streamingState: 'complete' as const,
+              streamingState: persisted ? 'complete' as const : 'stopped' as const,
               isStreaming: false,
+              provisional: !persisted,
+              sources: persisted ? msg.sources : undefined,
             }
           : msg
       )
     )
+  }, [])
+
+  const markUserMessageSaved = useCallback((messageId: string): void => {
+    setMessages((prev) => prev.map((message) => message.id === messageId
+      ? { ...message, unsaved: false }
+      : message
+    ))
   }, [])
 
   const loadConversation = useCallback(async (id: string) => {
@@ -267,16 +284,20 @@ export function useSimpleChat() {
             ]
           })
 
+          const abortController = new AbortController()
+          abortControllerRef.current = abortController
+          setIsLoading(true)
           try {
-            const abortController = new AbortController()
-            abortControllerRef.current = abortController
             const stream = chatAPI.streamMessage(queuedMsg.content, conversationId, abortController.signal)
             let contentChunkCount = 0
+            let streamFailed = false
 
             for await (const chunk of stream) {
+              if (abortController.signal.aborted || abortControllerRef.current !== abortController) break
               const { type, data: eventData } = chunk
 
               if (type === 'error') {
+                streamFailed = true
                 const errorMsg = getStreamErrorMessage(eventData)
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -295,6 +316,7 @@ export function useSimpleChat() {
 
               stateBuilder.processChunk(type, eventData)
               updateAssistantMessage(assistantMsgId, stateBuilder)
+              if (type === 'metadata') markUserMessageSaved(queuedMsg.id)
               if (type === 'content') {
                 contentChunkCount += 1
                 if (contentChunkCount % STREAM_PAINT_INTERVAL_CHUNKS === 0) {
@@ -302,8 +324,12 @@ export function useSimpleChat() {
                 }
               }
             }
-            abortControllerRef.current = null
-
+            if (!abortController.signal.aborted && !streamFailed && !stateBuilder.getState().finalized) {
+              setMessages((prev) => prev.map((msg) => msg.id === assistantMsgId
+                ? { ...msg, content: '❌ Kết nối bị ngắt trước khi câu trả lời hoàn tất.', streamingState: 'error', isStreaming: false, provisional: false }
+                : msg
+              ))
+            }
             // Mark optimistic messages as real
             setMessages((prev) =>
               prev.map(msg => msg.id.startsWith('temp-')
@@ -312,7 +338,8 @@ export function useSimpleChat() {
               )
             )
           } catch (streamErr: unknown) {
-            if (isAbortError(streamErr)) {
+            if (isAbortError(streamErr) || abortController.signal.aborted) {
+              if (assistantMsgIdRef.current !== assistantMsgId) return
               finishCurrentAssistantMessage()
               return
             }
@@ -330,13 +357,18 @@ export function useSimpleChat() {
                   : msg
               )
             )
+          } finally {
+            if (abortControllerRef.current === abortController) {
+              abortControllerRef.current = null
+              setIsLoading(false)
+            }
           }
         })
       } catch (err: unknown) {
         setError(getErrorMessage(err, 'Failed to send queued messages'))
       }
     },
-    [updateAssistantMessage, finishCurrentAssistantMessage]
+    [updateAssistantMessage, finishCurrentAssistantMessage, markUserMessageSaved]
   )
 
   // ==================== Effects ====================
@@ -358,6 +390,11 @@ export function useSimpleChat() {
     if (!activeConversationId || !mounted || !isAuthenticated || isCreatingConversation) {
       return
     }
+    if (skipConversationLoadForRef.current === activeConversationId) {
+      skipConversationLoadForRef.current = null
+      return
+    }
+    skipConversationLoadForRef.current = null
     setMessages([])
     replaceSourcesForConversation(activeConversationId, [])
     loadConversation(activeConversationId)
@@ -401,6 +438,7 @@ export function useSimpleChat() {
         content: content.trim(),
         timestamp: new Date(),
         isStreaming: false,
+        unsaved: true,
       }
 
       const assistantMessage: Message = {
@@ -414,19 +452,22 @@ export function useSimpleChat() {
 
       setMessages((prev) => [...prev, userMessage, assistantMessage])
 
+      const abortController = new AbortController()
+      abortControllerRef.current = abortController
       try {
         const stateBuilder = createStreamingStateBuilder()
         stateBuilderRef.current = stateBuilder
 
-        const abortController = new AbortController()
-        abortControllerRef.current = abortController
         const stream = chatAPI.streamMessage(content.trim(), activeConversationId, abortController.signal)
         let contentChunkCount = 0
+        let streamFailed = false
 
         for await (const chunk of stream) {
+          if (abortController.signal.aborted || abortControllerRef.current !== abortController) break
           const { type, data: eventData } = chunk
 
           if (type === 'error') {
+            streamFailed = true
             const errorMsg = getStreamErrorMessage(eventData)
             setError(errorMsg)
             setMessages((prev) =>
@@ -446,6 +487,7 @@ export function useSimpleChat() {
 
           stateBuilder.processChunk(type, eventData)
           updateAssistantMessage(assistantMsgId, stateBuilder)
+          if (type === 'metadata') markUserMessageSaved(userMsgId)
           if (type === 'content') {
             contentChunkCount += 1
             if (contentChunkCount % STREAM_PAINT_INTERVAL_CHUNKS === 0) {
@@ -453,8 +495,15 @@ export function useSimpleChat() {
             }
           }
         }
+        if (!abortController.signal.aborted && !streamFailed && !stateBuilder.getState().finalized) {
+          setMessages((prev) => prev.map((msg) => msg.id === assistantMsgId
+            ? { ...msg, content: '❌ Kết nối bị ngắt trước khi câu trả lời hoàn tất.', streamingState: 'error', isStreaming: false, provisional: false }
+            : msg
+          ))
+        }
       } catch (err: unknown) {
-        if (isAbortError(err)) {
+        if (isAbortError(err) || abortController.signal.aborted) {
+          if (assistantMsgIdRef.current !== assistantMsgId) return
           finishCurrentAssistantMessage()
         } else {
           const errorMsg = getErrorMessage(err, 'Failed to send message. Please check your connection.')
@@ -473,8 +522,10 @@ export function useSimpleChat() {
           )
         }
       } finally {
-        setIsLoading(false)
-        abortControllerRef.current = null
+        if (abortControllerRef.current === abortController) {
+          setIsLoading(false)
+          abortControllerRef.current = null
+        }
       }
       return
     }
@@ -482,6 +533,8 @@ export function useSimpleChat() {
     // FIRST MESSAGE PATH - Optimistic conversation creation
     const tempUserMsgId = `temp-user-${Date.now()}`
     const tempAssistantMsgId = `temp-assistant-${Date.now()}`
+    assistantMsgIdRef.current = tempAssistantMsgId
+    setIsLoading(true)
 
     const tempUserMessage: Message = {
       id: tempUserMsgId,
@@ -489,6 +542,7 @@ export function useSimpleChat() {
       content: content.trim(),
       timestamp: new Date(),
       isOptimistic: true,
+      unsaved: true,
     }
 
     const tempAssistantMessage: Message = {
@@ -525,8 +579,11 @@ export function useSimpleChat() {
         currentUrl.searchParams.set('id', newConversationId)
         window.history.replaceState({}, '', currentUrl.toString())
 
+        skipConversationLoadForRef.current = newConversationId
         setActiveConversation(newConversationId)
-        await flushQueuedMessages(newConversationId)
+        if (!queueRef.current.isEmpty()) {
+          await flushQueuedMessages(newConversationId)
+        }
 
         setMessages((prev) =>
           prev.map(msg => msg.id.startsWith('temp-')
@@ -541,6 +598,7 @@ export function useSimpleChat() {
         queueRef.current = new MessageQueue()
         setIsCreatingConversation(false)
         setMessages((prev) => prev.filter(msg => !msg.id.startsWith('temp-')))
+        setIsLoading(false)
       }
     }
   }, [
@@ -553,6 +611,7 @@ export function useSimpleChat() {
     flushQueuedMessages,
     updateAssistantMessage,
     finishCurrentAssistantMessage,
+    markUserMessageSaved,
   ])
 
   const clearMessages = useCallback(() => {
@@ -573,11 +632,14 @@ export function useSimpleChat() {
   }, [sendMessage])
 
   const stopGenerating = useCallback(() => {
+    if (isCreatingConversation && !abortControllerRef.current) {
+      queueRef.current = new MessageQueue()
+    }
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
     finishCurrentAssistantMessage()
     setIsLoading(false)
-  }, [finishCurrentAssistantMessage])
+  }, [finishCurrentAssistantMessage, isCreatingConversation])
 
   return {
     messages,

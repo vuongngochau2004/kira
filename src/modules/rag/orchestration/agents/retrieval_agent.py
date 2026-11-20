@@ -102,10 +102,10 @@ class RetrievalAgent:
         state = mark_agent_start(state, "RetrievalAgent")
 
         try:
-            query = state["query"]
+            query = state.get("retrieval_query") or state["query"]
             user_id = state["user_id"]
 
-            logger.info(f"RetrievalAgent starting: query='{query[:50]}...', user={user_id}")
+            logger.info("Retrieval starting: user_id={}, query_chars={}", user_id, len(query))
 
             # Stage 1: Query refinement (merged from QueryRefinerAgent)
             refined_queries = await self._refine_query(query, state)
@@ -187,7 +187,7 @@ class RetrievalAgent:
         state = mark_agent_start(state, "RetrievalAgent")
 
         try:
-            query = state["query"]
+            query = state.get("retrieval_query") or state["query"]
             user_id = state["user_id"]
 
             yield {"type": "stage", "data": {"stage": "query_refinement", "status": "started"}}
@@ -384,14 +384,20 @@ class RetrievalAgent:
             # Generate embedding for query
             query_embedding = await self.embedding.embed(primary_query)
 
-            # Execute hybrid search
-            search_results = await self.search.execute(
+            # TEI reranks the fused candidate pool inside the search use case.
+            search_method = (
+                self.search.execute
+                if self.config.reranker_model == "tei"
+                else self.search.execute_candidates
+            )
+            search_results = await search_method(
                 query_embedding=query_embedding,
                 query_text=primary_query,
                 user_id=user_id,
-                k=self.config.top_k,
+                k=self.config.rerank_top_k
+                if self.config.reranker_model == "tei"
+                else self.config.top_k,
                 rrf_k=60,
-                enable_rerank=False,
             )
 
             # Convert to DocumentWithScore objects
@@ -405,6 +411,14 @@ class RetrievalAgent:
                     )
                     continue
 
+                rerank_score = result.get("rerank_score")
+                metadata = dict(result.get("metadata") or {})
+                if rerank_score is not None:
+                    metadata["reranker"] = "tei"
+                    metadata["original_score"] = result.get(
+                        "rrf_score", result.get("score", 0.0)
+                    )
+
                 doc = DocumentWithScore(
                     doc_id=doc_id,
                     content=result.get("text", result.get("content", "")),
@@ -417,8 +431,10 @@ class RetrievalAgent:
                     chunk_index=result.get(
                         "chunk_index", result.get("metadata", {}).get("chunk_index", 0)
                     ),
-                    score=result.get("rrf_score", result.get("score", 0.0)),
-                    metadata=result.get("metadata", {}),
+                    score=rerank_score
+                    if rerank_score is not None
+                    else result.get("rrf_score", result.get("score", 0.0)),
+                    metadata=metadata,
                 )
                 retrieved_docs.append(doc)
 
@@ -487,8 +503,11 @@ class RetrievalAgent:
         Returns:
             Reranked documents (top-k after filtering)
         """
-        if not documents or not self.config.enable_reranking:
+        if not documents:
             return documents
+
+        if self.config.reranker_model == "tei":
+            return documents[: self.config.rerank_top_k]
 
         if self.llm_client is None:
             logger.warning("LLM reranking skipped because llm_client is not configured")

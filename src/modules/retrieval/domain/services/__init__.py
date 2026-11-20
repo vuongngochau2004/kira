@@ -24,7 +24,6 @@ from src.modules.retrieval.domain.services.hybrid_search import (
     format_dense_results,
     get_bm25_results,
     hybrid_search,
-    set_llm_client,
 )
 from src.modules.retrieval.domain.services.reranking import (
     format_documents_for_reranking,
@@ -55,7 +54,6 @@ __all__ = [
     "hybrid_search",
     "format_dense_results",
     "get_bm25_results",
-    "set_llm_client",
     # Reranking strategies & tools
     "init_reranking_service",
     "llm_rerank",

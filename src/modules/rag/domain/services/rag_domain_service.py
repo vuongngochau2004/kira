@@ -98,48 +98,40 @@ class RAGService:
         Falls back to legacy pattern detection when an LLM dependency is not
         available or the structured call fails.
         """
-        logger.info(f"🔍 [Relevance Evaluation] Starting evaluation for query: '{query[:100]}'")
+        logger.info("Relevance evaluation starting: query_chars={}", len(query))
         if llm is None:
-            is_rejection = RAGService.is_rejection_response(response)
-            res = {
-                "has_relevant_docs": not is_rejection,
-                "reason": "legacy_pattern_fallback" if is_rejection else "",
+            logger.warning("Relevance evaluation provider is unavailable")
+            return {
+                "has_relevant_docs": False,
+                "reason": "provider_unavailable",
                 "fallback": True,
             }
-            logger.warning(
-                f"⚠️ [Relevance Evaluation] LLM is None, using legacy fallback. Result: {res}"
-            )
-            return res
 
         prompt = build_relevance_evaluation_prompt(
             query=query,
             response=response,
             context=context,
         )
-        logger.debug(f"📝 [Relevance Evaluation] Generated prompt:\n{prompt}")
         try:
             raw = await llm.generate(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0,
                 max_tokens=300,
             )
-            logger.debug(f"📥 [Relevance Evaluation] Raw LLM response: {raw}")
             parsed = RAGService._parse_relevance_response(raw)
             parsed["fallback"] = False
-            logger.info(f"✅ [Relevance Evaluation] Result: {parsed}")
-            return parsed
-        except Exception as e:
-            is_rejection = RAGService.is_rejection_response(response)
-            res = {
-                "has_relevant_docs": not is_rejection,
-                "reason": str(e) if is_rejection else "",
-                "fallback": True,
-                "error": str(e),
-            }
-            logger.error(
-                f"❌ [Relevance Evaluation] Error during LLM call: {e}. Fallback result: {res}"
+            logger.info(
+                "Relevance evaluation completed: has_relevant_docs={}",
+                parsed["has_relevant_docs"],
             )
-            return res
+            return parsed
+        except Exception:
+            logger.error("Relevance evaluation provider failed")
+            return {
+                "has_relevant_docs": False,
+                "reason": "provider_unavailable",
+                "fallback": True,
+            }
 
     @staticmethod
     def _parse_relevance_response(raw: str) -> dict[str, Any]:

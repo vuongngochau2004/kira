@@ -7,10 +7,12 @@ Follows Pydantic v2 patterns with strict type checking and validation.
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Dict, List, Literal, Optional, TypedDict
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from src.shared.domain.conversation_context import ConversationTurn, resolve_retrieval_query
 
 # ============================================================================
 # Base Models
@@ -178,6 +180,8 @@ class RAGState(TypedDict):
 
     # Input fields (provided by user)
     query: str  # Original user query
+    retrieval_query: str  # Standalone query for document search
+    conversation_history: list[ConversationTurn]
     user_id: str  # User ID for personalization
     conversation_id: Optional[UUID]  # Conversation context (optional)
 
@@ -353,13 +357,12 @@ class RetrievalAgentConfig(AgentConfig):
     )
 
     # Reranking settings (merged from RerankingAgentConfig)
-    enable_reranking: bool = Field(
-        default=True, description="Enable reranking within retrieval agent"
-    )
     rerank_top_k: int = Field(
         default=5, ge=1, le=50, description="Number of documents to keep after reranking"
     )
-    reranker_model: str = Field(default="cross-encoder", description="Reranker model to use")
+    reranker_model: Literal["tei", "llm"] = Field(
+        default="tei", description="Reranking adapter"
+    )
     rerank_threshold: float = Field(
         default=0.5, ge=0.0, le=1.0, description="Minimum reranked score"
     )
@@ -476,7 +479,10 @@ class AgenticRAGConfig(BaseModel):
 
 
 def create_initial_state(
-    query: str, user_id: str, conversation_id: Optional[UUID] = None
+    query: str,
+    user_id: str,
+    conversation_id: Optional[UUID] = None,
+    history: list[ConversationTurn] | None = None,
 ) -> RAGState:
     """
     Create initial RAGState for starting the agentic RAG pipeline.
@@ -491,6 +497,8 @@ def create_initial_state(
     """
     return {
         "query": query,
+        "retrieval_query": resolve_retrieval_query(query, history or []),
+        "conversation_history": history or [],
         "user_id": user_id,
         "conversation_id": conversation_id,
         # Orchestrator state

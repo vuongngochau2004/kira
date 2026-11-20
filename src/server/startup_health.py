@@ -6,10 +6,12 @@ import importlib.util
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Any
 
+import httpx
 from loguru import logger
 
-from src.config.config import settings
+from src.config.config import EmbeddingProvider, RerankingMode, settings
 from src.modules.document.infrastructure.storage.storage import get_client as get_minio_client
 from src.shared.adapters.embedding import create_embedding_adapter
 from src.shared.adapters.graph.neo4j_adapter import Neo4jLegalGraphAdapter
@@ -99,6 +101,37 @@ async def _check_ocr() -> bool | ServiceHealth:
     return await PaddleOCRAdapter().health_check()
 
 
+async def _check_tei_health(model: str) -> str:
+    """Probe a specific DUT AI model and retain useful HTTP failure details."""
+    url = f"{settings.tei_base_url.rstrip('/')}/health/{model}"
+    headers = {"Authorization": f"Bearer {settings.tei_api_key}"} if settings.tei_api_key else {}
+    timeout = max(0.1, settings.service_health_timeout_seconds - 0.5)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.get(url, headers=headers)
+    if response.status_code != 200:
+        tunnel_error = (
+            " (Cloudflare Tunnel error 1033)" if "Error 1033" in response.text else ""
+        )
+        raise RuntimeError(f"{model} health: HTTP {response.status_code}{tunnel_error}")
+    return "HTTP 200"
+
+
+async def _check_embedding() -> bool | str:
+    """Check the selected embedding provider's model endpoint."""
+    if settings.embedding_provider is EmbeddingProvider.TEI:
+        return await _check_tei_health("embedding")
+    return await create_embedding_adapter().health_check()
+
+
+async def _check_reranker(llm_client: LLMClient | None) -> bool | str:
+    """Check the configured reranking adapter."""
+    if settings.reranking_mode == RerankingMode.TEI:
+        return await _check_tei_health("rerank")
+    if llm_client is None:
+        raise RuntimeError("LLM reranker client is unavailable")
+    return await GLMAdapter(client=llm_client).health_check()
+
+
 async def _check_neo4j() -> bool | str | ServiceHealth:
     if not settings.legal_enabled:
         return ServiceHealth("Neo4j", "SKIP", "LEGAL_ENABLED=false")
@@ -117,7 +150,11 @@ async def log_startup_service_health(llm_client: LLMClient) -> list[ServiceHealt
         _check_service("MinIO", _check_minio),
         _check_service("Redis", _check_redis),
         _check_service("Celery worker", _check_celery_worker),
-        _check_service("Embedding API", create_embedding_adapter().health_check),
+        _check_service("Embedding API", _check_embedding),
+        _check_service(
+            f"Reranker ({settings.reranking_mode})",
+            lambda: _check_reranker(llm_client),
+        ),
         _check_service(
             f"LLM ({settings.llm_provider})", GLMAdapter(client=llm_client).health_check
         ),
@@ -136,3 +173,62 @@ async def log_startup_service_health(llm_client: LLMClient) -> list[ServiceHealt
             logger.warning(message)
 
     return checks
+
+
+async def get_system_overview(llm_client: LLMClient | None = None) -> dict[str, Any]:
+    """Collect system health and return dictionary matching the frontend AdminOverview schema."""
+    dependency_checks = await asyncio.gather(
+        _check_service("Qdrant", QdrantAdapter().health_check),
+        _check_service("Neo4j", _check_neo4j),
+        _check_service("MinIO", _check_minio),
+        _check_service("Redis", _check_redis),
+        _check_service("Celery worker", _check_celery_worker),
+        _check_service("Embedding API", _check_embedding),
+        _check_service(
+            f"Reranker ({settings.reranking_mode})",
+            lambda: _check_reranker(llm_client),
+        ),
+        _check_service("PaddleOCR", _check_ocr),
+        _check_service("Docling", _check_docling),
+    )
+    checks = [ServiceHealth("PostgreSQL", "UP", "schema initialized"), *dependency_checks]
+    if llm_client is not None:
+        llm_check = await _check_service(
+            f"LLM ({settings.llm_provider})", GLMAdapter(client=llm_client).health_check
+        )
+        checks.append(llm_check)
+
+    services: list[dict[str, str]] = []
+    has_critical_error = False
+    has_any_error = False
+
+    for c in checks:
+        if c.state == "UP":
+            service_status = "ok"
+        elif c.state == "SKIP":
+            service_status = "configured"
+        else:
+            service_status = "error"
+            has_any_error = True
+            if c.name in {"PostgreSQL", "Redis", "Qdrant", "MinIO"}:
+                has_critical_error = True
+
+        services.append(
+            {
+                "name": c.name,
+                "status": service_status,
+                "detail": c.detail,
+            }
+        )
+
+    if has_critical_error:
+        overall_status = "error"
+    elif has_any_error:
+        overall_status = "degraded"
+    else:
+        overall_status = "ok"
+
+    return {
+        "status": overall_status,
+        "services": services,
+    }

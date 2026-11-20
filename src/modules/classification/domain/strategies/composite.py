@@ -8,6 +8,12 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from src.modules.classification.domain.strategies.keyword import KeywordStrategy
+from src.modules.classification.domain.strategies.legal import (
+    PERSONAL_DOCUMENT_CUES,
+    LegalKeywordStrategy,
+)
+from src.shared.domain.conversation_context import bound_history, is_follow_up, is_standalone_topic
 from src.shared.ports.classification import ClassificationResult, ClassificationStrategyBase, Intent
 
 logger = logging.getLogger(__name__)
@@ -101,6 +107,10 @@ class CompositeClassifier(ClassificationStrategyBase):
         if not query or not query.strip():
             return self._create_default_result("Empty query")
 
+        follow_up = await self._classify_file_follow_up(query, user_id, context)
+        if follow_up is not None:
+            return follow_up
+
         last_result = None
 
         # Try each strategy in order
@@ -178,6 +188,54 @@ class CompositeClassifier(ClassificationStrategyBase):
         )
 
         return self._create_default_result("All strategies failed")
+
+    async def _classify_file_follow_up(
+        self, query: str, user_id: str | UUID, context: dict[str, Any] | None
+    ) -> ClassificationResult | None:
+        """Continue a recent personal-file topic when the new question uses a pronoun."""
+        if not is_follow_up(query) or not context:
+            return None
+        history = bound_history(context.get("conversation_history"))
+        if not history:
+            return None
+        # Explicit legal and drafting requests take precedence over prior context.
+        for strategy in self.strategies:
+            if isinstance(strategy, LegalKeywordStrategy) and strategy.can_handle(query, user_id):
+                return None
+        keyword = next((s for s in self.strategies if isinstance(s, KeywordStrategy)), None)
+        if keyword is None:
+            return None
+        current = await keyword.classify(query, user_id, context)
+        if current.intent is Intent.DRAFTING:
+            return None
+        explicit_personal = any(cue in query.lower() for cue in PERSONAL_DOCUMENT_CUES)
+        for turn in reversed(history):
+            if turn["role"] != "user" or not is_standalone_topic(turn["content"]):
+                continue
+            legal = next(
+                (s for s in self.strategies if isinstance(s, LegalKeywordStrategy)), None
+            )
+            if legal is not None and legal.can_handle(turn["content"], user_id):
+                if explicit_personal:
+                    return None
+                return ClassificationResult(
+                    intent=Intent.LEGAL_QA,
+                    confidence=0.85,
+                    reason="Legal corpus follow-up",
+                    metadata={"strategy": "follow_up_context"},
+                    handler_hint="LegalQAHandler",
+                )
+            prior = await keyword.classify(turn["content"], user_id, None)
+            if prior.intent is Intent.RAG:
+                return ClassificationResult(
+                    intent=Intent.RAG,
+                    confidence=0.85,
+                    reason="Personal document follow-up",
+                    metadata={"strategy": "follow_up_context"},
+                    handler_hint="RAGHandler",
+                )
+            break
+        return None
 
     def _get_threshold(self, strategy_name: str) -> float:
         """

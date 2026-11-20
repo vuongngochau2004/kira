@@ -11,6 +11,7 @@ from src.modules.chat.infrastructure.persistence.conversation_repository import 
     create_message,
     get_conversation,
     get_conversation_messages,
+    get_recent_owned_messages,
     list_conversations,
 )
 from src.modules.retrieval.infrastructure.retrieval_adapters import PostgresRetrievalDocumentAdapter
@@ -58,5 +59,6 @@ __all__ = [
     "get_chat_use_case",
     "get_conversation",
     "get_conversation_messages",
+    "get_recent_owned_messages",
     "list_conversations",
 ]

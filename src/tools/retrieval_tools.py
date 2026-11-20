@@ -10,6 +10,12 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from src.config.config import settings
+from src.modules.retrieval.domain.services.reranking.tei_reranker import (
+    rerank_documents_with_tei,
+)
+from src.modules.retrieval.domain.services.reranking_service import score_and_rerank
+
 logger = logging.getLogger(__name__)
 
 # Global store/index references (to be set by application initialization)
@@ -531,20 +537,18 @@ async def retrieve_with_rerank(
     user_id: str,
     k: int = 10,
     rerank_top_k: int = 5,
-    enable_reranking: bool = True,
 ) -> str:
-    """Retrieve documents and apply LLM reranking for precision.
+    """Retrieve documents and apply the configured reranking adapter.
 
     This tool combines retrieval and reranking in one call for the
     RetrievalAgent in the 4-agent architecture. First retrieves candidates
-    using hybrid search, then reranks using LLM for top precision.
+    using hybrid search, then reranks with TEI or the LLM.
 
     Args:
         query: User query to search for
         user_id: User ID for personalization
         k: Number of initial documents to retrieve (default: 10)
         rerank_top_k: Number of documents to return after reranking (default: 5)
-        enable_reranking: Enable LLM reranking (default: True)
 
     Returns:
         JSON string with reranked documents
@@ -586,25 +590,26 @@ async def retrieve_with_rerank(
                 ensure_ascii=False,
             )
 
-        # Step 2: LLM reranking
+        # Step 2: Rerank whenever there is a choice between candidates.
         reranked_docs = initial_docs
         reranking_applied = False
 
-        if enable_reranking and len(initial_docs) > rerank_top_k:
-            from src.modules.retrieval.domain.services.reranking_service import score_and_rerank
-
-            docs_json = json.dumps(initial_docs, ensure_ascii=False)
-            rerank_result = score_and_rerank.invoke(
-                {
-                    "query": query,
-                    "documents": docs_json,
-                    "top_k": rerank_top_k,
-                    "min_score_threshold": 0.3,
-                }
-            )
-
-            reranked_data = json.loads(rerank_result)
-            reranked_docs = reranked_data
+        if len(initial_docs) > 1:
+            if settings.reranking_mode == "tei":
+                reranked_docs = await rerank_documents_with_tei(
+                    query, initial_docs, top_k=rerank_top_k
+                )
+            else:
+                docs_json = json.dumps(initial_docs, ensure_ascii=False)
+                rerank_result = score_and_rerank.invoke(
+                    {
+                        "query": query,
+                        "documents": docs_json,
+                        "top_k": rerank_top_k,
+                        "min_score_threshold": 0.3,
+                    }
+                )
+                reranked_docs = json.loads(rerank_result)
             reranking_applied = True
 
         return json.dumps(

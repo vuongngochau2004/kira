@@ -77,16 +77,21 @@ class GLMAdapter(LLMPort):
         Yields:
             Text chunks as generated
         """
-        async for chunk in self._client.chat_async_stream(
+        stream = self._client.chat_async_stream(
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
-        ):
-            # Normalize: chunk can be str or dict
-            if isinstance(chunk, str):
-                yield chunk
-            elif isinstance(chunk, dict) and chunk.get("content"):
-                yield chunk["content"]
+        )
+        try:
+            async for chunk in stream:
+                if isinstance(chunk, str):
+                    yield chunk
+                elif isinstance(chunk, dict) and chunk.get("content"):
+                    yield chunk["content"]
+        finally:
+            close = getattr(stream, "aclose", None)
+            if close is not None:
+                await close()
 
     async def health_check(self) -> bool:
         """Check LLM provider health by sending a minimal request."""

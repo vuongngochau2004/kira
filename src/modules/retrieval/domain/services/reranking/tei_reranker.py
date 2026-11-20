@@ -73,6 +73,7 @@ async def rerank_documents_with_tei(
         "query": query,
         "texts": texts,
         "return_text": False,
+        "truncate": True,
     }
 
     rerank_endpoint = f"{target_url}/rerank"
@@ -136,23 +137,11 @@ async def health_check_tei_reranker(
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    endpoints = [
-        f"{target_url}/health/rerank",
-        f"{target_url}/health",
-        f"{target_url}/info",
-    ]
-
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            for ep in endpoints:
-                try:
-                    resp = await client.get(ep, headers=headers)
-                    if resp.status_code == 200:
-                        return True
-                except httpx.HTTPError:
-                    continue
-        return False
-    except Exception:
+            response = await client.get(f"{target_url}/health/rerank", headers=headers)
+        return response.status_code == 200
+    except httpx.HTTPError:
         return False
 
 

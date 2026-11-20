@@ -8,7 +8,11 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
+from contextlib import aclosing
 from enum import Enum
+
+from google import genai
+from google.genai import types as genai_types
 
 from src.config.config import settings
 
@@ -167,26 +171,23 @@ async def chat_async_stream(
     try:
         if provider == LLMProvider.GLM:
             model = model or settings.glm_model
-            async for chunk in _chat_glm_stream(messages, model, temperature, max_tokens, timeout):
-                yield chunk
+            stream = _chat_glm_stream(messages, model, temperature, max_tokens, timeout)
         elif provider == LLMProvider.GEMINI:
             model = model or settings.gemini_model
-            async for chunk in _chat_gemini_stream(
-                messages, model, temperature, max_tokens, timeout
-            ):
-                yield chunk
+            stream = _chat_gemini_stream(messages, model, temperature, max_tokens, timeout)
         elif provider == LLMProvider.OLLAMA:
             model = model or settings.ollama_model
-            async for chunk in _chat_ollama_stream(
-                messages, model, temperature, max_tokens, timeout
-            ):
-                yield chunk
+            stream = _chat_ollama_stream(messages, model, temperature, max_tokens, timeout)
         else:
             model = model or settings.bk_llm_model or "gpt-3.5-turbo"
-            async for chunk in _chat_openai_stream(
-                messages, model, temperature, max_tokens, timeout
-            ):
+            stream = _chat_openai_stream(messages, model, temperature, max_tokens, timeout)
+        try:
+            async for chunk in stream:
                 yield chunk
+        finally:
+            close = getattr(stream, "aclose", None)
+            if close is not None:
+                await close()
     except asyncio.TimeoutError as e:
         logger.error(f"[LLM STREAM] Timeout after {timeout}s")
         raise LLMTimeoutError(f"LLM stream timed out after {timeout}s") from e
@@ -348,9 +349,6 @@ async def _chat_gemini_async(
     Returns:
         Response dict with content, model, provider
     """
-    from google import genai
-    from google.genai import types as genai_types
-
     client = genai.Client(api_key=settings.gemini_api_key)
     system_msg, conv_messages = _extract_system_message(messages)
 
@@ -405,9 +403,6 @@ async def _chat_gemini_stream(
     Yields:
         Text chunks as they arrive
     """
-    from google import genai
-    from google.genai import types as genai_types
-
     client = genai.Client(api_key=settings.gemini_api_key)
     system_msg, conv_messages = _extract_system_message(messages)
 
@@ -427,9 +422,8 @@ async def _chat_gemini_stream(
                 )
             )
 
-    # Run in thread pool since Gemini SDK is synchronous
-    def sync_generate():
-        return client.models.generate_content_stream(
+    try:
+        stream = await client.aio.models.generate_content_stream(
             model=model,
             contents=contents,  # type: ignore[arg-type]
             config=genai_types.GenerateContentConfig(
@@ -438,12 +432,12 @@ async def _chat_gemini_stream(
                 system_instruction=system_msg,
             ),
         )
-
-    stream = await asyncio.to_thread(sync_generate)
-
-    for chunk in stream:
-        if chunk.text:
-            yield chunk.text
+        async with aclosing(stream):
+            async for chunk in stream:
+                if chunk.text:
+                    yield chunk.text
+    finally:
+        await client.aio.aclose()
 
 
 async def _chat_openai_async(
@@ -881,5 +875,10 @@ class LLMClient:
             max_tokens=max_tokens if max_tokens is not None else self.max_tokens,
             timeout=timeout if timeout is not None else self.timeout,
         )
-        async for chunk in stream:
-            yield chunk
+        try:
+            async for chunk in stream:
+                yield chunk
+        finally:
+            close = getattr(stream, "aclose", None)
+            if close is not None:
+                await close()

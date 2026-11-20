@@ -256,7 +256,6 @@ class AdministrativeDraftingHandler(QueryHandlerBase):
             user_id=user_id,
             k=self.config.max_retrieved_docs,
             rrf_k=settings.rrf_k,
-            enable_rerank=settings.reranking_enabled,
         )
 
         official_results = [

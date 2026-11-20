@@ -1,6 +1,6 @@
 """Application configuration using Pydantic Settings."""
 
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 
 import yaml
@@ -18,6 +18,13 @@ class EmbeddingProvider(str, Enum):
 
     AIVN = "aivn"
     OLLAMA = "ollama"
+    TEI = "tei"
+
+
+class RerankingMode(StrEnum):
+    """Available reranking adapters."""
+
+    LLM = "llm"
     TEI = "tei"
 
 
@@ -177,14 +184,14 @@ class Settings(BaseSettings):
     )
 
     # ----- Reranking (from settings.yaml) -----
-    reranking_enabled: bool = _static_config.get("reranking", {}).get("enabled", False)
-    reranking_mode: str = _static_config.get("reranking", {}).get("mode", "llm")
+    reranking_mode: RerankingMode = RerankingMode.TEI
     reranking_top_k_before: int = _static_config.get("reranking", {}).get("top_k_before", 20)
     reranking_top_k_after: int = _static_config.get("reranking", {}).get("top_k_after", 5)
     reranking_min_score_threshold: float = _static_config.get("reranking", {}).get(
         "min_score_threshold", 0.3
     )
     reranking_timeout_ms: int = _static_config.get("reranking", {}).get("timeout_ms", 10000)
+    rag_finalization_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
 
     # ----- Citations (from settings.yaml) -----
     max_citations: int = _static_config.get("citations", {}).get("max_citations", 10)
@@ -374,6 +381,8 @@ class Settings(BaseSettings):
         """Return the configured embedding provider URL."""
         if self.embedding_provider is EmbeddingProvider.OLLAMA:
             return self.ollama_embedding_base_url
+        if self.embedding_provider is EmbeddingProvider.TEI:
+            return self.tei_base_url
         return self.aivn_embedding_base_url
 
     @property
@@ -381,6 +390,8 @@ class Settings(BaseSettings):
         """Return the configured embedding model name."""
         if self.embedding_provider is EmbeddingProvider.OLLAMA:
             return self.ollama_embedding_model
+        if self.embedding_provider is EmbeddingProvider.TEI:
+            return self.tei_embedding_model
         return self.aivn_embedding_model
 
     @property
@@ -388,6 +399,8 @@ class Settings(BaseSettings):
         """Return the configured embedding vector dimension."""
         if self.embedding_provider is EmbeddingProvider.OLLAMA:
             return self.ollama_embedding_dim
+        if self.embedding_provider is EmbeddingProvider.TEI:
+            return self.tei_embedding_dim
         return self.aivn_embedding_dim
 
     @property

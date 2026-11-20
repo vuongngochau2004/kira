@@ -14,6 +14,8 @@ async def create_conversation(
     user_id: UUID,
     title: str,
     db: AsyncSession,
+    *,
+    commit: bool = True,
 ) -> Any:
     """Create a new conversation."""
     conv = Conversation(
@@ -22,7 +24,10 @@ async def create_conversation(
         message_count=0,
     )
     db.add(conv)
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     await db.refresh(conv)
     return conv
 
@@ -35,6 +40,8 @@ async def create_message(
     sources: list | None = None,
     token_count: int | None = None,
     metadata: dict | None = None,
+    *,
+    commit: bool = True,
 ) -> Any:
     """Create a message and update conversation counters."""
     validated_metadata = {}
@@ -79,7 +86,10 @@ async def create_message(
             last_message_at=datetime.utcnow(),
         )
     )
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     await db.refresh(msg)
     return msg
 
@@ -95,6 +105,28 @@ async def get_conversation_messages(
         .order_by(Message.created_at)
     )
     return list(result.scalars().all())
+
+
+async def get_recent_owned_messages(
+    conversation_id: UUID,
+    user_id: UUID,
+    db: AsyncSession,
+    limit: int = 8,
+) -> list[Message]:
+    """Return recent saved turns only when the conversation belongs to the user."""
+    result = await db.execute(
+        select(Message)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(
+            Message.conversation_id == conversation_id,
+            Conversation.user_id == user_id,
+            Conversation.deleted_at.is_(None),
+            Message.role.in_(("user", "assistant")),
+        )
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(limit)
+    )
+    return list(reversed(result.scalars().all()))
 
 
 async def list_conversations(
@@ -149,5 +181,6 @@ __all__ = [
     "create_message",
     "get_conversation",
     "get_conversation_messages",
+    "get_recent_owned_messages",
     "list_conversations",
 ]

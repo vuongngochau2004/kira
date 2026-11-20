@@ -1,5 +1,6 @@
 /** Simple API client for chat, documents, and auth */
 import { getBackendUrl } from './backend-url'
+import { z } from 'zod'
 
 const getApiBase = () => {
   if (typeof window !== 'undefined') {
@@ -116,9 +117,20 @@ export async function fetchAPI<T>(
 // ==================== SSE Streaming Types ====================
 
 export interface SSEChunk {
-  type: 'routing' | 'retrieval' | 'content' | 'thinking' | 'status' | 'metadata' | 'done' | 'error'
+  type: 'routing' | 'retrieval' | 'content' | 'content_replace' | 'thinking' | 'status' | 'metadata' | 'done' | 'error'
   data: unknown
 }
+
+const sseChunkSchema = z.object({
+  type: z.enum(['routing', 'retrieval', 'content', 'content_replace', 'thinking', 'status', 'metadata', 'done', 'error']),
+  data: z.unknown().optional(),
+})
+
+const answerChunkSchema = z.object({
+  text: z.string(),
+  provisional: z.boolean().optional(),
+  attempt: z.number().int().positive().optional(),
+})
 
 export interface RoutingData {
   router: string
@@ -224,8 +236,12 @@ export class SSEClient {
           const match = line.match(/^data:\s*(.+)$/m)
           if (match) {
             try {
-              const data = JSON.parse(match[1])
-              yield data
+              const parsed = sseChunkSchema.safeParse(JSON.parse(match[1]))
+              if (!parsed.success) continue
+              if (parsed.data.type === 'content' || parsed.data.type === 'content_replace') {
+                if (!answerChunkSchema.safeParse(parsed.data.data).success) continue
+              }
+              yield { type: parsed.data.type, data: parsed.data.data }
             } catch {
               // Ignore parse errors
             }

@@ -12,9 +12,13 @@ Architecture:
                               [Regenerate] or [END]
 """
 
+import asyncio
+from contextlib import aclosing
 from typing import Literal, Optional
 from uuid import UUID
 
+from langchain_core.runnables import RunnableConfig
+from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 from loguru import logger
 
@@ -33,8 +37,10 @@ from src.modules.rag.orchestration.state.rag_state import (
     should_regenerate,
 )
 from src.modules.retrieval.application.search_use_case import SearchUseCase
+from src.shared.domain.conversation_context import ConversationTurn, bound_history
 from src.shared.ports.embedding import EmbeddingPort
 from src.shared.ports.llm import LLMPort
+from src.shared.utils.request_trace import request_stage
 
 
 class LangGraphRAGPipeline:
@@ -162,9 +168,11 @@ class LangGraphRAGPipeline:
             Updated RAGState with routing decision
         """
         logger.info("🎯 <yellow>[RAG NODE: ORCHESTRATOR]</yellow> Orchestrator node executing...")
-        return await self.orchestrator_agent.handle(state, context={"langgraph_node": True})
+        with request_stage("orchestrator"):
+            async with asyncio.timeout(self.orchestrator_config.timeout_ms / 1000):
+                return await self.orchestrator_agent.handle(state, context={"langgraph_node": True})
 
-    async def _retrieval_node(self, state: RAGState) -> RAGState:
+    async def _retrieval_node(self, state: RAGState, config: RunnableConfig) -> RAGState:
         """
         Retrieval node - Query refinement + retrieval + reranking.
 
@@ -177,9 +185,13 @@ class LangGraphRAGPipeline:
             Updated RAGState with retrieved documents
         """
         logger.info("🔍 <yellow>[RAG NODE: RETRIEVAL]</yellow> Retrieval node executing...")
-        return await self.retrieval_agent.handle(state, context={"langgraph_node": True})
+        if config.get("configurable", {}).get("stream_preview"):
+            get_stream_writer()({"kind": "stage_start", "stage": "retrieval"})
+        with request_stage("retrieval"):
+            async with asyncio.timeout(self.retrieval_config.timeout_ms / 1000):
+                return await self.retrieval_agent.handle(state, context={"langgraph_node": True})
 
-    async def _generation_node(self, state: RAGState) -> RAGState:
+    async def _generation_node(self, state: RAGState, config: RunnableConfig) -> RAGState:
         """
         Generation node - LLM response generation with citations.
 
@@ -192,20 +204,39 @@ class LangGraphRAGPipeline:
             Updated RAGState with generated response
         """
         logger.info("✍️  <yellow>[RAG NODE: GENERATION]</yellow> Generation node executing...")
-        if state["orchestrator_state"].get("iteration_count", 0) > 0:
+        attempt = state["orchestrator_state"].get("iteration_count", 0) + 1
+        feedback: str | None = None
+        if attempt > 1:
             quality = state["quality_agent_output"]
             critique = quality.get("critique") or {}
-            feedback = [*critique.get("issues", []), *quality.get("suggestions", [])]
-            state = await self.generation_agent.regenerate_with_feedback(
-                state, feedback="\n".join(feedback) or "Improve factual support and citations."
-            )
-        else:
-            state = await self.generation_agent.handle(state, context={"langgraph_node": True})
+            feedback_items = [*critique.get("issues", []), *quality.get("suggestions", [])]
+            feedback = "\n".join(feedback_items) or "Improve factual support and citations."
+
+        with request_stage("generation"):
+            async with asyncio.timeout(self.generation_config.timeout_ms / 1000):
+                if config.get("configurable", {}).get("stream_preview"):
+                    writer = get_stream_writer()
+                    writer({"kind": "attempt_start", "attempt": attempt})
+                    state = await self.generation_agent.generate_for_graph_stream(
+                        state,
+                        on_token=lambda token: writer(
+                            {"kind": "token", "attempt": attempt, "text": token}
+                        ),
+                        feedback=feedback,
+                    )
+                elif feedback is not None:
+                    state = await self.generation_agent.regenerate_with_feedback(
+                        state, feedback=feedback
+                    )
+                else:
+                    state = await self.generation_agent.handle(
+                        state, context={"langgraph_node": True}
+                    )
         if state.get("generated_response") and not state.get("final_response"):
             state["final_response"] = state["generated_response"]
         return state
 
-    async def _quality_node(self, state: RAGState) -> RAGState:
+    async def _quality_node(self, state: RAGState, config: RunnableConfig) -> RAGState:
         """
         Quality node - Critique + verification + quality assessment.
 
@@ -218,7 +249,11 @@ class LangGraphRAGPipeline:
             Updated RAGState with quality assessment
         """
         logger.info("🎓 <yellow>[RAG NODE: QUALITY]</yellow> Quality node executing...")
-        state = await self.quality_agent.handle(state, context={"langgraph_node": True})
+        if config.get("configurable", {}).get("stream_preview"):
+            get_stream_writer()({"kind": "stage_start", "stage": "quality"})
+        with request_stage("quality"):
+            async with asyncio.timeout(self.quality_config.timeout_ms / 1000):
+                state = await self.quality_agent.handle(state, context={"langgraph_node": True})
         quality = state["quality_agent_output"]
         verification = quality.get("verification") or {}
         verified = verification.get("is_verified") is True
@@ -249,7 +284,7 @@ class LangGraphRAGPipeline:
     # Conditional Edge Functions (routing logic)
     # ==============================================================================
 
-    def _should_route_to_retrieval(self, state: RAGState) -> Literal["retrieval", "fallback"]:
+    async def _should_route_to_retrieval(self, state: RAGState) -> Literal["retrieval", "fallback"]:
         """
         Conditional edge: Decide routing after orchestrator.
 
@@ -271,7 +306,7 @@ class LangGraphRAGPipeline:
         logger.info("→ <yellow>[RAG ROUTING]</yellow> Routing to retrieval node")
         return "retrieval"
 
-    def _should_regenerate_or_finish(self, state: RAGState) -> Literal["regenerate", "end"]:
+    async def _should_regenerate_or_finish(self, state: RAGState) -> Literal["regenerate", "end"]:
         """
         Conditional edge: Decide whether to regenerate or finish.
 
@@ -309,7 +344,11 @@ class LangGraphRAGPipeline:
     # ==============================================================================
 
     async def run(
-        self, query: str, user_id: str, conversation_id: Optional[UUID] = None
+        self,
+        query: str,
+        user_id: str,
+        conversation_id: Optional[UUID] = None,
+        history: list[ConversationTurn] | None = None,
     ) -> RAGState:
         """
         Run the LangGraph RAG pipeline.
@@ -322,13 +361,10 @@ class LangGraphRAGPipeline:
         Returns:
             Final RAGState with response and citations
         """
-        logger.info(
-            f"🚀 <yellow>[RAG PIPELINE START]</yellow> Starting LangGraph RAG pipeline. "
-            f"Query: \"{query[:50] + '...' if len(query) > 50 else query}\", user_id='{user_id}'"
-        )
+        logger.info("RAG pipeline starting: user_id={}, query_chars={}", user_id, len(query))
 
         # Create initial state
-        initial_state = create_initial_state(query, user_id, conversation_id)
+        initial_state = create_initial_state(query, user_id, conversation_id, bound_history(history))
 
         # Invoke graph
         try:
@@ -338,17 +374,21 @@ class LangGraphRAGPipeline:
             )
             return result
 
-        except Exception as e:
-            logger.error(
-                f"❌ <red>[RAG PIPELINE ERROR]</red> LangGraph pipeline failed: {e}", exc_info=True
-            )
+        except Exception:
+            logger.error("LangGraph pipeline failed")
             # Return error state
-            initial_state["errors"].append(f"LangGraph pipeline error: {str(e)}")
+            initial_state["errors"].append("rag_pipeline_failed")
             initial_state["should_fallback"] = True
-            initial_state["fallback_reason"] = str(e)
+            initial_state["fallback_reason"] = "rag_pipeline_failed"
             return initial_state
 
-    async def run_stream(self, query: str, user_id: str, conversation_id: Optional[UUID] = None):
+    async def run_stream(
+        self,
+        query: str,
+        user_id: str,
+        conversation_id: Optional[UUID] = None,
+        history: list[ConversationTurn] | None = None,
+    ):
         """
         Run the LangGraph RAG pipeline with streaming updates.
 
@@ -362,29 +402,27 @@ class LangGraphRAGPipeline:
         Yields:
             Streaming updates from graph execution
         """
-        logger.info(
-            f"🚀 <yellow>[RAG PIPELINE STREAM START]</yellow> Starting LangGraph RAG streaming. "
-            f"Query: \"{query[:50] + '...' if len(query) > 50 else query}\", user_id='{user_id}'"
-        )
+        logger.info("RAG stream starting: user_id={}, query_chars={}", user_id, len(query))
 
-        initial_state = create_initial_state(query, user_id, conversation_id)
+        initial_state = create_initial_state(query, user_id, conversation_id, bound_history(history))
 
         try:
             # A previous implementation manually invoked each agent here. That
             # duplicated graph behaviour and, critically, skipped the quality
             # gate's ``generation -> quality -> generation`` regeneration loop.
             # Streaming must execute the same compiled workflow as ``run``.
-            async for mode, chunk in self.graph.astream(
-                initial_state,
-                stream_mode=["updates", "messages"],
-            ):
-                yield {"mode": mode, "chunk": chunk}
-        except Exception as e:
-            logger.error(
-                f"❌ <red>[RAG PIPELINE STREAM ERROR]</red> LangGraph streaming failed: {e}",
-                exc_info=True,
-            )
-            yield {"mode": "error", "chunk": {"error": str(e)}}
+            async with aclosing(
+                self.graph.astream(
+                    initial_state,
+                    config={"configurable": {"stream_preview": True}},
+                    stream_mode=["updates", "custom"],
+                )
+            ) as stream:
+                async for mode, chunk in stream:
+                    yield {"mode": mode, "chunk": chunk}
+        except Exception:
+            logger.error("LangGraph streaming failed")
+            yield {"mode": "error", "chunk": {"error": "rag_pipeline_failed"}}
 
     def get_graph_visualization(self) -> str:
         """

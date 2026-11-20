@@ -111,7 +111,6 @@ def create_answer_legal_question(
         keywords=LegalKeywordIndex(search, ttl_seconds=settings.legal_keyword_index_ttl_seconds),
         graph=graph or legal_graph(),
         reranker=ConfiguredLegalReranker(
-            enabled=settings.reranking_enabled,
             mode=settings.reranking_mode,
             llm_client_provider=get_llm_client,
         ),

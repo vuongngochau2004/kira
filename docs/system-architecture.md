@@ -162,6 +162,24 @@ flowchart LR
 
 ### 3.1 Luồng Hội thoại Thời gian thực (Real-time SSE Streaming Chat)
 
+The browser posts to the same-origin Next.js route, which forwards the request to FastAPI.
+FastAPI authenticates the user and checks conversation ownership before streaming.
+The event contract differs by handler:
+
+| Handler | Content events | Finalization |
+|---|---|---|
+| Personal-document RAG | `content` with `provisional: true` and an `attempt` number; a retry clears the previous preview with an empty `content_replace` | `content_replace` with `provisional: false` contains the answer after graph quality checks and the final relevance filter |
+| Legal QA and other chat handlers | Existing verified or direct `content` events | Existing handler completion semantics; no provisional RAG preview |
+
+For every completed response, `metadata` carries final citations and the persisted
+`conversation_id` and `message_id`, followed by one `done` event. The server saves the
+user and assistant messages together only when final metadata is handled. Citations are
+not attached to a provisional preview. If the stream fails before finalization, it clears
+the preview and emits a safe `error` and `done` without saving a draft. Pressing Stop
+aborts the browser fetch and Next.js upstream fetch; the FastAPI and LangGraph async
+iterators close the provider stream. A stopped preview stays visible locally as unsaved.
+If the DB commit completed before Stop, the saved final answer remains authoritative.
+
 ```mermaid
 ---
 config:
@@ -169,71 +187,53 @@ config:
 ---
 sequenceDiagram
     autonumber
-    actor User as Người dùng (Web UI)
-    participant API as FastAPI Router (/api/v1/chat/stream)
-    participant Auth as JWT Middleware
-    participant ChatApp as Chat Application Service
-    participant Classifier as Intent Classifier (Composite)
-    participant LangGraph as LangGraph RAG Agent
-    participant Retrieval as Hybrid Retrieval Engine
-    participant TEI as TEI / Embedding API
-    participant Qdrant as Qdrant Vector DB
-    participant Postgres as PostgreSQL DB
-    participant LLM as Active LLM Provider
+    actor Browser
+    participant Next as Next.js stream proxy
+    participant API as FastAPI chat endpoint
+    participant Chat as Chat use case
+    participant Graph as Personal RAG LangGraph
+    participant LLM as LLM provider
+    participant DB as PostgreSQL
 
-    User->>API: POST /api/v1/chat/stream {message, conversation_id}
-    API->>Auth: Xác thực JWT token từ cookie
-    Auth-->>API: User Context (user_id)
-    API->>ChatApp: execute_stream(message, user_id, conversation_id)
-    
-    ChatApp->>Postgres: Tải lịch sử hội thoại (Conversation & Messages)
-    Postgres-->>ChatApp: Lịch sử tin nhắn gần nhất
-    
-    ChatApp->>Classifier: classify_intent(query, history)
-    Note over Classifier: Chuỗi kiểm tra: Keyword -> Cache -> LLM Fast Path
-    Classifier-->>ChatApp: Intent: RAG | Conversational | LegalQA
-    
-    ChatApp-->>User: SSE Event: 'routing' {intent, confidence}
-
-    alt Intent == RAG / LegalQA
-        ChatApp->>LangGraph: run_graph(query, user_id, intent)
-        LangGraph->>Retrieval: hybrid_search(query, user_id, top_k=20)
-        
-        par Truy vấn Song song
-            Retrieval->>TEI: embed_query(query) -> 1024-dim Vector
-            TEI-->>Retrieval: Dense Vector
-            Retrieval->>Qdrant: Search vectors (payload: user_id)
-            Qdrant-->>Retrieval: Dense Chunks Top-K
-        and
-            Retrieval->>Postgres: BM25 PyVi Keyword Search (user_id)
-            Postgres-->>Retrieval: Sparse Chunks Top-K
+    Browser->>Next: POST /api/v1/chat/stream
+    Next->>API: Forward body and auth cookie
+    API->>DB: Check conversation ownership and load history
+    API->>Chat: execute_stream(query, user_id)
+    Chat-->>Browser: routing
+    alt Personal-document RAG
+        Chat->>Graph: run_stream(query, user_id)
+        Graph-->>API: retrieval stage events
+        API-->>Browser: status (retrieval started/completed)
+        Graph->>LLM: Stream generation attempt
+        loop For each generated chunk
+            LLM-->>Graph: token delta
+            Graph-->>API: provisional token event
+            API-->>Browser: content {text, provisional: true, attempt}
         end
-
-        Retrieval->>Retrieval: Reciprocal Rank Fusion (RRF k=60)
-        Retrieval->>TEI: rerank(query, candidates, top_n=5)
-        TEI-->>Retrieval: Reranked Chunks + Relevance Scores
-        Retrieval-->>LangGraph: Retrieved Chunks & Citations
-
-        ChatApp-->>User: SSE Event: 'retrieval' {chunks_found, citations_preview}
-        
-        LangGraph->>LLM: Stream prompt with grounded context
-        loop Token Streaming
-            LLM-->>ChatApp: Text Token Delta
-            ChatApp-->>User: SSE Event: 'token' {delta}
+        Graph->>Graph: Quality check, optional retry
+        opt Retry
+            Graph-->>API: retry attempt starts
+            API-->>Browser: content_replace {text: "", provisional: true, attempt}
+            Graph->>LLM: Stream next attempt
         end
-
-        LangGraph->>LangGraph: Verify citation grounding score
-        ChatApp-->>User: SSE Event: 'citation' {verified_citations}
-    else Intent == Conversational
-        ChatApp->>LLM: Direct Chat Stream (History + Query)
-        loop Token Streaming
-            LLM-->>ChatApp: Text Token Delta
-            ChatApp-->>User: SSE Event: 'token' {delta}
-        end
+        Graph-->>Chat: final workflow state
+        Chat->>Chat: Final relevance check
+        Chat-->>API: final answer and citations
+        API-->>Browser: content_replace {text: final_answer, provisional: false}
+    else Legal QA or other handler
+        Chat-->>API: existing content events
+        API-->>Browser: content
     end
-
-    ChatApp->>Postgres: Lưu User Message & Assistant Message (kèm citations)
-    ChatApp-->>User: SSE Event: 'done' {message_id, finish_reason}
+    alt Completed
+        API->>DB: Commit final user and assistant message pair
+        API-->>Browser: metadata {final citations, conversation_id, message_id}
+        API-->>Browser: done
+    else Stop before final commit
+        Browser-->>Next: Abort request
+        Next-->>API: Abort upstream fetch
+        API-->>Graph: Close stream
+        Graph-->>LLM: Close provider iterator
+    end
 ```
 
 ---

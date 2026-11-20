@@ -19,6 +19,7 @@ export interface PipelineStepView {
   tone: PipelineStepTone
   durationMs: number | null
   notes: string[]
+  pending: boolean
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -64,13 +65,18 @@ const QUALITY_DECISION_TEXT: Record<string, string> = {
 /** Map a raw step to the labels shown in the timeline. */
 export function describePipelineStep(step: PipelineStep): PipelineStepView {
   const meta = step.metadata
-  const iteration = asNumber(meta.iteration) ?? 0
+  const iteration = asNumber(meta.iteration) ?? Math.max((asNumber(meta.attempt) ?? 1) - 1, 0)
+  const pending = meta.state === 'started' || (
+    step.stage === 'generation' && asNumber(meta.attempt) !== null &&
+    asNumber(meta.duration_ms) === null
+  )
   const view: PipelineStepView = {
     label: step.stage,
     detail: null,
     tone: 'success',
     durationMs: asNumber(meta.duration_ms),
     notes: [],
+    pending,
   }
 
   switch (step.stage) {
@@ -127,6 +133,12 @@ export function describePipelineStep(step: PipelineStep): PipelineStepView {
       break
     default:
       break
+  }
+
+  if (pending) {
+    view.detail = 'Đang xử lý…'
+    view.tone = 'success'
+    view.notes = []
   }
 
   return view

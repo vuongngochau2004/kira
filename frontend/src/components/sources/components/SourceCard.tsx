@@ -3,23 +3,24 @@
  * Compact source item used in the left NotebookLM-style source list.
  */
 
-import React, { memo } from "react";
-import { ChevronDown, Eye, FileText, Globe, Quote } from "lucide-react";
+import React, { memo, useEffect, useRef } from "react";
+import { ChevronDown, Eye, Quote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SourceCardProps, SourceChunk } from "../types/source-panel-types";
 import { LegalCitationMeta } from "@/components/legal/LegalCitationMeta";
-
-const FILE_ICONS = {
-  pdf: FileText,
-  docx: FileText,
-  web: Globe,
-} as const;
+import { SourceSummary } from "./SourceSummary";
 
 export const SourceCard = memo<SourceCardProps>((props) => {
-  const { group, isSelected, onExpand, onPreview } = props;
+  const { group, isSelected, activeSourceId, onExpand, onPreview } = props;
   const [expandedCitations, setExpandedCitations] = React.useState<Set<string>>(new Set());
+  const activeCitationRef = useRef<HTMLDivElement>(null);
 
-  const Icon = (group.type && group.type in FILE_ICONS ? FILE_ICONS[group.type as keyof typeof FILE_ICONS] : FileText);
+  useEffect(() => {
+    if (isSelected && activeSourceId) {
+      activeCitationRef.current?.scrollIntoView?.({ block: "nearest" });
+    }
+  }, [activeSourceId, isSelected]);
+
   const groupKey = group.document_id || group.title;
   const readableChunks = group.chunks.filter((chunk) => chunk.snippet?.trim());
 
@@ -38,17 +39,8 @@ export const SourceCard = memo<SourceCardProps>((props) => {
   return (
     <div
       id={`source-card-${groupKey}`}
-      role="button"
-      tabIndex={0}
-      onClick={() => onExpand(groupKey)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onExpand(groupKey);
-        }
-      }}
       className={cn(
-        "group w-full min-w-0 max-w-full cursor-pointer overflow-hidden rounded-xl border bg-card p-3.5 transition-all duration-200",
+        "group w-full min-w-0 max-w-full overflow-hidden rounded-xl border bg-card p-3.5 transition-all duration-200",
         "hover:border-primary/30 hover:bg-muted/30",
         isSelected
           ? "border-primary/35 bg-primary/5 shadow-sm ring-1 ring-primary/15"
@@ -57,57 +49,25 @@ export const SourceCard = memo<SourceCardProps>((props) => {
     >
       <div className="flex min-w-0 items-start">
         <div className="min-w-0 flex-1 space-y-3">
-          <div className="flex items-start gap-2 min-w-0">
-            <Icon className="mt-0.5 w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-semibold text-foreground leading-5 break-words">
-                {group.title}
-              </h3>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                  {group.chunks.length} trích dẫn
-                </span>
-                {group.maxScore > 0 && (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    {(group.maxScore * 100).toFixed(0)}% liên quan
-                  </span>
-                )}
-              </div>
-            </div>
-
+          <div className="flex min-w-0 items-start gap-2">
+            <SourceSummary
+              title={group.title}
+              type={group.type}
+              referenceCount={group.chunks.length}
+              expanded={isSelected}
+              onExpand={() => onExpand(groupKey)}
+            />
             {group.document_id && (
               <button
                 type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onPreview(group.document_id!, group.title);
-                }}
-                className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
-                aria-label="Xem tài liệu gốc"
+                onClick={() => onPreview(group.document_id!, group.title)}
+                className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+                aria-label={`Xem tài liệu gốc ${group.title}`}
                 title="Xem tài liệu gốc"
               >
                 <Eye className="w-3.5 h-3.5" />
               </button>
             )}
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onExpand(groupKey);
-              }}
-              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
-              aria-expanded={isSelected}
-              aria-label={isSelected ? "Đóng trích dẫn" : "Mở trích dẫn"}
-              title={isSelected ? "Đóng trích dẫn" : "Mở trích dẫn"}
-            >
-              <ChevronDown
-                className={cn(
-                  "w-4 h-4 transition-transform duration-200",
-                  isSelected && "rotate-180 text-primary",
-                )}
-                aria-hidden="true"
-              />
-            </button>
           </div>
 
           {isSelected && (
@@ -116,52 +76,27 @@ export const SourceCard = memo<SourceCardProps>((props) => {
                 readableChunks.map((chunk, chunkIndex) => {
                   const citationKey = chunk.id || `${groupKey}-${chunkIndex}`;
                   const isCitationExpanded = expandedCitations.has(citationKey);
+                  const isActive = citationKey === activeSourceId;
 
                   return (
                     <div
                       key={citationKey}
-                      role="button"
-                      tabIndex={0}
-                      aria-expanded={isCitationExpanded}
-                      aria-label={isCitationExpanded ? "Đóng nội dung trích dẫn" : "Mở nội dung trích dẫn"}
-                      title={isCitationExpanded ? "Đóng nội dung trích dẫn" : "Mở nội dung trích dẫn"}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleCitation(citationKey);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          toggleCitation(citationKey);
-                        }
-                      }}
-                      className="group/citation cursor-pointer rounded-lg border border-border/60 bg-muted/20 p-3 transition-colors hover:border-primary/30 hover:bg-muted/30"
+                      ref={isActive ? activeCitationRef : undefined}
+                      className={cn("group/citation rounded-lg border p-3 transition-colors hover:border-primary/30 hover:bg-muted/30", isActive ? "border-primary bg-primary/10" : "border-border/60 bg-muted/20")}
                     >
                       <div className="flex items-center gap-2">
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        <button type="button" onClick={() => toggleCitation(citationKey)} aria-expanded={isCitationExpanded || isActive} aria-label={`${isCitationExpanded || isActive ? "Đóng" : "Mở"} trích dẫn ${chunkIndex + 1}${chunk.page !== undefined ? `, trang ${chunk.page}` : ""}`} className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-[10px] font-medium uppercase tracking-wide text-muted-foreground focus-visible:outline-2 focus-visible:outline-primary">
                           <Quote className="w-3 h-3 shrink-0" />
                           <span className="truncate">
                             Trích dẫn {chunkIndex + 1}
                           </span>
-                        </div>
+                          {chunk.page !== undefined && <span>· Trang {chunk.page}</span>}
+                          <ChevronDown className={cn("ml-auto w-3.5 h-3.5 shrink-0 transition-transform", (isCitationExpanded || isActive) && "rotate-180 text-primary")} aria-hidden="true" />
+                        </button>
                         {chunk.legal && <LegalCitationMeta legal={chunk.legal} />}
-
-                        <span
-                          className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors group-hover/citation:text-primary"
-                          aria-hidden="true"
-                        >
-                          <ChevronDown
-                            className={cn(
-                              "w-3.5 h-3.5 transition-transform duration-200",
-                              isCitationExpanded && "rotate-180 text-primary",
-                            )}
-                            aria-hidden="true"
-                          />
-                        </span>
                       </div>
 
-                      {isCitationExpanded && (
+                      {(isCitationExpanded || isActive) && (
                         <CitationExcerpt citation={chunk} />
                       )}
                     </div>
@@ -193,7 +128,7 @@ function CitationExcerpt({ citation }: CitationExcerptProps) {
         <span>Đoạn trích</span>
       </div>
 
-      <blockquote className="max-h-80 overflow-y-auto rounded-lg border border-zinc-200 border-l-4 border-l-orange-600 bg-[#ffffff] p-3 pr-2 text-[13px] font-medium leading-6 text-[#111111] whitespace-pre-line break-words text-justify custom-scrollbar">
+      <blockquote className="max-h-80 overflow-y-auto rounded-lg border border-border border-l-4 border-l-primary bg-background p-3 pr-2 text-[13px] leading-6 text-foreground whitespace-pre-line break-words custom-scrollbar">
         {citation.snippet.trim()}
       </blockquote>
     </div>

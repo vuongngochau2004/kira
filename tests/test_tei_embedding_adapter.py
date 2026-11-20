@@ -41,7 +41,11 @@ async def test_embed_single_text(tei_adapter):
         assert vector[0] == 0.1
         mock_post.assert_called_once()
         call_kwargs = mock_post.call_args[1]
-        assert call_kwargs["json"] == {"inputs": ["Xin chào Việt Nam"], "normalize": True}
+        assert call_kwargs["json"] == {
+            "inputs": ["Xin chào Việt Nam"],
+            "normalize": True,
+            "truncate": True,
+        }
         assert call_kwargs["headers"]["Authorization"] == "Bearer test-key"
 
 
@@ -138,6 +142,19 @@ async def test_health_check_failure(tei_adapter):
 
         is_healthy = await tei_adapter.health_check()
         assert is_healthy is False
+
+
+@pytest.mark.asyncio
+async def test_health_check_does_not_accept_generic_health_when_embedding_is_down(tei_adapter):
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = [
+            httpx.Response(503),
+            httpx.Response(200),
+        ]
+
+        assert await tei_adapter.health_check() is False
+
+    assert mock_get.await_count == 1
 
 
 def test_factory_creates_tei_adapter(monkeypatch):

@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from typing import Any, Protocol
 from uuid import UUID
 
+from src.shared.domain.conversation_context import ConversationTurn
 from src.shared.ports.llm import LLMPort
 
 
@@ -22,6 +23,7 @@ class RAGWorkflowPort(Protocol):
         query: str,
         user_id: str,
         conversation_id: UUID | None = None,
+        history: list[ConversationTurn] | None = None,
     ) -> dict[str, Any]: ...
 
     def run_stream(
@@ -29,6 +31,7 @@ class RAGWorkflowPort(Protocol):
         query: str,
         user_id: str,
         conversation_id: UUID | None = None,
+        history: list[ConversationTurn] | None = None,
     ) -> AsyncIterator[dict[str, Any]]: ...
 
 
