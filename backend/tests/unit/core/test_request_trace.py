@@ -40,8 +40,7 @@ async def test_trace_records_provider_failure() -> None:
             return False
 
     with request_trace() as trace:
-        with request_stage("quality"):
-            with pytest.raises(RuntimeError):
-                await TracedLLM(FailedLLM()).generate(messages=[])
+        with request_stage("quality"), pytest.raises(RuntimeError):
+            await TracedLLM(FailedLLM()).generate(messages=[])
         assert trace.model_calls == 1
         assert trace.calls_by_stage == {"quality": 1}

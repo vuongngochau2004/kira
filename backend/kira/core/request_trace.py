@@ -1,10 +1,10 @@
 """Request-local timing and model-call counters for chat workflows."""
 
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Iterator
 from uuid import uuid4
 
 from loguru import logger

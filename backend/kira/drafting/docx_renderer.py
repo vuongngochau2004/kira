@@ -47,11 +47,7 @@ def render_administrative_docx(content: str) -> bytes:
             run = paragraph.add_run(line)
             run.bold = True
             run.font.size = Pt(14)
-        elif _looks_like_subtitle(line):
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = paragraph.add_run(line)
-            run.bold = True
-        elif _looks_like_signature_block(line):
+        elif _looks_like_subtitle(line) or _looks_like_signature_block(line):
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run = paragraph.add_run(line)
             run.bold = True

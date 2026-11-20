@@ -65,8 +65,7 @@ async def extract_image_ocr(file_path: str, ocr: PaddleOCR | None = None) -> Ext
                 },
                 success=True,
             )
-        else:
-            return await extract_image_docling(file_path)
+        return await extract_image_docling(file_path)
 
     except Exception as e:
         return await extract_image_docling(file_path, error=str(e))

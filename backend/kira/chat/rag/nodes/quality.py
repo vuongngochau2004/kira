@@ -21,7 +21,8 @@ import json
 import logging
 import re
 import time
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 from kira.chat.rag.state import (
     AgentStatus,
@@ -57,7 +58,7 @@ class QualityAgent:
         llm_client: LLM client for critique and verification
     """
 
-    def __init__(self, config: QualityAgentConfig, llm_client: Optional[LLMPort] = None):
+    def __init__(self, config: QualityAgentConfig, llm_client: LLMPort | None = None):
         """
         Initialize QualityAgent.
 
@@ -69,7 +70,7 @@ class QualityAgent:
         self.llm_client = llm_client
         self._iteration = 0
 
-    async def handle(self, state: RAGState, context: Optional[Dict[str, Any]] = None) -> RAGState:
+    async def handle(self, state: RAGState, context: dict[str, Any] | None = None) -> RAGState:
         """
         Execute quality assessment: critique + verification.
 
@@ -172,8 +173,8 @@ class QualityAgent:
             return update_state_with_agent_result(state, result)
 
     async def handle_stream(
-        self, state: RAGState, context: Optional[Dict[str, Any]] = None
-    ) -> AsyncIterator[Dict[str, Any]]:
+        self, state: RAGState, context: dict[str, Any] | None = None
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         Execute quality assessment with streaming progress.
 
@@ -278,7 +279,7 @@ class QualityAgent:
     # ==========================================================================
 
     async def _critique_response(
-        self, query: str, response: str, documents: List[Any]
+        self, query: str, response: str, documents: list[Any]
     ) -> CritiqueResult:
         """
         Perform LLM-based critique of response.
@@ -313,7 +314,7 @@ class QualityAgent:
         self,
         query: str,
         response: str,
-        documents: List[Any],
+        documents: list[Any],
     ) -> CritiqueResult:
         """Run structured LLM critique instead of hardcoded issue patterns."""
         context = self._format_documents_for_quality(documents)
@@ -385,7 +386,7 @@ Quy tắc:
         return parsed
 
     @staticmethod
-    def _format_documents_for_quality(documents: List[Any]) -> str:
+    def _format_documents_for_quality(documents: list[Any]) -> str:
         parts = []
         for index, doc in enumerate(documents, start=1):
             filename = getattr(doc, "filename", f"Document {index}")
@@ -393,7 +394,7 @@ Quy tắc:
             parts.append(f"[Document {index}] {filename}\n{content}")
         return "\n\n".join(parts)
 
-    def _rule_based_critique(self, response: str, documents: List[Any]) -> CritiqueResult:
+    def _rule_based_critique(self, response: str, documents: list[Any]) -> CritiqueResult:
         """
         Rule-based critique fallback.
 
@@ -428,7 +429,7 @@ Quy tắc:
             should_regenerate=len(issues) > 2,
         )
 
-    def _check_response_issues(self, response: str, documents: List[Any]) -> List[str]:
+    def _check_response_issues(self, response: str, documents: list[Any]) -> list[str]:
         """
         Check for common response issues.
 
@@ -462,7 +463,7 @@ Quy tắc:
 
         return issues
 
-    def _generate_suggestions(self, issues: List[str]) -> List[str]:
+    def _generate_suggestions(self, issues: list[str]) -> list[str]:
         """
         Generate improvement suggestions based on issues.
 
@@ -490,7 +491,7 @@ Quy tắc:
     # ==========================================================================
 
     async def _verify_response(
-        self, query: str, response: str, documents: List[Any], critique_result: CritiqueResult
+        self, query: str, response: str, documents: list[Any], critique_result: CritiqueResult
     ) -> VerificationResult:
         """
         Verify factual consistency and citation accuracy.
@@ -556,7 +557,7 @@ Quy tắc:
         )
 
     async def _verify_factual_consistency(
-        self, query: str, response: str, documents: List[Any]
+        self, query: str, response: str, documents: list[Any]
     ) -> float:
         """
         Verify that the response's factual claims are supported by the retrieved documents.
@@ -577,7 +578,7 @@ Quy tắc:
         return score
 
     async def _grounding_check(
-        self, query: str, response: str, documents: List[Any]
+        self, query: str, response: str, documents: list[Any]
     ) -> tuple[float, bool, list[str]]:
         """Return (score, whether the LLM check ran, unsupported claims)."""
         if documents and self.llm_client is not None:
@@ -589,7 +590,7 @@ Quy tắc:
         return self._heuristic_factual_consistency(response), False, []
 
     async def _llm_grounding_score(
-        self, query: str, response: str, documents: List[Any]
+        self, query: str, response: str, documents: list[Any]
     ) -> tuple[float, list[str]]:
         """Ask the LLM how well each factual claim in the response is backed by the documents."""
         context = self._format_documents_for_quality(documents)
@@ -651,7 +652,7 @@ Quy tắc chấm grounding_score (0.0-1.0):
 
         return max(0.0, min(1.0, score))
 
-    def _verify_citation_accuracy(self, response: str, documents: List[Any]) -> float:
+    def _verify_citation_accuracy(self, response: str, documents: list[Any]) -> float:
         """
         Verify citation accuracy.
 
@@ -773,7 +774,4 @@ Quy tắc chấm grounding_score (0.0-1.0):
             return True
 
         # Check critique recommendation
-        if critique_result.should_regenerate:
-            return True
-
-        return False
+        return bool(critique_result.should_regenerate)

@@ -7,7 +7,7 @@ Follows Pydantic v2 patterns with strict type checking and validation.
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, TypedDict
+from typing import Any, Literal, TypedDict
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -23,12 +23,12 @@ class Citation(BaseModel):
     """Citation information for retrieved documents."""
 
     filename: str = Field(..., description="Source filename")
-    page_number: Optional[int] = Field(default=None, description="Page number in source document")
+    page_number: int | None = Field(default=None, description="Page number in source document")
     text: str = Field(..., description="Cited text excerpt")
-    doc_index: Optional[int] = Field(default=None, description="Document index in response")
-    score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Relevance score")
-    chunk_index: Optional[int] = Field(default=None, description="Chunk index within document")
-    document_id: Optional[str] = Field(default=None, description="Source document ID")
+    doc_index: int | None = Field(default=None, description="Document index in response")
+    score: float | None = Field(default=None, ge=0.0, le=1.0, description="Relevance score")
+    chunk_index: int | None = Field(default=None, description="Chunk index within document")
+    document_id: str | None = Field(default=None, description="Source document ID")
 
 
 # ============================================================================
@@ -75,9 +75,9 @@ class AgentResult(BaseModel):
 
     agent_name: str = Field(..., description="Name of the agent that produced this result")
     status: AgentStatus = Field(default=AgentStatus.COMPLETED, description="Execution status")
-    execution_time_ms: Optional[float] = Field(None, description="Execution time in milliseconds")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
-    error_message: Optional[str] = Field(None, description="Error message if failed")
+    execution_time_ms: float | None = Field(None, description="Execution time in milliseconds")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    error_message: str | None = Field(None, description="Error message if failed")
 
     model_config = ConfigDict(use_enum_values=True)
 
@@ -87,9 +87,9 @@ class RetrievalMetadata(BaseModel):
 
     strategy: RetrievalStrategy = Field(..., description="Retrieval strategy used")
     total_results: int = Field(..., description="Total number of results retrieved")
-    query_expansions: List[str] = Field(default_factory=list, description="Query expansion terms")
+    query_expansions: list[str] = Field(default_factory=list, description="Query expansion terms")
     search_time_ms: float = Field(..., description="Search execution time")
-    index_size: Optional[int] = Field(default=None, description="Size of the index searched")
+    index_size: int | None = Field(default=None, description="Size of the index searched")
 
     model_config = ConfigDict(use_enum_values=True)
 
@@ -100,10 +100,10 @@ class DocumentWithScore(BaseModel):
     doc_id: UUID = Field(..., description="Document ID")
     content: str = Field(..., description="Document content/text")
     filename: str = Field(..., description="Source filename")
-    page_number: Optional[int] = Field(None, description="Page number in source document")
-    chunk_index: Optional[int] = Field(None, description="Chunk index within document")
+    page_number: int | None = Field(None, description="Page number in source document")
+    chunk_index: int | None = Field(None, description="Chunk index within document")
     score: float = Field(..., ge=0.0, le=1.0, description="Relevance score")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional document metadata"
     )
 
@@ -133,8 +133,8 @@ class CritiqueResult(BaseModel):
     confidence_score: float = Field(
         ..., ge=0.0, le=1.0, description="Confidence in quality assessment"
     )
-    issues: List[str] = Field(default_factory=list, description="List of identified issues")
-    suggestions: List[str] = Field(default_factory=list, description="Improvement suggestions")
+    issues: list[str] = Field(default_factory=list, description="List of identified issues")
+    suggestions: list[str] = Field(default_factory=list, description="Improvement suggestions")
     should_regenerate: bool = Field(
         default=False, description="Whether regeneration is recommended"
     )
@@ -150,7 +150,7 @@ class VerificationResult(BaseModel):
     factual_consistency: float = Field(..., ge=0.0, le=1.0, description="Factual consistency score")
     citation_accuracy: float = Field(..., ge=0.0, le=1.0, description="Citation accuracy score")
     reasoning_quality: float = Field(..., ge=0.0, le=1.0, description="Quality of reasoning")
-    verification_checks: List[str] = Field(
+    verification_checks: list[str] = Field(
         default_factory=list, description="List of checks performed"
     )
 
@@ -183,39 +183,39 @@ class RAGState(TypedDict):
     retrieval_query: str  # Standalone query for document search
     conversation_history: list[ConversationTurn]
     user_id: str  # User ID for personalization
-    conversation_id: Optional[UUID]  # Conversation context (optional)
+    conversation_id: UUID | None  # Conversation context (optional)
 
     # Orchestrator state - NEW for 4-agent architecture
-    orchestrator_state: Dict[str, Any]  # Routing decisions, agent selection, flow control
-    routing_decision: Optional[str]  # Which agent/route to use next
-    agent_pipeline: List[str]  # Ordered list of agents to execute
+    orchestrator_state: dict[str, Any]  # Routing decisions, agent selection, flow control
+    routing_decision: str | None  # Which agent/route to use next
+    agent_pipeline: list[str]  # Ordered list of agents to execute
 
     # Retrieval agent output - Merges query refinement + retrieval + reranking
-    retrieval_agent_output: Dict[str, Any]  # Combined output from retrieval agent
+    retrieval_agent_output: dict[str, Any]  # Combined output from retrieval agent
     # Includes: refined_queries, retrieved_docs, reranked_docs, metadata
 
     # Generation agent output
     generated_response: str  # Final LLM-generated response
-    generation_metadata: Dict[str, Any]  # LLM metadata (model, tokens, etc.)
+    generation_metadata: dict[str, Any]  # LLM metadata (model, tokens, etc.)
 
     # Quality agent output - Merges critique + verification
-    quality_agent_output: Dict[str, Any]  # Combined output from quality agent
+    quality_agent_output: dict[str, Any]  # Combined output from quality agent
     # Includes: quality_score, critique, verification, suggestions
 
     # Final output
     final_response: str  # Final response after all processing
-    final_citations: List[Citation]  # Final citation list
+    final_citations: list[Citation]  # Final citation list
     is_final: bool  # Whether this is the final response
 
     # Execution tracking
-    agent_results: List[AgentResult]  # Results from each agent
+    agent_results: list[AgentResult]  # Results from each agent
     current_agent: str  # Currently executing agent
     total_execution_time_ms: float  # Total execution time
 
     # Error handling
-    errors: List[str]  # Accumulated errors
+    errors: list[str]  # Accumulated errors
     should_fallback: bool  # Whether to fall back to simple RAG
-    fallback_reason: Optional[str]  # Reason for fallback
+    fallback_reason: str | None  # Reason for fallback
 
 
 # ============================================================================
@@ -231,34 +231,34 @@ class RAGStateValidator(BaseModel):
 
     query: str = Field(..., min_length=1, max_length=2000)
     user_id: str = Field(..., min_length=1)
-    conversation_id: Optional[UUID] = None
+    conversation_id: UUID | None = None
 
     # Orchestrator state
-    orchestrator_state: Dict[str, Any] = Field(default_factory=dict)
-    routing_decision: Optional[str] = None
-    agent_pipeline: List[str] = Field(default_factory=list)
+    orchestrator_state: dict[str, Any] = Field(default_factory=dict)
+    routing_decision: str | None = None
+    agent_pipeline: list[str] = Field(default_factory=list)
 
     # Retrieval agent output
-    retrieval_agent_output: Dict[str, Any] = Field(default_factory=dict)
+    retrieval_agent_output: dict[str, Any] = Field(default_factory=dict)
 
     # Generation
     generated_response: str = Field(default="")
-    generation_metadata: Dict[str, Any] = Field(default_factory=dict)
+    generation_metadata: dict[str, Any] = Field(default_factory=dict)
 
     # Quality agent output
-    quality_agent_output: Dict[str, Any] = Field(default_factory=dict)
+    quality_agent_output: dict[str, Any] = Field(default_factory=dict)
 
     final_response: str = Field(default="")
-    final_citations: List[Citation] = Field(default_factory=list)
+    final_citations: list[Citation] = Field(default_factory=list)
     is_final: bool = Field(default=False)
 
-    agent_results: List[AgentResult] = Field(default_factory=list)
+    agent_results: list[AgentResult] = Field(default_factory=list)
     current_agent: str = Field(default="")
     total_execution_time_ms: float = Field(default=0.0, ge=0.0)
 
-    errors: List[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
     should_fallback: bool = Field(default=False)
-    fallback_reason: Optional[str] = None
+    fallback_reason: str | None = None
 
     @field_validator("query")
     @classmethod
@@ -280,7 +280,7 @@ class RAGStateValidator(BaseModel):
 
     @field_validator("agent_pipeline")
     @classmethod
-    def validate_pipeline(cls, v: List[str]) -> List[str]:
+    def validate_pipeline(cls, v: list[str]) -> list[str]:
         """Validate agent pipeline contains valid agents"""
         valid_agents = {"RetrievalAgent", "GenerationAgent", "QualityAgent", "OrchestratorAgent"}
         for agent in v:
@@ -349,7 +349,7 @@ class RetrievalAgentConfig(AgentConfig):
 
     # Retrieval settings
     top_k: int = Field(default=10, ge=1, le=100, description="Number of documents to retrieve")
-    strategies: List[RetrievalStrategy] = Field(
+    strategies: list[RetrievalStrategy] = Field(
         default=[RetrievalStrategy.HYBRID], description="Retrieval strategies to use"
     )
     min_score_threshold: float = Field(
@@ -479,7 +479,7 @@ class AgenticRAGConfig(BaseModel):
 def create_initial_state(
     query: str,
     user_id: str,
-    conversation_id: Optional[UUID] = None,
+    conversation_id: UUID | None = None,
     history: list[ConversationTurn] | None = None,
 ) -> RAGState:
     """
@@ -563,8 +563,8 @@ def create_agent_result(
     agent_name: str,
     status: AgentStatus,
     execution_time_ms: float,
-    metadata: Optional[Dict[str, Any]] = None,
-    error_message: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    error_message: str | None = None,
 ) -> AgentResult:
     """
     Create an AgentResult object.
@@ -624,7 +624,7 @@ def calculate_total_time(state: RAGState) -> RAGState:
 
 
 def update_orchestrator_routing(
-    state: RAGState, routing_decision: str, metadata: Optional[Dict[str, Any]] = None
+    state: RAGState, routing_decision: str, metadata: dict[str, Any] | None = None
 ) -> RAGState:
     """
     Update orchestrator routing decision and history.
@@ -650,10 +650,10 @@ def update_orchestrator_routing(
 
 def update_retrieval_output(
     state: RAGState,
-    refined_queries: List[str],
-    retrieved_docs: List[DocumentWithScore],
-    reranked_docs: Optional[List[DocumentWithScore]] = None,
-    metadata: Optional[RetrievalMetadata] = None,
+    refined_queries: list[str],
+    retrieved_docs: list[DocumentWithScore],
+    reranked_docs: list[DocumentWithScore] | None = None,
+    metadata: RetrievalMetadata | None = None,
 ) -> RAGState:
     """
     Update retrieval agent output with combined retrieval results.
@@ -681,9 +681,9 @@ def update_retrieval_output(
 def update_quality_output(
     state: RAGState,
     quality_score: float,
-    critique: Optional[CritiqueResult] = None,
-    verification: Optional[VerificationResult] = None,
-    suggestions: Optional[List[str]] = None,
+    critique: CritiqueResult | None = None,
+    verification: VerificationResult | None = None,
+    suggestions: list[str] | None = None,
     should_regenerate: bool = False,
 ) -> RAGState:
     """
@@ -710,7 +710,7 @@ def update_quality_output(
     return state
 
 
-def get_retrieval_docs(state: RAGState) -> List[DocumentWithScore]:
+def get_retrieval_docs(state: RAGState) -> list[DocumentWithScore]:
     """
     Get retrieved documents from retrieval agent output.
 
@@ -726,7 +726,7 @@ def get_retrieval_docs(state: RAGState) -> List[DocumentWithScore]:
     return [DocumentWithScore(**doc) for doc in docs_data]
 
 
-def get_refined_queries(state: RAGState) -> List[str]:
+def get_refined_queries(state: RAGState) -> list[str]:
     """
     Get refined queries from retrieval agent output.
 

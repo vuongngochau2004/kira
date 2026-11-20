@@ -7,10 +7,10 @@ with streaming and non-streaming modes.
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import aclosing
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from google import genai
 from google.genai import types as genai_types
@@ -119,16 +119,15 @@ async def chat_async(
         if provider == LLMProvider.GLM:
             model = model or settings.glm_model
             return await _chat_glm_async(messages, model, temperature, max_tokens, timeout)
-        elif provider == LLMProvider.GEMINI:
+        if provider == LLMProvider.GEMINI:
             model = model or settings.gemini_model
             return await _chat_gemini_async(messages, model, temperature, max_tokens, timeout)
-        elif provider == LLMProvider.OLLAMA:
+        if provider == LLMProvider.OLLAMA:
             model = model or settings.ollama_model
             return await _chat_ollama_async(messages, model, temperature, max_tokens, timeout)
-        else:
-            model = model or settings.bk_llm_model or "gpt-3.5-turbo"
-            return await _chat_openai_async(messages, model, temperature, max_tokens, timeout)
-    except asyncio.TimeoutError as e:
+        model = model or settings.bk_llm_model or "gpt-3.5-turbo"
+        return await _chat_openai_async(messages, model, temperature, max_tokens, timeout)
+    except TimeoutError as e:
         logger.error(f"[LLM] Timeout after {timeout}s")
         raise LLMTimeoutError(f"LLM request timed out after {timeout}s") from e
     except Exception as e:
@@ -190,7 +189,7 @@ async def chat_async_stream(
             close = getattr(stream, "aclose", None)
             if close is not None:
                 await close()
-    except asyncio.TimeoutError as e:
+    except TimeoutError as e:
         logger.error(f"[LLM STREAM] Timeout after {timeout}s")
         raise LLMTimeoutError(f"LLM stream timed out after {timeout}s") from e
     except Exception as e:
@@ -434,7 +433,7 @@ async def _chat_gemini_stream(
                 system_instruction=system_msg,
             ),
         )
-        async with aclosing(stream):
+        async with aclosing(cast(AsyncGenerator[Any, None], stream)):
             async for chunk in stream:
                 if chunk.text:
                     yield chunk.text
@@ -531,25 +530,27 @@ async def _chat_openai_stream(
 
     url = f"{settings.bk_llm_base_url}/chat/completions"
 
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        async with client.stream("POST", url, json=payload, headers=headers) as response:
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                if not line or not line.startswith("data: "):
-                    continue
+    async with (
+        httpx.AsyncClient(timeout=timeout) as client,
+        client.stream("POST", url, json=payload, headers=headers) as response,
+    ):
+        response.raise_for_status()
+        async for line in response.aiter_lines():
+            if not line or not line.startswith("data: "):
+                continue
 
-                data_str = line[6:].strip()
-                if data_str == "[DONE]":
-                    break
+            data_str = line[6:].strip()
+            if data_str == "[DONE]":
+                break
 
-                try:
-                    data = json.loads(data_str)
-                    delta = data["choices"][0].get("delta", {})
-                    if "content" in delta and delta["content"]:
-                        yield delta["content"]
-                except (json.JSONDecodeError, KeyError, IndexError) as e:
-                    logger.debug(f"[OpenAI Stream] Failed to parse chunk: {e}")
-                    continue
+            try:
+                data = json.loads(data_str)
+                delta = data["choices"][0].get("delta", {})
+                if "content" in delta and delta["content"]:
+                    yield delta["content"]
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                logger.debug(f"[OpenAI Stream] Failed to parse chunk: {e}")
+                continue
 
 
 def _ollama_api_key() -> str:
@@ -614,30 +615,32 @@ async def _chat_ollama_stream(
         "stream": True,
     }
 
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        async with client.stream(
+    async with (
+        httpx.AsyncClient(timeout=timeout) as client,
+        client.stream(
             "POST",
             _ollama_chat_url(),
             json=payload,
             headers=headers,
-        ) as response:
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                if not line or not line.startswith("data: "):
-                    continue
+        ) as response,
+    ):
+        response.raise_for_status()
+        async for line in response.aiter_lines():
+            if not line or not line.startswith("data: "):
+                continue
 
-                data_str = line[6:].strip()
-                if data_str == "[DONE]":
-                    break
+            data_str = line[6:].strip()
+            if data_str == "[DONE]":
+                break
 
-                try:
-                    data = json.loads(data_str)
-                    delta = data["choices"][0].get("delta", {})
-                    if "content" in delta and delta["content"]:
-                        yield delta["content"]
-                except (json.JSONDecodeError, KeyError, IndexError) as e:
-                    logger.debug(f"[Ollama Stream] Failed to parse chunk: {e}")
-                    continue
+            try:
+                data = json.loads(data_str)
+                delta = data["choices"][0].get("delta", {})
+                if "content" in delta and delta["content"]:
+                    yield delta["content"]
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                logger.debug(f"[Ollama Stream] Failed to parse chunk: {e}")
+                continue
 
 
 async def chat_async_with_tools(
@@ -754,7 +757,7 @@ async def chat_async_with_tools(
             "stop_reason": getattr(response, "stop_reason", None),
         }
 
-    except asyncio.TimeoutError as e:
+    except TimeoutError as e:
         logger.error(f"[LLM TOOLS] Timeout after {timeout}s")
         raise LLMTimeoutError(f"LLM tool use request timed out after {timeout}s") from e
     except Exception as e:

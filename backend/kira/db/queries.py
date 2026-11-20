@@ -1,8 +1,7 @@
 """Common query patterns to avoid N+1 issues."""
 
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
@@ -15,9 +14,7 @@ from kira.db.models import (
 )
 
 
-async def get_user_by_email(
-    email: str, db_session, include_deleted: bool = False
-) -> Optional[User]:
+async def get_user_by_email(email: str, db_session, include_deleted: bool = False) -> User | None:
     """Get user by email (with or without soft delete filter)."""
     query = select(User).where(User.email == email)
     if not include_deleted:
@@ -30,7 +27,7 @@ async def get_document_with_chunks(
     doc_id: uuid.UUID,
     db_session,
     include_deleted: bool = False,
-) -> Optional[Document]:
+) -> Document | None:
     """Get document with chunks eagerly loaded (avoids N+1)."""
     query = select(Document).options(selectinload(Document.chunks)).where(Document.id == doc_id)
     if not include_deleted:
@@ -43,7 +40,7 @@ async def get_conversation_with_messages(
     conv_id: uuid.UUID,
     db_session,
     include_deleted: bool = False,
-) -> Optional[Conversation]:
+) -> Conversation | None:
     """Get conversation with messages eagerly loaded (avoids N+1)."""
     query = (
         select(Conversation)
@@ -136,7 +133,7 @@ def _utc_now_naive() -> datetime:
     ``deleted_at`` columns are ``TIMESTAMP WITHOUT TIME ZONE``; asyncpg rejects aware
     datetimes for them ("can't subtract offset-naive and offset-aware datetimes").
     """
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 async def soft_delete_document(doc_id: uuid.UUID, db_session) -> bool:

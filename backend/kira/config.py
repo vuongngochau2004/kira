@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Load static config from YAML
 _settings_path = Path(__file__).parent / "settings.yaml"
-with open(_settings_path, "r", encoding="utf-8") as f:
+with open(_settings_path, encoding="utf-8") as f:
     _static_config = yaml.safe_load(f) or {}
 
 

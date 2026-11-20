@@ -173,10 +173,7 @@ def is_semantic_match(retrieved: str, expected: str, threshold: float = 0.65) ->
 
     intersection = r_set.intersection(e_set)
     containment = len(intersection) / len(e_set)
-    if containment >= threshold:
-        return True
-
-    return False
+    return containment >= threshold
 
 
 def hit_rate_at_k_text(

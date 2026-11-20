@@ -1,7 +1,7 @@
 """Security utilities - password hashing and JWT token management."""
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 # ===== Password Hashing =====
 import bcrypt
@@ -31,11 +31,11 @@ def create_access_token(
 ) -> str:
     """Create a JWT access token with enhanced security claims."""
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=settings.jwt_access_token_expire_minutes)
     )
     claims = {
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "jti": str(uuid.uuid4()),
         "iss": settings.jwt_issuer,
         "aud": settings.jwt_audience,
@@ -59,11 +59,11 @@ def create_refresh_token(
 ) -> str:
     """Create a JWT refresh token with enhanced security claims."""
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now(UTC) + (
         expires_delta or timedelta(days=settings.jwt_refresh_token_expire_days)
     )
     claims = {
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "jti": str(uuid.uuid4()),
         "iss": settings.jwt_issuer,
         "aud": settings.jwt_audience,
@@ -84,13 +84,12 @@ def create_refresh_token(
 def decode_token(token: str) -> dict:
     """Decode and validate a JWT token with audience check."""
     try:
-        payload = jwt.decode(
+        return jwt.decode(
             token,
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
             audience=settings.jwt_audience,
         )
-        return payload
     except ExpiredSignatureError:
         raise JWTError("Token has expired") from None
     except JWTError as e:

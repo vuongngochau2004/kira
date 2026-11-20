@@ -14,7 +14,7 @@ Architecture:
 
 import asyncio
 from contextlib import aclosing
-from typing import Literal, Optional
+from typing import Literal
 from uuid import UUID
 
 from langchain_core.runnables import RunnableConfig
@@ -347,7 +347,7 @@ class LangGraphRAGPipeline:
         self,
         query: str,
         user_id: str,
-        conversation_id: Optional[UUID] = None,
+        conversation_id: UUID | None = None,
         history: list[ConversationTurn] | None = None,
     ) -> RAGState:
         """
@@ -388,7 +388,7 @@ class LangGraphRAGPipeline:
         self,
         query: str,
         user_id: str,
-        conversation_id: Optional[UUID] = None,
+        conversation_id: UUID | None = None,
         history: list[ConversationTurn] | None = None,
     ):
         """
@@ -448,10 +448,10 @@ class LangGraphRAGPipeline:
 
 
 def create_langgraph_pipeline(
-    orchestrator_config: Optional[OrchestratorAgentConfig] = None,
-    retrieval_config: Optional[RetrievalAgentConfig] = None,
-    generation_config: Optional[GenerationAgentConfig] = None,
-    quality_config: Optional[QualityAgentConfig] = None,
+    orchestrator_config: OrchestratorAgentConfig | None = None,
+    retrieval_config: RetrievalAgentConfig | None = None,
+    generation_config: GenerationAgentConfig | None = None,
+    quality_config: QualityAgentConfig | None = None,
     embedding: EmbeddingPort | None = None,
     search: SearchUseCase | None = None,
     llm: LLMPort | None = None,

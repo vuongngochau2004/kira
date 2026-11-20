@@ -1,8 +1,9 @@
 """Provider-neutral LLM adapter for request-scoped call accounting."""
 
 import time
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import aclosing
-from typing import Any, AsyncIterator
+from typing import Any, cast
 
 from kira.core.request_trace import record_model_call
 from kira.providers.llm.base import LLMPort
@@ -49,11 +50,14 @@ class TracedLLM(LLMPort):
         outcome = "completed"
         try:
             async with aclosing(
-                self.inner.stream(
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs,
+                cast(
+                    AsyncGenerator[str, None],
+                    self.inner.stream(
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        **kwargs,
+                    ),
                 )
             ) as stream:
                 async for chunk in stream:

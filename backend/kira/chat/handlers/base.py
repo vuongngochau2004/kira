@@ -9,8 +9,9 @@ Previously, data models were in src.protocols.handlers - now unified in ABC-only
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any
 from uuid import UUID
 
 # Import from shared ports module

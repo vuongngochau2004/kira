@@ -333,14 +333,11 @@ class DeepEvalEvaluationService:
         if not request.should_refuse:
             return False
 
-        if metric in {
+        return metric in {
             EvaluationMetric.CONTEXTUAL_PRECISION,
             EvaluationMetric.CONTEXTUAL_RECALL,
             EvaluationMetric.CONTEXTUAL_RELEVANCY,
-        }:
-            return True
-
-        return False
+        }
 
     @staticmethod
     def _aggregate(results: list[EvaluationResponse]) -> dict[str, float]:
@@ -354,7 +351,7 @@ class DeepEvalEvaluationService:
             project_root = REPO_ROOT
             manifest_path = project_root / "dataset" / "_subset_manifest.csv"
             if manifest_path.exists():
-                with open(manifest_path, mode="r", encoding="utf-8") as f:
+                with open(manifest_path, encoding="utf-8") as f:
                     reader = csv.DictReader(f)
                     for row in reader:
                         filename = row.get("filename")

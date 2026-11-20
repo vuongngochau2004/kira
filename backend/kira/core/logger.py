@@ -7,7 +7,7 @@ them to Loguru. Supports colorized console output and structured log file persis
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from loguru import logger
 
@@ -18,7 +18,7 @@ class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         # Get corresponding Loguru level if it exists
         try:
-            level: Union[str, int] = logger.level(record.levelname).name
+            level: str | int = logger.level(record.levelname).name
         except ValueError:
             level = record.levelno
 
@@ -63,7 +63,7 @@ def log_filter(record: dict[str, Any]) -> bool:
     return True
 
 
-def setup_logging(debug: bool = True, log_file_path: Union[str, Path] = "logs/kira.log") -> None:
+def setup_logging(debug: bool = True, log_file_path: str | Path = "logs/kira.log") -> None:
     """Configure unified logging with Loguru.
 
     Interceptors are set up for standard library loggers so all components

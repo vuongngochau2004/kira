@@ -1,5 +1,6 @@
 """Qdrant vector store: client helpers and the QdrantVectorStore used by features."""
 
+import contextlib
 import logging
 import uuid
 from dataclasses import dataclass, field
@@ -78,7 +79,7 @@ def get_client() -> QdrantClient:
 def ensure_collection() -> None:
     """Ensure Qdrant collection exists."""
     client = get_client()
-    try:
+    with contextlib.suppress(Exception):  # the collection usually exists already
         client.create_collection(
             collection_name=settings.qdrant_collection,
             vectors_config=VectorParams(
@@ -86,9 +87,6 @@ def ensure_collection() -> None:
                 distance=Distance.COSINE,
             ),
         )
-    except Exception:
-        # Collection likely exists
-        pass
 
 
 def store_chunks(

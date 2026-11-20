@@ -154,11 +154,7 @@ class KeywordStrategy(ClassificationStrategyBase):
             return True
 
         # Check for file keywords
-        for keyword in self.file_keywords:
-            if keyword in query_lower:
-                return True
-
-        return False
+        return any(keyword in query_lower for keyword in self.file_keywords)
 
     async def classify(
         self, query: str, user_id: str | UUID, context: dict[str, Any] | None = None

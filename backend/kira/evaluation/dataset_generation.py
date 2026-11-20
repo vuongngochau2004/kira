@@ -488,8 +488,7 @@ class IngestedChunkDatasetGenerator:
         # Clean whitespaces and newlines
         text = re.sub(r"\s+", " ", text).strip()
         # Remove basic punctuation
-        text = re.sub(r"[.,;:!?'\"()\[\]\-]", "", text)
-        return text
+        return re.sub(r"[.,;:!?'\"()\[\]\-]", "", text)
 
     @classmethod
     def _has_exact_evidence(cls, context: str, evidence: str) -> bool:

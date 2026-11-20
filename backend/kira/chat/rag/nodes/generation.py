@@ -21,8 +21,9 @@ Example:
 import logging
 import re
 import time
-from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional
+from collections.abc import AsyncIterator, Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from kira.chat.rag.prompts.generation import (
     build_generation_prompt,
@@ -141,7 +142,7 @@ class GenerationAgent:
         llm_client: LLM client for generation
     """
 
-    def __init__(self, config: GenerationAgentConfig, llm_client: Optional[LLMPort] = None):
+    def __init__(self, config: GenerationAgentConfig, llm_client: LLMPort | None = None):
         """
         Initialize GenerationAgent.
 
@@ -255,7 +256,7 @@ class GenerationAgent:
             "raw_context_size": sum(len(doc.content or "") for doc in documents),
             "documents_used": len(documents),
             "streaming": True,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
         if feedback is not None:
             metadata.update({"regenerated": True, "regeneration_feedback": feedback})
@@ -268,7 +269,7 @@ class GenerationAgent:
         )
         return update_state_with_agent_result(state, result)
 
-    async def handle(self, state: RAGState, context: Optional[Dict[str, Any]] = None) -> RAGState:
+    async def handle(self, state: RAGState, context: dict[str, Any] | None = None) -> RAGState:
         """
         Generate response (non-streaming).
 
@@ -322,7 +323,7 @@ class GenerationAgent:
                 "compressed_contexts": compressed_contexts,
                 "raw_context_size": sum(len(doc.content or "") for doc in documents),
                 "documents_used": len(documents),
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
             }
 
             execution_time = (time.time() - start_time) * 1000
@@ -358,8 +359,8 @@ class GenerationAgent:
             return state
 
     async def handle_stream(
-        self, state: RAGState, context: Optional[Dict[str, Any]] = None
-    ) -> AsyncIterator[Dict[str, Any]]:
+        self, state: RAGState, context: dict[str, Any] | None = None
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         Generate response with streaming.
 
@@ -415,7 +416,7 @@ class GenerationAgent:
                 "raw_context_size": sum(len(doc.content or "") for doc in documents),
                 "documents_used": len(documents),
                 "streaming": True,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
             }
 
             # Yield final metadata
@@ -485,7 +486,7 @@ class GenerationAgent:
     # ==========================================================================
 
     def _build_context(
-        self, query: str, documents: List[DocumentWithScore]
+        self, query: str, documents: list[DocumentWithScore]
     ) -> tuple[str, list[str]]:
         """
         Build context string from retrieved documents.
@@ -675,7 +676,7 @@ class GenerationAgent:
     # Citation Extraction
     # ==========================================================================
 
-    def _extract_citations(self, documents: List[DocumentWithScore]) -> List[Citation]:
+    def _extract_citations(self, documents: list[DocumentWithScore]) -> list[Citation]:
         """
         Extract citations from retrieved documents.
 

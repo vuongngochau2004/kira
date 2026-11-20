@@ -4,8 +4,9 @@ import json
 import re
 import time
 import uuid
+from collections.abc import AsyncIterator
 from datetime import datetime, timedelta
-from typing import Any, AsyncIterator
+from typing import Any
 
 from loguru import logger
 

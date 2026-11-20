@@ -18,7 +18,7 @@ def extract_text_file(file_path: str) -> ExtractionResult:
     """
     logger.info("Extracting text file: %s", file_path)
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             text = f.read()
 
         return ExtractionResult(
@@ -30,7 +30,7 @@ def extract_text_file(file_path: str) -> ExtractionResult:
     except UnicodeDecodeError:
         logger.warning("UTF-8 decoding failed for %s, falling back to latin-1", file_path)
         try:
-            with open(file_path, "r", encoding="latin-1") as f:
+            with open(file_path, encoding="latin-1") as f:
                 text = f.read()
             return ExtractionResult(
                 text=text,

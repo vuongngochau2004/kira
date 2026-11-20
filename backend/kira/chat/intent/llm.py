@@ -86,13 +86,11 @@ class LLMStrategy(ClassificationStrategyBase):
 
         try:
             # Run LLM call with timeout
-            result = await asyncio.wait_for(
+            return await asyncio.wait_for(
                 self._classify_with_llm(query, context), timeout=self.timeout
             )
 
-            return result
-
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Fallback on timeout
             return ClassificationResult(
                 intent=Intent.RAG,  # Safer default

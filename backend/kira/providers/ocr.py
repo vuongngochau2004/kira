@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import contextlib
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -73,10 +74,8 @@ class PaddleOCRClient:
             or self._loop.is_closed()
         ):
             if self._client and not self._client.is_closed:
-                try:
+                with contextlib.suppress(Exception):
                     await self._client.aclose()
-                except Exception:
-                    pass
             self._client = httpx.AsyncClient(
                 timeout=self.timeout,
                 limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
@@ -350,7 +349,7 @@ class PaddleOCRClient:
                 success=False,
                 error=f"File not found: {file_path}",
             )
-        except IOError as e:
+        except OSError as e:
             return OCRResult(
                 success=False,
                 error=f"Failed to read file: {e}",

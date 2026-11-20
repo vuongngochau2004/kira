@@ -283,10 +283,7 @@ async def save_messages(
         db_metadata["rejection_reasoning"] = clean_rejection_content(response_content)
         is_rejection = True
 
-    if is_rejection:
-        content_str = clean_rejection_content(response_content)
-    else:
-        content_str = response_content
+    content_str = clean_rejection_content(response_content) if is_rejection else response_content
     citations = [c.to_dict() if hasattr(c, "to_dict") else c for c in citations]
     resolved_citations = await resolve_citation_filenames(citations, db)
 

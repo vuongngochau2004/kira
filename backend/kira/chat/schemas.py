@@ -4,8 +4,6 @@ Chat API request DTOs - Pydantic models for HTTP request validation.
 These DTOs decouple HTTP concerns from domain logic.
 """
 
-from typing import List, Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -20,9 +18,9 @@ class ChatStreamRequest(BaseModel):
     """
 
     message: str = Field(..., min_length=1, max_length=5000)
-    conversation_id: Optional[str] = None
+    conversation_id: str | None = None
     evaluate: bool = False
-    evaluation_metrics: Optional[List[str]] = None
+    evaluation_metrics: list[str] | None = None
 
 
 class ChatCompletionRequest(BaseModel):
@@ -36,7 +34,7 @@ class ChatCompletionRequest(BaseModel):
     """
 
     message: str = Field(..., min_length=1, max_length=5000)
-    conversation_id: Optional[str] = None
+    conversation_id: str | None = None
     temperature: float = Field(default=0.7, ge=0, le=1)
     max_tokens: int = Field(default=2048, ge=1, le=8192)
 
@@ -44,7 +42,7 @@ class ChatCompletionRequest(BaseModel):
 class ConversationCreate(BaseModel):
     """Request DTO for creating a conversation."""
 
-    title: Optional[str] = Field(default="Cuộc trò chuyện mới", max_length=255)
+    title: str | None = Field(default="Cuộc trò chuyện mới", max_length=255)
 
 
 __all__ = ["ChatStreamRequest", "ChatCompletionRequest", "ConversationCreate"]

@@ -7,7 +7,8 @@ To use a different LLM, implement LLMPort and wire it in server/main.py.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 
 class LLMPort(ABC):
@@ -48,7 +49,7 @@ class LLMPort(ABC):
         ...
 
     @abstractmethod
-    async def stream(
+    def stream(
         self,
         messages: list[dict[str, str]],
         temperature: float = 0.7,

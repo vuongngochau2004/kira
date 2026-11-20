@@ -5,7 +5,8 @@ classification is the first node, then dispatch chooses the appropriate
 handler such as conversational chat or the RAG subflow.
 """
 
-from typing import Any, AsyncIterator, TypedDict
+from collections.abc import AsyncIterator
+from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
 from loguru import logger

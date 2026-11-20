@@ -23,7 +23,8 @@ import json
 import logging
 import re
 import time
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 from uuid import UUID
 
 from kira.chat.rag.state import (
@@ -65,7 +66,7 @@ class RetrievalAgent:
     def __init__(
         self,
         config: RetrievalAgentConfig,
-        llm_client: Optional[LLMPort] = None,
+        llm_client: LLMPort | None = None,
         embedding: EmbeddingPort | None = None,
         search: SearchUseCase | None = None,
     ):
@@ -84,7 +85,7 @@ class RetrievalAgent:
         self.search = search
         self._reranker = None  # Lazy-loaded reranker
 
-    async def handle(self, state: RAGState, context: Optional[Dict[str, Any]] = None) -> RAGState:
+    async def handle(self, state: RAGState, context: dict[str, Any] | None = None) -> RAGState:
         """
         Execute full retrieval workflow: refine -> retrieve -> rerank.
 
@@ -166,8 +167,8 @@ class RetrievalAgent:
             return update_state_with_agent_result(state, result)
 
     async def handle_stream(
-        self, state: RAGState, context: Optional[Dict[str, Any]] = None
-    ) -> AsyncIterator[Dict[str, Any]]:
+        self, state: RAGState, context: dict[str, Any] | None = None
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         Execute retrieval with streaming progress updates.
 
@@ -275,7 +276,7 @@ class RetrievalAgent:
     # Stage 1: Query Refinement (merged from QueryRefinerAgent)
     # ==========================================================================
 
-    async def _refine_query(self, query: str, state: RAGState) -> List[str]:
+    async def _refine_query(self, query: str, state: RAGState) -> list[str]:
         """
         Refine and expand query using LLM and synonyms.
 
@@ -288,7 +289,7 @@ class RetrievalAgent:
         Returns:
             List of refined queries (includes original if preserve_original=True)
         """
-        refined_queries: List[str] = []
+        refined_queries: list[str] = []
 
         # Always include original if configured
         if self.config.preserve_original:
@@ -307,7 +308,7 @@ class RetrievalAgent:
             refined_queries.extend(synonym_expansions)
 
         # Deduplicate
-        unique_queries: List[str] = []
+        unique_queries: list[str] = []
         seen = set()
         for q in refined_queries:
             normalized = q.lower().strip()
@@ -317,7 +318,7 @@ class RetrievalAgent:
 
         return unique_queries[: self.config.expansion_count]
 
-    def _synonym_expansion(self, query: str) -> List[str]:
+    def _synonym_expansion(self, query: str) -> list[str]:
         """
         Generate synonym-based query expansions.
 
@@ -346,8 +347,8 @@ class RetrievalAgent:
     # ==========================================================================
 
     async def _retrieve_documents(
-        self, queries: List[str], user_id: str
-    ) -> tuple[List[DocumentWithScore], RetrievalMetadata]:
+        self, queries: list[str], user_id: str
+    ) -> tuple[list[DocumentWithScore], RetrievalMetadata]:
         """
         Execute hybrid document retrieval.
 
@@ -459,7 +460,7 @@ class RetrievalAgent:
                 search_time_ms=search_time,
             )
 
-    def _extract_document_id(self, result: Dict[str, Any]) -> UUID | None:
+    def _extract_document_id(self, result: dict[str, Any]) -> UUID | None:
         """Extract a stable UUID from a search result or its metadata."""
         metadata = result.get("metadata") or {}
         candidates = (
@@ -487,8 +488,8 @@ class RetrievalAgent:
     # ==========================================================================
 
     async def _rerank_documents(
-        self, query: str, documents: List[DocumentWithScore]
-    ) -> List[DocumentWithScore]:
+        self, query: str, documents: list[DocumentWithScore]
+    ) -> list[DocumentWithScore]:
         """
         Rerank documents using structured LLM output or content overlap fallback.
 
@@ -518,8 +519,8 @@ class RetrievalAgent:
             return self._fallback_reranking(query, documents)
 
     async def _llm_reranking(
-        self, query: str, documents: List[DocumentWithScore]
-    ) -> List[DocumentWithScore]:
+        self, query: str, documents: list[DocumentWithScore]
+    ) -> list[DocumentWithScore]:
         """Rerank documents through deterministic structured JSON from the LLM."""
         prompt = self._build_llm_reranking_prompt(query, documents)
         raw = await self.llm_client.generate(
@@ -540,7 +541,7 @@ class RetrievalAgent:
         )
         return reranked_docs[: self.config.rerank_top_k]
 
-    def _build_llm_reranking_prompt(self, query: str, documents: List[DocumentWithScore]) -> str:
+    def _build_llm_reranking_prompt(self, query: str, documents: list[DocumentWithScore]) -> str:
         """Build a structured-output reranking prompt."""
         formatted_docs = []
         for index, doc in enumerate(documents):
@@ -582,7 +583,7 @@ Quy tắc:
 - Không loại bỏ tài liệu chỉ vì retrieval_score thấp nếu nội dung trả lời trực tiếp câu hỏi.
 - Không thêm markdown, không giải thích ngoài JSON."""
 
-    def _parse_llm_reranking_response(self, raw: str, num_documents: int) -> List[Dict[str, Any]]:
+    def _parse_llm_reranking_response(self, raw: str, num_documents: int) -> list[dict[str, Any]]:
         """Parse and validate structured LLM reranking output."""
         text = (raw or "").strip()
         try:
@@ -600,7 +601,7 @@ Quy tắc:
         if not isinstance(raw_rankings, list):
             raise ValueError("LLM reranking response missing rankings list")
 
-        rankings: List[Dict[str, Any]] = []
+        rankings: list[dict[str, Any]] = []
         seen: set[int] = set()
         for item in raw_rankings:
             if not isinstance(item, dict):
@@ -625,11 +626,11 @@ Quy tắc:
 
     def _apply_llm_rankings(
         self,
-        documents: List[DocumentWithScore],
-        rankings: List[Dict[str, Any]],
-    ) -> List[DocumentWithScore]:
+        documents: list[DocumentWithScore],
+        rankings: list[dict[str, Any]],
+    ) -> list[DocumentWithScore]:
         """Convert validated LLM rankings back into DocumentWithScore objects."""
-        reranked_docs: List[DocumentWithScore] = []
+        reranked_docs: list[DocumentWithScore] = []
         seen: set[int] = set()
 
         for ranking in rankings:
@@ -708,8 +709,8 @@ Quy tắc:
         return reranked_docs
 
     def _fallback_reranking(
-        self, query: str, documents: List[DocumentWithScore]
-    ) -> List[DocumentWithScore]:
+        self, query: str, documents: list[DocumentWithScore]
+    ) -> list[DocumentWithScore]:
         """
         Fallback reranking using content overlap.
 
