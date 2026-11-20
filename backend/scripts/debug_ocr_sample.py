@@ -32,7 +32,7 @@ from kira.documents.processing.extractor import (  # noqa: E402
     _is_low_quality_text,
     extract_content,
 )
-from kira.providers.ocr.paddle import get_ocr_client  # noqa: E402
+from kira.providers.ocr import get_ocr_client  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -114,7 +114,7 @@ async def debug_pipeline(document_path: Path, output_root: Path, lang: str | Non
     summary = [
         f"# Pipeline Debug: {document_path.name}",
         "",
-        f"- Mode: `pipeline`",
+        "- Mode: `pipeline`",
         f"- File type: `{file_type}`",
         f"- Success: `{result.success}`",
         f"- Error: `{result.error or ''}`",

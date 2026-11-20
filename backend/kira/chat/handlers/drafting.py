@@ -18,7 +18,7 @@ from kira.drafting.postprocess import clean_administrative_draft
 from kira.drafting.prompts import build_administrative_drafting_prompt
 from kira.providers.embedding.base import EmbeddingPort
 from kira.providers.llm.base import LLMPort
-from kira.providers.storage.base import StoragePort
+from kira.providers.storage import MinioStorage
 from kira.retrieval.search import SearchUseCase
 
 DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -33,7 +33,7 @@ class AdministrativeDraftingHandler(QueryHandlerBase):
         embedding: EmbeddingPort,
         search: SearchUseCase,
         llm: LLMPort,
-        storage: StoragePort,
+        storage: MinioStorage,
         config: HandlerConfig | None = None,
     ):
         """Initialize drafting handler dependencies."""

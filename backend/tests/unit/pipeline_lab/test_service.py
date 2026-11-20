@@ -9,7 +9,7 @@ from kira.chat.intent.base import ClassificationResult, Intent
 from kira.pipeline_lab import service
 from kira.pipeline_lab.router import _read_document
 from kira.pipeline_lab.schemas import RerankRequest
-from kira.providers.ocr.paddle import OCRResult
+from kira.providers.ocr import OCRResult
 from kira.retrieval.rerank.llm import (
     rerank_documents_with_llm,
 )

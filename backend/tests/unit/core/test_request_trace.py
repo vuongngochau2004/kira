@@ -3,7 +3,7 @@
 import pytest
 
 from kira.core.request_trace import request_stage, request_trace
-from kira.providers.llm.traced import TracedLLMPort
+from kira.providers.llm.traced import TracedLLM
 
 
 @pytest.mark.asyncio
@@ -18,7 +18,7 @@ async def test_trace_counts_generate_and_stream_per_stage() -> None:
         async def health_check(self) -> bool:
             return True
 
-    llm = TracedLLMPort(FakeLLM())
+    llm = TracedLLM(FakeLLM())
     with request_trace() as trace:
         with request_stage("generation"):
             assert await llm.generate(messages=[{"role": "user", "content": "secret"}]) == "answer"
@@ -42,6 +42,6 @@ async def test_trace_records_provider_failure() -> None:
     with request_trace() as trace:
         with request_stage("quality"):
             with pytest.raises(RuntimeError):
-                await TracedLLMPort(FailedLLM()).generate(messages=[])
+                await TracedLLM(FailedLLM()).generate(messages=[])
         assert trace.model_calls == 1
         assert trace.calls_by_stage == {"quality": 1}

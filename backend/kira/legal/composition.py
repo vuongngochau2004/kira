@@ -27,10 +27,10 @@ from kira.legal.services.upload_document import UploadLegalDocument
 from kira.legal.text_extractor import DocumentModuleTextExtractor
 from kira.providers.embedding.base import EmbeddingPort
 from kira.providers.embedding.factory import create_embedding_adapter
-from kira.providers.llm.adapter import GLMAdapter
 from kira.providers.llm.base import LLMPort
-from kira.providers.storage.minio import MinIOAdapter
-from kira.providers.vector.client import get_client
+from kira.providers.llm.client import LLMClient
+from kira.providers.storage import MinioStorage
+from kira.providers.vector_store import get_client
 from kira.retrieval.rerank.service import get_llm_client
 
 
@@ -39,7 +39,7 @@ def legal_repository(db: AsyncSession) -> SqlAlchemyLegalRepository:
 
 
 def upload_legal_document_service(db: AsyncSession) -> UploadLegalDocument:
-    return UploadLegalDocument(repository=legal_repository(db), storage=MinIOAdapter())
+    return UploadLegalDocument(repository=legal_repository(db), storage=MinioStorage())
 
 
 def vbpl_scraper() -> VbplScraper:
@@ -55,9 +55,9 @@ def ingest_legal_from_url_service(db: AsyncSession) -> IngestLegalFromUrl:
 def process_legal_document_service(db: AsyncSession) -> ProcessLegalDocument:
     return ProcessLegalDocument(
         repository=legal_repository(db),
-        storage=MinIOAdapter(),
+        storage=MinioStorage(),
         extractor=DocumentModuleTextExtractor(),
-        llm=GLMAdapter(),
+        llm=LLMClient(),
         auto_approve_types=settings.legal_auto_approve_types,
         llm_max_provisions=settings.legal_llm_extraction_max_provisions,
     )
@@ -91,7 +91,7 @@ def legal_queries(db: AsyncSession) -> LegalDocumentQueries:
 
 
 def delete_legal_document_service(db: AsyncSession) -> DeleteLegalDocument:
-    return DeleteLegalDocument(repository=legal_repository(db), storage=MinIOAdapter())
+    return DeleteLegalDocument(repository=legal_repository(db), storage=MinioStorage())
 
 
 def vietnam_today() -> date:

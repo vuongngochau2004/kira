@@ -5,8 +5,8 @@ import os
 import pytest
 
 from kira.providers.embedding.api import EmbeddingAPIAdapter
-from kira.providers.storage.minio import MinIOAdapter
-from kira.providers.vector.qdrant import QdrantAdapter
+from kira.providers.storage import MinioStorage
+from kira.providers.vector_store import QdrantVectorStore
 
 pytestmark = pytest.mark.integration
 
@@ -20,9 +20,9 @@ async def test_external_adapter_health_contracts():
     if not _integration_enabled():
         pytest.skip("Set RUN_INTEGRATION=1 with Docker services running")
 
-    assert await QdrantAdapter().health_check()
-    # MinIOAdapter has no health endpoint; bucket initialization is exercised by upload tests.
-    assert MinIOAdapter() is not None
+    assert await QdrantVectorStore().health_check()
+    # MinioStorage has no health endpoint; bucket initialization is exercised by upload tests.
+    assert MinioStorage() is not None
 
 
 @pytest.mark.asyncio

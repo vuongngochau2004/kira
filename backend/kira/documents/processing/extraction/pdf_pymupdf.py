@@ -4,7 +4,7 @@ import logging
 
 from kira.documents.processing.models import ExtractionResult
 from kira.documents.processing.quality_checker import is_low_quality_text
-from kira.providers.ocr.base import OCRPort
+from kira.providers.ocr import PaddleOCR
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ async def extract_pdf_pymupdf(
     file_path: str,
     use_ocr_fallback: bool = True,
     force_ocr_all: bool = False,
-    ocr: OCRPort | None = None,
+    ocr: PaddleOCR | None = None,
 ) -> ExtractionResult:
     """Extract text from PDF using PyMuPDF with PaddleOCR fallback for scanned pages."""
     logger.info("Extracting PDF using PyMuPDF (native text): %s", file_path)
@@ -71,7 +71,7 @@ async def extract_pdf_pymupdf(
         # Second pass: OCR for pages without text
         if ocr is None:
             return ExtractionResult(
-                success=False, error="OCR fallback requested without an OCRPort"
+                success=False, error="OCR fallback requested without an PaddleOCR"
             )
         for page_num in pages_needing_ocr:
             page = doc[page_num]

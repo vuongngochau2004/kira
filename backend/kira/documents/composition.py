@@ -10,9 +10,9 @@ from kira.documents.task_queue import CeleryTaskQueueAdapter
 from kira.documents.upload import UploadDocument
 from kira.providers.embedding.base import EmbeddingPort
 from kira.providers.embedding.factory import create_embedding_adapter
-from kira.providers.ocr.adapter import PaddleOCRAdapter
-from kira.providers.storage.minio import MinIOAdapter
-from kira.providers.vector.qdrant import QdrantAdapter
+from kira.providers.ocr import PaddleOCR
+from kira.providers.storage import MinioStorage
+from kira.providers.vector_store import QdrantVectorStore
 from kira.retrieval.bm25_adapter import BM25KeywordIndexAdapter
 from kira.retrieval.bm25_manager import get_bm25_manager
 
@@ -22,9 +22,9 @@ def document_repository(db: AsyncSession) -> SqlAlchemyDocumentRepository:
     return SqlAlchemyDocumentRepository(db=db)
 
 
-def storage_adapter() -> MinIOAdapter:
+def storage_adapter() -> MinioStorage:
     """Create object storage adapter."""
-    return MinIOAdapter()
+    return MinioStorage()
 
 
 def embedding_adapter() -> EmbeddingPort:
@@ -32,13 +32,13 @@ def embedding_adapter() -> EmbeddingPort:
     return create_embedding_adapter()
 
 
-def vector_store_adapter() -> QdrantAdapter:
+def vector_store_adapter() -> QdrantVectorStore:
     """Create vector store adapter."""
-    return QdrantAdapter()
+    return QdrantVectorStore()
 
 
-def ocr_adapter() -> PaddleOCRAdapter:
-    return PaddleOCRAdapter()
+def ocr_adapter() -> PaddleOCR:
+    return PaddleOCR()
 
 
 def keyword_index_adapter() -> BM25KeywordIndexAdapter:

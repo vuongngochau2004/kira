@@ -14,7 +14,7 @@ from kira.documents.schemas import (
     GetDocumentRequest,
     ListDocumentsRequest,
 )
-from kira.providers.storage.base import StoragePort
+from kira.providers.storage import MinioStorage
 
 
 class ListDocuments:
@@ -69,7 +69,7 @@ class GetDocument:
 class DownloadDocument:
     """Application service for downloading a document file."""
 
-    def __init__(self, repository: DocumentRepositoryPort, storage: StoragePort):
+    def __init__(self, repository: DocumentRepositoryPort, storage: MinioStorage):
         """Initialize document download service."""
         self.repository = repository
         self.storage = storage

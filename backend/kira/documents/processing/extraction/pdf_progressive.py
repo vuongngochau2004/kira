@@ -19,7 +19,7 @@ from kira.documents.processing.models import ExtractionResult
 from kira.documents.processing.quality_checker import (
     analyze_vietnamese_text_quality,
 )
-from kira.providers.ocr.base import OCRPort
+from kira.providers.ocr import PaddleOCR
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 async def extract_pdf_progressive(
     file_path: str,
     use_ocr_fallback: bool = True,
-    ocr: OCRPort | None = None,
+    ocr: PaddleOCR | None = None,
 ) -> ExtractionResult:
     """Progressive PDF extraction: native-first + hybrid (PaddleOCR -> VLM fallback)."""
     from kira.config import settings
@@ -63,9 +63,9 @@ async def extract_pdf_progressive(
     logger.info("Progressive: Escalating to Hybrid OCR/VLM cascade for %s", file_path)
 
     if ocr is None:
-        from kira.providers.ocr.adapter import PaddleOCRAdapter
+        from kira.providers.ocr import PaddleOCR
 
-        ocr = PaddleOCRAdapter()
+        ocr = PaddleOCR()
 
     try:
         import fitz

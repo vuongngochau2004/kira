@@ -1,7 +1,9 @@
-"""Qdrant vector storage wrapper."""
+"""Qdrant vector store: client helpers and the QdrantVectorStore used by features."""
 
 import logging
 import uuid
+from dataclasses import dataclass, field
+from typing import Any
 from uuid import UUID
 
 from qdrant_client import QdrantClient
@@ -15,6 +17,43 @@ from qdrant_client.models import (
 )
 
 from kira.config import settings
+
+
+@dataclass(frozen=True)
+class VectorDocument:
+    """Document to be stored in the vector store.
+
+    Immutable data structure representing a chunk to be indexed.
+
+    Attributes:
+        id: Unique chunk identifier
+        text: Text content of the chunk
+        embedding: Dense vector representation
+        metadata: Additional metadata (user_id, document_id, etc.)
+    """
+
+    id: str
+    text: str
+    embedding: list[float]
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    """Result from a vector similarity search.
+
+    Attributes:
+        id: Chunk identifier
+        text: Text content of the retrieved chunk
+        score: Cosine similarity score (0.0 - 1.0)
+        metadata: Additional metadata from the stored document
+    """
+
+    id: str
+    text: str
+    score: float
+    metadata: dict[str, Any] = field(default_factory=dict)
+
 
 logger = logging.getLogger(__name__)
 
@@ -201,11 +240,87 @@ async def close() -> None:
         _qdrant_client = None
 
 
-__all__ = [
-    "get_client",
-    "ensure_collection",
-    "store_chunks",
-    "search_similar",
-    "delete_document",
-    "close",
-]
+class QdrantVectorStore:
+    """Adapter that maps the vector store port to Qdrant."""
+
+    async def search(
+        self,
+        embedding: list[float],
+        k: int = 5,
+        user_id: str | UUID | None = None,
+        min_score: float = 0.0,
+    ) -> list[SearchResult]:
+        """Perform semantic similarity search in Qdrant.
+
+        Args:
+            embedding: Query vector
+            k: Number of results
+            user_id: Optional user filter for multi-tenant isolation
+            min_score: Minimum similarity score
+
+        Returns:
+            List of SearchResult ordered by score descending
+        """
+        effective_min_score = min_score or settings.retrieval_min_score_threshold
+        raw_results = search_similar(
+            query_embedding=embedding,
+            user_id=str(user_id) if user_id else None,
+            limit=k,
+            min_score=effective_min_score,
+        )
+        return [
+            SearchResult(
+                id=str(r.get("id", "")),
+                text=r.get("text", ""),
+                score=float(r.get("score", 0.0)),
+                metadata={k: v for k, v in r.items() if k not in ("id", "text", "score")},
+            )
+            for r in raw_results
+        ]
+
+    async def upsert(self, documents: list[VectorDocument]) -> None:
+        """Insert or update documents in Qdrant.
+
+        Args:
+            documents: List of VectorDocument to upsert
+        """
+        if not documents:
+            return
+
+        client = get_client()
+        ensure_collection()
+
+        points = [
+            PointStruct(
+                id=doc.id or str(uuid.uuid4()),
+                vector=doc.embedding,
+                payload={**doc.metadata, "text": doc.text},
+            )
+            for doc in documents
+        ]
+
+        client.upsert(
+            collection_name=settings.qdrant_collection,
+            points=points,
+        )
+
+    async def delete(self, document_ids: list[str]) -> None:
+        """Delete vectors by source document IDs.
+
+        Args:
+            document_ids: List of source document IDs to delete
+        """
+        for doc_id in document_ids:
+            delete_document(doc_id)
+
+    async def delete_document(self, document_id: str | UUID) -> None:
+        """Delete all vectors for a source document."""
+        delete_document(document_id)
+
+    async def health_check(self) -> bool:
+        """Check Qdrant connectivity."""
+        try:
+            get_client().get_collections()
+            return True
+        except Exception:
+            return False

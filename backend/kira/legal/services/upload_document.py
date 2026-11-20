@@ -12,7 +12,7 @@ from kira.legal.records import (
     LegalDocumentRecord,
     LegalDocumentStatus,
 )
-from kira.providers.storage.base import StoragePort
+from kira.providers.storage import MinioStorage
 
 SUPPORTED_LEGAL_FILE_TYPES = frozenset({"pdf", "docx", "txt", "md", "html"})
 LEGAL_DOCUMENT_TYPES = frozenset({"law", "decree", "circular", "decision", "resolution", "other"})
@@ -28,7 +28,7 @@ class UploadLegalDocumentRequest:
 
 
 class UploadLegalDocument:
-    def __init__(self, repository: LegalDocumentRepositoryPort, storage: StoragePort) -> None:
+    def __init__(self, repository: LegalDocumentRepositoryPort, storage: MinioStorage) -> None:
         self._repository = repository
         self._storage = storage
 

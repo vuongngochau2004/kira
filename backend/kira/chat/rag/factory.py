@@ -11,9 +11,9 @@ from kira.chat.rag.state import (
 from kira.config import settings
 from kira.providers.embedding.base import EmbeddingPort
 from kira.providers.embedding.factory import create_embedding_adapter
-from kira.providers.llm.adapter import GLMAdapter
 from kira.providers.llm.base import LLMPort
-from kira.providers.llm.traced import TracedLLMPort
+from kira.providers.llm.client import LLMClient
+from kira.providers.llm.traced import TracedLLM
 from kira.retrieval.composition import create_search_use_case
 from kira.retrieval.search import SearchUseCase
 
@@ -25,7 +25,7 @@ def create_default_rag_pipeline_service(
     llm: LLMPort | None = None,
 ) -> RAGPipelineService:
     """Compose the default production RAG pipeline service."""
-    traced_llm = TracedLLMPort(llm or GLMAdapter())
+    traced_llm = TracedLLM(llm or LLMClient())
     pipeline = create_langgraph_pipeline(
         orchestrator_config=OrchestratorAgentConfig(),
         retrieval_config=RetrievalAgentConfig(

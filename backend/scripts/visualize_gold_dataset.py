@@ -38,7 +38,7 @@ def main() -> int:
 
     samples = data.get("samples", [])
     total_samples = len(samples)
-    print(f"=== Gold Dataset Analysis ===")
+    print("=== Gold Dataset Analysis ===")
     print(f"Dataset Name: {data.get('name')}")
     print(f"Dataset ID: {data.get('dataset_id')}")
     print(f"Total Samples: {total_samples}")
@@ -92,7 +92,7 @@ def main() -> int:
     for k, v in refusal_counter.items():
         print(f"  {k:20}: {v} ({v / total_samples * 100:.1f}%)")
 
-    print(f"\n--- Top 10 Documents with Most Questions ---")
+    print("\n--- Top 10 Documents with Most Questions ---")
     for k, v in doc_counter.most_common(10):
         print(f"  {v:2} qns : {k}")
 

@@ -25,7 +25,7 @@ from kira.documents.processing.extractor import (  # noqa: E402
     _analyze_vietnamese_text_quality,
     _extract_pdf_docling,
 )
-from kira.providers.ocr.paddle import get_ocr_client  # noqa: E402
+from kira.providers.ocr import get_ocr_client  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -8,7 +8,7 @@ from kira.core.request_trace import record_model_call
 from kira.providers.llm.base import LLMPort
 
 
-class TracedLLMPort(LLMPort):
+class TracedLLM(LLMPort):
     """Delegate to an LLM port and count completed or failed calls."""
 
     def __init__(self, inner: LLMPort) -> None:

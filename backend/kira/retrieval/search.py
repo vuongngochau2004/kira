@@ -6,7 +6,7 @@ Orchestrates hybrid search combining dense and BM25 retrieval with RRF fusion.
 import logging
 from uuid import UUID
 
-from kira.providers.vector.base import VectorStorePort
+from kira.providers.vector_store import QdrantVectorStore
 from kira.retrieval.hybrid_search import (
     hybrid_search,
     hybrid_search_candidates,
@@ -28,7 +28,7 @@ class SearchUseCase:
 
     def __init__(
         self,
-        vector_store: VectorStorePort,
+        vector_store: QdrantVectorStore,
         keyword_search: KeywordSearchPort | None = None,
         documents: RetrievalDocumentPort | None = None,
         llm_client=None,

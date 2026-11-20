@@ -37,13 +37,13 @@ from kira.documents.processing.quality_checker import (
     should_fallback_to_ocr,
     vietnamese_text_quality_issues,
 )
-from kira.providers.ocr.base import OCRPort
+from kira.providers.ocr import PaddleOCR
 
 logger = logging.getLogger(__name__)
 
 
 async def extract_pdf(
-    file_path: str, use_ocr_fallback: bool = True, ocr: OCRPort | None = None
+    file_path: str, use_ocr_fallback: bool = True, ocr: PaddleOCR | None = None
 ) -> ExtractionResult:
     """Extract text from PDF using the configured extraction strategy."""
     from kira.config import settings
@@ -131,7 +131,7 @@ async def extract_pdf(
 
 
 async def extract_content(
-    file_path: str, file_type: str, ocr: OCRPort | None = None
+    file_path: str, file_type: str, ocr: PaddleOCR | None = None
 ) -> ExtractionResult:
     """Extract text from file using appropriate extractor."""
     if not Path(file_path).exists():
@@ -210,7 +210,7 @@ async def extract_content(
 
 
 def extract_content_sync(
-    file_path: str, file_type: str, ocr: OCRPort | None = None
+    file_path: str, file_type: str, ocr: PaddleOCR | None = None
 ) -> ExtractionResult:
     """Synchronous wrapper for extract_content."""
     return asyncio.run(extract_content(file_path, file_type, ocr=ocr))

@@ -24,9 +24,9 @@ from kira.documents.processing.extractor import extract_content_sync
 from kira.documents.processing.models import Chunk
 from kira.documents.repository_port import DocumentRepositoryPort
 from kira.providers.embedding.base import EmbeddingPort
-from kira.providers.ocr.base import OCRPort
-from kira.providers.storage.base import StoragePort
-from kira.providers.vector.base import VectorDocument, VectorStorePort
+from kira.providers.ocr import PaddleOCR
+from kira.providers.storage import MinioStorage
+from kira.providers.vector_store import QdrantVectorStore, VectorDocument
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +37,10 @@ async def process_document(
     document_id: UUID,
     user_id: UUID,
     storage_path: str,
-    storage: StoragePort,
+    storage: MinioStorage,
     embedding: EmbeddingPort,
-    vector_store: VectorStorePort,
-    ocr: OCRPort,
+    vector_store: QdrantVectorStore,
+    ocr: PaddleOCR,
     repository: DocumentRepositoryPort,
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> dict:
@@ -105,8 +105,8 @@ def _process_sync(
     storage_path: str,
     file_bytes: bytes,
     embedding: EmbeddingPort,
-    vector_store: VectorStorePort,
-    ocr: OCRPort,
+    vector_store: QdrantVectorStore,
+    ocr: PaddleOCR,
 ) -> dict:
     """Synchronous document processing."""
     temp_file = None

@@ -16,7 +16,7 @@ from kira.evaluation.models import (
 )
 from kira.evaluation.runners.rag_pipeline import RAGPipelineEvaluationRunner
 from kira.evaluation.service import DeepEvalEvaluationService
-from kira.providers.llm.adapter import GLMAdapter
+from kira.providers.llm.client import LLMClient
 
 
 def _parse_metrics(
@@ -57,7 +57,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     pipeline = create_default_rag_pipeline_service()
     evaluator = DeepEvalEvaluationService(
-        judge_llm=GLMAdapter(),
+        judge_llm=LLMClient(),
         threshold=config.threshold,
     )
     runner = RAGPipelineEvaluationRunner(pipeline=pipeline, evaluator=evaluator)
@@ -79,7 +79,7 @@ def build_legal_runner(threshold: float):
     from kira.legal.composition import create_answer_legal_question, legal_graph
     from kira.providers.embedding.factory import create_embedding_adapter
 
-    llm = GLMAdapter()
+    llm = LLMClient()
     embedding = create_embedding_adapter()
     graph = legal_graph()
     runner = LegalQAEvaluationRunner(

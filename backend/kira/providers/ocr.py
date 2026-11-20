@@ -1,7 +1,4 @@
-"""PaddleOCR HTTP API client for OCR processing.
-
-Migrated from src/ingestion/paddleocr_client.py
-"""
+"""PaddleOCR HTTP service: low-level client and the PaddleOCR facade used by features."""
 
 import asyncio
 import base64
@@ -389,9 +386,18 @@ async def close_ocr_client() -> None:
         _client = None
 
 
-__all__ = [
-    "PaddleOCRClient",
-    "OCRResult",
-    "get_ocr_client",
-    "close_ocr_client",
-]
+class PaddleOCR:
+    """Adapter for PaddleOCR HTTP service."""
+
+    async def extract_text(self, image_bytes: bytes, language: str = "vi") -> str:
+        """Extract text from image bytes using PaddleOCR service."""
+        client = get_ocr_client()
+        result = await client.ocr_image_bytes(image_bytes, lang=language)
+        if not result.success:
+            raise RuntimeError(f"OCR processing failed: {result.error}")
+        return result.text
+
+    async def health_check(self) -> bool:
+        """Check health of the PaddleOCR service."""
+        client = get_ocr_client()
+        return await client.check_health()

@@ -6,7 +6,7 @@ from uuid import UUID
 from kira.legal.errors import InvalidLegalDocumentState, LegalDocumentNotFound
 from kira.legal.ports import LegalDocumentRepositoryPort
 from kira.legal.records import CandidateStatus, LegalDocumentStatus
-from kira.providers.storage.base import StoragePort
+from kira.providers.storage import MinioStorage
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ _BUSY_STATUSES = frozenset({LegalDocumentStatus.PARSING, LegalDocumentStatus.PUB
 
 
 class DeleteLegalDocument:
-    def __init__(self, repository: LegalDocumentRepositoryPort, storage: StoragePort) -> None:
+    def __init__(self, repository: LegalDocumentRepositoryPort, storage: MinioStorage) -> None:
         self._repository = repository
         self._storage = storage
 

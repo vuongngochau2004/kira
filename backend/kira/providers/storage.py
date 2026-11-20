@@ -1,7 +1,4 @@
-"""MinIO file storage wrapper.
-
-Migrated from src/indexing/file_store.py
-"""
+"""MinIO object storage: client helpers and the MinioStorage used by features."""
 
 import io
 from datetime import timedelta
@@ -217,14 +214,29 @@ async def close() -> None:
     _minio_client = None
 
 
-__all__ = [
-    "get_client",
-    "upload_file",
-    "upload_bytes",
-    "download_file",
-    "download_bytes",
-    "delete_file",
-    "get_presigned_url",
-    "file_exists",
-    "close",
-]
+class MinioStorage:
+    """Adapter for MinIO Object Storage."""
+
+    async def upload(
+        self,
+        key: str,
+        data: bytes,
+        content_type: str = "application/octet-stream",
+    ) -> str:
+        """Upload file to MinIO and return presigned URL."""
+        upload_bytes(data, object_name=key, content_type=content_type)
+        return get_presigned_url(object_name=key)
+
+    async def download(self, key: str) -> bytes:
+        """Download bytes from MinIO."""
+        if not file_exists(object_name=key):
+            raise FileNotFoundError(f"File {key} not found in MinIO storage.")
+        return download_bytes(object_name=key)
+
+    async def delete(self, key: str) -> None:
+        """Delete object from MinIO."""
+        delete_file(object_name=key)
+
+    async def exists(self, key: str) -> bool:
+        """Check if object exists in MinIO."""
+        return file_exists(object_name=key)

@@ -15,7 +15,7 @@ from kira.documents.processing.chunker import chunk_document
 from kira.documents.processing.cleaner import clean_document
 from kira.documents.processing.extractor import extract_pdf
 from kira.providers.embedding.api import EmbeddingAPIAdapter
-from kira.providers.ocr.adapter import PaddleOCRAdapter
+from kira.providers.ocr import PaddleOCR
 
 
 async def run_pipeline_simulation():
@@ -30,7 +30,7 @@ async def run_pipeline_simulation():
     print(f"Output directory initialized at: {output_dir.resolve()}\n")
 
     # Initialize adapters
-    ocr_adapter = PaddleOCRAdapter()
+    ocr_adapter = PaddleOCR()
     embedding_adapter = EmbeddingAPIAdapter()
 
     # Step 1: Document Extraction (Hybrid OCR/VLM)

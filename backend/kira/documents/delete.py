@@ -6,8 +6,8 @@ from collections.abc import Awaitable, Callable
 
 from kira.documents.repository_port import DocumentRepositoryPort
 from kira.documents.schemas import DeleteDocumentRequest, DocumentDeleteResult
-from kira.providers.storage.base import StoragePort
-from kira.providers.vector.base import VectorStorePort
+from kira.providers.storage import MinioStorage
+from kira.providers.vector_store import QdrantVectorStore
 from kira.retrieval.keyword_port import KeywordIndexPort
 
 logger = logging.getLogger(__name__)
@@ -20,8 +20,8 @@ class DeleteDocument:
         self,
         repository: DocumentRepositoryPort,
         keyword_index: KeywordIndexPort,
-        vector_store: VectorStorePort,
-        storage: StoragePort,
+        vector_store: QdrantVectorStore,
+        storage: MinioStorage,
     ):
         """Initialize document deletion service."""
         self.repository = repository

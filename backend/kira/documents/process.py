@@ -8,9 +8,9 @@ from kira.documents.processing.pipeline import process_document
 from kira.documents.repository_port import DocumentRepositoryPort
 from kira.documents.schemas import DocumentProcessResult, ProcessDocumentRequest
 from kira.providers.embedding.base import EmbeddingPort
-from kira.providers.ocr.base import OCRPort
-from kira.providers.storage.base import StoragePort
-from kira.providers.vector.base import VectorStorePort
+from kira.providers.ocr import PaddleOCR
+from kira.providers.storage import MinioStorage
+from kira.providers.vector_store import QdrantVectorStore
 from kira.retrieval.keyword_port import KeywordIndexPort
 
 logger = logging.getLogger(__name__)
@@ -22,11 +22,11 @@ class ProcessDocument:
     def __init__(
         self,
         repository: DocumentRepositoryPort,
-        storage: StoragePort,
+        storage: MinioStorage,
         embedding: EmbeddingPort,
-        vector_store: VectorStorePort,
+        vector_store: QdrantVectorStore,
         keyword_index: KeywordIndexPort,
-        ocr: OCRPort,
+        ocr: PaddleOCR,
     ):
         """Initialize document processing service."""
         self.repository = repository

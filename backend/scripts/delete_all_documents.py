@@ -11,10 +11,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from kira.documents.schemas import DeleteDocumentRequest
-from kira.documents.composition import delete_document_service
 from kira.db.models import Document
 from kira.db.session import async_session_factory
+from kira.documents.composition import delete_document_service
+from kira.documents.schemas import DeleteDocumentRequest
 
 
 async def clean_all_documents():

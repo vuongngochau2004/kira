@@ -89,29 +89,26 @@ class ServiceRegistry:
         try:
             from kira.providers.embedding.base import EmbeddingPort
             from kira.providers.embedding.factory import create_embedding_adapter
-            from kira.providers.llm.adapter import GLMAdapter
             from kira.providers.llm.base import LLMPort
-            from kira.providers.ocr.adapter import PaddleOCRAdapter
-            from kira.providers.ocr.base import OCRPort
-            from kira.providers.storage.base import StoragePort
-            from kira.providers.storage.minio import MinIOAdapter
-            from kira.providers.vector.base import VectorStorePort
-            from kira.providers.vector.qdrant import QdrantAdapter
+            from kira.providers.llm.client import LLMClient
+            from kira.providers.ocr import PaddleOCR
+            from kira.providers.storage import MinioStorage
+            from kira.providers.vector_store import QdrantVectorStore
             from kira.retrieval.bm25_adapter import (
                 BM25KeywordIndexAdapter,
             )
             from kira.retrieval.bm25_manager import get_bm25_manager
             from kira.retrieval.keyword_port import KeywordIndexPort
 
-            await container.register_singleton(LLMPort, GLMAdapter())
-            await container.register_singleton(VectorStorePort, QdrantAdapter())
+            await container.register_singleton(LLMPort, LLMClient())
+            await container.register_singleton(QdrantVectorStore, QdrantVectorStore())
             await container.register_singleton(EmbeddingPort, create_embedding_adapter())
-            await container.register_singleton(StoragePort, MinIOAdapter())
+            await container.register_singleton(MinioStorage, MinioStorage())
             await container.register_singleton(
                 KeywordIndexPort,
                 BM25KeywordIndexAdapter(manager=get_bm25_manager()),
             )
-            await container.register_singleton(OCRPort, PaddleOCRAdapter())
+            await container.register_singleton(PaddleOCR, PaddleOCR())
 
         except ImportError as e:
             print(f"Warning: Could not import Hexagonal Ports/Adapters: {e}")
@@ -128,12 +125,12 @@ class ServiceRegistry:
             from kira.chat.rag.composition import create_default_rag_pipeline_service
             from kira.providers.embedding.base import EmbeddingPort
             from kira.providers.llm.base import LLMPort
-            from kira.providers.storage.base import StoragePort
+            from kira.providers.storage import MinioStorage
             from kira.retrieval.composition import create_search_use_case
 
             llm = await container.get(LLMPort)
             embedding = await container.get(EmbeddingPort)
-            storage = await container.get(StoragePort)
+            storage = await container.get(MinioStorage)
             await container.register_singleton(
                 RAGHandler,
                 RAGHandler(

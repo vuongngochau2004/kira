@@ -10,11 +10,13 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import aclosing
 from enum import Enum
+from typing import Any
 
 from google import genai
 from google.genai import types as genai_types
 
 from kira.config import settings
+from kira.providers.llm.base import LLMPort
 
 logger = logging.getLogger(__name__)
 DEFAULT_LLM_TIMEOUT = 60.0
@@ -772,7 +774,7 @@ __all__ = [
 ]
 
 
-class LLMClient:
+class LLMClient(LLMPort):
     """Class-based interface for LLM calls with default parameters.
 
     Useful for dependency injection, testing, and when you need multiple
@@ -882,3 +884,74 @@ class LLMClient:
             close = getattr(stream, "aclose", None)
             if close is not None:
                 await close()
+
+    # ---- LLMPort interface (generate / stream / health_check) ----
+
+    async def generate(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        **kwargs: Any,
+    ) -> str:
+        """Generate a complete response from the LLM.
+
+        Args:
+            messages: Conversation messages
+            temperature: Sampling temperature
+            max_tokens: Max tokens to generate
+
+        Returns:
+            Generated text content
+        """
+        result = await self.chat_async(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return result.get("content", "")
+
+    async def stream(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        **kwargs: Any,
+    ) -> AsyncIterator[str]:
+        """Stream response token by token.
+
+        Args:
+            messages: Conversation messages
+            temperature: Sampling temperature
+            max_tokens: Max tokens to generate
+
+        Yields:
+            Text chunks as generated
+        """
+        stream = self.chat_async_stream(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        try:
+            async for chunk in stream:
+                if isinstance(chunk, str):
+                    yield chunk
+                elif isinstance(chunk, dict) and chunk.get("content"):
+                    yield chunk["content"]
+        finally:
+            close = getattr(stream, "aclose", None)
+            if close is not None:
+                await close()
+
+    async def health_check(self) -> bool:
+        """Check LLM provider health by sending a minimal request."""
+        try:
+            result = await self.chat_async(
+                messages=[{"role": "user", "content": "Respond with pong immediately."}],
+                max_tokens=50,
+                temperature=0.1,
+            )
+            return bool(result.get("content"))
+        except Exception:
+            return False

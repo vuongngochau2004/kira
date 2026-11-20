@@ -8,8 +8,8 @@ from kira.constants import DocumentStatus
 from kira.documents.repository_port import DocumentRepositoryPort
 from kira.documents.schemas import CancelDocumentRequest, DocumentCancelResult
 from kira.documents.task_queue_port import TaskQueuePort
-from kira.providers.storage.base import StoragePort
-from kira.providers.vector.base import VectorStorePort
+from kira.providers.storage import MinioStorage
+from kira.providers.vector_store import QdrantVectorStore
 from kira.retrieval.keyword_port import KeywordIndexPort
 
 logger = logging.getLogger(__name__)
@@ -22,8 +22,8 @@ class CancelDocument:
         self,
         repository: DocumentRepositoryPort,
         keyword_index: KeywordIndexPort,
-        vector_store: VectorStorePort,
-        storage: StoragePort,
+        vector_store: QdrantVectorStore,
+        storage: MinioStorage,
         task_queue: TaskQueuePort,
     ):
         """Initialize document cancellation service."""

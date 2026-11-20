@@ -1,6 +1,6 @@
 """Dependency composition for the retrieval module."""
 
-from kira.providers.vector.qdrant import QdrantAdapter
+from kira.providers.vector_store import QdrantVectorStore
 from kira.retrieval.adapters import (
     BM25KeywordSearchAdapter,
     PostgresRetrievalDocumentAdapter,
@@ -13,7 +13,7 @@ def create_search_use_case(llm_client=None) -> SearchUseCase:
     """Compose the default search use case."""
     bm25_manager = get_bm25_manager()
     return SearchUseCase(
-        vector_store=QdrantAdapter(),
+        vector_store=QdrantVectorStore(),
         keyword_search=BM25KeywordSearchAdapter(bm25_manager),
         documents=PostgresRetrievalDocumentAdapter(),
         llm_client=llm_client,

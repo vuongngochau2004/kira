@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 from kira.documents.processing.models import ExtractionResult
-from kira.providers.ocr.base import OCRPort
+from kira.providers.ocr import PaddleOCR
 
 logger = logging.getLogger(__name__)
 
@@ -41,19 +41,19 @@ async def extract_image_docling(file_path: str, error: str | None = None) -> Ext
         )
 
 
-async def extract_image_ocr(file_path: str, ocr: OCRPort | None = None) -> ExtractionResult:
+async def extract_image_ocr(file_path: str, ocr: PaddleOCR | None = None) -> ExtractionResult:
     """Extract text from image using PaddleOCR service with Docling fallback.
 
     Args:
         file_path: Path to image file
-        ocr: OCRPort adapter instance
+        ocr: PaddleOCR adapter instance
 
     Returns:
         ExtractionResult with text and metadata
     """
     try:
         if ocr is None:
-            raise RuntimeError("Image extraction requires an OCRPort")
+            raise RuntimeError("Image extraction requires an PaddleOCR")
         result = await ocr.extract_text(Path(file_path).read_bytes())
         if result.strip():
             return ExtractionResult(

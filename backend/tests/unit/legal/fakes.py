@@ -34,7 +34,6 @@ from kira.legal.records import (
     RelationCandidateRecord,
 )
 from kira.legal.serialization import provisions_to_json
-from kira.providers.storage.base import StoragePort
 
 ADMIN_ID = UUID("00000000-0000-0000-0000-00000000a0a0")
 
@@ -115,7 +114,7 @@ class InMemoryLegalRepository(LegalDocumentRepositoryPort):
         ]
 
 
-class FakeStorage(StoragePort):
+class FakeStorage:
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
 

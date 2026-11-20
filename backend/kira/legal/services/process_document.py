@@ -34,7 +34,7 @@ from kira.legal.records import (
 )
 from kira.legal.serialization import provisions_to_json
 from kira.providers.llm.base import LLMPort
-from kira.providers.storage.base import StoragePort
+from kira.providers.storage import MinioStorage
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class ProcessLegalDocument:
     def __init__(
         self,
         repository: LegalDocumentRepositoryPort,
-        storage: StoragePort,
+        storage: MinioStorage,
         extractor: LegalTextExtractorPort,
         llm: LLMPort,
         auto_approve_types: Collection[str],

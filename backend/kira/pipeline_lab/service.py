@@ -12,8 +12,7 @@ from kira.chat.intent.base import ClassificationStrategyBase
 from kira.config import settings
 from kira.di.registry import get_container
 from kira.documents.processing.extractor import extract_content
-from kira.providers.ocr.base import OCRPort
-from kira.providers.ocr.paddle import get_ocr_client
+from kira.providers.ocr import PaddleOCR, get_ocr_client
 from kira.retrieval.rerank.llm import (
     format_documents_for_reranking,
     parse_reranking_response,
@@ -46,7 +45,7 @@ async def inspect_document(content: bytes, suffix: str) -> dict[str, Any]:
         with os.fdopen(descriptor, "wb") as target:
             target.write(content)
         container = await get_container()
-        ocr = await container.get(OCRPort)
+        ocr = await container.get(PaddleOCR)
         result = await extract_content(path, "pdf", ocr=ocr)
         return {
             "success": result.success,

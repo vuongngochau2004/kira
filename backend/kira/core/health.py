@@ -14,11 +14,10 @@ from loguru import logger
 from kira.config import EmbeddingProvider, RerankingMode, settings
 from kira.legal.graph.neo4j import Neo4jLegalGraphAdapter
 from kira.providers.embedding.factory import create_embedding_adapter
-from kira.providers.llm.adapter import GLMAdapter
 from kira.providers.llm.client import LLMClient
-from kira.providers.ocr.adapter import PaddleOCRAdapter
-from kira.providers.storage.client import get_client as get_minio_client
-from kira.providers.vector.qdrant import QdrantAdapter
+from kira.providers.ocr import PaddleOCR
+from kira.providers.storage import get_client as get_minio_client
+from kira.providers.vector_store import QdrantVectorStore
 from kira.worker import celery_app
 
 
@@ -98,7 +97,7 @@ async def _check_ocr() -> bool | ServiceHealth:
         return ServiceHealth("PaddleOCR", "SKIP", "disabled")
     if not settings.ocr_base_url:
         return ServiceHealth("PaddleOCR", "SKIP", "not configured")
-    return await PaddleOCRAdapter().health_check()
+    return await PaddleOCR().health_check()
 
 
 async def _check_tei_health(model: str) -> str:
@@ -127,7 +126,7 @@ async def _check_reranker(llm_client: LLMClient | None) -> bool | str:
         return await _check_tei_health("rerank")
     if llm_client is None:
         raise RuntimeError("LLM reranker client is unavailable")
-    return await GLMAdapter(client=llm_client).health_check()
+    return await (llm_client or LLMClient()).health_check()
 
 
 async def _check_neo4j() -> bool | str | ServiceHealth:
@@ -143,7 +142,7 @@ async def _check_neo4j() -> bool | str | ServiceHealth:
 async def log_startup_service_health(llm_client: LLMClient) -> list[ServiceHealth]:
     """Run non-database checks concurrently and emit their Loguru status report."""
     dependency_checks = await asyncio.gather(
-        _check_service("Qdrant", QdrantAdapter().health_check),
+        _check_service("Qdrant", QdrantVectorStore().health_check),
         _check_service("Neo4j", _check_neo4j),
         _check_service("MinIO", _check_minio),
         _check_service("Redis", _check_redis),
@@ -153,9 +152,7 @@ async def log_startup_service_health(llm_client: LLMClient) -> list[ServiceHealt
             f"Reranker ({settings.reranking_mode})",
             lambda: _check_reranker(llm_client),
         ),
-        _check_service(
-            f"LLM ({settings.llm_provider})", GLMAdapter(client=llm_client).health_check
-        ),
+        _check_service(f"LLM ({settings.llm_provider})", (llm_client or LLMClient()).health_check),
         _check_service("PaddleOCR", _check_ocr),
         _check_service("Docling", _check_docling),
     )
@@ -176,7 +173,7 @@ async def log_startup_service_health(llm_client: LLMClient) -> list[ServiceHealt
 async def get_system_overview(llm_client: LLMClient | None = None) -> dict[str, Any]:
     """Collect system health and return dictionary matching the frontend AdminOverview schema."""
     dependency_checks = await asyncio.gather(
-        _check_service("Qdrant", QdrantAdapter().health_check),
+        _check_service("Qdrant", QdrantVectorStore().health_check),
         _check_service("Neo4j", _check_neo4j),
         _check_service("MinIO", _check_minio),
         _check_service("Redis", _check_redis),
@@ -192,7 +189,7 @@ async def get_system_overview(llm_client: LLMClient | None = None) -> dict[str, 
     checks = [ServiceHealth("PostgreSQL", "UP", "schema initialized"), *dependency_checks]
     if llm_client is not None:
         llm_check = await _check_service(
-            f"LLM ({settings.llm_provider})", GLMAdapter(client=llm_client).health_check
+            f"LLM ({settings.llm_provider})", (llm_client or LLMClient()).health_check
         )
         checks.append(llm_check)
 

@@ -10,7 +10,7 @@ from kira.documents.schemas import (
     DocumentUploadResult,
     UploadDocumentRequest,
 )
-from kira.providers.storage.base import StoragePort
+from kira.providers.storage import MinioStorage
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class UploadDocument:
     def __init__(
         self,
         repository: DocumentRepositoryPort,
-        storage: StoragePort,
+        storage: MinioStorage,
     ):
         """Initialize document upload service.
 
