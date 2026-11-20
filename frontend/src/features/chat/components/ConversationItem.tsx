@@ -3,7 +3,7 @@
 import { formatDistanceToNow } from 'date-fns'
 import { MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Conversation } from '@/lib/api/client'
+import type { Conversation } from '@/features/chat/api'
 
 interface ConversationItemProps {
   conversation: Conversation

@@ -37,7 +37,7 @@ import { useDocumentsUpload } from '@/features/documents/hooks/use-documents-upl
 import { DocumentPreviewDialog } from '@/features/documents/components/DocumentPreviewDialog'
 import { KiraLogoIcon } from '@/components/common/KiraLogo'
 import { ThemeToggleDropdown } from '@/components/common/ThemeToggle'
-import { documentsAPI, type Document } from '@/lib/api/client'
+import { documentsAPI, type Document } from '@/features/documents/api'
 import { cn } from '@/lib/utils'
 
 export type SidebarPage = 'conversation' | 'conversations' | 'uploads' | 'admin'

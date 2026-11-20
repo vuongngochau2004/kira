@@ -1,7 +1,7 @@
 /** Typed client for the admin pipeline lab. */
 import { z } from 'zod'
 
-import { apiErrorMessage, ApiError, fetchAPI } from '@/lib/api/client'
+import { apiErrorMessage, ApiError, fetchAPI } from '@/lib/api/http'
 
 const basePath = '/api/v1/admin/pipeline-lab'
 

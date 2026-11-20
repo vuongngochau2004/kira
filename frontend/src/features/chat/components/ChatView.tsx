@@ -53,7 +53,7 @@ export interface Message {
   pipeline?: PipelineStep[]  // LangGraph trace shown above the answer
 }
 
-interface SimpleChatProps {
+interface ChatViewProps {
   messages: Message[]
   optimisticMessages?: Message[]  // NEW: Optimistic messages for first-message UX
   isLoading: boolean
@@ -346,7 +346,7 @@ export function ChatView({
   isOptimistic = false,
   retryMessage,
   isRetryable = false,
-}: SimpleChatProps) {
+}: ChatViewProps) {
   const sources = useSourcesStore((state) => state.sources)
   const isSourcesOpen = useSourcesStore((state) => state.isOpen)
   const setActiveSourceId = useSourcesStore((state) => state.setActiveSourceId)

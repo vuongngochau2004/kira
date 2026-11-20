@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { documentsAPI, Document } from '@/lib/api/client'
+import { documentsAPI, Document } from '@/features/documents/api'
 import { useAuthStore } from '@/features/auth/store'
 
 interface ActiveUpload {

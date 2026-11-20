@@ -17,7 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { DocumentPreviewDialog } from '@/features/documents/components/DocumentPreviewDialog'
-import { documentsAPI, type Document } from '@/lib/api/client'
+import { documentsAPI, type Document } from '@/features/documents/api'
 import { AuthGuard } from '@/features/auth/components/AuthGuard'
 import { useSourcesStore } from '@/features/chat/stores/sources-store'
 import { useConversationStore } from '@/features/chat/stores/conversation-store'

@@ -8,7 +8,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { conversationsAPI, chatAPI } from '@/lib/api/client'
+import { conversationsAPI, chatAPI } from '@/features/chat/api'
 import { useConversationStore } from '@/features/chat/stores/conversation-store'
 import { useAuthStore } from '@/features/auth/store'
 import { useSourcesStore } from '@/features/chat/stores/sources-store'

@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { documentsAPI } from "@/lib/api/client"
+import { documentsAPI } from '@/features/documents/api'
 import { Download, FileText, ExternalLink } from "lucide-react"
 
 interface DocumentPreviewDialogProps {

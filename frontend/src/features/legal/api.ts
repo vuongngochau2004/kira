@@ -1,4 +1,4 @@
-import { ApiError, apiErrorMessage, fetchAPI } from '@/lib/api/client'
+import { ApiError, apiErrorMessage, fetchAPI } from '@/lib/api/http'
 import type {
   CandidateReview,
   LegalDocument,

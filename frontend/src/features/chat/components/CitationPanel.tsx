@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { X, Search, FileText, Loader2, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { documentsAPI } from '@/lib/api/client'
+import { documentsAPI } from '@/features/documents/api'
 import { DocumentPreviewDialog } from '@/features/documents/components/DocumentPreviewDialog'
 
 export interface CitationSource {

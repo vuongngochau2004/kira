@@ -26,7 +26,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { adminAPI, AdminOverview, Document } from '@/lib/api/client'
+import { adminAPI, AdminOverview } from '@/features/admin/api'
+import { Document } from '@/features/documents/api'
 import { useAuthStore } from '@/features/auth/store'
 import { cn } from '@/lib/utils'
 

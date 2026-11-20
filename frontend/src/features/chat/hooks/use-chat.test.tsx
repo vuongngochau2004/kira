@@ -1,11 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { chatAPI, conversationsAPI } from '@/lib/api/client'
+import { chatAPI, conversationsAPI } from '@/features/chat/api'
 import { useAuthStore } from '@/features/auth/store'
 import { useConversationStore } from '@/features/chat/stores/conversation-store'
 import { useChat } from '@/features/chat/hooks/use-chat'
 
-vi.mock('@/lib/api/client', () => ({
+vi.mock('@/features/chat/api', () => ({
   chatAPI: { streamMessage: vi.fn() },
   conversationsAPI: { create: vi.fn(), get: vi.fn() },
 }))
