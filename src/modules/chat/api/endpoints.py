@@ -19,7 +19,6 @@ from src.constants import (
 )
 from src.modules.chat.api.requests import ChatStreamRequest, ConversationCreate
 from src.modules.chat.application.dto import ChatQuery
-from src.shared.domain.conversation_context import bound_history
 from src.modules.chat.composition import (
     citation_enricher,
     create_conversation,
@@ -30,6 +29,7 @@ from src.modules.chat.composition import (
     get_recent_owned_messages,
     list_conversations,
 )
+from src.shared.domain.conversation_context import bound_history
 from src.shared.infrastructure.auth.dependencies import get_current_user
 from src.shared.infrastructure.auth.rate_limit import limit_user_requests
 from src.shared.infrastructure.persistence.database.models import User
@@ -108,13 +108,15 @@ async def _load_conversation_history_if_exists(
 
     try:
         messages = await get_recent_owned_messages(conversation_id, user_id, db=db)
-        return bound_history([
-            {
-                "role": msg.role,
-                "content": msg.content,
-            }
-            for msg in messages
-        ])
+        return bound_history(
+            [
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                }
+                for msg in messages
+            ]
+        )
     except Exception as e:
         logger = logging.getLogger(__name__)
         logger.warning(f"Failed to load conversation history: {e}")

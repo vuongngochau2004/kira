@@ -360,9 +360,7 @@ class RetrievalAgentConfig(AgentConfig):
     rerank_top_k: int = Field(
         default=5, ge=1, le=50, description="Number of documents to keep after reranking"
     )
-    reranker_model: Literal["tei", "llm"] = Field(
-        default="tei", description="Reranking adapter"
-    )
+    reranker_model: Literal["tei", "llm"] = Field(default="tei", description="Reranking adapter")
     rerank_threshold: float = Field(
         default=0.5, ge=0.0, le=1.0, description="Minimum reranked score"
     )

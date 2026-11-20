@@ -45,9 +45,7 @@ def _service(*, hits=(OLD, NEW, DEFINITIONS, GUIDE), keywords=None, seed_top_k=2
         search=search,
         keywords=keywords or FakeKeywordSearch(),
         graph=graph,
-        reranker=ConfiguredLegalReranker(
-            mode="llm", llm_client_provider=lambda: None
-        ),
+        reranker=ConfiguredLegalReranker(mode="llm", llm_client_provider=lambda: None),
         llm=llm,
         options=LegalQAOptions(
             seed_top_k=seed_top_k,

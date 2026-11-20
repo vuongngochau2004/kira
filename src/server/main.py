@@ -14,7 +14,6 @@ from src.modules.retrieval.domain.services.reranking_service import init_reranki
 from src.server.api.v1.admin.endpoints import router as admin_router
 from src.server.api.v1.auth.endpoints import router as auth_router
 from src.server.api.v1.evaluation.endpoints import router as evaluation_router
-from src.server.api.v1.metrics.endpoints import router as metrics_router
 from src.server.startup_health import log_startup_service_health
 from src.shared.infrastructure.llm.client import LLMClient, LLMProvider
 from src.shared.infrastructure.monitoring import setup_logging
@@ -92,7 +91,6 @@ def _setup_routes(app: FastAPI) -> None:
     app.include_router(documents_router, prefix="/api/v1/documents", tags=["documents"])
     app.include_router(chat_router, prefix="/api/v1/chat", tags=["chat"])
     app.include_router(evaluation_router, prefix="/api/v1/evaluation", tags=["evaluation"])
-    app.include_router(metrics_router, prefix="/api/v1/metrics", tags=["metrics"])
     app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
     app.include_router(debug_router, prefix="/api/v1/admin/pipeline-lab", tags=["pipeline-lab"])
     if settings.legal_enabled:

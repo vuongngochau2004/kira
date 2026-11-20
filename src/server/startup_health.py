@@ -109,9 +109,7 @@ async def _check_tei_health(model: str) -> str:
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.get(url, headers=headers)
     if response.status_code != 200:
-        tunnel_error = (
-            " (Cloudflare Tunnel error 1033)" if "Error 1033" in response.text else ""
-        )
+        tunnel_error = " (Cloudflare Tunnel error 1033)" if "Error 1033" in response.text else ""
         raise RuntimeError(f"{model} health: HTTP {response.status_code}{tunnel_error}")
     return "HTTP 200"
 

@@ -155,4 +155,3 @@ class UrlIngestRequest(BaseModel):
     """Request payload for ingesting a legal document from a URL."""
 
     url: str
-

@@ -49,14 +49,19 @@ class FakeEnqueuer:
         return "task-publish"
 
 
-from src.modules.legal.application.ingest_from_url import IngestLegalFromUrl
 from src.modules.legal.application.errors import InvalidLegalDocumentInput
+from src.modules.legal.application.ingest_from_url import IngestLegalFromUrl
 from src.modules.legal.application.records import LegalDocumentMetadata
 from src.modules.legal.infrastructure.scrapers.vbpl_scraper import ScrapedLegalDocument
 
 
 class FakeScraper:
-    def __init__(self, metadata: LegalDocumentMetadata | None = None, content: bytes = LAW_TEXT, file_name: str = "doc.html") -> None:
+    def __init__(
+        self,
+        metadata: LegalDocumentMetadata | None = None,
+        content: bytes = LAW_TEXT,
+        file_name: str = "doc.html",
+    ) -> None:
         self.metadata = metadata or LegalDocumentMetadata(
             number="45/2024/QH15",
             doc_type="law",
@@ -100,8 +105,8 @@ class Harness:
         app.dependency_overrides[dependencies.get_upload_service] = lambda: UploadLegalDocument(
             self.repository, self.storage
         )
-        app.dependency_overrides[dependencies.get_ingest_from_url_service] = lambda: IngestLegalFromUrl(
-            self.scraper, UploadLegalDocument(self.repository, self.storage)
+        app.dependency_overrides[dependencies.get_ingest_from_url_service] = lambda: (
+            IngestLegalFromUrl(self.scraper, UploadLegalDocument(self.repository, self.storage))
         )
         app.dependency_overrides[dependencies.get_review_service] = lambda: ReviewRelationCandidate(
             self.repository
@@ -323,4 +328,3 @@ def test_ingest_from_url_forbidden_for_non_admin() -> None:
         json={"url": "https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=123"},
     )
     assert response.status_code == 403
-

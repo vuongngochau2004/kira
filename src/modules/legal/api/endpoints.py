@@ -38,7 +38,6 @@ from src.modules.legal.api.schemas import (
     UrlIngestRequest,
 )
 from src.modules.legal.application.delete_document import DeleteLegalDocument
-from src.modules.legal.application.ingest_from_url import IngestLegalFromUrl
 from src.modules.legal.application.errors import (
     InvalidLegalDocumentInput,
     InvalidLegalDocumentState,
@@ -47,6 +46,7 @@ from src.modules.legal.application.errors import (
     LegalProvisionNotFound,
     RelationCandidateNotFound,
 )
+from src.modules.legal.application.ingest_from_url import IngestLegalFromUrl
 from src.modules.legal.application.provision_history import GetProvisionHistory
 from src.modules.legal.application.queries import LegalDocumentQueries
 from src.modules.legal.application.records import LegalDocumentMetadata, LegalDocumentStatus

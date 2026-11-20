@@ -132,4 +132,3 @@ async def test_scrape_fallback_html():
     assert result.file_name.endswith(".html")
     assert result.content_type.startswith("text/html")
     assert b"Lu\xe1\xba\xadt \xc4\x90\xe1\xba\xa5t \xc4\x91ai" in result.content
-

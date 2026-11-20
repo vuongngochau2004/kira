@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_RRF_K = 60
 DENSE_MULTIPLIER = 2
 
+
 def get_bm25_results(
     bm25_index: Any,
     query_text: str,

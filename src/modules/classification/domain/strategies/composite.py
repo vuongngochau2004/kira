@@ -212,9 +212,7 @@ class CompositeClassifier(ClassificationStrategyBase):
         for turn in reversed(history):
             if turn["role"] != "user" or not is_standalone_topic(turn["content"]):
                 continue
-            legal = next(
-                (s for s in self.strategies if isinstance(s, LegalKeywordStrategy)), None
-            )
+            legal = next((s for s in self.strategies if isinstance(s, LegalKeywordStrategy)), None)
             if legal is not None and legal.can_handle(turn["content"], user_id):
                 if explicit_personal:
                     return None

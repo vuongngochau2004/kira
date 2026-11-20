@@ -415,9 +415,7 @@ class RetrievalAgent:
                 metadata = dict(result.get("metadata") or {})
                 if rerank_score is not None:
                     metadata["reranker"] = "tei"
-                    metadata["original_score"] = result.get(
-                        "rrf_score", result.get("score", 0.0)
-                    )
+                    metadata["original_score"] = result.get("rrf_score", result.get("score", 0.0))
 
                 doc = DocumentWithScore(
                     doc_id=doc_id,

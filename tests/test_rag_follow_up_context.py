@@ -5,19 +5,21 @@ from uuid import uuid4
 
 import pytest
 
+from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
 from src.modules.chat.infrastructure.persistence.conversation_repository import (
     get_recent_owned_messages,
 )
-from src.modules.chat.infrastructure.handlers.rag_handler import RAGHandler
 from src.modules.classification.domain.strategies.composite import CompositeClassifier
 from src.modules.classification.domain.strategies.keyword import KeywordStrategy
 from src.modules.classification.domain.strategies.legal import LegalKeywordStrategy
-from src.modules.rag.domain.services.rag_domain_service import RAGService
-from src.modules.rag.orchestration.state.rag_state import create_initial_state
-from src.modules.rag.orchestration.agents.orchestrator_agent import OrchestratorAgent
-from src.modules.rag.orchestration.state.rag_state import OrchestratorAgentConfig
 from src.modules.legal.domain.extraction import DOCUMENT_NUMBER_PATTERN
 from src.modules.rag.application.dto import RAGExecutionResult
+from src.modules.rag.domain.services.rag_domain_service import RAGService
+from src.modules.rag.orchestration.agents.orchestrator_agent import OrchestratorAgent
+from src.modules.rag.orchestration.state.rag_state import (
+    OrchestratorAgentConfig,
+    create_initial_state,
+)
 from src.shared.domain.conversation_context import bound_history, resolve_retrieval_query
 from src.shared.ports.classification import ClassificationResult, Intent
 
@@ -62,15 +64,21 @@ def test_explicit_uploaded_file_question_can_be_retrieval_anchor() -> None:
 
 
 def test_standalone_query_does_not_use_history() -> None:
-    assert resolve_retrieval_query(
-        "What is in report.pdf?", [{"role": "user", "content": "contract.pdf"}]
-    ) == "What is in report.pdf?"
+    assert (
+        resolve_retrieval_query(
+            "What is in report.pdf?", [{"role": "user", "content": "contract.pdf"}]
+        )
+        == "What is in report.pdf?"
+    )
 
 
 def test_follow_up_without_prior_user_question_keeps_original() -> None:
-    assert resolve_retrieval_query(
-        "What about its date?", [{"role": "assistant", "content": "Unknown"}]
-    ) == "What about its date?"
+    assert (
+        resolve_retrieval_query(
+            "What about its date?", [{"role": "assistant", "content": "Unknown"}]
+        )
+        == "What about its date?"
+    )
 
 
 def test_rag_state_keeps_original_and_standalone_queries_separate() -> None:

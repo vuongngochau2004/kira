@@ -47,7 +47,9 @@ def vbpl_scraper() -> VbplScraper:
 
 
 def ingest_legal_from_url_service(db: AsyncSession) -> IngestLegalFromUrl:
-    return IngestLegalFromUrl(scraper=vbpl_scraper(), upload_service=upload_legal_document_service(db))
+    return IngestLegalFromUrl(
+        scraper=vbpl_scraper(), upload_service=upload_legal_document_service(db)
+    )
 
 
 def process_legal_document_service(db: AsyncSession) -> ProcessLegalDocument:

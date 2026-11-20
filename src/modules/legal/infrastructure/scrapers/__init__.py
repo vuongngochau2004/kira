@@ -6,4 +6,3 @@ from src.modules.legal.infrastructure.scrapers.vbpl_scraper import (
 )
 
 __all__ = ["ScrapedLegalDocument", "VbplScraper"]
-

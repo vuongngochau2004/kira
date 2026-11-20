@@ -88,3 +88,7 @@ output/
 reports/
 *.docx
 .agents/
+# Local AI-assistant tooling (kept out of the repo)
+.codex/
+.superpowers/
+.deepeval/

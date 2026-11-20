@@ -364,7 +364,9 @@ class LangGraphRAGPipeline:
         logger.info("RAG pipeline starting: user_id={}, query_chars={}", user_id, len(query))
 
         # Create initial state
-        initial_state = create_initial_state(query, user_id, conversation_id, bound_history(history))
+        initial_state = create_initial_state(
+            query, user_id, conversation_id, bound_history(history)
+        )
 
         # Invoke graph
         try:
@@ -404,7 +406,9 @@ class LangGraphRAGPipeline:
         """
         logger.info("RAG stream starting: user_id={}, query_chars={}", user_id, len(query))
 
-        initial_state = create_initial_state(query, user_id, conversation_id, bound_history(history))
+        initial_state = create_initial_state(
+            query, user_id, conversation_id, bound_history(history)
+        )
 
         try:
             # A previous implementation manually invoked each agent here. That

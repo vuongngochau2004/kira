@@ -136,9 +136,7 @@ class TEIEmbeddingAdapter(EmbeddingPort):
         headers = self._get_headers()
         try:
             async with httpx.AsyncClient(timeout=min(self._timeout, 5.0)) as client:
-                response = await client.get(
-                    f"{self._base_url}/health/embedding", headers=headers
-                )
+                response = await client.get(f"{self._base_url}/health/embedding", headers=headers)
             return response.status_code == 200
         except httpx.HTTPError:
             return False

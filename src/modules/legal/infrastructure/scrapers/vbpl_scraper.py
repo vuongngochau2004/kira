@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from html import unescape
-from typing import Any
 from urllib.parse import unquote, urljoin, urlparse
 
 import httpx
@@ -127,7 +126,9 @@ class VbplScraper:
             metadata = self._extract_metadata(html=html, source_url=clean_url)
 
             # Try downloading attached file
-            file_payload = await self._fetch_attachment(client=client, base_url=clean_url, html=html)
+            file_payload = await self._fetch_attachment(
+                client=client, base_url=clean_url, html=html
+            )
             if file_payload is not None:
                 file_name, content, content_type = file_payload
             else:
@@ -166,7 +167,9 @@ class VbplScraper:
             if match:
                 number = match.group(1)
             else:
-                raise InvalidLegalDocumentInput("Could not detect valid legal document number from vbpl.vn page")
+                raise InvalidLegalDocumentInput(
+                    "Could not detect valid legal document number from vbpl.vn page"
+                )
 
         number = number.strip()
 

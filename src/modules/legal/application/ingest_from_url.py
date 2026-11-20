@@ -27,4 +27,3 @@ class IngestLegalFromUrl:
             uploaded_by=uploaded_by,
         )
         return await self._upload_service.execute(upload_request)
-
