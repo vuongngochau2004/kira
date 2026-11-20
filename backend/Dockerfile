@@ -20,6 +20,7 @@ COPY pyproject.toml uv.lock* ./
 RUN if [ -f uv.lock ]; then uv sync --frozen --no-install-project; \
     else uv sync --no-install-project; fi
 
+COPY alembic.ini ./
 COPY kira/ kira/
 
 RUN mkdir -p logs reports

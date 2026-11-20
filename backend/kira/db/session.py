@@ -48,9 +48,10 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    """Initialize database connection and create tables."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Bring the schema up to date with Alembic migrations."""
+    from kira.db.migrate import run_migrations
+
+    await run_migrations()
 
 
 async def close_db() -> None:

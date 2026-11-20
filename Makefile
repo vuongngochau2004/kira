@@ -133,6 +133,9 @@ db-migrate: ## Apply database migrations (Alembic)
 	@echo "$(BLUE)Running migrations...$(NC)"
 	@cd $(BACKEND_DIR) && source .venv/bin/activate && alembic upgrade head
 
+db-revision: ## Create a migration from model changes. Usage: make db-revision MSG="add x"
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && alembic revision --autogenerate -m "$(MSG)"
+
 ##@ Testing & Quality
 
 test: test-backend test-frontend ## Run backend and frontend unit tests
