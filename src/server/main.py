@@ -20,8 +20,6 @@ from src.server.startup_health import log_startup_service_health
 from src.shared.infrastructure.llm.client import LLMClient, LLMProvider
 from src.shared.infrastructure.monitoring.logger import setup_logging
 from src.shared.infrastructure.persistence.database.session import close_db, init_db
-from src.tools.ingestion_tools import init_ingestion_tools
-from src.tools.retrieval_tools import init_retrieval_tools
 
 
 @asynccontextmanager
@@ -29,8 +27,6 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     logger.info("Starting {} dependency initialization", settings.app_name)
     await init_db()
-    init_retrieval_tools()
-    init_ingestion_tools()
 
     # Initialize LLM client for reranking
     llm_client = _create_llm_client()
