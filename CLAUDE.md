@@ -1,300 +1,204 @@
 # CLAUDE.md - KIRA Development Guide
 
-This file gives AI coding assistants and maintainers the operating context for the KIRA repository.
+Operating context for AI coding assistants and maintainers. `AGENTS.md` and `GEMINI.md` are symlinks to this file.
 
 ## Communication Policy
 
 - Respond to user-facing questions in Vietnamese unless the user asks otherwise.
-- Keep code, identifiers, inline comments, commit text, and technical documentation in English unless specifically requested.
-- Be concise, factual, and implementation-oriented.
+- Keep code, identifiers, comments, commit messages and technical documentation in English unless requested.
+- Be concise, factual and implementation-oriented.
 
 ## Project Snapshot
 
-KIRA is a full-stack RAG application for authenticated document upload, hybrid retrieval, citation-aware chat, and RAG evaluation.
+KIRA is a full-stack RAG application: authenticated document upload, hybrid retrieval, citation-aware chat,
+administrative drafting, a Vietnamese legal corpus with a knowledge graph, and RAG evaluation.
 
-- Backend: FastAPI, Python 3.12, SQLAlchemy asyncio
-- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS
-- Storage: PostgreSQL 16 + pgvector, Qdrant, MinIO
-- Jobs: Celery + Redis for document processing
-- Retrieval: dense vector search, BM25 keyword search, RRF hybrid fusion, optional reranking
-- AI: GLM/Z.ai default, Gemini/OpenAI-compatible/Ollama options, external embedding API
-- Architecture: hexagonal modular monolith
+- Backend: FastAPI, Python 3.12, SQLAlchemy asyncio, Alembic (`backend/`)
+- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS (`frontend/`)
+- Storage: PostgreSQL 16, Qdrant, MinIO, Neo4j (legal graph)
+- Jobs: Celery + Redis
+- Retrieval: dense (Qdrant) + BM25, RRF fusion, optional reranking (TEI or LLM)
+- AI: OpenAI-compatible / GLM / Gemini / Ollama LLMs; TEI, Ollama or HTTP embedding API
 
-## Current Entry Points
+## Repository Layout
 
-### Backend
+```text
+backend/                 Python service (pyproject.toml, uv.lock, alembic.ini, Dockerfile)
+  kira/                  the application package
+  tests/unit/<feature>/  unit tests, mirroring kira/<feature>/
+  tests/integration/     tests that need Docker services (marker: integration)
+  scripts/               one-off/maintenance scripts (not imported by kira)
+frontend/                Next.js app (src/app routes, src/features, src/components, src/lib)
+docs/                    architecture, deployment, evaluation docs; docs/archive for old plans
+docker-compose.yml       infrastructure + app/tunnel profiles
+Makefile                 all common commands (run `make help`)
+```
 
-- FastAPI app: `src/server/main.py`
-- Runtime settings: `src/config/config.py`
-- Static settings: `src/config/settings.yaml`
-- Database session: `src/shared/infrastructure/persistence/database/session.py`
-- Database models: `src/shared/infrastructure/persistence/database/models.py`
-- Celery app: `src/worker/celery_app.py`
-- Document task: `src/worker/document_tasks.py`
-- Legal tasks: `src/worker/legal_tasks.py` (`legal.process`, `legal.publish`)
+## Backend Structure (feature-first)
 
-### API Routers
+```text
+kira/
+  main.py          FastAPI app: lifespan, CORS, error handlers, include_router - nothing else
+  config.py        Settings (pydantic) + settings.yaml static defaults; REPO_ROOT
+  deps.py          THE wiring file: provider singletons and service factories
+  worker.py        Celery app (+ CeleryTaskQueue for revoking tasks)
+  core/            technical helpers without business logic (logging, health, cors, errors, tracing)
+  db/              session.py, models.py (all ORM), queries.py, migrate.py, migrations/ (Alembic)
+  providers/       external services: llm/, embedding/, ocr.py, storage.py (MinIO), vector_store.py (Qdrant)
+  auth/            login/register/JWT cookie/rate limit
+  documents/       upload/list/delete/cancel + processing/ (extract, clean, chunk, embed pipeline) + tasks.py
+  retrieval/       search.py (entry point), bm25.py, hybrid_search.py, fusion.py, rerank/
+  chat/            router, sse.py (SSE contract), messages.py (persistence), service.py, graph.py,
+                   intent/ (keyword -> cache -> LLM routing), handlers/ (conversational, rag, drafting),
+                   rag/ (LangGraph pipeline: graph.py, state.py, nodes/, prompts/)
+  drafting/        administrative document prompts and DOCX rendering
+  legal/           legal corpus: router, services/, repository, parser, extraction/, temporal/, graph/ (Neo4j), tasks.py
+  evaluation/      DeepEval service, datasets, metrics/, runners/, cli.py
+  admin/           admin overview API
+  pipeline_lab/    admin tool to inspect extraction/classification/reranking
+```
 
-- Auth: `src/server/api/v1/auth/endpoints.py`
-- Chat: `src/modules/chat/api/endpoints.py`
-- Documents: `src/modules/document/api/endpoints.py`
-- Evaluation: `src/server/api/v1/evaluation/endpoints.py`
-- Metrics: `src/server/api/v1/metrics/endpoints.py`
-- Legal (admin, mounted only when `LEGAL_ENABLED=true`): `src/modules/legal/api/endpoints.py`
+Every feature uses the same file names where they apply:
 
-All routers are mounted in `src/server/main.py` under `/api/v1/...`.
-
-### Frontend
-
-- App routes: `frontend/src/app/`
-- Main auth landing page: `frontend/src/app/page.tsx`
-- Conversation page: `frontend/src/app/conversation/page.tsx`
-- Upload page: `frontend/src/app/uploads/page.tsx`
-- API client: `frontend/src/lib/api/simple-client.ts`
-- Chat hooks: `frontend/src/lib/hooks/use-simple-chat.ts`, `use-streaming-chat.ts`
-- Stores: `frontend/src/lib/stores/`
-- Shared UI components: `frontend/src/components/ui/`
-- Legal corpus admin: `frontend/src/app/admin/legal/` (list/upload, `[id]` review); legal chat UI: `frontend/src/components/legal/`
-- Frontend tests: Vitest + Testing Library (`frontend/vitest.config.ts`, `src/**/*.test.ts(x)`)
+| File | Holds |
+|---|---|
+| `router.py` | HTTP endpoints only: parse request, call a service, return a response |
+| `service.py` or one file per operation (`upload.py`, `delete.py`, ...) | business logic |
+| `repository.py` | all SQL for the feature |
+| `schemas.py` | Pydantic/dataclass request and result models |
+| `tasks.py` | Celery tasks |
 
 ## Architecture Rules
 
-The backend uses a hexagonal modular monolith. Preserve the dependency direction:
+Enforced by `backend/tests/unit/test_architecture.py`:
 
-```text
-src/server/ and module api/
-        -> application use cases
-        -> domain services and rules
-        -> shared ports/contracts
-        -> adapters/infrastructure
-```
+1. Routers are leaves: only `kira/main.py` imports `*.router`.
+2. No SQL in routers (`select(`, `db.execute(`, `from sqlalchemy import`); queries go in `repository.py`.
+3. Only entry points (`router.py`, `sse.py`, `dependencies.py`, `tasks.py`, `cli.py`, `main.py`,
+   `pipeline_lab/service.py`) read `kira.deps`. Services receive dependencies as constructor/function arguments.
+4. Interfaces (ABC/Protocol) only where several real implementations exist:
+   `providers/llm/base.py`, `providers/embedding/base.py`, `chat/intent/base.py`, `chat/handlers/base.py`,
+   `legal/ports.py`, `legal/graph/base.py`. Otherwise use the concrete class; tests use fakes or monkeypatch.
+5. `tests/unit/<x>/` must match a `kira/<x>/` folder.
 
-### Layer Responsibilities
+Also:
 
-- `src/server/`: FastAPI app setup, cross-cutting HTTP concerns, top-level router mounting
-- `src/modules/<module>/api/`: module-owned request/response schemas and endpoint functions
-- `src/modules/<module>/application/`: use cases, orchestration, application DTOs
-- `src/modules/<module>/domain/`: business rules, prompts, strategies, domain services
-- `src/modules/<module>/infrastructure/`: module-specific persistence or integrations
-- `src/shared/ports/`: contracts for external services
-- `src/shared/adapters/`: concrete implementations of ports
-- `src/shared/infrastructure/`: DB, auth, monitoring, LLM clients, technical concerns
-- `src/shared/kernel/`: dependency injection, base abstractions, registries
+- Features call each other through their public entry points (e.g. chat uses `retrieval.search`), not internals.
+- Keep per-user isolation for documents, conversations, retrieval and citations (`user_id` on every query).
+- No DI container, no new global mutable state. Add singletons in `deps.py` with `functools.cache`.
+- Do not add an interface "for later". Add it when the second implementation arrives.
+- Keep files under ~400 lines and functions under ~60 lines when you touch them (Boy Scout Rule: leave code
+  cleaner than you found it, but do not mix large refactors into feature changes).
 
-### Rules To Enforce
+## Where To Change Things
 
-- Do not put business logic in FastAPI endpoint functions.
-- Do not import concrete adapters into application/domain code when a port exists.
-- Do not query SQLAlchemy directly from application/domain code; use repositories or owned infrastructure boundaries.
-- Keep per-user isolation intact for documents, conversations, retrieval, and citations.
-- Register/wire concrete services centrally instead of constructing them throughout the codebase.
-- Avoid new global mutable state unless it matches an existing service singleton pattern.
-
-## Module Map
-
-- `chat`: chat use cases, handler selection, SSE streaming, conversation/message persistence
-- `classification`: query intent routing, keyword/cache/LLM strategies
-- `document`: upload, delete, download, chunk listing, background processing
-- `retrieval`: Qdrant dense retrieval, BM25, hybrid search, reranking service
-- `rag`: agentic/LangGraph RAG orchestration, state, agents, prompts
-- `evaluation`: DeepEval evaluation service, golden datasets, CLI runner
-- `legal`: shared Vietnamese legal corpus — upload, structure parsing, relation review, Neo4j/Qdrant publishing
+| Change | Files |
+|---|---|
+| SSE event shape | `backend/kira/chat/sse.py` + `frontend/src/features/chat/streaming/` |
+| RAG prompt / graph | `backend/kira/chat/rag/prompts/`, `chat/rag/graph.py`, `chat/rag/nodes/` |
+| Intent routing | `backend/kira/chat/intent/` (chain built in `deps.get_classifier`) |
+| New LLM/embedding provider | `backend/kira/providers/<kind>/<name>.py` + its factory |
+| Chunking / extraction | `backend/kira/documents/processing/` |
+| Hybrid search weights | `backend/kira/retrieval/` or `kira/settings.yaml` |
+| New DB column | `backend/kira/db/models.py` + `make db-revision MSG="..."` |
+| Wiring of anything | `backend/kira/deps.py` |
 
 ## Runtime Behavior
 
-### Backend Startup
+### Backend startup (`kira/main.py` lifespan)
 
-`src/server/main.py` lifespan currently:
+1. `init_db()` runs Alembic migrations (`kira/db/migrate.py`). A pre-Alembic database is stamped at baseline `0001` first.
+2. Initializes the reranking LLM client and reranking service.
+3. Logs a dependency health table (PostgreSQL, Qdrant, Neo4j, MinIO, Redis, Celery, embedding, reranker, LLM, OCR, Docling).
+   A DOWN service does not stop startup; it fails when used.
 
-1. Initializes database connections.
-2. Checks the embedding API through `EmbeddingAPIAdapter().health_check()`.
-3. Initializes retrieval and ingestion tools.
-4. Creates an LLM client for reranking/hybrid search support.
-5. Initializes the reranking service and hybrid-search LLM client.
-6. Closes DB connections on shutdown.
-
-If backend startup fails early, check database availability, embedding API availability, and required environment variables.
-
-### Document Upload Flow
+### Document upload
 
 ```text
-POST /api/v1/documents/upload
-  -> authenticate user
-  -> store original file in MinIO
-  -> create PostgreSQL document row
-  -> enqueue Celery task documents.process
-  -> worker extracts/cleans/chunks/embeds
-  -> upsert chunks into Qdrant
-  -> update BM25/index metadata and document status
+POST /api/v1/documents/upload -> documents/router.py -> documents/upload.py
+  -> MinIO (providers/storage.py) + documents row (documents/repository.py)
+  -> Celery documents.process (documents/tasks.py) -> documents/process.py
+  -> processing/pipeline.py: extract -> clean -> chunk -> embed -> Qdrant + BM25 -> status
 ```
 
-Local upload processing requires Redis and a running Celery worker:
+Requires Redis and a running worker: `make dev-worker`.
 
-```bash
-celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
-```
-
-### Chat Streaming Flow
+### Chat streaming
 
 ```text
-POST /api/v1/chat/stream
-  -> authenticate user
-  -> load/create conversation
-  -> classify query intent
-  -> select conversational/RAG/drafting/legal_qa handler
-     (legal_qa only when LEGAL_ENABLED=true: date resolution, Qdrant + BM25 on provisions
-      in force at that date, Neo4j context expansion, citations with a `legal` object)
-  -> retrieve context when needed
-  -> stream SSE events
-  -> persist user and assistant messages
+POST /api/v1/chat/stream -> chat/router.py -> chat/sse.py stream_chat_events
+  -> chat/messages.py (load/create conversation, history)
+  -> deps.get_chat_use_case() -> chat/graph.py: classify (chat/intent) -> dispatch handler
+     conversational | rag (chat/rag LangGraph) | drafting | legal_qa (LEGAL_ENABLED=true)
+  -> SSE events -> chat/messages.py saves user + assistant messages
 ```
 
-The frontend expects structured SSE event shapes. Be careful when changing event types or payload fields.
+The frontend parses SSE events in `frontend/src/features/chat/streaming/`. Change both sides together.
 
 ## Configuration Notes
 
-- `JWT_SECRET_KEY` is required by Pydantic settings.
-- `APP_ENV=production` rejects known default JWT secrets.
-- Backend dev port is `8006`.
-- Frontend dev port is `3001`.
-- Docker Compose exposes PostgreSQL on host port `5433`.
-- Qdrant vector dimension is `1024` by default and must match the embedding API output.
-- Static retrieval/reranking/citation/chunking defaults live in `src/config/settings.yaml`.
-- `.env` values override Pydantic runtime settings in `src/config/config.py`.
-- The legal knowledge graph needs the `neo4j` compose service, `NEO4J_*` settings, and `LEGAL_ENABLED=true`.
+- `.env` lives at the repo root; `kira/config.py` reads it from there (or from the working directory).
+- `JWT_SECRET_KEY` is required. `APP_ENV=production` rejects known default secrets.
+- Ports: backend `8006`, frontend dev `3001`, Docker frontend `3002`, PostgreSQL host port from `.env`.
+- Qdrant vector size (default 1024) must match the embedding output.
+- Legal features need the `neo4j` service, `NEO4J_*` settings and `LEGAL_ENABLED=true`.
 
-## Development Commands
-
-### Infrastructure
+## Commands
 
 ```bash
-docker compose up -d
-docker compose ps
-docker compose logs -f
-docker compose down
+make help              # list everything
+make infra             # docker compose up -d (infrastructure)
+make install-backend   # cd backend && uv sync --extra dev
+make dev-backend       # python -m kira.main (from backend/)
+make dev-worker        # celery -A kira.worker.celery_app worker
+make dev-frontend      # next dev on :3001
+make db-migrate        # alembic upgrade head
+make db-revision MSG="add column x"
+make test-backend      # pytest -m "not integration"
+make test-integration  # needs make infra
+make test-frontend     # vitest
+make lint              # ruff + eslint
+make format            # ruff format + eslint --fix
+make deploy / deploy-tunnel / deploy-stop
 ```
 
-### Backend
+## Verification Before Committing
+
+Backend (from `backend/`):
 
 ```bash
-pip install -e ".[dev]"
-python -m src.server.main
-pytest tests/ -v
-ruff check src/ tests/
-ruff format src/ tests/
-mypy src/
+.venv/bin/ruff check kira tests
+.venv/bin/ruff format --check kira tests
+.venv/bin/mypy kira
+.venv/bin/pytest -m "not integration"
 ```
 
-### Worker
+Frontend (from `frontend/`):
 
 ```bash
-celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
+npx eslint src/
+npx tsc --noEmit -p .
+npx vitest run --maxWorkers=4
 ```
 
-### Frontend
-
-```bash
-cd frontend
-npm install --legacy-peer-deps
-npm run dev
-npm run lint
-npm run build
-npm test
-```
-
-### Deployment (Docker + Cloudflare Tunnel)
-
-```bash
-make deploy          # api/worker/frontend containers (profile "app"), frontend on :3002
-make deploy-tunnel   # + cloudflared (profile "tunnel"), prints the trycloudflare URL
-make deploy-stop     # stop app + tunnel, keep infrastructure
-```
-
-Images: root `Dockerfile` (backend + worker), `frontend/Dockerfile` (Next.js standalone, `KIRA_API_URL` build arg).
-Guide: `docs/deployment/cloudflare-tunnel.md`.
-
-### Makefile
-
-```bash
-make help
-make infra
-make dev-backend
-make dev-worker
-make dev-frontend
-make test-backend
-make test-frontend
-make lint
-make format
-```
-
-`make dev`, `make dev-backend`, and `make dev-worker` assume `.venv/bin/activate` exists.
-
-## Testing Guidance
-
-Use focused tests for narrow behavior and broader checks for shared contracts.
-
-- Document pipeline: `tests/test_document_clean_chunk.py`, `tests/test_document_extractor_quality.py`
-- Retrieval/reranking: `tests/test_retrieval_agent_reranking.py`
-- Database checks: `test_db.py`
-- Qdrant checks: `test_qdrant.py`
-- Evaluation scripts: `scripts/validate_eval_dataset.py`, `scripts/evaluate_extraction_quality.py`
-- Legal QA evaluation: `docs/evaluation/legal-golden-dataset.md`, `scripts/validate_legal_eval_dataset.py`, `make eval-legal`
-
-Run broader tests when touching:
-
-- authentication
-- database models/session behavior
-- document processing
-- retrieval contracts
-- SSE streaming shapes
-- shared ports/adapters
-- frontend API client contracts
+Run the full suites when touching auth, DB models, document processing, retrieval, SSE shapes,
+providers or the frontend API clients.
 
 ## Code Standards
 
-### Python
+- Python 3.12 syntax, absolute imports from `kira...`, type hints on public functions, async I/O kept async.
+- Ruff rules: E, F, W, I, B, UP, N, SIM, RET, C4 (see `backend/pyproject.toml`). Line length 100.
+- Do not swallow exceptions silently; log context and return safe API errors.
+- Frontend: component files `PascalCase.tsx`, other modules `kebab-case.ts`, imports via `@/`.
+  Feature code lives in `src/features/<feature>/` (components, hooks, stores, `api.ts`);
+  shared UI in `src/components/{ui,layout,common}`; shared helpers in `src/lib/` (`lib/api/http.ts`).
+- Docs: setup/product changes in `README.md`, assistant/developer guidance here, deep dives in `docs/`.
 
-- Use Python 3.12 syntax.
-- Follow Ruff settings in `pyproject.toml`.
-- Use absolute imports from `src...`.
-- Add type hints for public functions and methods.
-- Keep async behavior consistent for DB, HTTP, and streaming paths.
-- Keep line length near 100 characters where practical.
-- Do not silently swallow exceptions; log useful context and preserve safe API errors.
+## Git
 
-### Frontend
-
-- Keep TypeScript typed at component, hook, and API boundaries.
-- Reuse `frontend/src/components/ui/` and existing stores/hooks before adding new patterns.
-- Keep app screens operational and direct; this is not a marketing site.
-- Keep user-facing text consistent with the current Vietnamese/English locale structure.
-- Preserve current SSE streaming compatibility unless updating frontend and backend together.
-
-### Documentation
-
-- Update `README.md` for setup, architecture, API, or product-facing workflow changes.
-- Update `CLAUDE.md` for assistant/developer guidance, entry points, boundaries, or command changes.
-- Use `docs/` for deeper technical documentation.
-- Put README screenshots in `docs/assets/` and reference stable relative paths.
-
-## Safety Notes For AI Agents
-
-- Check `git status --short` before editing.
-- Do not revert unrelated user changes.
-- Use `rg` or `rg --files` for search.
-- Use `apply_patch` for manual file edits.
-- Do not run destructive commands such as `git reset --hard`, `git checkout --`, or broad deletes unless explicitly requested.
-- Be careful with `make db-reset`; it deletes local database volumes after confirmation.
+- Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`), imperative mood.
+- Check `git status --short` before editing; never revert unrelated user changes.
+- Never commit `.env`, credentials or tokens.
+- No destructive commands (`git reset --hard`, broad deletes, `make db-reset`) unless explicitly requested.
 - Do not add dependencies unless the existing stack cannot reasonably solve the task.
-- If a command fails because infrastructure is unavailable, state the missing service instead of hiding the requirement.
-
-## Common Pitfalls
-
-- Use `src/server/main.py` as the ASGI/FastAPI entry point.
-- Chat and document endpoints live under module API folders, not only under `src/server/api/v1/`.
-- Frontend uses port `3001`, while CORS may still include `3000` for compatibility.
-- Upload succeeds only when Redis and Celery can enqueue/process the task.
-- Embedding API health is checked during backend startup.
-- Qdrant collection/vector dimension must match configured embeddings.
-- Keep retrieval and document queries scoped by `user_id`.
-- Evaluation uses DeepEval naming in current code and docs; do not introduce a separate RAGAS-only path without checking implementation.
+- If a command fails because infrastructure is down, name the missing service.

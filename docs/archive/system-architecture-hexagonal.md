@@ -22,7 +22,7 @@ flowchart TB
         WebUI --> ZustandStore --> SSEClient
     end
 
-    subgraph Serving["🌐 Serving Layer (src/server/)"]
+    subgraph Serving["🌐 Serving Layer (backend/kira/)"]
         FastAPI["FastAPI Application Core"]
         AuthMiddleware["JWT Authentication Middleware"]
         SSEHandler["SSE Streaming Protocol Handler"]
@@ -37,7 +37,7 @@ flowchart TB
         end
     end
 
-    subgraph Modules["📦 Application Core Modules (src/modules/)"]
+    subgraph Modules["📦 Application Core Modules (backend/kira/)"]
         ChatMod["Chat Module<br/>• Session & History<br/>• SSE Event Orchestration"]
         ClassMod["Classification Module<br/>• Intent Routing<br/>• Multi-Strategy Classifier"]
         RAGMod["RAG Module (LangGraph)<br/>• Multi-Agent Workflow<br/>• Citation Verification"]
@@ -53,7 +53,7 @@ flowchart TB
         VLMVerifier["VLM Verification<br/>Page Quality Gate"]
     end
 
-    subgraph Shared["🔌 Shared Kernel & Ports (src/shared/)"]
+    subgraph Shared["🔌 Shared Kernel & Ports (backend/kira/core/)"]
         Ports["Domain Ports (Interfaces)<br/>• LLMClientPort • VectorStorePort<br/>• EmbeddingPort • RerankerPort<br/>• StoragePort • LegalGraphPort"]
         Adapters["Infrastructure Adapters<br/>• QdrantAdapter • MinIOAdapter<br/>• Neo4jAdapter • TEIAdapter<br/>• OpenAI / GLM / Gemini / Ollama"]
         Infra["Persistence & Security<br/>• SQLAlchemy Async Session<br/>• Password Cryptography"]
@@ -469,7 +469,7 @@ erDiagram
 Hệ thống được tổ chức dạng thư mục rõ ràng theo cấu trúc phân tầng Hexagonal:
 
 ```text
-src/
+backend/kira/
 ├── server/                           # Serving Layer - Điểm giao tiếp HTTP duy nhất
 │   ├── main.py                      # Khởi tạo FastAPI, Lifespan và Global Handlers
 │   ├── middleware/                  # JWT auth, CORS, logging context

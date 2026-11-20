@@ -51,13 +51,13 @@ CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM
 
 Các điểm chính:
 
-- `src/modules/document/domain/services/extractor.py`
+- `backend/kira/documents/processing/extractor.py`
   - `extract_pdf()` ưu tiên Docling.
   - Nếu Docling lỗi, fallback sang PyMuPDF + PaddleOCR.
   - Khi fallback từ Docling, hệ thống force OCR toàn bộ trang thay vì tin native
     text layer.
 
-- `src/config/config.py`
+- `backend/kira/config.py`
   - Thêm cấu hình:
 
 ```env
@@ -153,7 +153,7 @@ dùng native text layer có thể bị lỗi encoding nữa.
 Chạy debug OCR/ảnh trên vài file mẫu:
 
 ```bash
-.venv/bin/python scripts/debug_ocr_sample.py \
+.venv/bin/python backend/scripts/debug_ocr_sample.py \
   "docs_eval_sample/04_Daotao_1562 QD BH Quy dinh moi thinh giang va quan ly cong tac thinh giang tai Truong DHBK-DHDN.PDF" \
   --pages 1-2 \
   --output-dir reports/ocr_debug
@@ -172,7 +172,7 @@ Sau đó test extractor thực tế:
 ```bash
 .venv/bin/python - <<'PY'
 import asyncio
-from src.modules.document.domain.services.extractor import extract_content
+from kira.documents.processing.extractor import extract_content
 
 async def main():
     result = await extract_content(
@@ -211,7 +211,7 @@ Khuyến nghị:
 Upload smoke test:
 
 ```bash
-.venv/bin/python scripts/bulk_upload_documents.py \
+.venv/bin/python backend/scripts/bulk_upload_documents.py \
   --input-dir docs_eval_sample \
   --base-url http://localhost:8006 \
   --token "$ACCESS_TOKEN"
@@ -220,7 +220,7 @@ Upload smoke test:
 Sinh lại dataset:
 
 ```bash
-.venv/bin/python scripts/generate_eval_dataset_from_ingested_chunks.py \
+.venv/bin/python backend/scripts/generate_eval_dataset_from_ingested_chunks.py \
   --user-id "$USER_UUID" \
   --output data/evaluation/eval_smoke_docling.json \
   --max-documents 5 \
@@ -232,14 +232,14 @@ Sinh lại dataset:
 Validate dataset:
 
 ```bash
-.venv/bin/python scripts/validate_eval_dataset.py \
+.venv/bin/python backend/scripts/validate_eval_dataset.py \
   data/evaluation/eval_smoke_docling.json
 ```
 
 Run evaluation:
 
 ```bash
-python -m src.modules.evaluation.cli run \
+python -m kira.evaluation.cli run \
   --dataset data/evaluation/eval_smoke_docling.json \
   --user-id "$USER_UUID" \
   --output-dir reports/evaluation \
@@ -282,7 +282,7 @@ OCR_LANG=vi
 3. Chạy debug vài PDF:
 
 ```bash
-.venv/bin/python scripts/debug_ocr_sample.py "path/to/file.pdf" --pages 1-2
+.venv/bin/python backend/scripts/debug_ocr_sample.py "path/to/file.pdf" --pages 1-2
 ```
 
 4. Upload lại 5 file mẫu.

@@ -1,7 +1,7 @@
 # Legal QA Golden Dataset
 
 The legal QA benchmark checks that answers use the law **in force on the date the question is about**
-and cite the right provisions. Format: `src/modules/evaluation/domain/legal_dataset.py`;
+and cite the right provisions. Format: `backend/kira/evaluation/legal_dataset.py`;
 example: `docs/examples/evaluation/legal_golden_example.json` (fictional document numbers).
 
 ## Writing samples
@@ -21,7 +21,7 @@ before and after 2026-07-01 and questions that need a guiding decree or circular
 
 ## Checking and running
 
-    python scripts/validate_legal_eval_dataset.py dataset/legal/golden.json
+    python backend/scripts/validate_legal_eval_dataset.py dataset/legal/golden.json
     make eval-legal DATASET=dataset/legal/golden.json
 
 The run needs the legal corpus in Qdrant and Neo4j, the embedding API and the LLM (`LEGAL_ENABLED=true`

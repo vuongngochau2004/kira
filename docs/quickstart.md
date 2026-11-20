@@ -26,9 +26,7 @@ Keep `.env` private; it contains credentials.
 ## 2. Install dependencies
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[dev]'
+make install-backend   # cd backend && uv sync --extra dev -> backend/.venv
 cd frontend
 npm ci --legacy-peer-deps
 cd ..
@@ -41,7 +39,7 @@ make infra
 make infra-status
 ```
 
-Wait until PostgreSQL and the other containers are running. On a new PostgreSQL volume, the current Compose setup can fail: `docker-compose.yml` mounts `migrations/*.sql` into PostgreSQL's first-run init directory, but the first SQL file alters `messages` before the backend has created that table. Check `docker compose logs postgres` if PostgreSQL exits. This is a repository setup issue; do not delete an existing database volume to retry.
+Wait until PostgreSQL and the other containers are running. The schema is created by Alembic when the backend starts (or with `make db-migrate`).
 
 ## 4. Start the app
 
@@ -62,7 +60,7 @@ make dev-worker
 make dev-frontend
 ```
 
-Each `make dev-*` command activates `.venv` or runs npm as needed. The backend calls `init_db()` on startup to create mapped tables. The worker is required for uploaded documents to progress beyond `pending`.
+Each `make dev-*` command activates `backend/.venv` or runs npm as needed. The backend applies Alembic migrations on startup. The worker is required for uploaded documents to progress beyond `pending`.
 
 If `tmux` is installed, `make dev` starts these three processes in one session after infrastructure is running.
 

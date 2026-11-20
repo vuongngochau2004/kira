@@ -16,7 +16,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/vuongngochau2004/kira/pulls)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 
-[Architecture](docs/system-architecture.md) • [Deployment Guide](docs/deployment-guide.md) • [Document Pipeline](docs/high-accuracy-document-processing-pipeline.md) • [Code Standards](docs/code-standards.md) • [Evaluation](docs/examples/evaluation)
+[Architecture](docs/architecture-and-flows.md) • [Deployment Guide](docs/deployment-guide.md) • [Document Pipeline](docs/high-accuracy-document-processing-pipeline.md) • [Code Standards](CLAUDE.md) • [Evaluation](docs/examples/evaluation)
 
 </div>
 
@@ -236,21 +236,19 @@ make db-migrate
 In your backend terminal:
 
 ```bash
-# Create and activate virtual environment
-python3.12 -m venv .venv
-source .venv/bin/activate
+cd backend
 
-# Install backend dependencies
-pip install -e ".[dev]"
+# Create the virtual environment and install dependencies from uv.lock
+uv sync --extra dev        # or: make install-backend (from the repo root)
 
-# Terminal 1: Launch FastAPI Backend Server
-python -m src.server.main
+# Terminal 1: Launch FastAPI Backend Server (applies Alembic migrations on startup)
+.venv/bin/python -m kira.main        # or: make dev-backend
 ```
 The backend API is now running at `http://localhost:8006` with interactive Swagger docs at `http://localhost:8006/docs`.
 
 ```bash
 # Terminal 2: Launch Celery Worker for Document Ingestion
-celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
+.venv/bin/celery -A kira.worker.celery_app worker --loglevel=info --concurrency=2   # or: make dev-worker
 ```
 
 ---
@@ -327,43 +325,41 @@ A detailed overview of configuration variables available in `.env`:
 
 ## 📂 Project Structure
 
+Feature-first layout: each feature folder holds its router, service, repository and schemas.
+See [CLAUDE.md](CLAUDE.md) for the rules and a "where to change things" table.
+
 ```text
 kira/
-├── src/                          # Backend source code (Python 3.12+)
-│   ├── server/                   # Serving layer (FastAPI routes, middleware, lifespan)
-│   │   ├── api/v1/               # API route definitions (auth, chat, documents, etc.)
-│   │   └── main.py               # FastAPI entrypoint and router registry
-│   ├── modules/                  # Modular monolith application domains
-│   │   ├── auth/ & identity/     # User authentication, token validation & credentials
-│   │   ├── chat/                 # Chat persistence, SSE streaming handlers, sessions
-│   │   ├── classification/       # Intent classification strategies (conversational vs RAG)
-│   │   ├── document/             # Document upload, extraction, chunking, indexing
-│   │   ├── drafting/             # Automated document drafting use cases
-│   │   ├── evaluation/           # DeepEval benchmarks & dataset runners
-│   │   ├── legal/                # Vietnamese legal graph RAG & temporal reasoning
-│   │   ├── rag/                  # LangGraph multi-agent orchestration & state
-│   │   └── retrieval/            # Dense, BM25, hybrid fusion (RRF), cross-encoder rerank
-│   ├── shared/                   # Hexagonal shared kernel, ports & common adapters
-│   ├── config/                   # Dynamic & static configuration (Pydantic Settings)
-│   └── worker/                   # Celery application and asynchronous document tasks
-├── frontend/                     # Modern Next.js 16 Web Application
-│   ├── src/
-│   │   ├── app/                  # Next.js App Router pages and layout views
-│   │   ├── components/           # UI components (Radix UI, chat, documents, graphs)
-│   │   ├── lib/                  # Custom hooks (SSE streaming), Zustand stores, API clients
-│   │   └── styles/               # Tailwind CSS v4 styling
-│   └── package.json              # Frontend dependencies and scripts
-├── docs/                         # In-depth architectural & deployment guides
-│   ├── assets/                   # Architecture diagrams and UI SVG captures
-│   ├── system-architecture.md    # Hexagonal architecture boundaries and ports
-│   ├── deployment-guide.md       # Production deployment and container instructions
-│   └── code-standards.md         # Engineering guidelines and clean code rules
-├── migrations/                   # SQL migrations for PostgreSQL schema initialization
-├── scripts/                      # Utility scripts for migration, seed, and evaluation
-├── tests/                        # Comprehensive Pytest suite (unit, integration, regression)
-├── docker-compose.yml            # Docker Compose orchestration for infra services
-├── Makefile                      # Standardized developer commands & shortcuts
-└── pyproject.toml                # Backend project definitions, dependencies, and lint rules
+├── backend/                      # Python 3.12 service (pyproject.toml, uv.lock, alembic.ini, Dockerfile)
+│   ├── kira/
+│   │   ├── main.py               # FastAPI app and router mounting
+│   │   ├── config.py             # Settings (.env) + settings.yaml defaults
+│   │   ├── deps.py               # All wiring: providers and services are built here
+│   │   ├── worker.py             # Celery app
+│   │   ├── core/                 # Logging, health report, CORS, error handlers, tracing
+│   │   ├── db/                   # Session, ORM models, Alembic migrations
+│   │   ├── providers/            # LLM, embedding, OCR, MinIO storage, Qdrant vector store
+│   │   ├── auth/                 # Login, register, JWT cookies, rate limiting
+│   │   ├── documents/            # Upload/list/delete + processing/ (extract, clean, chunk, embed)
+│   │   ├── retrieval/            # Hybrid search: dense + BM25, RRF fusion, rerank/
+│   │   ├── chat/                 # Chat API, SSE contract, intent/ routing, handlers/, rag/ (LangGraph)
+│   │   ├── drafting/             # Administrative drafting prompts and DOCX output
+│   │   ├── legal/                # Vietnamese legal corpus, Neo4j graph, temporal QA
+│   │   ├── evaluation/           # DeepEval benchmarks, datasets, CLI
+│   │   ├── admin/                # Admin overview API
+│   │   └── pipeline_lab/         # Admin tool to inspect pipeline stages
+│   ├── tests/unit/<feature>/     # Unit tests mirroring kira/<feature>/
+│   ├── tests/integration/        # Tests that need Docker services
+│   └── scripts/                  # Maintenance and evaluation scripts
+├── frontend/                     # Next.js 16 app
+│   └── src/
+│       ├── app/                  # App Router pages, layouts, the SSE proxy route
+│       ├── features/             # chat, documents, legal, auth, admin: components, hooks, stores, api.ts
+│       ├── components/           # Shared ui/, layout/, common/
+│       └── lib/                  # Shared helpers (lib/api/http.ts, theme, utils)
+├── docs/                         # Architecture, deployment, evaluation; archive/ for old plans
+├── docker-compose.yml            # Infrastructure + app/tunnel profiles
+└── Makefile                      # Developer commands (make help)
 ```
 
 ---
@@ -394,14 +390,14 @@ KIRA enforces a strict zero-error policy. All tests and linters must pass before
 ```bash
 # Run unit & integration tests
 make test-backend
-# Or: pytest tests/ -v
+# Or: cd backend && .venv/bin/pytest -m "not integration"
 
 # Run Ruff linter and formatting checks
 make lint-backend
 make format-backend
 
 # Run static type checks
-mypy src/
+cd backend && .venv/bin/mypy kira
 ```
 
 ### Run Frontend Tests & Linting

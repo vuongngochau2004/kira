@@ -1,6 +1,6 @@
 # KIRA – Kiến trúc hệ thống và luồng hoạt động
 
-> Ngày khảo sát: 2026-11-20, nhánh `develop` (kèm thay đổi chưa commit). Số liệu lấy trực tiếp từ code, không phải từ tài liệu cũ.
+> Cập nhật 2026-11-21 theo cấu trúc mới (`backend/kira`, feature-first). Số liệu lấy trực tiếp từ code.
 
 ## 1. Tổng quan
 
@@ -19,39 +19,34 @@ KIRA là ứng dụng RAG full-stack: upload tài liệu, truy xuất lai (dense
 ```mermaid
 flowchart LR
     subgraph Client
-        FE["Next.js frontend<br/>:3001"]
+        FE["Next.js frontend :3001<br/>src/features/*"]
     end
 
-    subgraph API["FastAPI :8006 (src/server/main.py)"]
-        R["Routers /api/v1<br/>auth · documents · chat · evaluation<br/>metrics · admin · pipeline-lab · legal*"]
+    subgraph API["FastAPI :8006 (backend/kira/main.py)"]
+        R["router.py của từng feature<br/>auth · documents · chat · evaluation<br/>admin · pipeline-lab · legal*"]
     end
 
-    subgraph Modules["src/modules (use case + domain)"]
-        CHAT[chat]
-        CLS[classification]
-        RAG[rag]
+    subgraph Features["backend/kira/&lt;feature&gt;/ (service + repository)"]
+        CHAT["chat<br/>intent · handlers · rag"]
         RET[retrieval]
-        DOC[document]
+        DOC[documents]
         DRF[drafting]
         LEG[legal]
         EVAL[evaluation]
-        ID[identity]
+        AUTH[auth]
     end
 
-    subgraph Shared["src/shared"]
-        PORTS[ports]
-        ADAPT[adapters]
-        INFRA["infrastructure<br/>DB · auth · LLM client · monitoring"]
-        KERNEL["kernel<br/>DI registry"]
-    end
+    DEPS["deps.py<br/>lắp ráp mọi thứ"]
+    PROV["providers/<br/>llm · embedding · ocr · storage · vector_store"]
+    DB["db/<br/>models · Alembic"]
 
-    subgraph Worker["Celery worker"]
-        T1["documents.process"]
-        T2["legal.process / legal.publish"]
+    subgraph Worker["Celery (kira/worker.py)"]
+        T1["documents/tasks.py"]
+        T2["legal/tasks.py"]
     end
 
     subgraph Stores
-        PG[(PostgreSQL + pgvector)]
+        PG[(PostgreSQL)]
         QD[(Qdrant)]
         MN[(MinIO)]
         N4[(Neo4j)]
@@ -65,55 +60,53 @@ flowchart LR
     end
 
     FE -->|"REST + SSE (qua Next route proxy)"| R
-    R --> Modules
-    Modules --> PORTS
-    PORTS -.implemented by.-> ADAPT
-    ADAPT --> QD & MN & N4 & LLM & TEI & OCR
-    INFRA --> PG
+    R --> Features
+    DEPS -.tạo và truyền vào.-> Features
+    Features --> PROV
+    Features --> DB --> PG
+    PROV --> QD & MN & LLM & TEI & OCR
+    LEG --> N4
     R -->|enqueue| RD --> Worker
-    Worker --> Modules
+    Worker --> Features
 ```
 
 (*) Router `legal` chỉ được mount khi `LEGAL_ENABLED=true`.
 
-## 3. Phân tầng (hexagonal modular monolith)
+## 3. Tổ chức code (feature-first)
 
-```
-src/server/ + modules/<m>/api/        HTTP: router, schema, dependency
+```text
+backend/kira/<feature>/router.py        HTTP: nhận request, gọi service, trả response
         ↓
-modules/<m>/application/              use case, DTO, orchestration
+backend/kira/<feature>/service.py       nghiệp vụ (hoặc một file cho mỗi thao tác: upload.py, delete.py...)
         ↓
-modules/<m>/domain/                   luật nghiệp vụ, prompt, strategy
-        ↓
-shared/ports/                         hợp đồng (Protocol/ABC) với thế giới ngoài
-        ↓
-shared/adapters/ + shared/infrastructure/   Qdrant, MinIO, Neo4j, LLM, TEI, OCR, DB, JWT
+backend/kira/<feature>/repository.py    toàn bộ SQL của feature
+backend/kira/providers/                 LLM, embedding, OCR, MinIO, Qdrant (interface chỉ khi có nhiều cài đặt)
 ```
 
-`shared/kernel/di` (container + registry) và các file `composition.py` của từng module là nơi duy nhất lắp ráp adapter cụ thể vào use case.
+`backend/kira/deps.py` là **nơi duy nhất** tạo provider và service rồi truyền vào; service không tự tạo dependency.
+Các luật này được kiểm bằng `backend/tests/unit/test_architecture.py` (xem `CLAUDE.md`).
 
-### Bản đồ module
+### Bản đồ feature
 
-| Module | Vai trò | Thành phần chính |
+| Feature | Vai trò | Thành phần chính |
 |---|---|---|
-| `identity` | Người dùng, đăng nhập | `application/service.py`, `user_repository.py` |
-| `document` | Upload, xoá, huỷ, tải, chunk; pipeline xử lý | `application/{upload,process,delete,cancel,query}.py`, `domain/services/{extraction,chunking,cleaner,embedder,pipeline}` |
-| `classification` | Phân loại ý định câu hỏi | strategies `keyword` → `cache` → `llm`, ghép bởi `composite.py` |
-| `chat` | Điều phối hội thoại, SSE, lưu hội thoại | `application/{chat,graph,streaming,citations}.py`, handlers `conversational / rag / drafting` |
-| `rag` | Pipeline agentic bằng LangGraph | `orchestration/{agents,graph,state}` |
-| `retrieval` | Dense (Qdrant), BM25, RRF, rerank | `domain/services/{bm25,fusion,hybrid_search,reranking/*}` |
-| `drafting` | Soạn văn bản hành chính, xuất DOCX | `application/docx_renderer.py` |
-| `legal` | Kho pháp luật: parse cấu trúc, quan hệ, timeline, publish Neo4j/Qdrant | `domain/{parser,extraction,temporal}`, `application/publish_document.py`, `infrastructure/scrapers` |
-| `evaluation` | DeepEval, golden dataset, CLI | `domain/service.py`, `runners`, `metrics`, `cli.py` |
-| `debug` | "Pipeline lab" cho admin | `api.py`, `service.py` |
-| `admin` | Dashboard tổng quan | `application/overview.py` |
+| `auth` | Người dùng, đăng nhập, JWT cookie, rate limit | `router.py`, `service.py`, `repository.py`, `security.py` |
+| `documents` | Upload, xoá, huỷ, tải, chunk; pipeline xử lý | `upload.py`, `process.py`, `delete.py`, `cancel.py`, `queries.py`, `repository.py`, `tasks.py`, `processing/{extraction,chunking,pipeline,...}` |
+| `retrieval` | Dense (Qdrant), BM25, RRF, rerank | `search.py` (điểm vào), `bm25.py`, `hybrid_search.py`, `fusion.py`, `rerank/` |
+| `chat` | Hội thoại, SSE, lưu tin nhắn, định tuyến ý định | `router.py`, `sse.py`, `messages.py`, `service.py`, `graph.py`, `intent/` (keyword → cache → LLM), `handlers/` |
+| `chat/rag` | Pipeline agentic bằng LangGraph | `graph.py`, `state.py`, `nodes/{orchestrator,retrieval,generation,quality}.py`, `prompts/` |
+| `drafting` | Soạn văn bản hành chính, xuất DOCX | `prompts.py`, `docx_renderer.py`, handler ở `chat/handlers/drafting.py` |
+| `legal` | Kho pháp luật: parse cấu trúc, quan hệ, timeline, publish Neo4j/Qdrant | `services/`, `parser.py`, `extraction/`, `temporal/`, `graph/`, `scrapers/`, `tasks.py` |
+| `evaluation` | DeepEval, golden dataset, CLI | `service.py`, `runners/`, `metrics/`, `cli.py` |
+| `pipeline_lab` | Công cụ admin soi từng bước pipeline | `router.py`, `service.py` |
+| `admin` | Dashboard tổng quan | `router.py`, `service.py`, `repository.py` |
 
 ## 4. Luồng khởi động backend
 
-`src/server/main.py` → `create_app()`:
+`backend/kira/main.py` → `create_app()`:
 
 1. `setup_logging` (Loguru), CORS, exception handlers, mount router, health `/health`, `/health/ready`, `/health/live`.
-2. `lifespan`: khởi tạo DB và schema, kiểm tra Embedding API, `init_retrieval_tools()` + `init_ingestion_tools()` (singleton toàn cục trong `src/tools`), tạo LLM client cho rerank/hybrid, khởi tạo reranker, rồi in **bảng sức khoẻ phụ thuộc** (`startup_health.py`: Postgres, Qdrant, Neo4j, MinIO, Redis, Celery, Embedding, Reranker, LLM, PaddleOCR, Docling).
+2. `lifespan`: `init_db()` chạy **Alembic migrations** (`kira/db/migrate.py`; DB cũ chưa có lịch sử Alembic được stamp baseline `0001`), tạo LLM client cho rerank, khởi tạo reranker, rồi in **bảng sức khoẻ phụ thuộc** (`kira/core/health.py`: Postgres, Qdrant, Neo4j, MinIO, Redis, Celery, Embedding, Reranker, LLM, PaddleOCR, Docling).
 3. Một service phụ thuộc chết **không chặn** startup, chỉ log `WARNING ... DOWN`. Lỗi sẽ lộ ra ở thời điểm dùng (upload, chat).
 
 ## 5. Luồng upload và xử lý tài liệu
@@ -149,7 +142,7 @@ sequenceDiagram
 
 Điểm cần nhớ:
 - Upload chỉ thành công khi Redis **và** Celery worker đang chạy. Nếu worker chết, document kẹt ở `pending`.
-- Hủy và xoá cũng đi qua task/hàng đợi (bảng `document_deletion_jobs`, cột cancel – xem `migrations/03,04`).
+- Hủy và xoá cũng đi qua task/hàng đợi (bảng `document_deletion_jobs`, cột cancel trong `backend/kira/db/models.py`).
 - Mọi truy vấn tài liệu phải kèm `user_id` (cô lập theo người dùng).
 
 ## 6. Luồng chat (SSE)
@@ -157,9 +150,9 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as FE (use-streaming-chat)
+    participant U as FE (features/chat/hooks/use-chat.ts)
     participant N as Next route /api/v1/chat/stream
-    participant EP as chat/api/endpoints.py
+    participant EP as chat/router.py + chat/sse.py
     participant CG as ChatGraph (LangGraph)
     participant CL as CompositeClassifier
     participant H as Handler
@@ -186,11 +179,11 @@ sequenceDiagram
     EP->>DB: lưu message user và assistant (+ metadata, citation)
 ```
 
-Hợp đồng SSE (`routing`, `retrieval`, `content`, citations, `pipeline trace`) được frontend phân tích trong `frontend/src/lib/streaming/*`. Đổi payload ở backend phải đổi cùng lúc ở `streaming-state-builder.ts` và `pipeline-trace.ts`.
+Hợp đồng SSE (`routing`, `retrieval`, `content`, citations, `pipeline trace`) được frontend phân tích trong `frontend/src/features/chat/streaming/*`. Đổi payload ở backend phải đổi cùng lúc ở `streaming-state-builder.ts` và `pipeline-trace.ts`.
 
 ## 7. Pipeline RAG agentic
 
-`src/modules/rag/orchestration/graph/langgraph_pipeline.py`:
+`backend/kira/chat/rag/graph.py`:
 
 ```mermaid
 flowchart LR
@@ -202,11 +195,11 @@ flowchart LR
     Q -->|chưa đạt| G
 ```
 
-Hybrid search (`retrieval/domain/services/hybrid_search.py`):
+Hybrid search (`backend/kira/retrieval/hybrid_search.py`, gọi qua `retrieval/search.py`):
 1. Dense: embed truy vấn → Qdrant (lọc `user_id`).
 2. Keyword: BM25 tiếng Việt, chỉ mục dựng lại khi worker thêm/xoá tài liệu.
 3. Hợp nhất bằng RRF (`fusion.py`).
-4. Rerank: TEI, LLM hoặc scoring (`reranking/`, chọn bằng `RERANKING_MODE`).
+4. Rerank: TEI, LLM hoặc scoring (`retrieval/rerank/`, chọn bằng `RERANKING_MODE`).
 
 ## 8. Luồng legal (nếu `LEGAL_ENABLED=true`)
 
@@ -231,23 +224,29 @@ flowchart LR
 | Neo4j | đồ thị văn bản và điều khoản pháp lý |
 | Redis | broker/backend của Celery |
 
-Schema được tạo khi khởi động từ `models.py`. Thư mục `migrations/*.sql` là script tay đánh số, chưa có công cụ migration (xem báo cáo cấu trúc).
+Schema do **Alembic** quản lý: models ở `backend/kira/db/models.py`, migration ở `backend/kira/db/migrations/versions/`. App tự chạy `upgrade head` khi khởi động; tạo migration mới bằng `make db-revision MSG="..."`.
 
 ## 10. Frontend
 
-```
+```text
 frontend/src/
-  app/            routes: login, register, conversation(/[id]), conversations, uploads,
-                  admin (legal, pipeline-lab), api/v1/chat/stream (proxy SSE)
-  components/     ui, layout, sidebar, conversation, simple (SimpleChat), streaming (citation, trace),
-                  sources (panel nguồn), legal, auth, mobile, common
-  lib/            api (simple-client), hooks (use-simple-chat, use-streaming-chat),
-                  stores, streaming (state builder, pipeline trace), types, utils, legal
-  locales/, lib/locales/, i18n/    đa ngôn ngữ en/vi (đang bị phân tán, xem báo cáo)
+  app/                    routes: login, register, conversation(/[id]), conversations, uploads,
+                          admin (legal, pipeline-lab), api/v1/chat/stream (proxy SSE)
+  features/
+    chat/                 components (ChatView, citation, pipeline trace), sources/ (panel nguồn),
+                          hooks/use-chat.ts, streaming/ (parser SSE), stores/, api.ts
+    documents/            components, hooks/use-documents-upload.ts, api.ts
+    legal/                components, admin/, hooks, api.ts, format.ts, types.ts
+    auth/                 AuthGuard, store.ts, api.ts
+    admin/                api.ts, pipeline-lab-api.ts
+  components/             dùng chung: ui/ (shadcn), layout/ (sidebar, mobile nav), common/
+  lib/                    api/http.ts (fetchAPI, ApiError), backend-url, theme, utils
 ```
+
+Quy ước: file component `PascalCase.tsx`, còn lại `kebab-case.ts`, import qua `@/`. Test đặt cạnh file (`X.test.tsx`).
 
 ## 11. Triển khai
 
 - `docker-compose.yml`: infra (postgres, qdrant, minio, redis, neo4j) và profile `app` (api, worker, frontend), profile `tunnel` (cloudflared).
-- `Dockerfile` gốc dùng chung cho API và worker; `frontend/Dockerfile` build Next.js standalone.
-- CI (`.github/workflows`): `ci.yml` (ruff check, ruff format --check, mypy, pytest, có Redis service) và `validate-modular-monolith-architecture.yml`.
+- `backend/Dockerfile` dùng chung cho API và worker; `frontend/Dockerfile` build Next.js standalone.
+- CI (`.github/workflows/ci.yml`): backend (ruff check, ruff format --check, mypy, pytest gồm cả luật kiến trúc) và frontend (eslint, vitest, build).

@@ -1,6 +1,32 @@
 # Đề xuất tái cấu trúc KIRA
 
-> 2026-11-21. Bản đề xuất, chưa thực hiện. Đọc cùng [structure-audit-report.md](structure-audit-report.md) và [architecture-and-flows.md](architecture-and-flows.md).
+> 2026-11-21. Đã thực hiện, xem mục **Trạng thái** ngay dưới. Báo cáo gốc: [archive/structure-audit-report.md](archive/structure-audit-report.md); kiến trúc hiện tại: [architecture-and-flows.md](architecture-and-flows.md).
+
+## Trạng thái: đã thực hiện (2026-11-21, nhánh `refactor/restructure`)
+
+| Hạng mục | Trước | Sau |
+|---|---|---|
+| File Python / số dòng | 340 file, 38.372 dòng (`src/`) | 204 file, 29.824 dòng (`backend/kira/`), −8.548 dòng |
+| File `__init__.py` có re-export | 100 | 0 (tất cả rỗng) |
+| Hệ DI / file `composition.py` | 2 container + registry / 9 file | 1 file `kira/deps.py` |
+| Interface (ABC/Protocol) | ~30 class port | chỉ ở 6 file có nhiều cài đặt (được kiểm bằng test) |
+| Code chết đã xoá (backend) | — | DTO trùng, kernel base, `src/tools`, monitoring không dùng, port rỗng, 22 module không ai import |
+| File frontend | 157 | 116 (xoá 46 file chết: i18n không nối, locale ×2, store trùng, ui không dùng) |
+| `chat/api/endpoints.py` | 926 dòng | `router.py` ~300 + `sse.py` + `messages.py` |
+| Test | 60 file phẳng ở `tests/` | `backend/tests/unit/<feature>/` phản chiếu `kira/` + `test_architecture.py` |
+| Migration | 5 file SQL tay | Alembic (baseline `0001`, tự chạy khi khởi động) |
+| Lint | ruff `E,F,W,I,B`; mypy 2 lỗi | ruff `+UP,N,SIM,RET,C4`; mypy 0 lỗi |
+
+Hành vi giữ nguyên: 41 endpoint OpenAPI y hệt, 3 Celery task y hệt, 435 test cũ vẫn pass (tổng 440 với luật kiến trúc), frontend 83 test pass, `next build` thành công.
+
+Khác với đề xuất ban đầu:
+- `docker-compose.yml` giữ ở gốc repo thay vì `deploy/` (giữ thói quen `docker compose up` ở gốc; Dockerfile backend nằm trong `backend/`, frontend trong `frontend/`).
+- `documents/` dùng **một file cho mỗi thao tác** (`upload.py`, `delete.py`, `cancel.py`, `process.py`, `queries.py`) thay vì một `service.py` 700 dòng.
+- Reranker nằm trong `retrieval/rerank/` (thuộc nghiệp vụ retrieval) thay vì `providers/rerank/`.
+- Port của `legal/` được giữ vì test dùng fake kế thừa chúng (nhiều cài đặt thật sự).
+- Endpoint `/api/v1/metrics` bị xoá: không nơi nào ghi dữ liệu vào nó và frontend không gọi.
+
+---
 
 Mục tiêu (theo yêu cầu): **đọc là biết sửa ở đâu, sửa thì sửa ít chỗ, logic nghiệp vụ dễ thấy, dùng chung đúng chỗ, không over-engineering, test có cấu trúc rõ.**
 
