@@ -14,6 +14,9 @@ jobs:
   backend-qa:
     name: Backend QA & Tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
 
     services:
       redis:
@@ -35,6 +38,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
+          cache-dependency-path: backend/pyproject.toml
 
       - name: Install dependencies
         run: |
@@ -44,15 +48,15 @@ jobs:
 
       - name: Run Ruff Linter
         run: |
-          ruff check src/ tests/
+          ruff check kira tests
 
       - name: Check Ruff Formatting
         run: |
-          ruff format --check src/ tests/
+          ruff format --check kira tests
 
       - name: Run Mypy Type Checking
         run: |
-          mypy src/
+          mypy kira
 
       - name: Run Pytest Suite
         env:
@@ -61,9 +65,8 @@ jobs:
           CELERY_RESULT_BACKEND: redis://localhost:6379/1
           JWT_SECRET_KEY: ci-test-secret-key-32-characters-minimum
           APP_ENV: test
-          PYTHONPATH: src:.
         run: |
-          pytest tests/ -m "not integration"
+          pytest -m "not integration"
 
   frontend-qa:
     name: Frontend QA & Tests

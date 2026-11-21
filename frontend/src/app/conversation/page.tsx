@@ -2,17 +2,17 @@
 
 import { Suspense, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useSimpleChat } from '@/lib/hooks/use-simple-chat'
-import { useConversationStore } from '@/lib/stores/conversation-store'
-import { useSourcesStore } from '@/lib/stores/sources-store'
-import { SimpleChat } from '@/components/simple/SimpleChat'
-import { AuthGuard } from '@/components/auth/auth-guard'
+import { useChat } from '@/features/chat/hooks/use-chat'
+import { useConversationStore } from '@/features/chat/stores/conversation-store'
+import { useSourcesStore } from '@/features/chat/stores/sources-store'
+import { ChatView } from '@/features/chat/components/ChatView'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
 import { isValidUUID } from '@/lib/utils/uuid'
 
 function ConversationContent() {
   const searchParams = useSearchParams()
   const conversationId = searchParams.get('id')
-  const chat = useSimpleChat()
+  const chat = useChat()
   const { syncFromURL, isLoading: storeLoading } = useConversationStore()
   const resetSources = useSourcesStore((state) => state.reset)
   const prevConversationIdRef = useRef<string | null | undefined>(undefined)
@@ -37,7 +37,7 @@ function ConversationContent() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-background min-h-0">
-      <SimpleChat
+      <ChatView
         messages={chat.messages}
         optimisticMessages={chat.optimisticMessages}
         isLoading={chat.isLoading || storeLoading}

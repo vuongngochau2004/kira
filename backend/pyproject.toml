@@ -1,0 +1,128 @@
+[project]
+name = "kira"
+version = "1.0.0"
+description = "KIRA - Single FastAPI Service with Hybrid Retrieval"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "python-multipart>=0.0.6",
+    "sqlalchemy[asyncio]>=2.0.25",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "pyyaml>=6.0.0",
+    "email-validator>=2.1.0",
+    "httpx>=0.26.0",
+    "qdrant-client>=1.7.0",
+    "minio>=7.2.0",
+    "anthropic>=0.40.0",
+    "google-genai>=1.0.0",
+    "pymupdf>=1.23.0",
+    "python-docx>=1.1.0",
+    "python-pptx>=0.6.0",
+    "tiktoken>=0.6.0",
+    "langchain-core>=0.3",
+    "langgraph>=0.2.28",
+    "loguru>=0.7.0",
+    "celery[redis]>=5.4.0",
+    "deepeval>=3.0.0",
+    "pyvi>=0.1.1",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
+    "neo4j>=5.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "aiosqlite>=0.19.0",
+    "ruff>=0.2.0",
+    "mypy>=1.8.0",
+]
+docling = [
+    "docling>=2.55.0",
+    "torch>=2.5.0,<2.6.0",
+]
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["kira*"]
+
+# Disable package mode for application development
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu121" }
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "W",    # warnings
+    "I",    # import order
+    "B",    # bugbear
+    "UP",   # modern Python 3.12 syntax
+    "N",    # PEP 8 naming
+    "SIM",  # simplifications
+    "RET",  # return statements
+    "C4",   # comprehensions
+]
+ignore = [
+    "E501",    # line too long (formatter handles it)
+    "B008",    # Depends in argument default (FastAPI pattern)
+    "E402",    # module import not at top of file (scripts adjust sys.path first)
+    "UP042",   # str+Enum -> StrEnum changes str(); migrate deliberately
+    "SIM115",  # temp files created with delete=False on purpose
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+ignore_missing_imports = true
+follow_imports = "silent"
+disable_error_code = [
+    "type-abstract",
+    "no-any-return",
+    "arg-type",
+    "misc",
+    "attr-defined",
+    "return-value",
+    "override",
+    "union-attr",
+    "var-annotated",
+    "assignment",
+    "operator",
+    "valid-type",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]
+addopts = "--import-mode=importlib"
+markers = [
+    "integration: requires running Postgres, Qdrant, Redis, and MinIO services",
+]

@@ -83,7 +83,7 @@ Kiểm tra provider:
 ```bash
 env DEBUG=false .venv/bin/python - <<'PY'
 import asyncio
-from src.shared.infrastructure.llm.client import chat_async
+from kira.providers.llm.client import chat_async
 
 async def main():
     result = await chat_async(
@@ -131,7 +131,7 @@ PaddleOCR detect -> VietOCR recognize
 Nên dùng để:
 
 - fallback legacy khi VLM provider không hoạt động;
-- debug thủ công ở `scripts/debug_ocr_sample.py --mode page-ocr`;
+- debug thủ công ở `backend/scripts/debug_ocr_sample.py --mode page-ocr`;
 - xử lý ảnh đơn nếu workflow không đi qua VLM.
 
 Không dùng PaddleOCR làm prepass cho pipeline VLM mặc định. Không embed trực
@@ -368,31 +368,31 @@ failed
 1. Thêm module render page:
 
 ```text
-src/modules/document/domain/services/page_renderer.py
+backend/kira/documents/domain/services/page_renderer.py
 ```
 
 2. Thêm VLM transcriber:
 
 ```text
-src/modules/document/domain/services/vlm_transcriber.py
+backend/kira/documents/domain/services/vlm_transcriber.py
 ```
 
 3. Thêm OCR correction:
 
 ```text
-src/modules/document/domain/services/ocr_correction.py
+backend/kira/documents/domain/services/ocr_correction.py
 ```
 
 4. Thêm canonical builder:
 
 ```text
-src/modules/document/domain/services/canonical_builder.py
+backend/kira/documents/domain/services/canonical_builder.py
 ```
 
 5. Thêm legal structure chunker:
 
 ```text
-src/modules/document/domain/services/legal_chunker.py
+backend/kira/documents/domain/services/legal_chunker.py
 ```
 
 6. Sửa pipeline:
@@ -409,7 +409,7 @@ pipeline.py
 7. Cập nhật debug script để xuất đầy đủ:
 
 ```bash
-env DEBUG=false .venv/bin/python scripts/debug_ocr_sample.py \
+env DEBUG=false .venv/bin/python backend/scripts/debug_ocr_sample.py \
   "docs_eval_sample/file.pdf" \
   --output-dir reports/pipeline_debug
 ```

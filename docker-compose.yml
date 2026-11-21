@@ -15,7 +15,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-kira_dev}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d:ro  # Run migrations on init
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kira} -d ${POSTGRES_DB:-kira_dev}"]
       interval: 10s
@@ -95,7 +94,7 @@ services:
   # Infra-only `docker compose up -d` (make infra) is unaffected by these services.
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     image: kira-backend:latest
     container_name: kira-simple-api
@@ -134,14 +133,14 @@ services:
 
   worker:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     image: kira-backend:latest
     container_name: kira-simple-worker
     restart: unless-stopped
     profiles: ["app", "tunnel"]
     command: >
-      celery -A src.worker.celery_app.celery_app worker
+      celery -A kira.worker.celery_app worker
       --loglevel=info --concurrency=${CELERY_WORKER_CONCURRENCY:-1}
     env_file: .env
     environment: *backend-env

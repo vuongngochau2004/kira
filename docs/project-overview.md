@@ -37,7 +37,7 @@ The repository is organized as a hexagonal modular monolith on the backend and a
 ## Backend Architecture
 
 ```text
-src/
+backend/kira/
 ├── server/                   # FastAPI app setup, middleware, server-owned API routes
 ├── modules/                  # Application modules
 │   ├── chat/                 # Chat orchestration, streaming, persistence
@@ -121,7 +121,7 @@ flowchart LR
 
 ## Important Configuration
 
-Runtime settings are defined in `src/config/config.py`; static defaults are defined in `src/config/settings.yaml`.
+Runtime settings are defined in `backend/kira/config.py`; static defaults are defined in `backend/kira/settings.yaml`.
 
 High-impact values:
 
@@ -140,9 +140,9 @@ The embedding dimension and Qdrant vector dimension must match. The default is `
 
 - `README.md`: product-facing overview, setup, API summary, image guidance
 - `CLAUDE.md`: AI/developer operating guide
-- `docs/system-architecture.md`: architecture diagrams and module breakdown
+- `docs/architecture-and-flows.md`: architecture diagrams and request flows
 - `docs/deployment-guide.md`: local and production deployment notes
 - `docs/high-accuracy-document-processing-pipeline.md`: document extraction pipeline details
 - `docs/docling-document-processing.md`: Docling-specific document processing notes
-- `docs/code-standards.md`: coding conventions and structure guidance
+- `CLAUDE.md`: coding conventions, structure rules and commands
 - `docs/project-roadmap.md`: roadmap and priorities

@@ -110,7 +110,7 @@ pip install -e ".[dev,ml]"
 ### Run Backend
 
 ```bash
-python -m src.server.main
+python -m kira.main
 ```
 
 Backend:
@@ -126,7 +126,7 @@ Backend startup checks the embedding API, so make sure `EMBEDDING_BASE_URL` is r
 Document uploads enqueue Celery jobs. Keep the worker running when testing upload/ingestion:
 
 ```bash
-celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
+celery -A kira.worker.celery_app worker --loglevel=info --concurrency=2
 ```
 
 ### Run Frontend

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, type ElementType } from 'react'
 import { useRouter } from 'next/navigation'
-import { useDocumentsUpload } from '@/lib/hooks/use-documents-upload'
+import { useDocumentsUpload } from '@/features/documents/hooks/use-documents-upload'
 import { Activity, AlertCircle, ArrowLeft, CheckCircle2, Clock3, Download, Eye, File, FileImage, FileText, Layers3, Loader2, Presentation, Trash2, Upload as UploadIcon, XCircle } from 'lucide-react'
 import {
   AlertDialog,
@@ -16,11 +16,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
-import { documentsAPI, type Document } from '@/lib/api/simple-client'
-import { AuthGuard } from '@/components/auth/auth-guard'
-import { useSourcesStore } from '@/lib/stores/sources-store'
-import { useConversationStore } from '@/lib/stores/conversation-store'
+import { DocumentPreviewDialog } from '@/features/documents/components/DocumentPreviewDialog'
+import { documentsAPI, type Document } from '@/features/documents/api'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
+import { useSourcesStore } from '@/features/chat/stores/sources-store'
+import { useConversationStore } from '@/features/chat/stores/conversation-store'
 
 // Modern, minimal colored file icons
 const FILE_TYPES: Record<string, { icon: ElementType; color: string; bgColor: string }> = {
@@ -369,6 +369,7 @@ export default function UploadsPage() {
                   <input
                     type="file"
                     id="file-upload"
+                    aria-label="Chọn tài liệu để tải lên"
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={handleFileSelect}
                     accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.tiff,.pptx,.ppt"
@@ -395,7 +396,7 @@ export default function UploadsPage() {
               {/* Error */}
               {documents.error && (
                 <div className="px-6 py-3 border-b">
-                  <div className="bg-destructive/10 text-destructive text-xs px-4 py-2.5 rounded-lg">
+                  <div role="alert" className="bg-destructive/10 text-destructive text-xs px-4 py-2.5 rounded-lg">
                     {documents.error}
                   </div>
                 </div>
@@ -579,31 +580,29 @@ export default function UploadsPage() {
 
                       const ext = doc.file_type.toLowerCase()
                       const isWordOrPpt = ext === 'doc' || ext === 'docx' || ext === 'ppt' || ext === 'pptx'
+                      const openDocument = (): void => {
+                        if (!isCompleted || uploading) return
+                        if (isWordOrPpt) {
+                          const link = document.createElement('a')
+                          link.href = documentsAPI.getDownloadUrl(doc.id)
+                          link.setAttribute('download', doc.filename)
+                          document.body.appendChild(link)
+                          link.click()
+                          document.body.removeChild(link)
+                          return
+                        }
+                        setPreviewDocId(doc.id)
+                        setPreviewFilename(doc.filename)
+                        setIsPreviewOpen(true)
+                      }
 
                       return (
                         <div
                           key={doc.id}
-                          onClick={() => {
-                            if (isCompleted && !uploading) {
-                              if (isWordOrPpt) {
-                                const downloadUrl = documentsAPI.getDownloadUrl(doc.id)
-                                const link = document.createElement('a')
-                                link.href = downloadUrl
-                                link.setAttribute('download', doc.filename)
-                                document.body.appendChild(link)
-                                link.click()
-                                document.body.removeChild(link)
-                              } else {
-                                setPreviewDocId(doc.id)
-                                setPreviewFilename(doc.filename)
-                                setIsPreviewOpen(true)
-                              }
-                            }
-                          }}
                           className={cn(
                             'flex flex-col gap-3 rounded-lg border p-3 transition-all select-none group',
                             uploading && 'bg-primary/5 border-primary/20',
-                            !uploading && isCompleted && 'hover:bg-muted/50 border-border cursor-pointer hover:border-primary/20',
+                            !uploading && isCompleted && 'hover:bg-muted/50 border-border hover:border-primary/20',
                             !uploading && !isCompleted && 'border-border bg-muted/10 opacity-70'
                           )}
                         >
@@ -617,9 +616,11 @@ export default function UploadsPage() {
                             </div>
 
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate text-foreground group-hover:text-primary transition-colors">
-                                {doc.filename}
-                              </p>
+                              {isCompleted && !uploading ? (
+                                <button type="button" onClick={openDocument} className="block max-w-full truncate text-left text-sm font-medium text-foreground hover:text-primary focus-visible:outline-2 focus-visible:outline-primary" aria-label={`${isWordOrPpt ? 'Tải xuống' : 'Xem'} ${doc.filename}`}>
+                                  {doc.filename}
+                                </button>
+                              ) : <p className="truncate text-sm font-medium text-foreground">{doc.filename}</p>}
                               <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
                                 <span>{formatFileSize(doc.file_size)}</span>
                                 {doc.chunk_count !== undefined && doc.chunk_count > 0 && (
@@ -676,13 +677,13 @@ export default function UploadsPage() {
 
                               {/* Action Hover Helper Icons */}
                               {isCompleted && !uploading && (
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center text-muted-foreground mr-1">
+                                <button type="button" onClick={openDocument} aria-label={`${isWordOrPpt ? 'Tải xuống' : 'Xem'} ${doc.filename}`} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary">
                                   {isWordOrPpt ? (
-                                    <Download className="w-4 h-4 hover:text-foreground" />
+                                    <Download className="w-4 h-4" />
                                   ) : (
-                                    <Eye className="w-4 h-4 hover:text-foreground" />
+                                    <Eye className="w-4 h-4" />
                                   )}
-                                </div>
+                                </button>
                               )}
 
                               {(doc.status === 'uploading' || doc.status === 'processing') && (
@@ -710,6 +711,7 @@ export default function UploadsPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  aria-label={`Xoá ${doc.filename}`}
                                   className="w-8 h-8 rounded-lg shrink-0 relative z-10 opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all md:opacity-0 md:group-hover:opacity-100"
                                   onClick={(e) => {
                                     e.stopPropagation()

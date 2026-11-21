@@ -31,7 +31,7 @@ Dự án đã hoàn thành core features và major architectural refactoring:
 
 **Module Breakdown:**
 ```
-src/modules/
+backend/kira/
 ├── chat/           # Chat use cases, handlers, streaming
 ├── classification/ # Query routing strategies
 ├── document/       # Document upload and ingestion
@@ -39,14 +39,14 @@ src/modules/
 ├── rag/            # Agentic RAG, LangGraph
 └── retrieval/      # Dense, BM25, hybrid search
 
-src/shared/
+backend/kira/core/
 ├── ports/          # External system interfaces
 ├── adapters/       # External system implementations
 ├── infrastructure/ # Technical concerns (auth, DB, monitoring)
 ├── kernel/         # DI container, registry
 └── domain/         # Shared entities, value objects
 
-src/server/
+backend/kira/
 └── api/v1/         # HTTP endpoints
     ├── auth/
     ├── chat/
@@ -281,8 +281,8 @@ src/server/
 
 ## Liên kết
 
-- [Kiến trúc Hệ thống](./system-architecture.md) - Architecture chi tiết
-- [Tiêu chuẩn Code](./code-standards.md) - Code conventions
+- [Kiến trúc Hệ thống](./architecture-and-flows.md) - Architecture chi tiết
+- [Tiêu chuẩn Code](../CLAUDE.md) - Code conventions
 - [Tổng quan Dự án](./project-overview.md) - Project overview
 - [Hướng dẫn Deployment](./deployment-guide.md) - Deployment guide
 - [CLAUDE.md](../CLAUDE.md) - Development guidelines

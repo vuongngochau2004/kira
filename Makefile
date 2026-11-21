@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 # KIRA - Makefile
-.PHONY: help dev backend frontend dev-worker infra infra-stop infra-restart test install clean lint eval-rag \
+.PHONY: help dev backend frontend dev-worker infra infra-stop infra-restart test test-backend test-integration install clean lint eval-rag \
         deploy deploy-tunnel tunnel-url deploy-logs deploy-stop
 
 # Default target
@@ -13,7 +13,7 @@ RED   := \033[0;31m
 NC    := \033[0m
 
 # Project paths
-BACKEND_DIR := .
+BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
 # Ports
@@ -32,19 +32,19 @@ help: ## Show this help message
 
 dev: ## Start both backend and frontend (requires tmux)
 	@echo "$(BLUE)Starting KIRA...$(NC)"
-	@tmux new-session -d -s kira -n backend "cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.server.main"
-	@tmux new-window -t kira:1 -n worker "cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-1}"
+	@tmux new-session -d -s kira -n backend "cd $(BACKEND_DIR) && source .venv/bin/activate && python -m kira.main"
+	@tmux new-window -t kira:1 -n worker "cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A kira.worker.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-1}"
 	@tmux new-window -t kira:2 -n frontend "cd $(FRONTEND_DIR) && npm run dev"
 	@tmux attach-session -t kira
 	@echo "$(GREEN)Both services started in tmux session 'kira'$(NC)"
 
 dev-backend: ## Start backend only
 	@echo "$(BLUE)Starting backend on port $(BACKEND_PORT)...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.server.main
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m kira.main
 
 dev-worker: ## Start Celery document worker
 	@echo "$(BLUE)Starting Celery worker...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A src.worker.celery_app.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-1}
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && celery -A kira.worker.celery_app worker --loglevel=info --concurrency=$${CELERY_WORKER_CONCURRENCY:-1}
 
 dev-frontend: ## Start frontend only
 	@echo "$(BLUE)Starting frontend on port $(FRONTEND_PORT)...$(NC)"
@@ -109,7 +109,7 @@ install: install-backend install-frontend ## Install both backend and frontend d
 
 install-backend: ## Install backend dependencies
 	@echo "$(BLUE)Installing backend dependencies...$(NC)"
-	@cd $(BACKEND_DIR) && pip install -e .
+	@cd $(BACKEND_DIR) && uv sync --extra dev
 	@echo "$(GREEN)Backend dependencies installed$(NC)"
 
 install-frontend: ## Install frontend dependencies
@@ -129,27 +129,31 @@ db-reset: ## Reset database (WARNING: deletes all data)
 		echo "$(GREEN)Database reset complete$(NC)"; \
 	fi
 
-db-migrate: ## Run database migrations
+db-migrate: ## Apply database migrations (Alembic)
 	@echo "$(BLUE)Running migrations...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m scripts.migrate
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && alembic upgrade head
+
+db-revision: ## Create a migration from model changes. Usage: make db-revision MSG="add x"
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && alembic revision --autogenerate -m "$(MSG)"
 
 ##@ Testing & Quality
 
-test: ## Run all tests
-	@echo "$(BLUE)Running tests...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && pytest tests/ -v
+test: test-backend test-frontend ## Run backend and frontend unit tests
 
-test-backend: ## Run backend tests
+test-backend: ## Run backend unit tests (no Docker services needed)
 	@echo "$(BLUE)Running backend tests...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && pytest tests/ -v
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && pytest -m "not integration"
+
+test-integration: ## Run backend integration tests (needs `make infra`)
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && pytest -m integration
 
 eval-rag: ## Run DeepEval RAG benchmark. Usage: make eval-rag USER_ID=<uuid> DATASET=docs/examples/evaluation/golden_sample.json
 	@echo "$(BLUE)Running DeepEval RAG benchmark...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m src.modules.evaluation.cli run --dataset $${DATASET:-docs/examples/evaluation/golden_sample.json} --user-id $$USER_ID --output-dir reports/evaluation
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && python -m kira.evaluation.cli run --dataset $${DATASET:-../docs/examples/evaluation/golden_sample.json} --user-id $$USER_ID --output-dir ../reports/evaluation
 
 eval-legal: ## Run the legal QA benchmark. Usage: make eval-legal DATASET=dataset/legal/golden.json
 	@echo "$(BLUE)Running legal QA benchmark...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && python scripts/validate_legal_eval_dataset.py $${DATASET:-docs/examples/evaluation/legal_golden_example.json} && python -m src.modules.evaluation.cli run-legal --dataset $${DATASET:-docs/examples/evaluation/legal_golden_example.json} --output-dir reports/evaluation
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && python scripts/validate_legal_eval_dataset.py $${DATASET:-../docs/examples/evaluation/legal_golden_example.json} && python -m kira.evaluation.cli run-legal --dataset $${DATASET:-../docs/examples/evaluation/legal_golden_example.json} --output-dir ../reports/evaluation
 
 test-frontend: ## Run frontend tests
 	@echo "$(BLUE)Running frontend tests...$(NC)"
@@ -159,7 +163,7 @@ lint: lint-backend lint-frontend ## Run all linters
 
 lint-backend: ## Lint backend code
 	@echo "$(BLUE)Linting backend...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && ruff check src/ tests/
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && ruff check kira tests
 
 lint-frontend: ## Lint frontend code
 	@echo "$(BLUE)Linting frontend...$(NC)"
@@ -169,7 +173,7 @@ format: format-backend format-frontend ## Format all code
 
 format-backend: ## Format backend code
 	@echo "$(BLUE)Formatting backend...$(NC)"
-	@cd $(BACKEND_DIR) && source .venv/bin/activate && ruff format src/ tests/
+	@cd $(BACKEND_DIR) && source .venv/bin/activate && ruff format kira tests
 
 format-frontend: ## Format frontend code
 	@echo "$(BLUE)Formatting frontend...$(NC)"
@@ -195,7 +199,7 @@ clean-frontend: ## Clean frontend artifacts
 
 charts: ## Generate RAG evaluation charts
 	@echo "$(BLUE)Generating RAG evaluation charts...$(NC)"
-	@python3 scripts/generate_rag_evaluation_charts.py
+	@cd $(BACKEND_DIR) && .venv/bin/python scripts/generate_rag_evaluation_charts.py
 	@echo "$(GREEN)Charts generated in reports/evaluation/charts$(NC)"
 
 logs: ## Show backend and infrastructure logs

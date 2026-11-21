@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useConversationStore } from '@/lib/stores/conversation-store'
-import { conversationsAPI } from '@/lib/api/simple-client'
-import { ConversationItem } from '@/components/conversation/ConversationItem'
-import { DeleteConfirmDialog } from '@/components/conversation/DeleteConfirmDialog'
+import { useConversationStore } from '@/features/chat/stores/conversation-store'
+import { conversationsAPI } from '@/features/chat/api'
+import { ConversationItem } from '@/features/chat/components/ConversationItem'
+import { DeleteConfirmDialog } from '@/features/chat/components/DeleteConfirmDialog'
 import { Sparkles, ArrowLeft, Trash2, CheckSquare, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { AuthGuard } from '@/components/auth/auth-guard'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
 
 export default function ConversationsPage() {
   const router = useRouter()
